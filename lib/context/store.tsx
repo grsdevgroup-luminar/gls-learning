@@ -1,0 +1,141 @@
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { demoStudent, DEMO_STUDENT_ID } from "@/lib/mock/students";
+import { DEFAULT_REGION, getRegion } from "@/lib/mock/pricing";
+
+export type Role = "guest" | "student" | "admin";
+
+interface PersistState {
+  role: Role;
+  regionCode: string;
+  cart: string[];
+  coupon: string | null;
+  enrolled: string[];
+  progress: Record<string, string[]>;
+}
+
+const STORAGE_KEY = "learnhub_state_v1";
+
+function seedProgress(): Record<string, string[]> {
+  const p: Record<string, string[]> = {};
+  demoStudent.enrollments.forEach((e) => {
+    p[e.courseId] = [...e.completedLessonIds];
+  });
+  return p;
+}
+
+function defaultState(): PersistState {
+  return {
+    role: "guest",
+    regionCode: DEFAULT_REGION,
+    cart: [],
+    coupon: null,
+    enrolled: demoStudent.enrollments.map((e) => e.courseId),
+    progress: seedProgress(),
+  };
+}
+
+interface StoreContextValue extends PersistState {
+  mounted: boolean;
+  // auth
+  login: (asAdmin?: boolean) => void;
+  loginAs: (role: Role) => void;
+  logout: () => void;
+  // region
+  setRegionCode: (code: string) => void;
+  region: ReturnType<typeof getRegion>;
+  // cart
+  addToCart: (courseId: string) => void;
+  removeFromCart: (courseId: string) => void;
+  clearCart: () => void;
+  inCart: (courseId: string) => boolean;
+  setCoupon: (code: string | null) => void;
+  // enrollment + progress
+  isEnrolled: (courseId: string) => boolean;
+  enroll: (courseIds: string[]) => void;
+  toggleLesson: (courseId: string, lessonId: string) => void;
+  isLessonDone: (courseId: string, lessonId: string) => boolean;
+  completedCount: (courseId: string) => number;
+  reset: () => void;
+}
+
+const StoreContext = createContext<StoreContextValue | null>(null);
+
+export function StoreProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<PersistState>(defaultState);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setState({ ...defaultState(), ...JSON.parse(raw) });
+    } catch {
+      /* ignore */
+    }
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state, mounted]);
+
+  const patch = useCallback((p: Partial<PersistState>) => {
+    setState((s) => ({ ...s, ...p }));
+  }, []);
+
+  const value: StoreContextValue = {
+    ...state,
+    mounted,
+    region: getRegion(state.regionCode),
+    login: (asAdmin) => patch({ role: asAdmin ? "admin" : "student" }),
+    loginAs: (role) => patch({ role }),
+    logout: () => patch({ role: "guest" }),
+    setRegionCode: (regionCode) => patch({ regionCode }),
+    addToCart: (id) =>
+      setState((s) => (s.cart.includes(id) ? s : { ...s, cart: [...s.cart, id] })),
+    removeFromCart: (id) =>
+      setState((s) => ({ ...s, cart: s.cart.filter((c) => c !== id) })),
+    clearCart: () => patch({ cart: [], coupon: null }),
+    inCart: (id) => state.cart.includes(id),
+    setCoupon: (code) => patch({ coupon: code }),
+    isEnrolled: (id) => state.enrolled.includes(id),
+    enroll: (ids) =>
+      setState((s) => ({
+        ...s,
+        enrolled: Array.from(new Set([...s.enrolled, ...ids])),
+      })),
+    toggleLesson: (courseId, lessonId) =>
+      setState((s) => {
+        const cur = s.progress[courseId] ?? [];
+        const next = cur.includes(lessonId)
+          ? cur.filter((l) => l !== lessonId)
+          : [...cur, lessonId];
+        return { ...s, progress: { ...s.progress, [courseId]: next } };
+      }),
+    isLessonDone: (courseId, lessonId) =>
+      (state.progress[courseId] ?? []).includes(lessonId),
+    completedCount: (courseId) => (state.progress[courseId] ?? []).length,
+    reset: () => {
+      const d = defaultState();
+      setState(d);
+    },
+  };
+
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  return ctx;
+}
+
+export { DEMO_STUDENT_ID };

@@ -1,26 +1,227 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  /* Radius scale — cards 12, inputs/buttons 10, modals 16. No pills. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 6px);
+  --radius-3xl: calc(var(--radius) + 10px);
+  --radius-4xl: calc(var(--radius) + 14px);
+
+  /* Elevation — extremely soft, layered. Never heavy. */
+  --shadow-2xs: 0 1px 2px rgba(17, 17, 17, 0.04);
+  --shadow-xs: 0 1px 2px rgba(17, 17, 17, 0.04);
+  --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.04), 0 1px 3px rgba(17, 17, 17, 0.03);
+  --shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 4px 12px rgba(17, 17, 17, 0.05);
+  --shadow-md: 0 1px 2px rgba(17, 17, 17, 0.04), 0 8px 24px rgba(17, 17, 17, 0.06);
+  --shadow-lg: 0 1px 2px rgba(17, 17, 17, 0.04), 0 12px 32px rgba(17, 17, 17, 0.08);
+  --shadow-xl: 0 1px 2px rgba(17, 17, 17, 0.05), 0 24px 48px rgba(17, 17, 17, 0.10);
+  --shadow-2xl: 0 1px 2px rgba(17, 17, 17, 0.05), 0 40px 72px rgba(17, 17, 17, 0.14);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* Light — warm, calm, paper-like */
+  --background: #fafaf8;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f3;
+  --secondary-foreground: #1c1c1c;
+  --muted: #f5f5f3;
+  --muted-foreground: #6b7280;
+  --accent: #f0f0ee;
+  --accent-foreground: #111111;
+  --destructive: #dc2626;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --border: rgba(17, 17, 17, 0.08);
+  --input: rgba(17, 17, 17, 0.12);
+  --ring: #2563eb;
+  /* Restrained, professional chart palette — accent + neutrals */
+  --chart-1: #2563eb;
+  --chart-2: #94a3b8;
+  --chart-3: #16a34a;
+  --chart-4: #d97706;
+  --chart-5: #64748b;
+  --radius: 0.625rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0ee;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: rgba(17, 17, 17, 0.08);
+  --sidebar-ring: #2563eb;
+}
+
+.dark {
+  /* Dark — a refined cool near-black with real elevation steps, not flat black.
+     Backgrounds carry a faint blue undertone (hue 264) so the UI feels lit. */
+  --background: oklch(0.171 0.006 264);
+  --foreground: oklch(0.985 0.002 264);
+  --card: oklch(0.211 0.008 264);
+  --card-foreground: oklch(0.985 0.002 264);
+  --popover: oklch(0.232 0.009 264);
+  --popover-foreground: oklch(0.985 0.002 264);
+  --primary: oklch(0.72 0.132 252);
+  --primary-foreground: oklch(0.18 0.02 264);
+  --secondary: oklch(0.243 0.009 264);
+  --secondary-foreground: oklch(0.985 0.002 264);
+  --muted: oklch(0.243 0.009 264);
+  --muted-foreground: oklch(0.715 0.018 264);
+  --accent: oklch(0.275 0.012 264);
+  --accent-foreground: oklch(0.985 0.002 264);
+  --destructive: oklch(0.7 0.17 22);
+  --success: oklch(0.76 0.16 152);
+  --success-foreground: oklch(0.18 0.02 264);
+  --warning: oklch(0.82 0.15 80);
+  --warning-foreground: oklch(0.2 0.03 80);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.72 0.132 252);
+  --chart-1: oklch(0.72 0.132 252);
+  --chart-2: oklch(0.6 0.02 264);
+  --chart-3: oklch(0.76 0.16 152);
+  --chart-4: oklch(0.82 0.15 80);
+  --chart-5: oklch(0.7 0.015 264);
+  --sidebar: oklch(0.188 0.007 264);
+  --sidebar-foreground: oklch(0.985 0.002 264);
+  --sidebar-primary: oklch(0.72 0.132 252);
+  --sidebar-primary-foreground: oklch(0.18 0.02 264);
+  --sidebar-accent: oklch(0.275 0.012 264);
+  --sidebar-accent-foreground: oklch(0.985 0.002 264);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.72 0.132 252);
+
+  /* Slightly lift elevation on dark so soft shadows still read */
+  --shadow-2xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 1px 2px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.55);
+  --shadow-2xl: 0 1px 2px rgba(0, 0, 0, 0.6), 0 40px 72px rgba(0, 0, 0, 0.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv01", "cv03", "cv04", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Ambient depth in dark mode — a faint top glow keeps the page from reading
+     as flat black, the way Linear/Arc surfaces feel softly lit. */
+  .dark body {
+    background-image:
+      radial-gradient(
+        58rem 40rem at 50% -12%,
+        color-mix(in oklch, var(--primary) 9%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        38rem 28rem at 100% 0%,
+        oklch(0.62 0.14 320 / 0.05),
+        transparent 58%
+      );
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+  /* Strong, tight typographic hierarchy carries the design */
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight;
+    font-feature-settings: "ss01", "cv01";
+  }
+  h1 { letter-spacing: -0.02em; }
+  h2 { letter-spacing: -0.018em; }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
   }
 }
 
-body {
-  background: var(--background);
+/* Refined brand mark — a single calm tonal step, not a candy gradient.
+   Centralized so every existing `.brand-gradient` swatch upgrades at once. */
+@utility brand-gradient {
+  background-color: var(--primary);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 88%, white) 0%,
+    var(--primary) 100%
+  );
+}
+
+/* Emphasis text now reads as solid, confident foreground — no gradient text. */
+@utility text-brand-gradient {
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Hairline helpers for embedded, low-elevation sections (Linear/Raycast feel) */
+@utility surface {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+@utility elevated {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
 }
