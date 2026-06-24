@@ -8,6 +8,7 @@ import { demoStudent } from "@/lib/mock/students";
 import { CourseCard } from "@/components/storefront/course-card";
 import { CourseArt } from "@/components/shared/course-art";
 import { Meter } from "@/components/shared/meter";
+import { CircularProgress } from "@/components/shared/circular-progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -171,7 +172,9 @@ export default function DashboardPage() {
                 </div>
               </div>
               {pct === 100 ? (
-                <Award className="size-5 shrink-0 text-success" />
+                <CircularProgress value={pct} size={32} strokeWidth={3} showLabel={false} className="shrink-0">
+                  <Award className="size-4 text-success" />
+                </CircularProgress>
               ) : (
                 <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               )}

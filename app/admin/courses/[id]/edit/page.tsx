@@ -1,14 +1,23 @@
-import { notFound } from "next/navigation";
-import { getCourseById, courses } from "@/lib/mock/courses";
+"use client";
+
+import { useParams } from "next/navigation";
+import { useStore } from "@/lib/context/store";
 import { CourseBuilder } from "@/components/admin/course-builder";
 
-export function generateStaticParams() {
-  return courses.map((c) => ({ id: c.id }));
-}
+export default function EditCoursePage() {
+  const { id } = useParams<{ id: string }>();
+  const { getCourse, mounted } = useStore();
 
-export default async function EditCoursePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const course = getCourseById(id);
-  if (!course) notFound();
+  if (!mounted) return null;
+
+  const course = getCourse(id);
+  if (!course) {
+    return (
+      <div className="p-6 md:p-8">
+        <p className="text-muted-foreground">Course not found.</p>
+      </div>
+    );
+  }
+
   return <CourseBuilder course={course} />;
 }

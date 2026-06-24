@@ -853,3 +853,15 @@ export function courseDurationMin(course: Course) {
 export function courseLessonCount(course: Course) {
   return course.sections.reduce((a, s) => a + s.lessons.length, 0);
 }
+export function courseArticleCount(course: Course) {
+  return course.sections.reduce(
+    (a, s) => a + s.lessons.filter((l) => l.type === "article").length,
+    0,
+  );
+}
+export function courseResourceCount(course: Course) {
+  return course.sections.reduce(
+    (a, s) => a + s.lessons.reduce((b, l) => b + (l.resources?.length ?? 0), 0),
+    0,
+  );
+}

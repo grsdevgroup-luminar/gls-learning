@@ -22,7 +22,7 @@ import { toast } from "sonner";
 
 const statusBadge: Record<Student["status"], { label: string; cls: string }> = {
   active: { label: "Active", cls: "text-success" },
-  idle: { label: "Idle", cls: "text-warning-foreground" },
+  idle: { label: "Idle", cls: "text-warning" },
   at_risk: { label: "At risk", cls: "text-destructive" },
 };
 
@@ -146,7 +146,7 @@ function StudentDetail({ student }: { student: Student }) {
 
         {student.status !== "active" && (
           <div className="rounded-lg border border-warning/30 bg-warning/10 p-3">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-warning-foreground"><AlertTriangle className="h-4 w-4" /> This student is {statusBadge[student.status].label.toLowerCase()}</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium text-warning"><AlertTriangle className="h-4 w-4" /> This student is {statusBadge[student.status].label.toLowerCase()}</p>
             <p className="mt-1 text-xs text-muted-foreground">Send a re-engagement reminder to bring them back.</p>
             <div className="mt-3 flex gap-2">
               <Button size="sm" onClick={() => toast.success("Email reminder queued", { description: student.email })}><Mail /> Email reminder</Button>

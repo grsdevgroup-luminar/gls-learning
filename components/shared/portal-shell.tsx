@@ -79,6 +79,7 @@ export function PortalShell({
         <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {badge}
         </span>
+        <ThemeToggle className="ml-auto" />
       </div>
       <div className="px-3 pt-3">
         <CommandPalette items={items} />
@@ -99,7 +100,6 @@ export function PortalShell({
             <div className="truncate text-sm font-medium">{user.name}</div>
             <div className="truncate text-xs text-muted-foreground">{user.email}</div>
           </div>
-          <ThemeToggle />
         </div>
       </div>
     </div>

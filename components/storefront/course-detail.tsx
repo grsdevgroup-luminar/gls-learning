@@ -7,7 +7,7 @@ import type { Course } from "@/types";
 import { useStore } from "@/lib/context/store";
 import { getInstructor } from "@/lib/mock/instructors";
 import { reviewsForCourse } from "@/lib/mock/reviews";
-import { courseDurationMin, courseLessonCount } from "@/lib/mock/courses";
+import { courseDurationMin, courseLessonCount, courseArticleCount, courseResourceCount } from "@/lib/mock/courses";
 import { demoStudent } from "@/lib/mock/students";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { Price } from "@/components/shared/price";
@@ -29,6 +29,7 @@ import {
 import {
   Check, PlayCircle, FileText, HelpCircle, Clock, Users, Globe, BarChart3,
   ShoppingCart, ShieldCheck, Infinity as InfinityIcon, Award, ThumbsUp, Lock, Star, PenLine,
+  ClipboardList, Smartphone,
 } from "lucide-react";
 import { compactNumber, formatHoursFromMin, lessonTime, initials, relativeDate } from "@/lib/format";
 import { toast } from "sonner";
@@ -306,9 +307,14 @@ function PurchaseCard({
 }: {
   course: Course; enrolled: boolean; inCart: boolean; onAdd: () => void; onBuy: () => void;
 }) {
+  const articleCount = courseArticleCount(course);
+  const resourceCount = courseResourceCount(course);
   const includes = [
     { icon: PlayCircle, label: `${formatHoursFromMin(courseDurationMin(course))} on-demand video` },
-    { icon: FileText, label: "Downloadable resources" },
+    { icon: ClipboardList, label: "Assignments" },
+    ...(articleCount > 0 ? [{ icon: FileText, label: `${articleCount} article${articleCount === 1 ? "" : "s"}` }] : []),
+    ...(resourceCount > 0 ? [{ icon: FileText, label: `${resourceCount} downloadable resource${resourceCount === 1 ? "" : "s"}` }] : []),
+    { icon: Smartphone, label: "Access on mobile and TV" },
     { icon: InfinityIcon, label: "Full lifetime access" },
     { icon: ShieldCheck, label: "DRM-protected streaming" },
     { icon: Award, label: "Certificate of completion" },

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { courses } from "@/lib/mock/courses";
+import { useStore } from "@/lib/context/store";
 import { getInstructor } from "@/lib/mock/instructors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
@@ -18,15 +18,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatUsd, compactNumber } from "@/lib/format";
 import { Plus, Search, MoreHorizontal, Pencil, Eye, Copy, Trash2 } from "lucide-react";
-import type { CourseStatus } from "@/types";
+import { toast } from "sonner";
+import type { Course, CourseStatus } from "@/types";
+
+let dupUid = 1;
 
 const statusStyle: Record<CourseStatus, string> = {
   published: "text-success",
   draft: "text-muted-foreground",
-  review: "text-warning-foreground",
+  review: "text-warning",
 };
 
 export default function AdminCourses() {
+  const { courses, upsertCourse, deleteCourse, mounted } = useStore();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | CourseStatus>("all");
 
@@ -35,6 +39,29 @@ export default function AdminCourses() {
     if (status !== "all" && c.status !== status) return false;
     return true;
   });
+
+  function duplicate(c: Course) {
+    const copy: Course = {
+      ...c,
+      id: `c_copy_${dupUid++}`,
+      slug: `${c.slug}-copy-${dupUid}`,
+      title: `${c.title} (Copy)`,
+      status: "draft",
+      studentCount: 0,
+      reviewCount: 0,
+      revenue: 0,
+      updatedAt: new Date().toISOString(),
+    };
+    upsertCourse(copy);
+    toast.success("Course duplicated", { description: copy.title });
+  }
+
+  function remove(c: Course) {
+    deleteCourse(c.id);
+    toast.success("Course deleted", { description: c.title });
+  }
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -99,8 +126,8 @@ export default function AdminCourses() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem render={<Link href={`/admin/courses/${c.id}/edit`} />}><Pencil /> Edit</DropdownMenuItem>
                         <DropdownMenuItem render={<Link href={`/courses/${c.slug}`} />}><Eye /> View</DropdownMenuItem>
-                        <DropdownMenuItem><Copy /> Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive"><Trash2 /> Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => duplicate(c)}><Copy /> Duplicate</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => remove(c)}><Trash2 /> Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

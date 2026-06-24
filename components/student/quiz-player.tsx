@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, RotateCcw, PartyPopper } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, PartyPopper, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export function QuizPlayer({
@@ -110,6 +110,9 @@ export function QuizPlayer({
 
   return (
     <div className="mx-auto w-full max-w-2xl p-6">
+      <Badge className="mb-3 gap-1 bg-primary/10 text-primary hover:bg-primary/10">
+        <HelpCircle className="h-3 w-3" /> Quiz
+      </Badge>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">Knowledge check</h2>
         <Badge variant="outline">{quiz.questions.length} questions · {quiz.passScore}% to pass</Badge>
@@ -129,7 +132,7 @@ export function QuizPlayer({
             </p>
             <RadioGroup
               className="mt-3"
-              value={answers[q.id]}
+              value={answers[q.id] ?? ""}
               onValueChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v as string }))}
             >
               {q.options.map((o) => (

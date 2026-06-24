@@ -6,10 +6,13 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { demoStudent, DEMO_STUDENT_ID } from "@/lib/mock/students";
 import { DEFAULT_REGION, getRegion } from "@/lib/mock/pricing";
+import { courses as baseCourses } from "@/lib/mock/courses";
+import type { Course } from "@/types";
 
 export type Role = "guest" | "student" | "admin";
 
@@ -37,6 +40,8 @@ interface PersistState {
   progress: Record<string, string[]>;
   quizResults: Record<string, QuizResult>; // key: `${courseId}:${lessonId}`
   myReviews: Record<string, MyReview>; // key: courseId
+  customCourses: Record<string, Course>; // admin-created/edited courses, keyed by id
+  deletedCourseIds: string[];
 }
 
 const STORAGE_KEY = "learnhub_state_v1";
@@ -63,6 +68,8 @@ function defaultState(): PersistState {
     progress: seedProgress(),
     quizResults: {},
     myReviews: {},
+    customCourses: {},
+    deletedCourseIds: [],
   };
 }
 
@@ -98,6 +105,11 @@ interface StoreContextValue extends PersistState {
   // reviews
   getMyReview: (courseId: string) => MyReview | undefined;
   submitReview: (courseId: string, rating: number, title: string, body: string) => void;
+  // course management
+  courses: Course[];
+  getCourse: (id: string) => Course | undefined;
+  upsertCourse: (course: Course) => void;
+  deleteCourse: (id: string) => void;
   reset: () => void;
 }
 
@@ -124,6 +136,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const patch = useCallback((p: Partial<PersistState>) => {
     setState((s) => ({ ...s, ...p }));
   }, []);
+
+  const courses = useMemo(() => {
+    const known = baseCourses
+      .filter((c) => !state.deletedCourseIds.includes(c.id))
+      .map((c) => state.customCourses[c.id] ?? c);
+    const created = Object.values(state.customCourses).filter(
+      (c) => !baseCourses.some((b) => b.id === c.id) && !state.deletedCourseIds.includes(c.id),
+    );
+    return [...created, ...known];
+  }, [state.customCourses, state.deletedCourseIds]);
 
   const value: StoreContextValue = {
     ...state,
@@ -191,6 +213,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s.myReviews,
           [courseId]: { rating, title, body, date: new Date().toISOString().slice(0, 10) },
         },
+      })),
+    courses,
+    getCourse: (id) => courses.find((c) => c.id === id),
+    upsertCourse: (course) =>
+      setState((s) => ({
+        ...s,
+        customCourses: { ...s.customCourses, [course.id]: course },
+      })),
+    deleteCourse: (id) =>
+      setState((s) => ({
+        ...s,
+        deletedCourseIds: Array.from(new Set([...s.deletedCourseIds, id])),
       })),
     reset: () => {
       const d = defaultState();

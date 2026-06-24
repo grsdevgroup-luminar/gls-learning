@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Course, Lesson, Quiz } from "@/types";
 import { categories } from "@/lib/mock/courses";
+import { useStore } from "@/lib/context/store";
 import { VideoUpload } from "@/components/admin/video-upload";
 import { QuizEditor, emptyQuiz } from "@/components/admin/quiz-editor";
 import { CourseArt } from "@/components/shared/course-art";
@@ -41,6 +42,14 @@ const lessonTypes: { value: Lesson["type"]; label: string }[] = [
 let uid = 1000;
 const nid = (p: string) => `${p}${uid++}`;
 
+function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const thumbSeeds = [
   "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
   "speaking", "social", "finance", "mindfulness", "language",
@@ -48,6 +57,7 @@ const thumbSeeds = [
 
 export function CourseBuilder({ course }: { course?: Course }) {
   const router = useRouter();
+  const { upsertCourse } = useStore();
   const [title, setTitle] = useState(course?.title ?? "");
   const [subtitle, setSubtitle] = useState(course?.subtitle ?? "");
   const [category, setCategory] = useState(course?.category ?? categories[0]);
@@ -97,7 +107,52 @@ export function CourseBuilder({ course }: { course?: Course }) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
   }
 
+  function originalDurationSec(lessonId: string) {
+    for (const s of course?.sections ?? []) {
+      const l = s.lessons.find((x) => x.id === lessonId);
+      if (l) return l.durationSec;
+    }
+    return 300;
+  }
+
   function save(publish: boolean) {
+    const id = course?.id ?? nid("c_");
+    const newCourse: Course = {
+      id,
+      slug: course?.slug ?? (slugify(title) || id),
+      title: title || "Untitled course",
+      subtitle,
+      description,
+      category,
+      level: level as Course["level"],
+      thumbnail: seed,
+      instructorId: course?.instructorId ?? "ins_sara",
+      basePrice: Number(price) || 0,
+      originalPrice: course?.originalPrice,
+      rating: course?.rating ?? 0,
+      reviewCount: course?.reviewCount ?? 0,
+      studentCount: course?.studentCount ?? 0,
+      language: course?.language ?? "English",
+      updatedAt: new Date().toISOString(),
+      status: publish ? "published" : "draft",
+      bestseller: course?.bestseller,
+      whatYouLearn: course?.whatYouLearn ?? [],
+      requirements: course?.requirements ?? [],
+      sections: sections.map((s) => ({
+        id: s.id,
+        title: s.title,
+        lessons: s.lessons.map((l) => ({
+          id: l.id,
+          title: l.title,
+          durationSec: originalDurationSec(l.id),
+          type: l.type,
+          preview: l.preview,
+          quiz: l.quiz,
+        })),
+      })),
+      revenue: course?.revenue ?? 0,
+    };
+    upsertCourse(newCourse);
     toast.success(publish ? "Course published! 🚀" : "Draft saved", {
       description: title || "Untitled course",
     });

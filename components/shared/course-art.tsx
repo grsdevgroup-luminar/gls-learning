@@ -36,6 +36,27 @@ export function CourseArt({
   iconSize?: number;
 }) {
   const Icon = icons[seed] ?? Code2;
+  // Small thumbnails (list rows, cart items) have no room for the title/category
+  // overlay — at text-sm + p-4 padding the text gets clipped by overflow-hidden
+  // and reads as garbled glyphs instead of words, so we drop the text and just
+  // center the icon below this size.
+  const compact = iconSize < 32;
+
+  if (compact) {
+    return (
+      <div
+        className={cn("relative flex items-center justify-center overflow-hidden text-white", className)}
+        style={{ backgroundImage: gradientFor(seed || title) }}
+      >
+        <Icon
+          style={{ width: iconSize, height: iconSize }}
+          strokeWidth={1.5}
+          className="opacity-90 drop-shadow"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn("relative flex flex-col justify-between overflow-hidden p-4 text-white", className)}

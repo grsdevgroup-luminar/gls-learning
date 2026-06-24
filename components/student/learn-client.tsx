@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Course, Lesson } from "@/types";
 import { useStore } from "@/lib/context/store";
@@ -8,7 +8,7 @@ import { courseLessonCount } from "@/lib/mock/courses";
 import { demoStudent } from "@/lib/mock/students";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { QuizPlayer } from "@/components/student/quiz-player";
-import { Meter } from "@/components/shared/meter";
+import { CircularProgress } from "@/components/shared/circular-progress";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/accordion";
 import {
   Check, PlayCircle, FileText, HelpCircle, ChevronLeft, ChevronRight,
-  CheckCircle2, Circle, Download, ArrowLeft, Timer,
+  CheckCircle2, Circle, Download, ArrowLeft,
 } from "lucide-react";
 import { lessonTime } from "@/lib/format";
 import { toast } from "sonner";
@@ -47,16 +47,6 @@ export function LearnClient({ course }: { course: Course }) {
   const done = mounted ? completedCount(course.id) : 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
-  // Session timer — elegant Notion-style focus tracker
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const sessionClock = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(
-    seconds % 60,
-  ).padStart(2, "0")}`;
-
   function markAndMaybeAdvance() {
     if (!isLessonDone(course.id, current.id)) {
       toggleLesson(course.id, current.id);
@@ -81,13 +71,7 @@ export function LearnClient({ course }: { course: Course }) {
           <div className="truncate text-sm font-semibold">{course.title}</div>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground sm:inline-flex">
-            <Timer className="size-3.5" /> {sessionClock}
-          </span>
-          <div className="hidden items-center gap-2 sm:flex">
-            <Meter value={pct} className="w-28" height={6} />
-            <span className="text-xs font-medium tabular-nums text-muted-foreground">{pct}%</span>
-          </div>
+          <CircularProgress value={pct} size={36} strokeWidth={4} />
           <ThemeToggle />
         </div>
       </header>
@@ -144,7 +128,7 @@ export function LearnClient({ course }: { course: Course }) {
                   variant={isLessonDone(course.id, current.id) ? "secondary" : "default"}
                   onClick={() => toggleLesson(course.id, current.id)}
                 >
-                  {isLessonDone(course.id, current.id) ? <><CheckCircle2 className="text-success" /> Completed</> : <><Check /> Mark as complete</>}
+                  {isLessonDone(course.id, current.id) ? <><CheckCircle2 className="animate-[complete-pop_0.4s_ease-out] text-success" /> Completed</> : <><Check /> Mark as complete</>}
                 </Button>
               )}
             </div>
