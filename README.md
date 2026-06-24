@@ -1,4 +1,4 @@
-# LearnHub — Course Platform Prototype
+# SkillStream — Course Platform Prototype
 
 A clickable, high-fidelity prototype of a full course-selling platform: a polished
 student-facing **storefront**, a complete **student learning portal**, and an advanced
@@ -44,19 +44,19 @@ npm run build && npm start
 5. **Switch to Admin** → **Overview** (charts) → **Courses → New course**: the **drag-drop
    video upload** (upload → encoding → ready) + curriculum builder → **Students** (see the
    at-risk learner + send a reminder) → **Coupons** (create one) → **Pricing** (region tiers
-   + per-country overrides, live price preview) → **Automation** (reminder rules + send log).
+   - per-country overrides, live price preview) → **Automation** (reminder rules + send log).
 
 ## Prototype vs. production
 
-| Feature | In this prototype | Production approach |
-|---|---|---|
-| Video protection | Moving per-user watermark, DRM badge, disabled context menu, no source | Signed HLS + Widevine/FairPlay, domain-locked player |
-| Region pricing | Country selector, PPP tiers + per-country overrides, live preview | Geo-IP detection, live FX, server-enforced prices |
-| Coupons | Real client-side validation (%, fixed, free, expiry, limits, scope) | Server-validated, fraud limits |
-| Payments | Stripe/PayPal UI → simulated success | Stripe Checkout + PayPal, webhooks, invoices |
-| Auth | Role-based session in `localStorage` | NextAuth/Clerk, JWT/session, RBAC |
-| Progress | Per-lesson completion in `localStorage`, streaks, charts | DB events, resumable playback |
-| Email/SMS reminders | Rule builder + templates + simulated send log | Cron/queue + Resend/SendGrid + Twilio |
+| Feature             | In this prototype                                                      | Production approach                                  |
+| ------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| Video protection    | Moving per-user watermark, DRM badge, disabled context menu, no source | Signed HLS + Widevine/FairPlay, domain-locked player |
+| Region pricing      | Country selector, PPP tiers + per-country overrides, live preview      | Geo-IP detection, live FX, server-enforced prices    |
+| Coupons             | Real client-side validation (%, fixed, free, expiry, limits, scope)    | Server-validated, fraud limits                       |
+| Payments            | Stripe/PayPal UI → simulated success                                   | Stripe Checkout + PayPal, webhooks, invoices         |
+| Auth                | Role-based session in `localStorage`                                   | NextAuth/Clerk, JWT/session, RBAC                    |
+| Progress            | Per-lesson completion in `localStorage`, streaks, charts               | DB events, resumable playback                        |
+| Email/SMS reminders | Rule builder + templates + simulated send log                          | Cron/queue + Resend/SendGrid + Twilio                |
 
 ## Deploy a shareable link (Vercel)
 

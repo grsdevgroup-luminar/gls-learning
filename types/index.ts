@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
-// Shared domain types for the LearnHub prototype
+// Shared domain types for the SkillStream prototype
 // ---------------------------------------------------------------------------
 
-export type Level = "Beginner" | "Intermediate" | "Advanced" | "All Levels";
+export type Level = 'Beginner' | 'Intermediate' | 'Advanced' | 'All Levels';
 
-export type CourseStatus = "published" | "draft" | "review";
+export type CourseStatus = 'published' | 'draft' | 'review';
 
 export interface Instructor {
   id: string;
@@ -39,7 +39,7 @@ export interface Lesson {
   id: string;
   title: string;
   durationSec: number;
-  type: "video" | "quiz" | "article";
+  type: 'video' | 'quiz' | 'article';
   preview?: boolean; // free preview on the storefront
   resources?: { name: string; size: string }[];
   quiz?: Quiz;
@@ -60,7 +60,7 @@ export interface Review {
   date: string; // ISO
   title: string;
   body: string;
-  status: "approved" | "pending" | "hidden";
+  status: 'approved' | 'pending' | 'hidden';
   helpful: number;
 }
 
@@ -90,13 +90,13 @@ export interface Course {
 }
 
 export type ReminderTrigger =
-  | "idle"
-  | "low_progress"
-  | "abandoned_cart"
-  | "almost_done"
-  | "new_content";
+  | 'idle'
+  | 'low_progress'
+  | 'abandoned_cart'
+  | 'almost_done'
+  | 'new_content';
 
-export type ReminderChannel = "email" | "sms";
+export type ReminderChannel = 'email' | 'sms';
 
 export interface NotificationPrefs {
   idle: ReminderChannel[];
@@ -122,18 +122,18 @@ export interface Student {
   joinedAt: string;
   enrollments: EnrollmentProgress[];
   streakDays: number;
-  status: "active" | "idle" | "at_risk";
+  status: 'active' | 'idle' | 'at_risk';
   totalSpent: number;
   prefs: NotificationPrefs;
 }
 
 export interface Coupon {
   code: string;
-  type: "percent" | "fixed" | "free";
+  type: 'percent' | 'fixed' | 'free';
   value: number; // percent (0-100) or fixed USD
   description: string;
   minSpend?: number;
-  scope: "global" | "course";
+  scope: 'global' | 'course';
   courseId?: string;
   expiresAt: string; // ISO
   usageLimit: number;
@@ -152,7 +152,7 @@ export interface CountryOverride {
   country: string;
   flag: string;
   // either a tier or a flat percentage of base
-  type: "tier" | "flat_percent";
+  type: 'tier' | 'flat_percent';
   tierId?: string;
   flatPercent?: number;
 }
@@ -177,8 +177,8 @@ export interface Order {
   discount: number;
   total: number;
   coupon?: string;
-  gateway: "stripe" | "paypal";
-  status: "paid" | "refunded" | "failed";
+  gateway: 'stripe' | 'paypal';
+  status: 'paid' | 'refunded' | 'failed';
 }
 
 export interface ReminderLogEntry {
@@ -188,7 +188,7 @@ export interface ReminderLogEntry {
   channel: ReminderChannel;
   trigger: ReminderTrigger;
   subject: string;
-  status: "sent" | "opened" | "clicked" | "bounced";
+  status: 'sent' | 'opened' | 'clicked' | 'bounced';
 }
 
 export interface AutomationRule {

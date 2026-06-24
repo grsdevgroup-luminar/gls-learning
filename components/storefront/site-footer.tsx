@@ -1,29 +1,29 @@
-import Link from "next/link";
-import { Logo } from "@/components/shared/logo";
+import Link from 'next/link';
+import { Logo } from '@/components/shared/logo';
 
 const cols = [
   {
-    title: "Platform",
+    title: 'Platform',
     links: [
-      ["Browse courses", "/courses"],
-      ["Student dashboard", "/dashboard"],
-      ["Admin panel", "/admin"],
+      ['Browse courses', '/courses'],
+      ['Student dashboard', '/dashboard'],
+      ['Admin panel', '/admin'],
     ],
   },
   {
-    title: "Company",
+    title: 'Company',
     links: [
-      ["About", "#"],
-      ["Careers", "#"],
-      ["Blog", "#"],
+      ['About', '#'],
+      ['Careers', '#'],
+      ['Blog', '#'],
     ],
   },
   {
-    title: "Support",
+    title: 'Support',
     links: [
-      ["Help center", "#"],
-      ["Contact", "#"],
-      ["Terms & privacy", "#"],
+      ['Help center', '#'],
+      ['Contact', '#'],
+      ['Terms & privacy', '#'],
     ],
   },
 ];
@@ -35,8 +35,8 @@ export function SiteFooter() {
         <div className="col-span-2">
           <Logo />
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            Learn in-demand skills from world-class instructors. Region-fair pricing,
-            protected content, and progress that keeps you going.
+            Learn in-demand skills from world-class instructors. Region-fair
+            pricing, protected content, and progress that keeps you going.
           </p>
         </div>
         {cols.map((c) => (
@@ -55,7 +55,7 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="border-t py-4 text-center text-xs text-muted-foreground">
-        © 2026 LearnHub — prototype for client review. Not a live store.
+        © 2026 SkillStream — prototype for client review. Not a live store.
       </div>
     </footer>
   );

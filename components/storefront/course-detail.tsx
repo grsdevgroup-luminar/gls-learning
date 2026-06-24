@@ -1,41 +1,84 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { Course } from "@/types";
-import { useStore } from "@/lib/context/store";
-import { getInstructor } from "@/lib/mock/instructors";
-import { reviewsForCourse } from "@/lib/mock/reviews";
-import { courseDurationMin, courseLessonCount, courseArticleCount, courseResourceCount } from "@/lib/mock/courses";
-import { demoStudent } from "@/lib/mock/students";
-import { ProtectedPlayer } from "@/components/player/protected-player";
-import { Price } from "@/components/shared/price";
-import { Stars } from "@/components/shared/stars";
-import { StarRatingInput } from "@/components/shared/star-rating-input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import type { Course } from '@/types';
+import { useStore } from '@/lib/context/store';
+import { getInstructor } from '@/lib/mock/instructors';
+import { reviewsForCourse } from '@/lib/mock/reviews';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose,
-} from "@/components/ui/dialog";
+  courseDurationMin,
+  courseLessonCount,
+  courseArticleCount,
+  courseResourceCount,
+} from '@/lib/mock/courses';
+import { demoStudent } from '@/lib/mock/students';
+import { ProtectedPlayer } from '@/components/player/protected-player';
+import { Price } from '@/components/shared/price';
+import { Stars } from '@/components/shared/stars';
+import { StarRatingInput } from '@/components/shared/star-rating-input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
-} from "@/components/ui/accordion";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from '@/components/ui/dialog';
 import {
-  Check, PlayCircle, FileText, HelpCircle, Clock, Users, Globe, BarChart3,
-  ShoppingCart, ShieldCheck, Infinity as InfinityIcon, Award, ThumbsUp, Lock, Star, PenLine,
-  ClipboardList, Smartphone,
-} from "lucide-react";
-import { compactNumber, formatHoursFromMin, lessonTime, initials, relativeDate } from "@/lib/format";
-import { toast } from "sonner";
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {
+  Check,
+  PlayCircle,
+  FileText,
+  HelpCircle,
+  Clock,
+  Users,
+  Globe,
+  BarChart3,
+  ShoppingCart,
+  ShieldCheck,
+  Infinity as InfinityIcon,
+  Award,
+  ThumbsUp,
+  Lock,
+  Star,
+  PenLine,
+  ClipboardList,
+  Smartphone,
+} from 'lucide-react';
+import {
+  compactNumber,
+  formatHoursFromMin,
+  lessonTime,
+  initials,
+  relativeDate,
+} from '@/lib/format';
+import { toast } from 'sonner';
 
 export function CourseDetail({ course }: { course: Course }) {
-  const { inCart, addToCart, isEnrolled, role, getMyReview, submitReview, mounted } = useStore();
+  const {
+    inCart,
+    addToCart,
+    isEnrolled,
+    role,
+    getMyReview,
+    submitReview,
+    mounted,
+  } = useStore();
   const router = useRouter();
   const instructor = getInstructor(course.instructorId);
   const baseReviews = reviewsForCourse(course.id);
@@ -44,22 +87,23 @@ export function CourseDetail({ course }: { course: Course }) {
   const reviews = myReview
     ? [
         {
-          id: "mine",
+          id: 'mine',
           courseId: course.id,
           author: demoStudent.name,
-          avatar: "",
+          avatar: '',
           rating: myReview.rating,
           date: myReview.date,
           title: myReview.title,
           body: myReview.body,
-          status: "approved" as const,
+          status: 'approved' as const,
           helpful: 0,
         },
         ...baseReviews,
       ]
     : baseReviews;
   const inCartNow = inCart(course.id);
-  const watermark = role === "guest" ? "preview@learnhub" : demoStudent.email;
+  const watermark =
+    role === 'guest' ? 'preview@SkillStream' : demoStudent.email;
 
   const previewLesson =
     course.sections.flatMap((s) => s.lessons).find((l) => l.preview) ??
@@ -67,11 +111,11 @@ export function CourseDetail({ course }: { course: Course }) {
 
   function add() {
     addToCart(course.id);
-    toast.success("Added to cart", { description: course.title });
+    toast.success('Added to cart', { description: course.title });
   }
   function buyNow() {
     addToCart(course.id);
-    router.push("/checkout");
+    router.push('/checkout');
   }
 
   return (
@@ -83,35 +127,46 @@ export function CourseDetail({ course }: { course: Course }) {
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{course.category}</Badge>
               {course.bestseller && (
-                <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-400">Bestseller</Badge>
+                <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-400">
+                  Bestseller
+                </Badge>
               )}
               <span className="text-sm opacity-80">{course.level}</span>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{course.title}</h1>
-            <p className="mt-3 max-w-2xl text-lg opacity-90">{course.subtitle}</p>
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+              {course.title}
+            </h1>
+            <p className="mt-3 max-w-2xl text-lg opacity-90">
+              {course.subtitle}
+            </p>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
               <span className="flex items-center gap-1.5">
                 <Stars rating={course.rating} showValue size={15} />
-                <span className="opacity-80">({compactNumber(course.reviewCount)} ratings)</span>
+                <span className="opacity-80">
+                  ({compactNumber(course.reviewCount)} ratings)
+                </span>
               </span>
               <span className="flex items-center gap-1.5 opacity-90">
-                <Users className="h-4 w-4" /> {compactNumber(course.studentCount)} students
+                <Users className="h-4 w-4" />{' '}
+                {compactNumber(course.studentCount)} students
               </span>
               <span className="flex items-center gap-1.5 opacity-90">
                 <Globe className="h-4 w-4" /> {course.language}
               </span>
               <span className="flex items-center gap-1.5 opacity-90">
-                <Clock className="h-4 w-4" /> Updated {relativeDate(course.updatedAt)}
+                <Clock className="h-4 w-4" /> Updated{' '}
+                {relativeDate(course.updatedAt)}
               </span>
             </div>
             <div className="mt-4 flex items-center gap-2 text-sm">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-                  {instructor ? initials(instructor.name) : "?"}
+                  {instructor ? initials(instructor.name) : '?'}
                 </AvatarFallback>
               </Avatar>
               <span className="opacity-90">
-                Created by <span className="font-medium">{instructor?.name}</span>
+                Created by{' '}
+                <span className="font-medium">{instructor?.name}</span>
               </span>
             </div>
           </div>
@@ -139,8 +194,9 @@ export function CourseDetail({ course }: { course: Course }) {
               seed={course.thumbnail}
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Demo: video is DRM-streamed with a per-student moving watermark, disabled
-              right-click, and no downloadable source. Real builds use signed HLS + Widevine/FairPlay.
+              Demo: video is DRM-streamed with a per-student moving watermark,
+              disabled right-click, and no downloadable source. Real builds use
+              signed HLS + Widevine/FairPlay.
             </p>
           </div>
 
@@ -164,8 +220,8 @@ export function CourseDetail({ course }: { course: Course }) {
             <div className="mb-3 flex items-end justify-between">
               <h2 className="text-xl font-bold">Course content</h2>
               <span className="text-sm text-muted-foreground">
-                {course.sections.length} sections · {courseLessonCount(course)} lessons ·{" "}
-                {formatHoursFromMin(courseDurationMin(course))}
+                {course.sections.length} sections · {courseLessonCount(course)}{' '}
+                lessons · {formatHoursFromMin(courseDurationMin(course))}
               </span>
             </div>
             <Card className="p-0">
@@ -183,17 +239,25 @@ export function CourseDetail({ course }: { course: Course }) {
                     <AccordionContent>
                       <ul className="space-y-1 pb-2">
                         {s.lessons.map((l) => (
-                          <li key={l.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50">
-                            {l.type === "video" ? (
+                          <li
+                            key={l.id}
+                            className="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                          >
+                            {l.type === 'video' ? (
                               <PlayCircle className="h-4 w-4 text-muted-foreground" />
-                            ) : l.type === "quiz" ? (
+                            ) : l.type === 'quiz' ? (
                               <HelpCircle className="h-4 w-4 text-muted-foreground" />
                             ) : (
                               <FileText className="h-4 w-4 text-muted-foreground" />
                             )}
                             <span className="flex-1">{l.title}</span>
                             {l.preview ? (
-                              <Badge variant="outline" className="h-5 text-[10px]">Preview</Badge>
+                              <Badge
+                                variant="outline"
+                                className="h-5 text-[10px]"
+                              >
+                                Preview
+                              </Badge>
                             ) : (
                               <Lock className="h-3 w-3 text-muted-foreground/60" />
                             )}
@@ -214,10 +278,14 @@ export function CourseDetail({ course }: { course: Course }) {
           <div>
             <h2 className="mb-3 text-xl font-bold">Requirements</h2>
             <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
-              {course.requirements.map((r) => <li key={r}>{r}</li>)}
+              {course.requirements.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
             </ul>
             <h2 className="mb-3 mt-8 text-xl font-bold">Description</h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">{course.description}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {course.description}
+            </p>
           </div>
 
           {/* Instructor */}
@@ -233,11 +301,22 @@ export function CourseDetail({ course }: { course: Course }) {
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{instructor.name}</h3>
-                    <p className="text-sm text-muted-foreground">{instructor.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {instructor.title}
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Stars rating={instructor.rating} size={12} showValue /> rating</span>
-                      <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {compactNumber(instructor.students)} students</span>
-                      <span className="flex items-center gap-1"><BarChart3 className="h-3.5 w-3.5" /> {instructor.courses} courses</span>
+                      <span className="flex items-center gap-1">
+                        <Stars rating={instructor.rating} size={12} showValue />{' '}
+                        rating
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />{' '}
+                        {compactNumber(instructor.students)} students
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <BarChart3 className="h-3.5 w-3.5" />{' '}
+                        {instructor.courses} courses
+                      </span>
                     </div>
                     <p className="mt-3 text-sm">{instructor.bio}</p>
                   </div>
@@ -253,10 +332,18 @@ export function CourseDetail({ course }: { course: Course }) {
                 <h2 className="text-xl font-bold">Student reviews</h2>
                 <span className="flex items-center gap-1 text-sm">
                   <Stars rating={course.rating} showValue size={15} />
-                  <span className="text-muted-foreground">· {compactNumber(course.reviewCount)} reviews</span>
+                  <span className="text-muted-foreground">
+                    · {compactNumber(course.reviewCount)} reviews
+                  </span>
                 </span>
               </div>
-              {enrolled && <ReviewDialog courseId={course.id} existing={myReview} onSubmit={submitReview} />}
+              {enrolled && (
+                <ReviewDialog
+                  courseId={course.id}
+                  existing={myReview}
+                  onSubmit={submitReview}
+                />
+              )}
             </div>
             <RatingBars reviews={reviews} rating={course.rating} />
             <div className="mt-6 space-y-5">
@@ -264,15 +351,22 @@ export function CourseDetail({ course }: { course: Course }) {
                 <div key={r.id} className="border-b pb-5 last:border-0">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
-                      <AvatarFallback className="text-xs">{initials(r.author)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">
+                        {initials(r.author)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2 text-sm font-medium">
                         {r.author}
-                        {r.id === "mine" && <Badge variant="secondary" className="text-[10px]">You</Badge>}
+                        {r.id === 'mine' && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            You
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Stars rating={r.rating} size={12} /> · {relativeDate(r.date)}
+                        <Stars rating={r.rating} size={12} /> ·{' '}
+                        {relativeDate(r.date)}
                       </div>
                     </div>
                   </div>
@@ -303,45 +397,89 @@ export function CourseDetail({ course }: { course: Course }) {
 }
 
 function PurchaseCard({
-  course, enrolled, inCart, onAdd, onBuy,
+  course,
+  enrolled,
+  inCart,
+  onAdd,
+  onBuy,
 }: {
-  course: Course; enrolled: boolean; inCart: boolean; onAdd: () => void; onBuy: () => void;
+  course: Course;
+  enrolled: boolean;
+  inCart: boolean;
+  onAdd: () => void;
+  onBuy: () => void;
 }) {
   const articleCount = courseArticleCount(course);
   const resourceCount = courseResourceCount(course);
   const includes = [
-    { icon: PlayCircle, label: `${formatHoursFromMin(courseDurationMin(course))} on-demand video` },
-    { icon: ClipboardList, label: "Assignments" },
-    ...(articleCount > 0 ? [{ icon: FileText, label: `${articleCount} article${articleCount === 1 ? "" : "s"}` }] : []),
-    ...(resourceCount > 0 ? [{ icon: FileText, label: `${resourceCount} downloadable resource${resourceCount === 1 ? "" : "s"}` }] : []),
-    { icon: Smartphone, label: "Access on mobile and TV" },
-    { icon: InfinityIcon, label: "Full lifetime access" },
-    { icon: ShieldCheck, label: "DRM-protected streaming" },
-    { icon: Award, label: "Certificate of completion" },
+    {
+      icon: PlayCircle,
+      label: `${formatHoursFromMin(courseDurationMin(course))} on-demand video`,
+    },
+    { icon: ClipboardList, label: 'Assignments' },
+    ...(articleCount > 0
+      ? [
+          {
+            icon: FileText,
+            label: `${articleCount} article${articleCount === 1 ? '' : 's'}`,
+          },
+        ]
+      : []),
+    ...(resourceCount > 0
+      ? [
+          {
+            icon: FileText,
+            label: `${resourceCount} downloadable resource${resourceCount === 1 ? '' : 's'}`,
+          },
+        ]
+      : []),
+    { icon: Smartphone, label: 'Access on mobile and TV' },
+    { icon: InfinityIcon, label: 'Full lifetime access' },
+    { icon: ShieldCheck, label: 'DRM-protected streaming' },
+    { icon: Award, label: 'Certificate of completion' },
   ];
   return (
     <Card className="overflow-hidden shadow-xl lg:sticky lg:top-20">
       <div className="brand-gradient h-2" />
       <CardContent className="space-y-4 pt-6">
-        <Price basePrice={course.basePrice} originalPrice={course.originalPrice} size="lg" />
+        <Price
+          basePrice={course.basePrice}
+          originalPrice={course.originalPrice}
+          size="lg"
+        />
         {course.originalPrice && (
           <Badge variant="secondary" className="text-success">
-            {Math.round((1 - course.basePrice / course.originalPrice) * 100)}% off · limited time
+            {Math.round((1 - course.basePrice / course.originalPrice) * 100)}%
+            off · limited time
           </Badge>
         )}
 
         {enrolled ? (
-          <Button className="w-full" size="lg" render={<Link href={`/learn/${course.slug}`} />}>
+          <Button
+            className="w-full"
+            size="lg"
+            render={<Link href={`/learn/${course.slug}`} />}
+          >
             <PlayCircle /> Go to course
           </Button>
         ) : (
           <div className="space-y-2">
             {inCart ? (
-              <Button className="w-full" size="lg" variant="outline" render={<Link href="/cart" />}>
+              <Button
+                className="w-full"
+                size="lg"
+                variant="outline"
+                render={<Link href="/cart" />}
+              >
                 <ShoppingCart /> Go to cart
               </Button>
             ) : (
-              <Button className="w-full" size="lg" variant="outline" onClick={onAdd}>
+              <Button
+                className="w-full"
+                size="lg"
+                variant="outline"
+                onClick={onAdd}
+              >
                 <ShoppingCart /> Add to cart
               </Button>
             )}
@@ -350,14 +488,19 @@ function PurchaseCard({
             </Button>
           </div>
         )}
-        <p className="text-center text-xs text-muted-foreground">30-day money-back guarantee</p>
+        <p className="text-center text-xs text-muted-foreground">
+          30-day money-back guarantee
+        </p>
 
         <Separator />
         <div>
           <h4 className="mb-2 text-sm font-semibold">This course includes</h4>
           <ul className="space-y-2 text-sm">
             {includes.map((i) => (
-              <li key={i.label} className="flex items-center gap-2 text-muted-foreground">
+              <li
+                key={i.label}
+                className="flex items-center gap-2 text-muted-foreground"
+              >
                 <i.icon className="h-4 w-4 text-foreground" /> {i.label}
               </li>
             ))}
@@ -375,30 +518,35 @@ function ReviewDialog({
 }: {
   courseId: string;
   existing?: { rating: number; title: string; body: string };
-  onSubmit: (courseId: string, rating: number, title: string, body: string) => void;
+  onSubmit: (
+    courseId: string,
+    rating: number,
+    title: string,
+    body: string,
+  ) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(existing?.rating ?? 0);
-  const [title, setTitle] = useState(existing?.title ?? "");
-  const [body, setBody] = useState(existing?.body ?? "");
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [body, setBody] = useState(existing?.body ?? '');
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
       setRating(existing?.rating ?? 0);
-      setTitle(existing?.title ?? "");
-      setBody(existing?.body ?? "");
+      setTitle(existing?.title ?? '');
+      setBody(existing?.body ?? '');
     }
   }
 
   function submit() {
     if (!rating) {
-      toast.error("Please select a star rating");
+      toast.error('Please select a star rating');
       return;
     }
-    onSubmit(courseId, rating, title.trim() || "Untitled review", body.trim());
-    toast.success(existing ? "Review updated" : "Review submitted", {
-      description: "Thanks for sharing your feedback!",
+    onSubmit(courseId, rating, title.trim() || 'Untitled review', body.trim());
+    toast.success(existing ? 'Review updated' : 'Review submitted', {
+      description: 'Thanks for sharing your feedback!',
     });
     setOpen(false);
   }
@@ -406,11 +554,14 @@ function ReviewDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <PenLine className="h-3.5 w-3.5" /> {existing ? "Edit your review" : "Write a review"}
+        <PenLine className="h-3.5 w-3.5" />{' '}
+        {existing ? 'Edit your review' : 'Write a review'}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{existing ? "Edit your review" : "Rate this course"}</DialogTitle>
+          <DialogTitle>
+            {existing ? 'Edit your review' : 'Rate this course'}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -438,15 +589,25 @@ function ReviewDialog({
           </div>
         </div>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button onClick={submit}>{existing ? "Update review" : "Submit review"}</Button>
+          <DialogClose render={<Button variant="outline" />}>
+            Cancel
+          </DialogClose>
+          <Button onClick={submit}>
+            {existing ? 'Update review' : 'Submit review'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function RatingBars({ reviews, rating }: { reviews: { rating: number }[]; rating: number }) {
+function RatingBars({
+  reviews,
+  rating,
+}: {
+  reviews: { rating: number }[];
+  rating: number;
+}) {
   const counts = [5, 4, 3, 2, 1].map((star) => ({
     star,
     n: reviews.filter((r) => Math.round(r.rating) === star).length,
@@ -464,7 +625,10 @@ function RatingBars({ reviews, rating }: { reviews: { rating: number }[]; rating
           <div key={c.star} className="flex items-center gap-2 text-xs">
             <span className="w-8 text-muted-foreground">{c.star}★</span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-amber-400" style={{ width: `${(c.n / total) * 100}%` }} />
+              <div
+                className="h-full rounded-full bg-amber-400"
+                style={{ width: `${(c.n / total) * 100}%` }}
+              />
             </div>
             <span className="w-8 text-right text-muted-foreground">{c.n}</span>
           </div>

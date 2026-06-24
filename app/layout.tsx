@@ -1,22 +1,22 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Providers } from "./providers";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
+import { Providers } from './providers';
 
 const geistSans = Geist({
-  variable: "--font-sans",
-  subsets: ["latin"],
+  variable: '--font-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "LearnHub — Learn anything, anywhere",
+  title: 'SkillStream — Learn anything, anywhere',
   description:
-    "A modern course platform: world-class courses, protected video, progress tracking, and region-fair pricing.",
+    'A modern course platform: world-class courses, protected video, progress tracking, and region-fair pricing.',
 };
 
 export default function RootLayout({

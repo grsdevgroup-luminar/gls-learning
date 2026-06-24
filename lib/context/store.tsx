@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -8,13 +8,13 @@ import {
   useCallback,
   useMemo,
   type ReactNode,
-} from "react";
-import { demoStudent, DEMO_STUDENT_ID } from "@/lib/mock/students";
-import { DEFAULT_REGION, getRegion } from "@/lib/mock/pricing";
-import { courses as baseCourses } from "@/lib/mock/courses";
-import type { Course } from "@/types";
+} from 'react';
+import { demoStudent, DEMO_STUDENT_ID } from '@/lib/mock/students';
+import { DEFAULT_REGION, getRegion } from '@/lib/mock/pricing';
+import { courses as baseCourses } from '@/lib/mock/courses';
+import type { Course } from '@/types';
 
-export type Role = "guest" | "student" | "admin";
+export type Role = 'guest' | 'student' | 'admin';
 
 export interface QuizResult {
   bestScore: number; // percent, best attempt
@@ -44,7 +44,7 @@ interface PersistState {
   deletedCourseIds: string[];
 }
 
-const STORAGE_KEY = "learnhub_state_v1";
+const STORAGE_KEY = 'SkillStream_state_v1';
 
 function quizKey(courseId: string, lessonId: string) {
   return `${courseId}:${lessonId}`;
@@ -60,7 +60,7 @@ function seedProgress(): Record<string, string[]> {
 
 function defaultState(): PersistState {
   return {
-    role: "guest",
+    role: 'guest',
     regionCode: DEFAULT_REGION,
     cart: [],
     coupon: null,
@@ -104,7 +104,12 @@ interface StoreContextValue extends PersistState {
   ) => QuizResult;
   // reviews
   getMyReview: (courseId: string) => MyReview | undefined;
-  submitReview: (courseId: string, rating: number, title: string, body: string) => void;
+  submitReview: (
+    courseId: string,
+    rating: number,
+    title: string,
+    body: string,
+  ) => void;
   // course management
   courses: Course[];
   getCourse: (id: string) => Course | undefined;
@@ -142,7 +147,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .filter((c) => !state.deletedCourseIds.includes(c.id))
       .map((c) => state.customCourses[c.id] ?? c);
     const created = Object.values(state.customCourses).filter(
-      (c) => !baseCourses.some((b) => b.id === c.id) && !state.deletedCourseIds.includes(c.id),
+      (c) =>
+        !baseCourses.some((b) => b.id === c.id) &&
+        !state.deletedCourseIds.includes(c.id),
     );
     return [...created, ...known];
   }, [state.customCourses, state.deletedCourseIds]);
@@ -151,12 +158,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ...state,
     mounted,
     region: getRegion(state.regionCode),
-    login: (asAdmin) => patch({ role: asAdmin ? "admin" : "student" }),
+    login: (asAdmin) => patch({ role: asAdmin ? 'admin' : 'student' }),
     loginAs: (role) => patch({ role }),
-    logout: () => patch({ role: "guest" }),
+    logout: () => patch({ role: 'guest' }),
     setRegionCode: (regionCode) => patch({ regionCode }),
     addToCart: (id) =>
-      setState((s) => (s.cart.includes(id) ? s : { ...s, cart: [...s.cart, id] })),
+      setState((s) =>
+        s.cart.includes(id) ? s : { ...s, cart: [...s.cart, id] },
+      ),
     removeFromCart: (id) =>
       setState((s) => ({ ...s, cart: s.cart.filter((c) => c !== id) })),
     clearCart: () => patch({ cart: [], coupon: null }),
@@ -179,7 +188,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     isLessonDone: (courseId, lessonId) =>
       (state.progress[courseId] ?? []).includes(lessonId),
     completedCount: (courseId) => (state.progress[courseId] ?? []).length,
-    getQuizResult: (courseId, lessonId) => state.quizResults[quizKey(courseId, lessonId)],
+    getQuizResult: (courseId, lessonId) =>
+      state.quizResults[quizKey(courseId, lessonId)],
     submitQuizAttempt: (courseId, lessonId, scorePercent, passScore) => {
       const key = quizKey(courseId, lessonId);
       const passed = scorePercent >= passScore;
@@ -211,7 +221,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...s,
         myReviews: {
           ...s.myReviews,
-          [courseId]: { rating, title, body, date: new Date().toISOString().slice(0, 10) },
+          [courseId]: {
+            rating,
+            title,
+            body,
+            date: new Date().toISOString().slice(0, 10),
+          },
         },
       })),
     courses,
@@ -232,12 +247,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
   };
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  return (
+    <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+  );
 }
 
 export function useStore() {
   const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  if (!ctx) throw new Error('useStore must be used within StoreProvider');
   return ctx;
 }
 

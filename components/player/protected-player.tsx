@@ -1,20 +1,27 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { gradientFor, lessonTime } from "@/lib/format";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState } from 'react';
+import { gradientFor, lessonTime } from '@/lib/format';
+import { Button } from '@/components/ui/button';
 import {
-  Play, Pause, Volume2, VolumeX, Maximize, ShieldCheck, Settings,
-  RotateCcw, SkipForward,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  ShieldCheck,
+  Settings,
+  RotateCcw,
+  SkipForward,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 // A simulated, DRM-styled video player. Demonstrates content protection
 // (moving per-user watermark, disabled context menu, "protected" badge) without
@@ -79,8 +86,8 @@ export function ProtectedPlayer({
       ref={ref}
       onContextMenu={(e) => e.preventDefault()}
       className={cn(
-        "group relative w-full select-none overflow-hidden rounded-xl bg-black text-white",
-        compact ? "aspect-video" : "aspect-video",
+        'group relative w-full select-none overflow-hidden rounded-xl bg-black text-white',
+        compact ? 'aspect-video' : 'aspect-video',
       )}
       style={{ backgroundImage: gradientFor(seed) }}
     >
@@ -105,7 +112,11 @@ export function ProtectedPlayer({
           aria-label="Play"
         >
           <span className="grid h-16 w-16 place-items-center rounded-full bg-white/90 text-black shadow-lg transition-transform hover:scale-105">
-            {time >= durationSec ? <RotateCcw className="h-7 w-7" /> : <Play className="ml-1 h-7 w-7 fill-black" />}
+            {time >= durationSec ? (
+              <RotateCcw className="h-7 w-7" />
+            ) : (
+              <Play className="ml-1 h-7 w-7 fill-black" />
+            )}
           </span>
         </button>
       )}
@@ -113,13 +124,21 @@ export function ProtectedPlayer({
       {/* title */}
       {!started && (
         <div className="absolute left-4 top-12 z-10 max-w-[70%]">
-          <p className="text-xs uppercase tracking-wide text-white/70">Now playing</p>
+          <p className="text-xs uppercase tracking-wide text-white/70">
+            Now playing
+          </p>
           <p className="text-lg font-semibold drop-shadow">{title}</p>
         </div>
       )}
 
       {/* clickable area to pause */}
-      {playing && <button onClick={toggle} className="absolute inset-0 z-10" aria-label="Pause" />}
+      {playing && (
+        <button
+          onClick={toggle}
+          className="absolute inset-0 z-10"
+          aria-label="Pause"
+        />
+      )}
 
       {/* controls */}
       <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-3">
@@ -128,19 +147,34 @@ export function ProtectedPlayer({
           min={0}
           max={durationSec}
           value={time}
-          onChange={(e) => { setStarted(true); setTime(Number(e.target.value)); }}
+          onChange={(e) => {
+            setStarted(true);
+            setTime(Number(e.target.value));
+          }}
           className="mb-2 h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-white [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-          style={{ background: `linear-gradient(to right, white ${pct}%, rgba(255,255,255,.3) ${pct}%)` }}
+          style={{
+            background: `linear-gradient(to right, white ${pct}%, rgba(255,255,255,.3) ${pct}%)`,
+          }}
         />
         <div className="flex items-center gap-2 text-sm">
           <button onClick={toggle} aria-label="Play/Pause">
-            {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+            {playing ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5" />
+            )}
           </button>
           {onNext && (
-            <button onClick={onNext} aria-label="Next lesson"><SkipForward className="h-5 w-5" /></button>
+            <button onClick={onNext} aria-label="Next lesson">
+              <SkipForward className="h-5 w-5" />
+            </button>
           )}
           <button onClick={() => setMuted((m) => !m)} aria-label="Mute">
-            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            {muted ? (
+              <VolumeX className="h-5 w-5" />
+            ) : (
+              <Volume2 className="h-5 w-5" />
+            )}
           </button>
           <span className="tabular-nums text-xs text-white/90">
             {lessonTime(Math.floor(time))} / {lessonTime(durationSec)}
@@ -148,7 +182,13 @@ export function ProtectedPlayer({
           <div className="ml-auto flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/20 hover:text-white" />}
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-white hover:bg-white/20 hover:text-white"
+                  />
+                }
                 aria-label="Settings"
               >
                 <Settings className="h-4 w-4" />
@@ -157,12 +197,15 @@ export function ProtectedPlayer({
                 <DropdownMenuLabel>Playback speed</DropdownMenuLabel>
                 {[0.5, 1, 1.25, 1.5, 2].map((r) => (
                   <DropdownMenuItem key={r} onClick={() => setRate(r)}>
-                    {rate === r ? "● " : ""}{r}×
+                    {rate === r ? '● ' : ''}
+                    {r}×
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <button aria-label="Fullscreen"><Maximize className="h-5 w-5" /></button>
+            <button aria-label="Fullscreen">
+              <Maximize className="h-5 w-5" />
+            </button>
           </div>
         </div>
       </div>
@@ -183,7 +226,7 @@ function Watermark({ text }: { text: string }) {
       className="pointer-events-none absolute z-20 text-[11px] font-medium text-white/35 transition-all duration-[3000ms] ease-in-out"
       style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
     >
-      {text} · LearnHub
+      {text} · SkillStream
     </div>
   );
 }
