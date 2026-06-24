@@ -44,7 +44,7 @@ interface PersistState {
   deletedCourseIds: string[];
 }
 
-const STORAGE_KEY = "skillstream_state_v1";
+const STORAGE_KEY = "learnhub_state_v1";
 
 function quizKey(courseId: string, lessonId: string) {
   return `${courseId}:${lessonId}`;

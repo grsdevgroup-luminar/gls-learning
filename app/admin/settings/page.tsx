@@ -30,8 +30,8 @@ export default function AdminSettings() {
         <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-4 w-4 text-primary" /> General</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label>Platform name</Label><Input defaultValue="SkillStream" /></div>
-            <div className="space-y-1.5"><Label>Support email</Label><Input defaultValue="support@skillstream.com" /></div>
+            <div className="space-y-1.5"><Label>Platform name</Label><Input defaultValue="LearnHub" /></div>
+            <div className="space-y-1.5"><Label>Support email</Label><Input defaultValue="support@learnhub.com" /></div>
             <div className="space-y-1.5"><Label>Base currency</Label><Input defaultValue="USD" /></div>
             <div className="space-y-1.5"><Label>Default language</Label><Input defaultValue="English" /></div>
           </div>

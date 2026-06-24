@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -114,25 +115,32 @@ export function SiteHeader() {
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
-                  <div className="text-xs font-normal text-muted-foreground">
-                    {role === "admin" ? "admin@demo.com" : demoStudent.email}
-                  </div>
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {role === "admin" ? "admin@demo.com" : demoStudent.email}
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem render={<Link href="/dashboard" />}>
-                  <LayoutDashboard /> Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/dashboard" />}>
-                  <GraduationCap /> My Learning
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/account" />}>
-                  <User /> Account
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/admin" />}>
-                  <Shield /> Admin panel
-                </DropdownMenuItem>
+                {role === "admin" ? (
+                  <DropdownMenuItem render={<Link href="/admin" />}>
+                    <Shield /> Admin panel
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                      <LayoutDashboard /> Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                      <GraduationCap /> My Learning
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/account" />}>
+                      <User /> Account
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout}>
                   <LogOut /> Log out

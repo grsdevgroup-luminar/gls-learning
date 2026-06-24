@@ -108,7 +108,7 @@ function CertificatePreview({ course, small }: { course: Course; small?: boolean
         <p className={`font-semibold text-primary ${small ? "text-sm" : "text-lg"}`}>{course.title}</p>
         {!small && (
           <div className="mt-6 flex items-center justify-center gap-8 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Verified · SkillStream</div>
+            <div className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Verified · LearnHub</div>
             <div>Instructor: {instructor?.name}</div>
             <div>June 2026</div>
           </div>

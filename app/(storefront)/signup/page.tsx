@@ -19,7 +19,7 @@ export default function SignupPage() {
 
   function create() {
     login();
-    toast.success("Account created!", { description: "Welcome to SkillStream 🎉" });
+    toast.success("Account created!", { description: "Welcome to LearnHub 🎉" });
     router.push("/dashboard");
   }
 
@@ -28,7 +28,7 @@ export default function SignupPage() {
       <div className="hidden md:block">
         <Logo className="mb-6" />
         <h1 className="text-3xl font-bold tracking-tight">Start learning today</h1>
-        <p className="mt-3 text-muted-foreground">Join half a million learners growing their skills on SkillStream.</p>
+        <p className="mt-3 text-muted-foreground">Join half a million learners growing their skills on LearnHub.</p>
         <ul className="mt-6 space-y-3">
           {perks.map((p) => (
             <li key={p} className="flex items-center gap-2 text-sm">

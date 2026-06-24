@@ -183,7 +183,7 @@ function Watermark({ text }: { text: string }) {
       className="pointer-events-none absolute z-20 text-[11px] font-medium text-white/35 transition-all duration-[3000ms] ease-in-out"
       style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
     >
-      {text} · SkillStream
+      {text} · LearnHub
     </div>
   );
 }

@@ -47,7 +47,7 @@ export function PortalShell({
             onClick={() => setOpen(false)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+              "group relative flex items-center gap-3 rounded-lg py-2 pl-5 pr-3 text-sm font-medium transition-all duration-150",
               active
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
@@ -55,7 +55,7 @@ export function PortalShell({
           >
             <span
               className={cn(
-                "absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary transition-all duration-200",
+                "absolute left-1 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary transition-all duration-200",
                 active ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0",
               )}
             />
@@ -74,7 +74,7 @@ export function PortalShell({
 
   const SidebarInner = (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
+      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border pl-4 pr-6">
         <Logo />
         <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {badge}

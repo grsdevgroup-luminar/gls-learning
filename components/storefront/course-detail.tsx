@@ -59,7 +59,7 @@ export function CourseDetail({ course }: { course: Course }) {
       ]
     : baseReviews;
   const inCartNow = inCart(course.id);
-  const watermark = role === "guest" ? "preview@skillstream" : demoStudent.email;
+  const watermark = role === "guest" ? "preview@learnhub" : demoStudent.email;
 
   const previewLesson =
     course.sections.flatMap((s) => s.lessons).find((l) => l.preview) ??

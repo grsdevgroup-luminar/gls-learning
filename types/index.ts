@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Shared domain types for the SkillStream prototype
+// Shared domain types for the LearnHub prototype
 // ---------------------------------------------------------------------------
 
 export type Level = "Beginner" | "Intermediate" | "Advanced" | "All Levels";
