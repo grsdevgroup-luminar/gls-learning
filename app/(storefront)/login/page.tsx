@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { User, Shield, Sparkles } from "lucide-react";
+import { User, Shield, Sparkles, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const { loginAs } = useStore();
+  const { loginAs, loginAsInstructor } = useStore();
   const router = useRouter();
   const [email, setEmail] = useState("student@demo.com");
   const [password, setPassword] = useState("demo1234");
@@ -23,6 +23,12 @@ export default function LoginPage() {
     loginAs(role);
     toast.success(`Welcome back!`, { description: role === "admin" ? "Signed in as Admin" : "Signed in as student" });
     router.push(role === "admin" ? "/admin" : "/dashboard");
+  }
+
+  function goInstructor() {
+    loginAsInstructor();
+    toast.success("Welcome back!", { description: "Signed in as instructor" });
+    router.push("/instructor");
   }
 
   return (
@@ -55,14 +61,23 @@ export default function LoginPage() {
           <Button className="w-full" size="lg" onClick={() => go("student")}>
             <User /> Log in as student
           </Button>
-          <Button className="w-full" size="lg" variant="outline" onClick={() => go("admin")}>
-            <Shield /> Log in as admin
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button size="lg" variant="outline" onClick={goInstructor}>
+              <GraduationCap /> Instructor
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => go("admin")}>
+              <Shield /> Admin
+            </Button>
+          </div>
 
           <Separator />
           <p className="text-center text-sm text-muted-foreground">
             New here?{" "}
             <Link href="/signup" className="font-medium text-primary hover:underline">Create an account</Link>
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
+            Want to teach?{" "}
+            <Link href="/teach" className="font-medium text-primary hover:underline">Become an instructor</Link>
           </p>
         </CardContent>
       </Card>

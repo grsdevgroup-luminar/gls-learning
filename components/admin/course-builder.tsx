@@ -8,6 +8,7 @@ import { useStore } from "@/lib/context/store";
 import { VideoUpload } from "@/components/admin/video-upload";
 import { QuizEditor, emptyQuiz } from "@/components/admin/quiz-editor";
 import { CourseArt } from "@/components/shared/course-art";
+import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,9 +56,18 @@ const thumbSeeds = [
   "speaking", "social", "finance", "mindfulness", "language",
 ];
 
-export function CourseBuilder({ course }: { course?: Course }) {
+export function CourseBuilder({
+  course,
+  mode = "admin",
+  instructorId,
+}: {
+  course?: Course;
+  mode?: "admin" | "instructor";
+  instructorId?: string;
+}) {
   const router = useRouter();
   const { upsertCourse } = useStore();
+  const backHref = mode === "instructor" ? "/instructor/courses" : "/admin/courses";
   const [title, setTitle] = useState(course?.title ?? "");
   const [subtitle, setSubtitle] = useState(course?.subtitle ?? "");
   const [category, setCategory] = useState(course?.category ?? categories[0]);
@@ -115,8 +125,10 @@ export function CourseBuilder({ course }: { course?: Course }) {
     return 300;
   }
 
-  function save(publish: boolean) {
+  function save(action: "draft" | "publish" | "review") {
     const id = course?.id ?? nid("c_");
+    const status: Course["status"] =
+      action === "publish" ? "published" : action === "review" ? "review" : "draft";
     const newCourse: Course = {
       id,
       slug: course?.slug ?? (slugify(title) || id),
@@ -126,7 +138,7 @@ export function CourseBuilder({ course }: { course?: Course }) {
       category,
       level: level as Course["level"],
       thumbnail: seed,
-      instructorId: course?.instructorId ?? "ins_sara",
+      instructorId: course?.instructorId ?? instructorId ?? "ins_sara",
       basePrice: Number(price) || 0,
       originalPrice: course?.originalPrice,
       rating: course?.rating ?? 0,
@@ -134,7 +146,7 @@ export function CourseBuilder({ course }: { course?: Course }) {
       studentCount: course?.studentCount ?? 0,
       language: course?.language ?? "English",
       updatedAt: new Date().toISOString(),
-      status: publish ? "published" : "draft",
+      status,
       bestseller: course?.bestseller,
       whatYouLearn: course?.whatYouLearn ?? [],
       requirements: course?.requirements ?? [],
@@ -153,25 +165,38 @@ export function CourseBuilder({ course }: { course?: Course }) {
       revenue: course?.revenue ?? 0,
     };
     upsertCourse(newCourse);
-    toast.success(publish ? "Course published! 🚀" : "Draft saved", {
-      description: title || "Untitled course",
+    const msg =
+      action === "publish"
+        ? "Course published! 🚀"
+        : action === "review"
+        ? "Submitted for review 📩"
+        : "Draft saved";
+    toast.success(msg, {
+      description:
+        action === "review"
+          ? "Our team will review and publish it shortly."
+          : title || "Untitled course",
     });
-    setTimeout(() => router.push("/admin/courses"), 700);
+    setTimeout(() => router.push(backHref), 700);
   }
 
   return (
     <div className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/admin/courses")} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{course ? "Edit course" : "Create a course"}</h1>
             <p className="text-sm text-muted-foreground">{totalLessons} lessons · {sections.length} sections</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save(false)}><Save /> Save draft</Button>
-          <Button onClick={() => save(true)}><Rocket /> Publish</Button>
+          <Button variant="outline" onClick={() => save("draft")}><Save /> Save draft</Button>
+          {mode === "instructor" ? (
+            <Button onClick={() => save("review")}><Rocket /> Submit for review</Button>
+          ) : (
+            <Button onClick={() => save("publish")}><Rocket /> Publish</Button>
+          )}
         </div>
       </div>
 
@@ -267,22 +292,37 @@ export function CourseBuilder({ course }: { course?: Course }) {
 
         {/* Sidebar */}
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Publish</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium">Status</div>
-                  <div className="text-xs text-muted-foreground">{published ? "Visible to students" : "Hidden — draft"}</div>
+          {mode === "instructor" ? (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Review status</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">Current</div>
+                  <CourseStatusBadge status={course?.status} />
                 </div>
-                <Badge variant="outline" className={published ? "text-success" : "text-muted-foreground"}>{published ? "Published" : "Draft"}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="pub">Publish course</Label>
-                <Switch id="pub" checked={published} onCheckedChange={setPublished} />
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Save a draft any time. When you&apos;re ready, <span className="font-medium text-foreground">Submit for review</span> — our team approves new courses before they go live to keep quality high.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Publish</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">Status</div>
+                    <div className="text-xs text-muted-foreground">{published ? "Visible to students" : "Hidden — draft"}</div>
+                  </div>
+                  <Badge variant="outline" className={published ? "text-success" : "text-muted-foreground"}>{published ? "Published" : "Draft"}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="pub">Publish course</Label>
+                  <Switch id="pub" checked={published} onCheckedChange={setPublished} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader><CardTitle className="text-base">Pricing</CardTitle></CardHeader>

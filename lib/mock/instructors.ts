@@ -1,6 +1,6 @@
-import type { Instructor } from "@/types";
+import type { Instructor, InstructorApplication } from "@/types";
 
-export const instructors: Instructor[] = [
+const seedInstructors: Instructor[] = [
   {
     id: "ins_sara",
     name: "Sara Lindqvist",
@@ -100,6 +100,49 @@ export const instructors: Instructor[] = [
     rating: 4.7,
     students: 44600,
     courses: 3,
+  },
+];
+
+// Every seeded instructor is already approved and has a contact email.
+export const instructors: Instructor[] = seedInstructors.map((i) => ({
+  status: "approved" as const,
+  email: i.email ?? `${i.name.split(" ")[0].toLowerCase()}@skillstream.com`,
+  ...i,
+}));
+
+// Applications awaiting admin review — drives the approval queue demo.
+export const pendingApplications: InstructorApplication[] = [
+  {
+    id: "ins_app_olivia",
+    name: "Olivia Chen",
+    email: "olivia.chen@gmail.com",
+    expertise: "Development",
+    headline: "Senior Backend Engineer",
+    bio: "10 years building distributed systems at fintech scale. I want to teach practical system design and Go to working engineers.",
+    sampleUrl: "https://youtube.com/@oliviabuilds",
+    appliedAt: "2026-06-18T09:20:00Z",
+    status: "pending",
+  },
+  {
+    id: "ins_app_tomas",
+    name: "Tomás Rivera",
+    email: "tomas.rivera@outlook.com",
+    expertise: "Design",
+    headline: "Motion & 3D Designer",
+    bio: "Freelance motion designer for major brands. Excited to teach Blender and After Effects for product teams.",
+    sampleUrl: "https://dribbble.com/tomasr",
+    appliedAt: "2026-06-20T14:05:00Z",
+    status: "pending",
+  },
+  {
+    id: "ins_app_aisha",
+    name: "Aisha Mohammed",
+    email: "aisha.m@proton.me",
+    expertise: "Data Science",
+    headline: "ML Engineer & Researcher",
+    bio: "Published researcher in NLP. I make transformers and LLMs approachable with hands-on notebooks.",
+    appliedAt: "2026-06-22T11:40:00Z",
+    status: "pending",
   },
 ];
 

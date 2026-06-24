@@ -6,6 +6,8 @@ export type Level = 'Beginner' | 'Intermediate' | 'Advanced' | 'All Levels';
 
 export type CourseStatus = 'published' | 'draft' | 'review';
 
+export type InstructorStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Instructor {
   id: string;
   name: string;
@@ -15,6 +17,23 @@ export interface Instructor {
   rating: number;
   students: number;
   courses: number;
+  email?: string;
+  expertise?: string;
+  status?: InstructorStatus; // omitted = approved (legacy seed data)
+}
+
+export interface InstructorApplication {
+  id: string; // also used as the future instructorId
+  name: string;
+  email: string;
+  expertise: string; // primary category / field
+  headline: string; // professional title
+  bio: string;
+  sampleUrl?: string; // link to a teaching sample / portfolio
+  appliedAt: string; // ISO
+  status: InstructorStatus;
+  reviewedAt?: string; // ISO
+  note?: string; // admin note on decision
 }
 
 export interface QuizOption {

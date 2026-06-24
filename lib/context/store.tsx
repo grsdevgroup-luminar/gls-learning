@@ -12,9 +12,22 @@ import {
 import { demoStudent, DEMO_STUDENT_ID } from '@/lib/mock/students';
 import { DEFAULT_REGION, getRegion } from '@/lib/mock/pricing';
 import { courses as baseCourses } from '@/lib/mock/courses';
-import type { Course } from '@/types';
+import {
+  getInstructor as getMockInstructor,
+  pendingApplications,
+} from '@/lib/mock/instructors';
+import type {
+  Course,
+  CourseStatus,
+  Instructor,
+  InstructorApplication,
+  InstructorStatus,
+} from '@/types';
 
-export type Role = 'guest' | 'student' | 'admin';
+export type Role = 'guest' | 'student' | 'instructor' | 'admin';
+
+/** Default instructor identity for the "Log in as instructor" demo shortcut. */
+export const DEMO_INSTRUCTOR_ID = 'ins_sara';
 
 export interface QuizResult {
   bestScore: number; // percent, best attempt
@@ -42,12 +55,56 @@ interface PersistState {
   myReviews: Record<string, MyReview>; // key: courseId
   customCourses: Record<string, Course>; // admin-created/edited courses, keyed by id
   deletedCourseIds: string[];
+  // instructor program
+  currentInstructorId: string | null; // who the logged-in instructor is
+  instructorApplications: InstructorApplication[]; // approval queue
+  customInstructors: Record<string, Instructor>; // approved-from-application profiles
 }
 
 const STORAGE_KEY = 'SkillStream_state_v1';
 
 function quizKey(courseId: string, lessonId: string) {
   return `${courseId}:${lessonId}`;
+}
+
+/** Resolve an instructor from custom (approved-from-application) → seed mock →
+ *  a still-pending application (so a freshly-applied user has a profile). */
+function resolveInstructor(
+  state: PersistState,
+  id: string | null,
+): Instructor | null {
+  if (!id) return null;
+  const custom = state.customInstructors[id];
+  if (custom) return custom;
+  const seed = getMockInstructor(id);
+  if (seed) return seed;
+  const app = state.instructorApplications.find((a) => a.id === id);
+  if (app) {
+    return {
+      id: app.id,
+      name: app.name,
+      title: app.headline,
+      avatar: '',
+      bio: app.bio,
+      rating: 0,
+      students: 0,
+      courses: 0,
+      email: app.email,
+      expertise: app.expertise,
+      status: app.status,
+    };
+  }
+  return null;
+}
+
+function instructorStatusOf(
+  state: PersistState,
+  id: string,
+): InstructorStatus | undefined {
+  const custom = state.customInstructors[id];
+  if (custom) return custom.status ?? 'approved';
+  if (getMockInstructor(id)) return 'approved';
+  return state.instructorApplications.find((a) => a.id === id)?.status;
 }
 
 function seedProgress(): Record<string, string[]> {
@@ -70,6 +127,9 @@ function defaultState(): PersistState {
     myReviews: {},
     customCourses: {},
     deletedCourseIds: [],
+    currentInstructorId: null,
+    instructorApplications: pendingApplications.map((a) => ({ ...a })),
+    customInstructors: {},
   };
 }
 
@@ -115,7 +175,25 @@ interface StoreContextValue extends PersistState {
   getCourse: (id: string) => Course | undefined;
   upsertCourse: (course: Course) => void;
   deleteCourse: (id: string) => void;
+  setCourseStatus: (id: string, status: CourseStatus) => void;
   reset: () => void;
+  // instructor program
+  currentInstructor: Instructor | null;
+  getInstructorById: (id: string) => Instructor | undefined;
+  instructorStatusOf: (id: string) => InstructorStatus | undefined;
+  myCourses: Course[];
+  loginAsInstructor: (instructorId?: string) => void;
+  applyAsInstructor: (data: {
+    name: string;
+    email: string;
+    expertise: string;
+    headline: string;
+    bio: string;
+    sampleUrl?: string;
+  }) => string;
+  approveInstructor: (applicationId: string, note?: string) => void;
+  rejectInstructor: (applicationId: string, note?: string) => void;
+  updateInstructorProfile: (partial: Partial<Instructor>) => void;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -241,10 +319,107 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...s,
         deletedCourseIds: Array.from(new Set([...s.deletedCourseIds, id])),
       })),
+    setCourseStatus: (id, status) =>
+      setState((s) => {
+        const existing =
+          s.customCourses[id] ?? baseCourses.find((c) => c.id === id);
+        if (!existing) return s;
+        return {
+          ...s,
+          customCourses: {
+            ...s.customCourses,
+            [id]: { ...existing, status, updatedAt: new Date().toISOString() },
+          },
+        };
+      }),
     reset: () => {
       const d = defaultState();
       setState(d);
     },
+
+    // ── instructor program ──────────────────────────────────────────────
+    currentInstructor: resolveInstructor(state, state.currentInstructorId),
+    getInstructorById: (id) => resolveInstructor(state, id) ?? undefined,
+    instructorStatusOf: (id) => instructorStatusOf(state, id),
+    myCourses: state.currentInstructorId
+      ? courses.filter((c) => c.instructorId === state.currentInstructorId)
+      : [],
+    loginAsInstructor: (instructorId = DEMO_INSTRUCTOR_ID) =>
+      patch({ role: 'instructor', currentInstructorId: instructorId }),
+    applyAsInstructor: (data) => {
+      const id = `ins_app_${Math.random().toString(36).slice(2, 8)}`;
+      const application: InstructorApplication = {
+        id,
+        name: data.name,
+        email: data.email,
+        expertise: data.expertise,
+        headline: data.headline,
+        bio: data.bio,
+        sampleUrl: data.sampleUrl,
+        appliedAt: new Date().toISOString(),
+        status: 'pending',
+      };
+      setState((s) => ({
+        ...s,
+        role: 'instructor',
+        currentInstructorId: id,
+        instructorApplications: [application, ...s.instructorApplications],
+      }));
+      return id;
+    },
+    approveInstructor: (applicationId, note) =>
+      setState((s) => {
+        const app = s.instructorApplications.find((a) => a.id === applicationId);
+        if (!app) return s;
+        const existing = s.customInstructors[app.id];
+        const fromApp: Instructor = {
+          id: app.id,
+          name: app.name,
+          title: app.headline,
+          avatar: '',
+          bio: app.bio,
+          rating: 0,
+          students: 0,
+          courses: 0,
+          email: app.email,
+          expertise: app.expertise,
+          status: 'approved',
+        };
+        // keep any profile edits the applicant made while pending
+        const profile: Instructor = { ...fromApp, ...existing, status: 'approved' };
+        return {
+          ...s,
+          instructorApplications: s.instructorApplications.map((a) =>
+            a.id === applicationId
+              ? { ...a, status: 'approved', reviewedAt: new Date().toISOString(), note }
+              : a,
+          ),
+          customInstructors: { ...s.customInstructors, [app.id]: profile },
+        };
+      }),
+    rejectInstructor: (applicationId, note) =>
+      setState((s) => ({
+        ...s,
+        instructorApplications: s.instructorApplications.map((a) =>
+          a.id === applicationId
+            ? { ...a, status: 'rejected', reviewedAt: new Date().toISOString(), note }
+            : a,
+        ),
+      })),
+    updateInstructorProfile: (partial) =>
+      setState((s) => {
+        const id = s.currentInstructorId;
+        if (!id) return s;
+        const base = resolveInstructor(s, id);
+        if (!base) return s;
+        return {
+          ...s,
+          customInstructors: {
+            ...s.customInstructors,
+            [id]: { ...base, ...partial },
+          },
+        };
+      }),
   };
 
   return (

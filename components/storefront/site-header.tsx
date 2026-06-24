@@ -22,7 +22,7 @@ import {
 import { useStore } from "@/lib/context/store";
 import { demoStudent } from "@/lib/mock/students";
 import { initials } from "@/lib/format";
-import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield } from "lucide-react";
+import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare } from "lucide-react";
 
 export function SiteHeader() {
   const { cart, role, logout, mounted } = useStore();
@@ -47,6 +47,9 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-1 md:flex">
           <Button render={<Link href="/courses" />} variant="ghost" size="sm">
             Courses
+          </Button>
+          <Button render={<Link href={role === "instructor" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
+            {role === "instructor" ? "Instructor" : "Teach"}
           </Button>
         </nav>
 
@@ -110,16 +113,16 @@ export function SiteHeader() {
               >
                 <Avatar className="h-8 w-8 ring-1 ring-border">
                   <AvatarFallback className="brand-gradient text-xs text-white">
-                    {role === "admin" ? "AD" : initials(demoStudent.name)}
+                    {role === "admin" ? "AD" : role === "instructor" ? "IN" : initials(demoStudent.name)}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>
-                    <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
+                    <div className="font-medium">{role === "admin" ? "Admin" : role === "instructor" ? "Instructor" : demoStudent.name}</div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "admin" ? "admin@demo.com" : demoStudent.email}
+                      {role === "admin" ? "admin@demo.com" : role === "instructor" ? "instructor@demo.com" : demoStudent.email}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
@@ -128,6 +131,18 @@ export function SiteHeader() {
                   <DropdownMenuItem render={<Link href="/admin" />}>
                     <Shield /> Admin panel
                   </DropdownMenuItem>
+                ) : role === "instructor" ? (
+                  <>
+                    <DropdownMenuItem render={<Link href="/instructor" />}>
+                      <LayoutDashboard /> Instructor dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/instructor/courses" />}>
+                      <PenSquare /> My courses
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                      <GraduationCap /> My Learning
+                    </DropdownMenuItem>
+                  </>
                 ) : (
                   <>
                     <DropdownMenuItem render={<Link href="/dashboard" />}>

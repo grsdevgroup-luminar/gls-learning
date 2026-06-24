@@ -1,0 +1,55 @@
+"use client";
+
+import Link from "next/link";
+import { useStore } from "@/lib/context/store";
+import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
+import { Logo } from "@/components/shared/logo";
+import { Button } from "@/components/ui/button";
+import { initials } from "@/lib/format";
+import { LayoutDashboard, BookOpen, BarChart3, UserCog, GraduationCap } from "lucide-react";
+
+const items: NavItem[] = [
+  { href: "/instructor", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/instructor/courses", label: "My Courses", icon: BookOpen },
+  { href: "/instructor/earnings", label: "Earnings", icon: BarChart3 },
+  { href: "/instructor/profile", label: "Profile", icon: UserCog },
+];
+
+export default function InstructorLayout({ children }: { children: React.ReactNode }) {
+  const { role, currentInstructor, mounted } = useStore();
+
+  if (!mounted) return null;
+
+  if (role !== "instructor" || !currentInstructor) {
+    return (
+      <div className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center px-4 py-12 text-center">
+        <div className="mb-6 flex justify-center"><Logo /></div>
+        <span className="icon-tile mx-auto mb-5 grid size-14 place-items-center" style={{ ["--tile" as string]: "var(--tint-violet)" }}>
+          <GraduationCap className="size-7" />
+        </span>
+        <h1 className="font-heading text-2xl font-bold tracking-tight">Instructor area</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Sign in to your instructor account, or apply to teach on SkillStream.
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          <Button render={<Link href="/login" />} size="lg">Log in as instructor</Button>
+          <Button render={<Link href="/teach" />} size="lg" variant="outline">Become an instructor</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PortalShell
+      items={items}
+      badge="Instructor"
+      user={{
+        name: currentInstructor.name,
+        email: currentInstructor.email ?? "instructor@demo.com",
+        initials: initials(currentInstructor.name),
+      }}
+    >
+      {children}
+    </PortalShell>
+  );
+}

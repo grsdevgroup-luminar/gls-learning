@@ -4,6 +4,7 @@ import { CourseCard } from "@/components/storefront/course-card";
 import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/shared/stars";
 import { CourseArt } from "@/components/shared/course-art";
+import { Section, SectionHeading } from "@/components/shared/section";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Reveal,
@@ -89,7 +90,7 @@ export default function HomePage() {
               500,000+ learners worldwide
             </div>
 
-            <h1 className="mt-6 text-balance text-5xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+            <h1 className="text-display mt-6 text-balance text-5xl md:text-6xl lg:text-7xl">
               Learn anything,
               <br />
               <span className="text-brand-gradient">grow everywhere.</span>
@@ -173,14 +174,11 @@ export default function HomePage() {
       />
 
       {/* ── Features (integrated panel, not floating cards) ─────── */}
-      <section className="border-y border-border bg-secondary/40">
-        <div className="mx-auto max-w-7xl px-4 py-20">
-          <Reveal className="max-w-2xl">
-            <p className="text-sm font-semibold text-primary">Built for serious creators</p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-              Everything a modern course business needs
-            </h2>
-          </Reveal>
+      <Section tinted size="lg">
+          <SectionHeading
+            eyebrow="Built for serious creators"
+            title="Everything a modern course business needs"
+          />
           <Stagger className="mt-12 grid divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm md:grid-cols-2 md:divide-y-0 lg:grid-cols-4 lg:[&>*:not(:first-child)]:border-l">
             {features.map((f) => (
               <StaggerItem
@@ -196,18 +194,18 @@ export default function HomePage() {
               </StaggerItem>
             ))}
           </Stagger>
-        </div>
-      </section>
+      </Section>
 
       {/* ── Popular ────────────────────────────────────────────── */}
       <SectionGrid title="Popular right now" courses={popular} />
 
       {/* ── Instructors ────────────────────────────────────────── */}
-      <section className="border-t border-border bg-secondary/40">
-        <div className="mx-auto max-w-7xl px-4 py-20">
-          <Reveal>
-            <h2 className="mb-10 text-3xl font-bold tracking-tight">Learn from the best</h2>
-          </Reveal>
+      <Section tinted size="lg">
+          <SectionHeading
+            eyebrow="Taught by practitioners"
+            title="Learn from the best"
+            className="mb-10"
+          />
           <Stagger className="grid gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5" gap={0.06}>
             {instructors.map((i) => (
               <StaggerItem key={i.id} className="group text-center" y={16}>
@@ -227,20 +225,21 @@ export default function HomePage() {
               </StaggerItem>
             ))}
           </Stagger>
-        </div>
-      </section>
+      </Section>
 
       {/* ── Testimonials ───────────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 py-20">
-        <Reveal>
-          <h2 className="mb-10 text-3xl font-bold tracking-tight">What learners say</h2>
-        </Reveal>
+      <Section size="lg">
+        <SectionHeading
+          eyebrow="Loved worldwide"
+          title="What learners say"
+          className="mb-10"
+        />
         <Stagger className="grid gap-5 md:grid-cols-3" gap={0.1}>
           {testimonials.map((t) => (
             <StaggerItem key={t.name}>
               <figure className="flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg">
                 <Stars rating={5} size={15} />
-                <blockquote className="mt-4 flex-1 text-[15px] leading-relaxed text-foreground/90">
+                <blockquote className="mt-4 flex-1 text-[0.9375rem] leading-relaxed text-foreground/90">
                   “{t.text}”
                 </blockquote>
                 <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
@@ -256,7 +255,7 @@ export default function HomePage() {
             </StaggerItem>
           ))}
         </Stagger>
-      </section>
+      </Section>
 
       {/* ── CTA ────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pb-24">
@@ -310,16 +309,17 @@ function SectionGrid({
   courses: typeof publishedCourses;
 }) {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-16">
-      <Reveal className="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
-          {sub && <p className="mt-1 text-muted-foreground">{sub}</p>}
-        </div>
-        <Button render={<Link href="/courses" />} variant="ghost" className="shrink-0">
-          View all <ArrowRight />
-        </Button>
-      </Reveal>
+    <Section>
+      <SectionHeading
+        title={title}
+        sub={sub}
+        className="mb-8"
+        action={
+          <Button render={<Link href="/courses" />} variant="ghost" className="shrink-0">
+            View all <ArrowRight />
+          </Button>
+        }
+      />
       <Stagger className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4" gap={0.07}>
         {courses.map((c) => (
           <StaggerItem key={c.id} className="h-full">
@@ -327,7 +327,7 @@ function SectionGrid({
           </StaggerItem>
         ))}
       </Stagger>
-    </section>
+    </Section>
   );
 }
 

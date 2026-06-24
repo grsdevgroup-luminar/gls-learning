@@ -4,18 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore, type Role } from "@/lib/context/store";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, RotateCcw, User, Shield, Eye } from "lucide-react";
+import { Sparkles, X, RotateCcw, User, Shield, Eye, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const roleMeta: Record<Role, { label: string; icon: typeof User }> = {
   guest: { label: "Visitor", icon: Eye },
   student: { label: "Student", icon: User },
+  instructor: { label: "Instructor", icon: GraduationCap },
   admin: { label: "Admin", icon: Shield },
 };
 
 export function DemoBar() {
-  const { role, loginAs, reset, mounted } = useStore();
+  const { role, loginAs, loginAsInstructor, reset, mounted } = useStore();
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -24,6 +25,11 @@ export function DemoBar() {
   function go(r: Role, path: string) {
     loginAs(r);
     router.push(path);
+    setOpen(false);
+  }
+  function goInstructor() {
+    loginAsInstructor();
+    router.push("/instructor");
     setOpen(false);
   }
 
@@ -49,6 +55,9 @@ export function DemoBar() {
             </Button>
             <Button variant="outline" size="sm" className="justify-start" onClick={() => go("student", "/dashboard")}>
               <User /> View as student
+            </Button>
+            <Button variant="outline" size="sm" className="justify-start" onClick={goInstructor}>
+              <GraduationCap /> View as instructor
             </Button>
             <Button variant="outline" size="sm" className="justify-start" onClick={() => go("admin", "/admin")}>
               <Shield /> View as admin

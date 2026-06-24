@@ -41,10 +41,10 @@ export default function DashboardPage() {
     .slice(0, 4);
 
   const stats = [
-    { icon: BookOpen, label: "Enrolled", value: courses.length },
-    { icon: Clock, label: "Time learned", value: formatHoursFromMin(minutesLearned) },
-    { icon: Flame, label: "Day streak", value: demoStudent.streakDays },
-    { icon: Award, label: "Certificates", value: completed.length },
+    { icon: BookOpen, label: "Enrolled", value: courses.length, tint: "var(--tint-indigo)" },
+    { icon: Clock, label: "Time learned", value: formatHoursFromMin(minutesLearned), tint: "var(--tint-sky)" },
+    { icon: Flame, label: "Day streak", value: demoStudent.streakDays, tint: "var(--tint-amber)" },
+    { icon: Award, label: "Certificates", value: completed.length, tint: "var(--tint-emerald)" },
   ];
 
   const days = ["M", "T", "W", "T", "F", "S", "S"];
@@ -68,8 +68,14 @@ export default function DashboardPage() {
       <section className="grid gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-[3fr_2fr]">
         <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-4">
           {stats.map((s) => (
-            <div key={s.label} className="bg-card p-5">
-              <s.icon className="size-4 text-muted-foreground" />
+            <div
+              key={s.label}
+              className="group bg-card p-5"
+              style={{ ["--tile" as string]: s.tint }}
+            >
+              <span className="icon-tile size-8">
+                <s.icon className="size-4" />
+              </span>
               <div className="mt-3 text-2xl font-bold leading-none tracking-tight tabular-nums">
                 {s.value}
               </div>

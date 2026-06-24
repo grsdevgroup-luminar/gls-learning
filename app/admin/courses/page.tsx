@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/context/store";
-import { getInstructor } from "@/lib/mock/instructors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +16,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatUsd, compactNumber } from "@/lib/format";
-import { Plus, Search, MoreHorizontal, Pencil, Eye, Copy, Trash2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, Eye, Copy, Trash2, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import type { Course, CourseStatus } from "@/types";
 
@@ -30,7 +29,7 @@ const statusStyle: Record<CourseStatus, string> = {
 };
 
 export default function AdminCourses() {
-  const { courses, upsertCourse, deleteCourse, mounted } = useStore();
+  const { courses, upsertCourse, deleteCourse, setCourseStatus, getInstructorById, mounted } = useStore();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | CourseStatus>("all");
 
@@ -109,7 +108,7 @@ export default function AdminCourses() {
                       <CourseArt seed={c.thumbnail} title={c.title} className="h-10 w-16 shrink-0 rounded-md" iconSize={16} />
                       <div className="min-w-0">
                         <div className="truncate font-medium">{c.title}</div>
-                        <div className="text-xs text-muted-foreground">{getInstructor(c.instructorId)?.name}</div>
+                        <div className="text-xs text-muted-foreground">{getInstructorById(c.instructorId)?.name}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -124,6 +123,17 @@ export default function AdminCourses() {
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}><MoreHorizontal className="h-4 w-4" /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {c.status === "review" && (
+                          <DropdownMenuItem
+                            className="text-success"
+                            onClick={() => {
+                              setCourseStatus(c.id, "published");
+                              toast.success("Course approved & published 🚀", { description: c.title });
+                            }}
+                          >
+                            <Rocket /> Approve &amp; publish
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem render={<Link href={`/admin/courses/${c.id}/edit`} />}><Pencil /> Edit</DropdownMenuItem>
                         <DropdownMenuItem render={<Link href={`/courses/${c.slug}`} />}><Eye /> View</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => duplicate(c)}><Copy /> Duplicate</DropdownMenuItem>

@@ -24,7 +24,7 @@ export function CircularProgress({
 
   return (
     <div className={cn("relative inline-grid place-items-center", className)} style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+      <svg width={size} height={size} className="size-full -rotate-90">
         <circle
           cx={size / 2}
           cy={size / 2}

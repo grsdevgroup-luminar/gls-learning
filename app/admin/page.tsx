@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 
 const kpiCards = [
-  { icon: DollarSign, label: "Revenue (YTD)", value: formatUsd(kpis.revenue).replace(".00", ""), delta: kpis.revenueDelta },
-  { icon: GraduationCap, label: "Enrollments", value: compactNumber(kpis.enrollments), delta: kpis.enrollmentsDelta },
-  { icon: Users, label: "Active students", value: compactNumber(kpis.activeStudents), delta: kpis.activeStudentsDelta },
-  { icon: Target, label: "Completion rate", value: `${kpis.completionRate}%`, delta: kpis.completionRateDelta },
+  { icon: DollarSign, label: "Revenue (YTD)", value: formatUsd(kpis.revenue).replace(".00", ""), delta: kpis.revenueDelta, tint: "var(--tint-emerald)" },
+  { icon: GraduationCap, label: "Enrollments", value: compactNumber(kpis.enrollments), delta: kpis.enrollmentsDelta, tint: "var(--tint-indigo)" },
+  { icon: Users, label: "Active students", value: compactNumber(kpis.activeStudents), delta: kpis.activeStudentsDelta, tint: "var(--tint-sky)" },
+  { icon: Target, label: "Completion rate", value: `${kpis.completionRate}%`, delta: kpis.completionRateDelta, tint: "var(--tint-violet)" },
 ];
 
 export default function AdminOverview() {
@@ -27,14 +27,20 @@ export default function AdminOverview() {
       {/* KPIs — embedded strip, not floating metric cards */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-4">
         {kpiCards.map((k) => (
-          <div key={k.label} className="bg-card p-5">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <k.icon className="size-4" /> {k.label}
+          <div
+            key={k.label}
+            className="group bg-card p-5"
+            style={{ ["--tile" as string]: k.tint }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="icon-tile size-8">
+                <k.icon className="size-4" />
               </span>
               <span
-                className={`inline-flex items-center text-xs font-medium tabular-nums ${
-                  k.delta >= 0 ? "text-success" : "text-destructive"
+                className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
+                  k.delta >= 0
+                    ? "bg-success/10 text-success"
+                    : "bg-destructive/10 text-destructive"
                 }`}
               >
                 {k.delta >= 0 ? (
@@ -46,6 +52,7 @@ export default function AdminOverview() {
               </span>
             </div>
             <div className="mt-3 text-2xl font-bold tracking-tight tabular-nums">{k.value}</div>
+            <div className="mt-1.5 text-xs text-muted-foreground">{k.label}</div>
           </div>
         ))}
       </div>
