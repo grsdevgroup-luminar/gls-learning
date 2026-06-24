@@ -1,6 +1,5 @@
-import { notFound } from "next/navigation";
-import { getCourse, courses } from "@/lib/mock/courses";
-import { CourseDetail } from "@/components/storefront/course-detail";
+import { courses } from "@/lib/mock/courses";
+import { CourseDetailLoader } from "@/components/storefront/course-detail-loader";
 
 export function generateStaticParams() {
   return courses.map((c) => ({ slug: c.slug }));
@@ -12,7 +11,5 @@ export default async function CoursePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const course = getCourse(slug);
-  if (!course) notFound();
-  return <CourseDetail course={course} />;
+  return <CourseDetailLoader slug={slug} />;
 }

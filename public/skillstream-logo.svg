@@ -1,0 +1,41 @@
+<svg
+  viewBox="0 0 48 48"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <linearGradient id="ssGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#1e3a8a" />
+      <stop offset="55%" stopColor="#1d4ed8" />
+      <stop offset="100%" stopColor="#2563eb" />
+    </linearGradient>
+    <linearGradient id="ssBar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="100%" stopColor="#dbeafe" />
+    </linearGradient>
+    <radialGradient id="ssSheen" cx="30%" cy="20%" r="65%">
+      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
+      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+    </radialGradient>
+    <filter id="ssShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#1e3a8a" floodOpacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Rounded background with soft shadow -->
+  <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#ssGrad)" filter="url(#ssShadow)" />
+
+  <!-- Glass sheen for a premium glossy finish -->
+  <ellipse cx="17" cy="12" rx="20" ry="10" fill="url(#ssSheen)" />
+
+  <!-- Refined inner border, like a badge -->
+  <rect x="5" y="5" width="38" height="38" rx="10" fill="none" stroke="#ffffff" strokeOpacity="0.18" />
+
+  <!-- Three ascending bars: skill growth -->
+  <rect x="14" y="24" width="6" height="12" rx="3" fill="url(#ssBar)" opacity="0.65" />
+  <rect x="23" y="18" width="6" height="18" rx="3" fill="url(#ssBar)" opacity="0.85" />
+  <rect x="32" y="11" width="6" height="25" rx="3" fill="url(#ssBar)" />
+
+  <!-- Gold accent: the premium mark of mastery -->
+  <circle cx="35" cy="7" r="2.2" fill="#fbbf24" />
+</svg>

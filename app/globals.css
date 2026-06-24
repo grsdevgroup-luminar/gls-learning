@@ -58,122 +58,113 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
 
-  /* Radius scale — buttons/inputs 10px, panels 12px, modals 16px. No pills. */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
+  /* Radius scale — cards 12, inputs/buttons 10, modals 16. No pills. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 6px);
+  --radius-3xl: calc(var(--radius) + 10px);
+  --radius-4xl: calc(var(--radius) + 14px);
 
-  /* Soft, low-contrast elevation. Never heavy. */
-  --shadow-2xs: 0 1px 2px rgba(15, 15, 20, 0.04);
-  --shadow-xs: 0 1px 2px rgba(15, 15, 20, 0.04);
-  --shadow-sm: 0 1px 2px rgba(15, 15, 20, 0.04), 0 2px 4px rgba(15, 15, 20, 0.03);
-  --shadow: 0 1px 2px rgba(15, 15, 20, 0.04), 0 8px 16px rgba(15, 15, 20, 0.05);
-  --shadow-md: 0 2px 4px rgba(15, 15, 20, 0.05), 0 12px 24px rgba(15, 15, 20, 0.06);
-  --shadow-lg: 0 4px 8px rgba(15, 15, 20, 0.06), 0 20px 40px rgba(15, 15, 20, 0.09);
-  --shadow-xl: 0 8px 16px rgba(15, 15, 20, 0.08), 0 32px 64px rgba(15, 15, 20, 0.12);
+  /* Elevation — extremely soft, layered. Never heavy. */
+  --shadow-2xs: 0 1px 2px rgba(17, 17, 17, 0.04);
+  --shadow-xs: 0 1px 2px rgba(17, 17, 17, 0.04);
+  --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.04), 0 1px 3px rgba(17, 17, 17, 0.03);
+  --shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 4px 12px rgba(17, 17, 17, 0.05);
+  --shadow-md: 0 1px 2px rgba(17, 17, 17, 0.04), 0 8px 24px rgba(17, 17, 17, 0.06);
+  --shadow-lg: 0 1px 2px rgba(17, 17, 17, 0.04), 0 12px 32px rgba(17, 17, 17, 0.08);
+  --shadow-xl: 0 1px 2px rgba(17, 17, 17, 0.05), 0 24px 48px rgba(17, 17, 17, 0.10);
+  --shadow-2xl: 0 1px 2px rgba(17, 17, 17, 0.05), 0 40px 72px rgba(17, 17, 17, 0.14);
 }
 
 :root {
-  /* Light Mode — soft tinted canvas so white cards lift, with a confident indigo accent */
-  --background: #F7F7FB;
-  --foreground: #0E0E12;
-  --card: #FFFFFF;
-  --card-foreground: #0E0E12;
-  --popover: #FFFFFF;
-  --popover-foreground: #0E0E12;
-  --primary: #4F46E5;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F1F1F6;
-  --secondary-foreground: #0E0E12;
-  --muted: #F1F1F6;
-  --muted-foreground: #65656F;
-  --accent: #EEF0FF;
-  --accent-foreground: #3730A3;
-  --destructive: #DC2626;
-  --destructive-foreground: #FFFFFF;
-  --success: #15803D;
-  --success-foreground: #FFFFFF;
-  --warning: #B45309;
-  --warning-foreground: #FFFFFF;
-  --border: #E7E7EB;
-  --input: #F4F4F6;
-  --ring: #4F46E5;
-  --chart-1: #4F46E5;
-  --chart-2: #7C3AED;
-  --chart-3: #2563EB;
-  --chart-4: #0D9488;
-  --chart-5: #6B6B76;
-  --radius: 10px;
-  --sidebar: #FBFBFC;
-  --sidebar-foreground: #0E0E12;
-  --sidebar-primary: #4F46E5;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EEF0FF;
-  --sidebar-accent-foreground: #3730A3;
-  --sidebar-border: #E7E7EB;
-  --sidebar-ring: #4F46E5;
-
-  /* Aurora accents — same hue family as primary, used sparingly for glow/spotlight effects */
-  --aurora-1: #6366F1;
-  --aurora-2: #8B5CF6;
-  --aurora-3: #3B82F6;
-
-  /* Accent tint palette — lively, saturated hues for icon tiles & category chips */
-  --tint-indigo: #4F46E5;
-  --tint-violet: #7C3AED;
-  --tint-blue: #2563EB;
-  --tint-sky: #0EA5E9;
-  --tint-teal: #0D9488;
-  --tint-emerald: #059669;
-  --tint-amber: #D97706;
-  --tint-rose: #E11D48;
+  /* Light — warm, calm, paper-like. Brand is indigo to echo the aurora dark. */
+  --background: #fafaf8;
+  --foreground: #100f17;
+  --card: #ffffff;
+  --card-foreground: #100f17;
+  --popover: #ffffff;
+  --popover-foreground: #100f17;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f3f7;
+  --secondary-foreground: #1c1a26;
+  --muted: #f4f3f7;
+  --muted-foreground: #6b6878;
+  --accent: #efeef4;
+  --accent-foreground: #100f17;
+  --destructive: #dc2626;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --border: rgba(16, 15, 23, 0.08);
+  --input: rgba(16, 15, 23, 0.12);
+  --ring: #4f46e5;
+  /* Aurora-tinted but restrained chart palette: indigo · cyan · emerald · amber · magenta */
+  --chart-1: #4f46e5;
+  --chart-2: #0ea5e9;
+  --chart-3: #16a34a;
+  --chart-4: #d97706;
+  --chart-5: #c026d3;
+  /* Signature aurora stops — reused by glows, gradient text, mesh */
+  --aurora-1: #38bdf8; /* cyan  */
+  --aurora-2: #6d6bff; /* indigo */
+  --aurora-3: #c026d3; /* magenta */
+  --radius: 0.7rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #100f17;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efeef4;
+  --sidebar-accent-foreground: #100f17;
+  --sidebar-border: rgba(16, 15, 23, 0.08);
+  --sidebar-ring: #4f46e5;
 }
 
 .dark {
-  /* Dark Mode — deep near-black graphite, never pure black, lifted indigo accent */
-  --background: #08080A;
-  --foreground: #F2F2F5;
-  --card: #0F0F12;
-  --card-foreground: #F2F2F5;
-  --popover: #14141A;
-  --popover-foreground: #F2F2F5;
-  --primary: #818CF8;
-  --primary-foreground: #0B0B10;
-  --secondary: #17171C;
-  --secondary-foreground: #F2F2F5;
-  --muted: #1C1C22;
-  --muted-foreground: #9C9CAA;
-  --accent: #181826;
-  --accent-foreground: #C7D2FE;
-  --destructive: #F87171;
-  --destructive-foreground: #1A0A0A;
-  --success: #4ADE80;
-  --success-foreground: #07170D;
-  --warning: #FBBF24;
-  --warning-foreground: #1A1206;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.06);
-  --ring: #818CF8;
-  --chart-1: #818CF8;
-  --chart-2: #A78BFA;
-  --chart-3: #60A5FA;
-  --chart-4: #2DD4BF;
-  --chart-5: #9C9CAA;
-  --radius: 10px;
-  --sidebar: #0B0B0E;
-  --sidebar-foreground: #F2F2F5;
-  --sidebar-primary: #818CF8;
-  --sidebar-primary-foreground: #0B0B10;
-  --sidebar-accent: #181826;
-  --sidebar-accent-foreground: #C7D2FE;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #818CF8;
-
-  --aurora-1: #818CF8;
-  --aurora-2: #A78BFA;
-  --aurora-3: #60A5FA;
+  /* Dark — a deep indigo "aurora" surface, not flat black. The base carries a
+     real blue-violet tint (hue 275) and elevation climbs in distinct steps so
+     cards, popovers and the page each read as their own lit plane. */
+  --background: oklch(0.171 0.021 274);
+  --foreground: oklch(0.97 0.006 274);
+  --card: oklch(0.214 0.024 274);
+  --card-foreground: oklch(0.97 0.006 274);
+  --popover: oklch(0.236 0.027 274);
+  --popover-foreground: oklch(0.97 0.006 274);
+  --primary: oklch(0.7 0.165 274);
+  --primary-foreground: oklch(0.16 0.03 274);
+  --secondary: oklch(0.248 0.026 274);
+  --secondary-foreground: oklch(0.97 0.006 274);
+  --muted: oklch(0.248 0.026 274);
+  --muted-foreground: oklch(0.74 0.028 274);
+  --accent: oklch(0.288 0.034 274);
+  --accent-foreground: oklch(0.985 0.004 274);
+  --destructive: oklch(0.7 0.18 18);
+  --success: oklch(0.78 0.16 158);
+  --success-foreground: oklch(0.17 0.03 274);
+  --warning: oklch(0.84 0.15 82);
+  --warning-foreground: oklch(0.2 0.03 82);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.7 0.165 274);
+  --chart-1: oklch(0.7 0.165 274);  /* indigo  */
+  --chart-2: oklch(0.74 0.13 220);  /* cyan    */
+  --chart-3: oklch(0.78 0.16 158);  /* emerald */
+  --chart-4: oklch(0.84 0.15 82);   /* amber   */
+  --chart-5: oklch(0.68 0.2 330);   /* magenta */
+  --aurora-1: oklch(0.8 0.14 220);
+  --aurora-2: oklch(0.7 0.18 274);
+  --aurora-3: oklch(0.68 0.22 330);
+  --sidebar: oklch(0.194 0.023 274);
+  --sidebar-foreground: oklch(0.97 0.006 274);
+  --sidebar-primary: oklch(0.7 0.165 274);
+  --sidebar-primary-foreground: oklch(0.16 0.03 274);
+  --sidebar-accent: oklch(0.288 0.034 274);
+  --sidebar-accent-foreground: oklch(0.985 0.004 274);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.7 0.165 274);
 
   /* Accent tint palette — lifted for dark surfaces */
   --tint-indigo: #818CF8;
@@ -185,232 +176,92 @@
   --tint-amber: #FBBF24;
   --tint-rose: #FB7185;
 
-  /* Dark mode shadows lean on the indigo accent, not flat black */
-  --shadow-2xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 14px 28px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.45);
-  --shadow-xl: 0 8px 20px rgba(0, 0, 0, 0.45), 0 36px 72px rgba(0, 0, 0, 0.5);
+  /* Slightly lift elevation on dark so soft shadows still read */
+  --shadow-2xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 1px 2px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.55);
+  --shadow-2xl: 0 1px 2px rgba(0, 0, 0, 0.6), 0 40px 72px rgba(0, 0, 0, 0.6);
 }
 
 @layer base {
   * {
-    border-color: var(--border);
-    outline-color: var(--ring);
+    @apply border-border outline-ring/50;
   }
   body {
-    background-color: var(--background);
-    /* Ambient brand wash — fixed so content scrolls over a calm tinted canvas */
-    background-image:
-      radial-gradient(1100px circle at 8% -5%, color-mix(in oklch, var(--aurora-1) 8%, transparent), transparent 55%),
-      radial-gradient(1000px circle at 98% 0%, color-mix(in oklch, var(--aurora-2) 7%, transparent), transparent 50%),
-      radial-gradient(900px circle at 50% 110%, color-mix(in oklch, var(--aurora-3) 6%, transparent), transparent 55%);
-    background-attachment: fixed;
-    color: var(--foreground);
-    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv01", "cv03", "cv04", "ss01";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+  html {
+    @apply font-sans;
+  }
+  /* Ambient depth — a multi-hued aurora wash keeps the page from reading as
+     flat black: cyan top-left, indigo center, magenta right. Static fallback;
+     the <AuroraField> component layers slow living motion on top of this. */
   .dark body {
     background-image:
-      radial-gradient(1100px circle at 8% -5%, color-mix(in oklch, var(--aurora-1) 13%, transparent), transparent 55%),
-      radial-gradient(1000px circle at 98% 0%, color-mix(in oklch, var(--aurora-2) 12%, transparent), transparent 50%),
-      radial-gradient(900px circle at 50% 110%, color-mix(in oklch, var(--aurora-3) 10%, transparent), transparent 55%);
+      radial-gradient(
+        52rem 36rem at 8% -8%,
+        color-mix(in oklch, var(--aurora-1) 16%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        60rem 42rem at 50% -14%,
+        color-mix(in oklch, var(--aurora-2) 16%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        44rem 32rem at 100% 4%,
+        color-mix(in oklch, var(--aurora-3) 13%, transparent),
+        transparent 58%
+      );
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
-  html {
-    font-family: var(--font-sans);
-    scroll-behavior: smooth;
+  /* Light gets a whisper of the same wash so the brand reads top-to-bottom. */
+  :root body {
+    background-image:
+      radial-gradient(46rem 32rem at 12% -10%, color-mix(in oklch, var(--aurora-1) 8%, transparent), transparent 60%),
+      radial-gradient(50rem 36rem at 88% -12%, color-mix(in oklch, var(--aurora-3) 6%, transparent), transparent 60%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
-  /* Tight, confident SaaS typography hierarchy */
-  h1 {
-    font-size: 40px;
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.1;
-    margin-bottom: 1.5rem;
+  /* Strong, tight typographic hierarchy carries the design */
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight;
+    font-feature-settings: "ss01", "cv01";
   }
-  h2 {
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-    margin-bottom: 1.25rem;
-    margin-top: 2rem;
-  }
-  h3 {
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.3;
-    margin-bottom: 0.75rem;
-    margin-top: 1.5rem;
-  }
-  h4 {
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1.4;
-    margin-bottom: 0.5rem;
-  }
-  p {
-    font-size: 15px;
-    font-weight: 400;
-    line-height: 1.6;
-    margin-bottom: 1rem;
-  }
-  small, .text-sm {
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.5;
-  }
+  h1 { letter-spacing: -0.02em; }
+  h2 { letter-spacing: -0.018em; }
   ::selection {
-    background-color: var(--primary);
-    color: var(--primary-foreground);
-  }
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: var(--border);
-    border-radius: 8px;
-    border: 2px solid transparent;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--muted-foreground);
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
   }
 }
 
-/* Premium surface utilities — no floating cards everywhere */
-.surface {
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-}
-
-.surface-elevated {
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
-}
-
-.surface-secondary {
-  background-color: var(--secondary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-/* Subtle divider — replace heavy borders */
-.divider {
-  height: 1px;
-  background-color: var(--border);
-  margin: 1.5rem 0;
-}
-
-/* Editorial section spacing */
-.editorial-section {
-  padding: 4rem 0;
-}
-
-.editorial-section + .editorial-section {
-  border-top: 1px solid var(--border);
-}
-
-/* Premium button utilities */
-.btn-primary {
+/* Brand mark — a deep aurora sweep (indigo → magenta) that stays legible. */
+@utility brand-gradient {
   background-color: var(--primary);
-  color: var(--primary-foreground);
-  border-radius: 10px;
-  padding: 0.625rem 1.5rem;
-  font-size: 15px;
-  font-weight: 500;
-  border: 1px solid transparent;
-  transition: all 0.15s ease;
-  cursor: pointer;
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--aurora-2) 92%, white) 0%,
+    var(--primary) 48%,
+    color-mix(in oklch, var(--aurora-3) 72%, var(--primary)) 100%
+  );
 }
 
-.btn-primary:hover {
-  opacity: 0.9;
-  box-shadow: var(--shadow);
-}
-
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
-.btn-secondary {
-  background-color: var(--secondary);
-  color: var(--foreground);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.625rem 1.5rem;
-  font-size: 15px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  cursor: pointer;
-}
-
-.btn-secondary:hover {
-  background-color: var(--muted);
-  box-shadow: var(--shadow);
-}
-
-.btn-ghost {
-  background-color: transparent;
-  color: var(--foreground);
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 0.625rem 1.5rem;
-  font-size: 15px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  cursor: pointer;
-}
-
-.btn-ghost:hover {
-  background-color: var(--secondary);
-  border-color: var(--border);
-}
-
-/* Premium input styling */
-.input-premium {
-  background-color: var(--input);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.625rem 1rem;
-  font-size: 15px;
-  color: var(--foreground);
-  transition: all 0.15s ease;
-}
-
-.input-premium:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 18%, transparent);
-}
-
-/* Polished, premium interactions — fast and confident */
-.transition-subtle {
-  transition: all 0.15s ease;
-}
-
-.transition-smooth {
-  transition: all 0.2s ease;
-}
-
-/* Brand mark — confident indigo-to-violet gradient, used sparingly on avatars/logo/banners */
-.brand-gradient {
-  background-image: linear-gradient(135deg, var(--aurora-1), var(--aurora-2));
-}
-
-.text-brand-gradient {
-  background-image: linear-gradient(135deg, var(--aurora-1), var(--aurora-2));
+/* Aurora gradient text — used sparingly on a single emphasis phrase. */
+@utility text-brand-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--aurora-1) 0%,
+    var(--aurora-2) 46%,
+    var(--aurora-3) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -459,93 +310,102 @@
   border: 1px solid color-mix(in oklch, var(--tile) 20%, var(--border));
 }
 
-/* Spotlight card — cursor-tracked glow + lifted shadow on hover, paired with SpotlightCard */
-.spotlight {
-  position: relative;
+/* Hairline helpers for embedded, low-elevation sections (Linear/Raycast feel) */
+@utility surface {
   background-color: var(--card);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+@utility elevated {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+/* Cursor spotlight — JS writes --mx/--my (px, element-local). A soft aurora
+   pool follows the pointer and an aurora hairline lights the border on hover. */
+@utility spotlight {
+  position: relative;
   isolation: isolate;
 }
-
-.spotlight:hover {
-  box-shadow: var(--shadow-lg);
-  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
-}
-
-.spotlight-glow {
+@utility spotlight-glow {
   position: absolute;
-  inset: 0;
+  inset: -1px;
   z-index: 0;
-  pointer-events: none;
-  opacity: 0;
   border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.35s ease;
   background: radial-gradient(
-    480px circle at var(--mx, 50%) var(--my, 50%),
-    color-mix(in oklch, var(--primary) 16%, transparent),
-    transparent 70%
+    16rem 16rem at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklch, var(--primary) 22%, transparent),
+    transparent 60%
   );
-  transition: opacity 0.3s ease;
 }
-
 .spotlight:hover .spotlight-glow {
   opacity: 1;
 }
-
-.spotlight-ring {
+/* Aurora hairline that rides the border on hover (masked ring) */
+@utility spotlight-ring {
   position: absolute;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
+  z-index: 1;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1px transparent;
-  transition: box-shadow 0.3s ease;
+  padding: 1px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    20rem 20rem at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklch, var(--aurora-2) 70%, transparent),
+    transparent 55%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
-
 .spotlight:hover .spotlight-ring {
-  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 22%, transparent);
+  opacity: 1;
 }
 
-/* Grain — near-invisible noise texture for depth on hero/dark surfaces */
-.grain {
+/* Fine film grain — kills banding on the big aurora gradients, adds texture. */
+@utility grain {
   position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-
 .dark .grain {
   opacity: 0.05;
 }
 
-/* Sheen — a single light sweep across a CTA on hover. Confident, not flashy. */
-.sheen {
+/* Diagonal sheen sweep — used on primary CTAs and badges on hover. */
+@utility sheen {
   position: relative;
   overflow: hidden;
 }
-
 .sheen::after {
   content: "";
   position: absolute;
   inset: 0;
+  transform: translateX(-130%) skewX(-18deg);
   background: linear-gradient(
-    115deg,
-    transparent 30%,
-    color-mix(in oklch, white 35%, transparent) 50%,
-    transparent 70%
+    90deg,
+    transparent,
+    color-mix(in oklch, white 28%, transparent),
+    transparent
   );
-  transform: translateX(-120%);
-  transition: transform 0.6s ease;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
-
 .sheen:hover::after {
-  transform: translateX(120%);
+  transform: translateX(130%) skewX(-18deg);
 }
 
-/* Disable animations for reduced-motion preference */
+/* Honor reduced-motion: drop the heavy stuff, keep opacity transitions. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

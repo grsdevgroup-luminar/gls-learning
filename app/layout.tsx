@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LearnHub — Learn anything, anywhere",
+  title: "SkillStream — Learn anything, anywhere",
   description:
     "A modern course platform: world-class courses, protected video, progress tracking, and region-fair pricing.",
 };

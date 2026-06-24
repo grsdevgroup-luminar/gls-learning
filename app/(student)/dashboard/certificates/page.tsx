@@ -39,7 +39,10 @@ export default function CertificatesPage() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {earned.map(({ course }) => (
             <Dialog key={course.id}>
-              <DialogTrigger render={<Card className="cursor-pointer p-0 transition-all hover:-translate-y-1 hover:shadow-lg" />}>
+              <DialogTrigger
+                nativeButton={false}
+                render={<Card className="cursor-pointer p-0 transition-all hover:-translate-y-1 hover:shadow-lg" />}
+              >
                 <CardContent className="p-0">
                   <CertificatePreview course={course} small />
                   <div className="flex items-center justify-between p-3">
@@ -48,7 +51,7 @@ export default function CertificatesPage() {
                   </div>
                 </CardContent>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl overflow-visible">
                 <CertificatePreview course={course} />
                 <div className="flex justify-center gap-3">
                   <Button><Download /> Download PDF</Button>
@@ -105,7 +108,7 @@ function CertificatePreview({ course, small }: { course: Course; small?: boolean
         <p className={`font-semibold text-primary ${small ? "text-sm" : "text-lg"}`}>{course.title}</p>
         {!small && (
           <div className="mt-6 flex items-center justify-center gap-8 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Verified · LearnHub</div>
+            <div className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Verified · SkillStream</div>
             <div>Instructor: {instructor?.name}</div>
             <div>June 2026</div>
           </div>

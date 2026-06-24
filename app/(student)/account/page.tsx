@@ -61,7 +61,7 @@ export default function AccountPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base"><Bell className="h-4 w-4 text-primary" /> Notification preferences</CardTitle>
-          <CardDescription>Choose how LearnHub keeps you on track. This powers the automated reminder system.</CardDescription>
+          <CardDescription>Choose how SkillStream keeps you on track. This powers the automated reminder system.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-1">
           <div className="hidden grid-cols-[1fr_80px_80px] items-center gap-2 px-1 pb-2 text-xs font-medium text-muted-foreground sm:grid">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { publishedCourses } from "@/lib/mock/courses";
+import { useStore } from "@/lib/context/store";
 import type { NavItem } from "@/components/shared/portal-shell";
 import { Search, CornerDownLeft, ArrowRight, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ type Cmd = {
 };
 
 export function CommandPalette({ items }: { items: NavItem[] }) {
+  const { courses } = useStore();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -43,16 +44,19 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
       icon: it.icon,
       group: "Navigation",
     }));
-    const courses: Cmd[] = publishedCourses.slice(0, 8).map((c) => ({
-      id: c.id,
-      label: c.title,
-      hint: "Open course",
-      href: `/learn/${c.slug}`,
-      icon: GraduationCap,
-      group: "Courses",
-    }));
-    return [...nav, ...courses];
-  }, [items]);
+    const courseCmds: Cmd[] = courses
+      .filter((c) => c.status === "published")
+      .slice(0, 8)
+      .map((c) => ({
+        id: c.id,
+        label: c.title,
+        hint: "Open course",
+        href: `/learn/${c.slug}`,
+        icon: GraduationCap,
+        group: "Courses",
+      }));
+    return [...nav, ...courseCmds];
+  }, [items, courses]);
 
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();

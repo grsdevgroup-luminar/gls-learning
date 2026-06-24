@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { publishedCourses, categories } from "@/lib/mock/courses";
+import { categories } from "@/lib/mock/courses";
+import { useStore } from "@/lib/context/store";
 import { CourseCard } from "@/components/storefront/course-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,11 @@ const priceBuckets = [
 ];
 
 export function CatalogClient() {
+  const { courses } = useStore();
+  const publishedCourses = useMemo(
+    () => courses.filter((c) => c.status === "published"),
+    [courses],
+  );
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
   const [cats, setCats] = useState<string[]>(
@@ -58,7 +64,7 @@ export function CatalogClient() {
       }
     });
     return out;
-  }, [q, cats, lvls, price, minRating, sort]);
+  }, [q, cats, lvls, price, minRating, sort, publishedCourses]);
 
   function toggle<T>(list: T[], value: T, set: (v: T[]) => void) {
     set(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);

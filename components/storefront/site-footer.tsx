@@ -55,7 +55,7 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="border-t py-4 text-center text-xs text-muted-foreground">
-        © 2026 LearnHub — prototype for client review. Not a live store.
+        © 2026 SkillStream — prototype for client review. Not a live store.
       </div>
     </footer>
   );

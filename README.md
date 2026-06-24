@@ -1,4 +1,4 @@
-# LearnHub — Course Platform Prototype
+# SkillStream — Course Platform Prototype
 
 A clickable, high-fidelity prototype of a full course-selling platform: a polished
 student-facing **storefront**, a complete **student learning portal**, and an advanced

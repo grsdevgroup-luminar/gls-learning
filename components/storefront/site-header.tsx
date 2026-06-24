@@ -17,7 +17,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/context/store";
 import { demoStudent } from "@/lib/mock/students";
@@ -36,7 +35,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/55">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55">
       {/* aurora hairline under the header */}
       <span
         aria-hidden
@@ -60,46 +59,67 @@ export function SiteHeader() {
           />
         </form>
 
-        <div className="ml-auto flex items-center gap-2">
-          <div className="hidden sm:block">
-            <RegionSelect compact />
+        <div className="ml-auto flex items-center gap-3">
+          <div className="hidden items-center gap-0.5 rounded-full border border-border bg-muted/40 p-1 sm:flex">
+            <RegionSelect
+              compact
+              className="h-7 gap-1 rounded-full border-0 bg-transparent px-2 shadow-none hover:bg-accent"
+            />
+            <span aria-hidden className="h-4 w-px bg-border" />
+            <ThemeToggle size="icon-sm" className="rounded-full" />
+            <span aria-hidden className="h-4 w-px bg-border" />
+            <Button
+              render={<Link href="/cart" />}
+              variant="ghost"
+              size="icon-sm"
+              className="relative rounded-full"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {mounted && cart.length > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                  {cart.length}
+                </Badge>
+              )}
+            </Button>
           </div>
-          <ThemeToggle />
-          <Button
-            render={<Link href="/cart" />}
-            variant="ghost"
-            size="icon"
-            className="relative"
-            aria-label="Cart"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {mounted && cart.length > 0 && (
-              <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
-                {cart.length}
-              </Badge>
-            )}
-          </Button>
+
+          <div className="flex items-center gap-1 sm:hidden">
+            <ThemeToggle />
+            <Button
+              render={<Link href="/cart" />}
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {mounted && cart.length > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                  {cart.length}
+                </Badge>
+              )}
+            </Button>
+          </div>
 
           {!mounted ? null : isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="rounded-full" />}
               >
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 ring-1 ring-border">
                   <AvatarFallback className="brand-gradient text-xs text-white">
                     {role === "admin" ? "AD" : initials(demoStudent.name)}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>
-                    <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
-                    <div className="text-xs font-normal text-muted-foreground">
-                      {role === "admin" ? "admin@demo.com" : demoStudent.email}
-                    </div>
-                  </DropdownMenuLabel>
-                </DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
+                  <div className="text-xs font-normal text-muted-foreground">
+                    {role === "admin" ? "admin@demo.com" : demoStudent.email}
+                  </div>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem render={<Link href="/dashboard" />}>
                   <LayoutDashboard /> Dashboard
