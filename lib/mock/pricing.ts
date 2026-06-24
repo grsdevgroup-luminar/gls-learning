@@ -8,6 +8,7 @@ export interface RegionRow {
   flag: string;
   currency: string;
   symbol: string;
+  locale: string; // BCP-47 locale for correct currency grouping/symbol placement
   fxRate: number;
   multiplier: number;
   tierId: string;
@@ -42,18 +43,18 @@ export const countryOverrides: CountryOverride[] = [
 ];
 
 export const regions: RegionRow[] = [
-  { code: "US", country: "United States", flag: "🇺🇸", currency: "USD", symbol: "$", fxRate: 1, multiplier: 1, tierId: "t1" },
-  { code: "GB", country: "United Kingdom", flag: "🇬🇧", currency: "GBP", symbol: "£", fxRate: 0.79, multiplier: 1, tierId: "t1" },
-  { code: "DE", country: "Germany", flag: "🇩🇪", currency: "EUR", symbol: "€", fxRate: 0.92, multiplier: 1, tierId: "t1" },
-  { code: "CA", country: "Canada", flag: "🇨🇦", currency: "CAD", symbol: "C$", fxRate: 1.37, multiplier: 1, tierId: "t1" },
-  { code: "AU", country: "Australia", flag: "🇦🇺", currency: "AUD", symbol: "A$", fxRate: 1.51, multiplier: 1, tierId: "t1" },
-  { code: "BR", country: "Brazil", flag: "🇧🇷", currency: "BRL", symbol: "R$", fxRate: 5.42, multiplier: 0.7, tierId: "t2" },
-  { code: "MX", country: "Mexico", flag: "🇲🇽", currency: "MXN", symbol: "MX$", fxRate: 17.1, multiplier: 0.7, tierId: "t2" },
-  { code: "TR", country: "Turkey", flag: "🇹🇷", currency: "TRY", symbol: "₺", fxRate: 32.5, multiplier: 0.7, tierId: "t2" },
-  { code: "ZA", country: "South Africa", flag: "🇿🇦", currency: "ZAR", symbol: "R", fxRate: 18.4, multiplier: 0.7, tierId: "t2" },
-  { code: "IN", country: "India", flag: "🇮🇳", currency: "INR", symbol: "₹", fxRate: 83.2, multiplier: 0.35, tierId: "t3", override: true },
-  { code: "BD", country: "Bangladesh", flag: "🇧🇩", currency: "BDT", symbol: "৳", fxRate: 117, multiplier: 0.3, tierId: "t3", override: true },
-  { code: "NG", country: "Nigeria", flag: "🇳🇬", currency: "NGN", symbol: "₦", fxRate: 1480, multiplier: 0.45, tierId: "t3" },
+  { code: "US", country: "United States", flag: "🇺🇸", currency: "USD", symbol: "$", locale: "en-US", fxRate: 1, multiplier: 1, tierId: "t1" },
+  { code: "GB", country: "United Kingdom", flag: "🇬🇧", currency: "GBP", symbol: "£", locale: "en-GB", fxRate: 0.79, multiplier: 1, tierId: "t1" },
+  { code: "DE", country: "Germany", flag: "🇩🇪", currency: "EUR", symbol: "€", locale: "de-DE", fxRate: 0.92, multiplier: 1, tierId: "t1" },
+  { code: "CA", country: "Canada", flag: "🇨🇦", currency: "CAD", symbol: "C$", locale: "en-CA", fxRate: 1.37, multiplier: 1, tierId: "t1" },
+  { code: "AU", country: "Australia", flag: "🇦🇺", currency: "AUD", symbol: "A$", locale: "en-AU", fxRate: 1.51, multiplier: 1, tierId: "t1" },
+  { code: "BR", country: "Brazil", flag: "🇧🇷", currency: "BRL", symbol: "R$", locale: "pt-BR", fxRate: 5.42, multiplier: 0.7, tierId: "t2" },
+  { code: "MX", country: "Mexico", flag: "🇲🇽", currency: "MXN", symbol: "MX$", locale: "es-MX", fxRate: 17.1, multiplier: 0.7, tierId: "t2" },
+  { code: "TR", country: "Turkey", flag: "🇹🇷", currency: "TRY", symbol: "₺", locale: "tr-TR", fxRate: 32.5, multiplier: 0.7, tierId: "t2" },
+  { code: "ZA", country: "South Africa", flag: "🇿🇦", currency: "ZAR", symbol: "R", locale: "en-ZA", fxRate: 18.4, multiplier: 0.7, tierId: "t2" },
+  { code: "IN", country: "India", flag: "🇮🇳", currency: "INR", symbol: "₹", locale: "en-IN", fxRate: 83.2, multiplier: 0.35, tierId: "t3", override: true },
+  { code: "BD", country: "Bangladesh", flag: "🇧🇩", currency: "BDT", symbol: "৳", locale: "bn-BD", fxRate: 117, multiplier: 0.3, tierId: "t3", override: true },
+  { code: "NG", country: "Nigeria", flag: "🇳🇬", currency: "NGN", symbol: "₦", locale: "en-NG", fxRate: 1480, multiplier: 0.45, tierId: "t3" },
 ];
 
 export const DEFAULT_REGION = "US";
@@ -71,9 +72,13 @@ export function regionalUsd(basePrice: number, region: RegionRow): number {
 
 export function formatLocal(usd: number, region: RegionRow): string {
   const local = usd * region.fxRate;
-  const decimals = local > 1000 ? 0 : region.fxRate >= 50 ? 0 : 2;
-  return `${region.symbol}${local.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  })}`;
+  // Let Intl decide the symbol, placement and the currency's natural number of
+  // decimals (e.g. JPY/0, USD/2). Round whole units for low-value currencies so
+  // we don't show misleading sub-unit precision on FX-converted prices.
+  const wholeUnits = local >= 1000 || region.fxRate >= 50;
+  return new Intl.NumberFormat(region.locale, {
+    style: "currency",
+    currency: region.currency,
+    ...(wholeUnits ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
+  }).format(local);
 }

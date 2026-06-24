@@ -2,6 +2,7 @@ import { gradientFor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   Atom, Braces, BrainCircuit, PenTool, Cloud, TrendingUp, Code2, Layers,
+  Mic, HeartHandshake, PiggyBank, Sparkles, Languages,
   type LucideIcon,
 } from "lucide-react";
 
@@ -14,6 +15,11 @@ const icons: Record<string, LucideIcon> = {
   growth: TrendingUp,
   python: Code2,
   system: Layers,
+  speaking: Mic,
+  social: HeartHandshake,
+  finance: PiggyBank,
+  mindfulness: Sparkles,
+  language: Languages,
 };
 
 export function CourseArt({

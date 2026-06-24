@@ -11,7 +11,7 @@ import { AreaTrend } from "@/components/charts/charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Target, Clock, TrendingUp, PlayCircle, Award } from "lucide-react";
+import { Flame, Target, Clock, TrendingUp, PlayCircle, Award, HelpCircle, CheckCircle2 } from "lucide-react";
 import { formatHoursFromMin } from "@/lib/format";
 
 const weekly = [
@@ -25,13 +25,15 @@ const weekly = [
 ];
 
 export default function ProgressPage() {
-  const { enrolled, completedCount, mounted } = useStore();
+  const { enrolled, completedCount, getQuizResult, mounted } = useStore();
   if (!mounted) return <div className="p-6 md:p-8" />;
 
   const courses = enrolled.map((id) => getCourseById(id)).filter(Boolean).map((c) => {
     const total = courseLessonCount(c!);
     const done = completedCount(c!.id);
-    return { course: c!, total, done, pct: total ? Math.round((done / total) * 100) : 0 };
+    const quizLessons = c!.sections.flatMap((s) => s.lessons.filter((l) => l.type === "quiz" && l.quiz));
+    const quizzes = quizLessons.map((l) => ({ lesson: l, result: getQuizResult(c!.id, l.id) }));
+    return { course: c!, total, done, pct: total ? Math.round((done / total) * 100) : 0, quizzes };
   });
 
   const overall = courses.length
@@ -39,6 +41,14 @@ export default function ProgressPage() {
     : 0;
   const lessonsDone = courses.reduce((s, c) => s + c.done, 0);
   const minutes = demoStudent.enrollments.reduce((s, e) => s + e.minutesWatched, 0);
+
+  const attemptedQuizzes = courses.flatMap((c) => c.quizzes).filter((q) => q.result);
+  const passedQuizzes = attemptedQuizzes.filter((q) => q.result?.passed);
+  const avgQuizScore = attemptedQuizzes.length
+    ? Math.round(
+        attemptedQuizzes.reduce((s, q) => s + (q.result?.bestScore ?? 0), 0) / attemptedQuizzes.length,
+      )
+    : null;
 
   const stats = [
     { icon: Target, label: "Overall completion", value: `${overall}%` },
@@ -81,6 +91,52 @@ export default function ProgressPage() {
           <p className="mt-2 text-center text-xs text-muted-foreground">Minutes learned per day</p>
         </CardContent>
       </Card>
+
+      {attemptedQuizzes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <HelpCircle className="h-4 w-4 text-primary" /> Quiz performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold">{avgQuizScore}%</div>
+                <div className="text-xs text-muted-foreground">Average score</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{passedQuizzes.length}/{attemptedQuizzes.length}</div>
+                <div className="text-xs text-muted-foreground">Quizzes passed</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">
+                  {attemptedQuizzes.reduce((s, q) => s + (q.result?.attempts ?? 0), 0)}
+                </div>
+                <div className="text-xs text-muted-foreground">Total attempts</div>
+              </div>
+            </div>
+            <ul className="divide-y">
+              {courses.flatMap((c) =>
+                c.quizzes
+                  .filter((q) => q.result)
+                  .map((q) => (
+                    <li key={`${c.course.id}-${q.lesson.id}`} className="flex items-center justify-between py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{q.lesson.title}</p>
+                        <p className="text-xs text-muted-foreground">{c.course.title}</p>
+                      </div>
+                      <Badge variant={q.result!.passed ? "secondary" : "outline"} className={q.result!.passed ? "text-success" : "text-muted-foreground"}>
+                        {q.result!.passed ? <CheckCircle2 className="mr-1 h-3 w-3" /> : null}
+                        {q.result!.bestScore}%
+                      </Badge>
+                    </li>
+                  )),
+              )}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <div>
         <h2 className="mb-4 text-lg font-bold">Course completion</h2>

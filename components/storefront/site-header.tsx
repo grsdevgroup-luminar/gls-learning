@@ -17,6 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/context/store";
 import { demoStudent } from "@/lib/mock/students";
@@ -35,7 +36,12 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/55">
+      {/* aurora hairline under the header */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--aurora-2)_60%,transparent),color-mix(in_oklch,var(--aurora-3)_50%,transparent),transparent)] opacity-60"
+      />
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
         <Logo />
         <nav className="hidden items-center gap-1 md:flex">
@@ -54,7 +60,7 @@ export function SiteHeader() {
           />
         </form>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
           <div className="hidden sm:block">
             <RegionSelect compact />
           </div>
@@ -86,12 +92,14 @@ export function SiteHeader() {
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
-                  <div className="text-xs font-normal text-muted-foreground">
-                    {role === "admin" ? "admin@demo.com" : demoStudent.email}
-                  </div>
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    <div className="font-medium">{role === "admin" ? "Admin" : demoStudent.name}</div>
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {role === "admin" ? "admin@demo.com" : demoStudent.email}
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem render={<Link href="/dashboard" />}>
                   <LayoutDashboard /> Dashboard

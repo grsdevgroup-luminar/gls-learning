@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Course } from "@/types";
+import type { Course, Lesson, Quiz } from "@/types";
 import { categories } from "@/lib/mock/courses";
 import { VideoUpload } from "@/components/admin/video-upload";
+import { QuizEditor, emptyQuiz } from "@/components/admin/quiz-editor";
 import { CourseArt } from "@/components/shared/course-art";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +22,29 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-interface BLesson { id: string; title: string; preview: boolean; hasVideo: boolean }
+interface BLesson {
+  id: string;
+  title: string;
+  preview: boolean;
+  hasVideo: boolean;
+  type: Lesson["type"];
+  quiz?: Quiz;
+}
 interface BSection { id: string; title: string; lessons: BLesson[] }
+
+const lessonTypes: { value: Lesson["type"]; label: string }[] = [
+  { value: "video", label: "Video" },
+  { value: "quiz", label: "Quiz" },
+  { value: "article", label: "Article" },
+];
 
 let uid = 1000;
 const nid = (p: string) => `${p}${uid++}`;
 
-const thumbSeeds = ["react", "ml", "design", "aws", "growth", "python", "system", "typescript"];
+const thumbSeeds = [
+  "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
+  "speaking", "social", "finance", "mindfulness", "language",
+];
 
 export function CourseBuilder({ course }: { course?: Course }) {
   const router = useRouter();
@@ -44,9 +61,16 @@ export function CourseBuilder({ course }: { course?: Course }) {
       ? course.sections.map((s) => ({
           id: s.id,
           title: s.title,
-          lessons: s.lessons.map((l) => ({ id: l.id, title: l.title, preview: !!l.preview, hasVideo: l.type === "video" })),
+          lessons: s.lessons.map((l) => ({
+            id: l.id,
+            title: l.title,
+            preview: !!l.preview,
+            hasVideo: l.type === "video",
+            type: l.type,
+            quiz: l.quiz,
+          })),
         }))
-      : [{ id: nid("s"), title: "Section 1: Introduction", lessons: [{ id: nid("l"), title: "Welcome & overview", preview: true, hasVideo: false }] }],
+      : [{ id: nid("s"), title: "Section 1: Introduction", lessons: [{ id: nid("l"), title: "Welcome & overview", preview: true, hasVideo: false, type: "video" }] }],
   );
 
   const totalLessons = sections.reduce((a, s) => a + s.lessons.length, 0);
@@ -61,10 +85,13 @@ export function CourseBuilder({ course }: { course?: Course }) {
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), title: "New lesson", preview: false, hasVideo: false }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), title: "New lesson", preview: false, hasVideo: false, type: "video" }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
+  }
+  function setLessonType(sid: string, lid: string, type: Lesson["type"]) {
+    patchLesson(sid, lid, { type, quiz: type === "quiz" ? emptyQuiz() : undefined });
   }
   function removeLesson(sid: string, lid: string) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
@@ -149,6 +176,12 @@ export function CourseBuilder({ course }: { course?: Course }) {
                       <div key={l.id} className="rounded-lg border bg-card p-3">
                         <div className="flex items-center gap-2">
                           <Input value={l.title} onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })} className="h-8" placeholder="Lesson title" />
+                          <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as Lesson["type"])}>
+                            <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {lessonTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                           <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                             <Eye className="h-3.5 w-3.5" /> Preview
                             <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
@@ -156,7 +189,13 @@ export function CourseBuilder({ course }: { course?: Course }) {
                           <Button size="icon-sm" variant="ghost" onClick={() => removeLesson(s.id, l.id)} aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
                         </div>
                         <div className="mt-2">
-                          <VideoUpload compact initialReady={l.hasVideo} onReady={() => patchLesson(s.id, l.id, { hasVideo: true })} />
+                          {l.type === "quiz" ? (
+                            <QuizEditor quiz={l.quiz ?? emptyQuiz()} onChange={(quiz) => patchLesson(s.id, l.id, { quiz })} />
+                          ) : l.type === "video" ? (
+                            <VideoUpload compact initialReady={l.hasVideo} onReady={() => patchLesson(s.id, l.id, { hasVideo: true })} />
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Article lessons use the description above — no media upload needed.</p>
+                          )}
                         </div>
                       </div>
                     ))}

@@ -13,6 +13,21 @@ import { DEFAULT_REGION, getRegion } from "@/lib/mock/pricing";
 
 export type Role = "guest" | "student" | "admin";
 
+export interface QuizResult {
+  bestScore: number; // percent, best attempt
+  lastScore: number; // percent, most recent attempt
+  attempts: number;
+  passed: boolean;
+  lastAttemptAt: string; // ISO
+}
+
+export interface MyReview {
+  rating: number;
+  title: string;
+  body: string;
+  date: string; // ISO
+}
+
 interface PersistState {
   role: Role;
   regionCode: string;
@@ -20,9 +35,15 @@ interface PersistState {
   coupon: string | null;
   enrolled: string[];
   progress: Record<string, string[]>;
+  quizResults: Record<string, QuizResult>; // key: `${courseId}:${lessonId}`
+  myReviews: Record<string, MyReview>; // key: courseId
 }
 
 const STORAGE_KEY = "learnhub_state_v1";
+
+function quizKey(courseId: string, lessonId: string) {
+  return `${courseId}:${lessonId}`;
+}
 
 function seedProgress(): Record<string, string[]> {
   const p: Record<string, string[]> = {};
@@ -40,6 +61,8 @@ function defaultState(): PersistState {
     coupon: null,
     enrolled: demoStudent.enrollments.map((e) => e.courseId),
     progress: seedProgress(),
+    quizResults: {},
+    myReviews: {},
   };
 }
 
@@ -64,6 +87,17 @@ interface StoreContextValue extends PersistState {
   toggleLesson: (courseId: string, lessonId: string) => void;
   isLessonDone: (courseId: string, lessonId: string) => boolean;
   completedCount: (courseId: string) => number;
+  // quizzes
+  getQuizResult: (courseId: string, lessonId: string) => QuizResult | undefined;
+  submitQuizAttempt: (
+    courseId: string,
+    lessonId: string,
+    scorePercent: number,
+    passScore: number,
+  ) => QuizResult;
+  // reviews
+  getMyReview: (courseId: string) => MyReview | undefined;
+  submitReview: (courseId: string, rating: number, title: string, body: string) => void;
   reset: () => void;
 }
 
@@ -123,6 +157,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     isLessonDone: (courseId, lessonId) =>
       (state.progress[courseId] ?? []).includes(lessonId),
     completedCount: (courseId) => (state.progress[courseId] ?? []).length,
+    getQuizResult: (courseId, lessonId) => state.quizResults[quizKey(courseId, lessonId)],
+    submitQuizAttempt: (courseId, lessonId, scorePercent, passScore) => {
+      const key = quizKey(courseId, lessonId);
+      const passed = scorePercent >= passScore;
+      const prev = state.quizResults[key];
+      const result: QuizResult = {
+        bestScore: Math.max(prev?.bestScore ?? 0, scorePercent),
+        lastScore: scorePercent,
+        attempts: (prev?.attempts ?? 0) + 1,
+        passed: passed || !!prev?.passed,
+        lastAttemptAt: new Date().toISOString(),
+      };
+      setState((s) => {
+        const curLessons = s.progress[courseId] ?? [];
+        const nextLessons =
+          passed && !curLessons.includes(lessonId)
+            ? [...curLessons, lessonId]
+            : curLessons;
+        return {
+          ...s,
+          quizResults: { ...s.quizResults, [key]: result },
+          progress: { ...s.progress, [courseId]: nextLessons },
+        };
+      });
+      return result;
+    },
+    getMyReview: (courseId) => state.myReviews[courseId],
+    submitReview: (courseId, rating, title, body) =>
+      setState((s) => ({
+        ...s,
+        myReviews: {
+          ...s.myReviews,
+          [courseId]: { rating, title, body, date: new Date().toISOString().slice(0, 10) },
+        },
+      })),
     reset: () => {
       const d = defaultState();
       setState(d);

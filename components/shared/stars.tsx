@@ -15,7 +15,7 @@ export function Stars({
   return (
     <span className={cn("inline-flex items-center gap-0.5", className)}>
       {showValue && (
-        <span className="mr-1 font-semibold text-warning-foreground/90 tabular-nums">
+        <span className="mr-1 font-semibold text-foreground tabular-nums">
           {rating.toFixed(1)}
         </span>
       )}

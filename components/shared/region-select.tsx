@@ -36,7 +36,11 @@ export function RegionSelect({
           </span>
         )}
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent
+        alignItemWithTrigger={false}
+        align="end"
+        className="w-auto min-w-56"
+      >
         {regions.map((r) => (
           <SelectItem key={r.code} value={r.code}>
             <span className="mr-1">{r.flag}</span> {r.country}{" "}

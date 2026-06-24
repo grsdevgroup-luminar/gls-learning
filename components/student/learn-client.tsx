@@ -7,6 +7,7 @@ import { useStore } from "@/lib/context/store";
 import { courseLessonCount } from "@/lib/mock/courses";
 import { demoStudent } from "@/lib/mock/students";
 import { ProtectedPlayer } from "@/components/player/protected-player";
+import { QuizPlayer } from "@/components/student/quiz-player";
 import { Meter } from "@/components/shared/meter";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Logo } from "@/components/shared/logo";
@@ -31,7 +32,7 @@ interface FlatLesson extends Lesson {
 }
 
 export function LearnClient({ course }: { course: Course }) {
-  const { isLessonDone, toggleLesson, completedCount, mounted } = useStore();
+  const { isLessonDone, toggleLesson, completedCount, getQuizResult, mounted } = useStore();
 
   const flat: FlatLesson[] = useMemo(() => {
     let i = 0;
@@ -94,19 +95,30 @@ export function LearnClient({ course }: { course: Course }) {
       <div className="grid flex-1 lg:grid-cols-[1fr_360px]">
         {/* Player + content */}
         <div className="flex flex-col">
-          <div className="bg-black p-0 lg:p-4">
-            <div className="mx-auto w-full max-w-4xl">
-              <ProtectedPlayer
+          {current.type === "quiz" && current.quiz ? (
+            <div className="bg-secondary/20">
+              <QuizPlayer
                 key={current.id}
-                title={current.title}
-                durationSec={current.durationSec}
-                watermark={demoStudent.email}
-                seed={course.thumbnail}
-                onComplete={markAndMaybeAdvance}
-                onNext={() => goto(1)}
+                courseId={course.id}
+                lessonId={current.id}
+                quiz={current.quiz}
               />
             </div>
-          </div>
+          ) : (
+            <div className="bg-black p-0 lg:p-4">
+              <div className="mx-auto w-full max-w-4xl">
+                <ProtectedPlayer
+                  key={current.id}
+                  title={current.title}
+                  durationSec={current.durationSec}
+                  watermark={demoStudent.email}
+                  seed={course.thumbnail}
+                  onComplete={markAndMaybeAdvance}
+                  onNext={() => goto(1)}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="mx-auto w-full max-w-4xl flex-1 p-4 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -114,12 +126,27 @@ export function LearnClient({ course }: { course: Course }) {
                 <p className="text-xs text-muted-foreground">{current.sectionTitle}</p>
                 <h1 className="text-xl font-bold">{current.title}</h1>
               </div>
-              <Button
-                variant={isLessonDone(course.id, current.id) ? "secondary" : "default"}
-                onClick={() => toggleLesson(course.id, current.id)}
-              >
-                {isLessonDone(course.id, current.id) ? <><CheckCircle2 className="text-success" /> Completed</> : <><Check /> Mark as complete</>}
-              </Button>
+              {current.type === "quiz" ? (
+                (() => {
+                  const result = mounted ? getQuizResult(course.id, current.id) : undefined;
+                  return result?.passed ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-success/10 px-3 py-1.5 text-sm font-medium text-success">
+                      <CheckCircle2 className="h-4 w-4" /> Passed · {result.bestScore}%
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      {result ? `Best score so far: ${result.bestScore}%` : "Pass the quiz to mark this lesson complete"}
+                    </span>
+                  );
+                })()
+              ) : (
+                <Button
+                  variant={isLessonDone(course.id, current.id) ? "secondary" : "default"}
+                  onClick={() => toggleLesson(course.id, current.id)}
+                >
+                  {isLessonDone(course.id, current.id) ? <><CheckCircle2 className="text-success" /> Completed</> : <><Check /> Mark as complete</>}
+                </Button>
+              )}
             </div>
 
             <div className="mt-4 flex items-center justify-between">

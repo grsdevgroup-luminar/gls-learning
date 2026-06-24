@@ -17,6 +17,24 @@ export interface Instructor {
   courses: number;
 }
 
+export interface QuizOption {
+  id: string;
+  text: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  options: QuizOption[];
+  correctOptionId: string;
+  explanation?: string;
+}
+
+export interface Quiz {
+  passScore: number; // percent (0-100) required to pass
+  questions: QuizQuestion[];
+}
+
 export interface Lesson {
   id: string;
   title: string;
@@ -24,6 +42,7 @@ export interface Lesson {
   type: "video" | "quiz" | "article";
   preview?: boolean; // free preview on the storefront
   resources?: { name: string; size: string }[];
+  quiz?: Quiz;
 }
 
 export interface Section {
