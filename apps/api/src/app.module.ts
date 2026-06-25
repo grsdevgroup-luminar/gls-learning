@@ -7,6 +7,15 @@ import { validateEnv } from "./config/env";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
+import { CoursesModule } from "./courses/courses.module";
+import { EnrollmentModule } from "./enrollment/enrollment.module";
+import { QuizModule } from "./quiz/quiz.module";
+import { CommerceModule } from "./commerce/commerce.module";
+import { MediaModule } from "./media/media.module";
+import { AuthoringModule } from "./authoring/authoring.module";
+import { ReviewsModule } from "./reviews/reviews.module";
+import { InstructorModule } from "./instructor/instructor.module";
+import { AdminModule } from "./admin/admin.module";
 import { HealthController } from "./health/health.controller";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/jwt-auth.guard";
@@ -32,6 +41,15 @@ import { RolesGuard } from "./common/roles.guard";
     PrismaModule,
     UsersModule,
     AuthModule,
+    CoursesModule,
+    EnrollmentModule,
+    QuizModule,
+    CommerceModule,
+    MediaModule,
+    AuthoringModule,
+    ReviewsModule,
+    InstructorModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

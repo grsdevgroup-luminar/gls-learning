@@ -8,7 +8,10 @@ import { AppModule } from "./app.module";
 import type { Env } from "./config/env";
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    rawBody: true, // needed for Stripe webhook signature verification
+  });
   app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService<Env, true>);
