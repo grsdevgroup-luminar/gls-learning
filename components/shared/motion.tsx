@@ -270,3 +270,48 @@ export function Parallax({
   );
 }
 
+/* ── AuroraField ───────────────────────────────────────────────────────────
+   Slow-drifting aurora blobs behind the page. Fixed, non-interactive, sits
+   above the static body wash and below all content. */
+export function AuroraField() {
+  const reduce = useReducedMotion();
+  const blob =
+    "absolute rounded-full blur-[120px] mix-blend-screen will-change-transform";
+
+  const float = (i: number) =>
+    reduce
+      ? {}
+      : {
+          x: [0, 24 * (i % 2 ? 1 : -1), 0],
+          y: [0, -20, 0],
+          scale: [1, 1.08, 1],
+        };
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-[0.12] dark:opacity-[0.22]"
+    >
+      <motion.div
+        className={cn(blob, "left-[-6%] top-[-12%] size-[42rem]")}
+        style={{ background: "var(--aurora-1)" }}
+        animate={float(0)}
+        transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className={cn(blob, "left-[34%] top-[-18%] size-[46rem]")}
+        style={{ background: "var(--aurora-2)" }}
+        animate={float(1)}
+        transition={{ duration: 32, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+      />
+      <motion.div
+        className={cn(blob, "right-[-8%] top-[-6%] size-[38rem]")}
+        style={{ background: "var(--aurora-3)" }}
+        animate={float(2)}
+        transition={{ duration: 36, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
+      <span className="grain" />
+    </div>
+  );
+}
+

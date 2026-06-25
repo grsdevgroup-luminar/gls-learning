@@ -13,10 +13,6 @@
       <stop offset="0%" stopColor="#ffffff" />
       <stop offset="100%" stopColor="#dbeafe" />
     </linearGradient>
-    <radialGradient id="ssSheen" cx="30%" cy="20%" r="65%">
-      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
-      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-    </radialGradient>
     <filter id="ssShadow" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#1e3a8a" floodOpacity="0.35" />
     </filter>
@@ -24,9 +20,6 @@
 
   <!-- Rounded background with soft shadow -->
   <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#ssGrad)" filter="url(#ssShadow)" />
-
-  <!-- Glass sheen for a premium glossy finish -->
-  <ellipse cx="17" cy="12" rx="20" ry="10" fill="url(#ssSheen)" />
 
   <!-- Refined inner border, like a badge -->
   <rect x="5" y="5" width="38" height="38" rx="10" fill="none" stroke="#ffffff" strokeOpacity="0.18" />

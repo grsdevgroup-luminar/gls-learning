@@ -36,17 +36,12 @@ export function Logo({
             <stop offset="0%" stopColor="#ffffff" />
             <stop offset="100%" stopColor="#dbeafe" />
           </linearGradient>
-          <radialGradient id="ssSheen" cx="30%" cy="20%" r="65%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
           <filter id="ssShadow" x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#1e3a8a" floodOpacity="0.35" />
           </filter>
         </defs>
 
         <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#ssBg)" filter="url(#ssShadow)" />
-        <ellipse cx="22" cy="16" rx="26" ry="14" fill="url(#ssSheen)" />
         <rect x="6" y="6" width="52" height="52" rx="14" fill="none" stroke="#ffffff" strokeOpacity="0.18" />
         <rect x="18" y="32" width="8" height="16" rx="4" fill="url(#ssBar)" opacity="0.65" />
         <rect x="30" y="24" width="8" height="24" rx="4" fill="url(#ssBar)" opacity="0.85" />

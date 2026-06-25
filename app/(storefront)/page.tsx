@@ -74,6 +74,13 @@ export default function HomePage() {
 
       {/* ── Hero ───────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-border">
+        {/* Conic aurora bloom behind the headline */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <Parallax distance={40} className="absolute inset-0">
+            <div className="absolute left-1/2 top-[-14rem] h-[40rem] w-[60rem] -translate-x-1/2 rounded-full bg-[conic-gradient(from_180deg_at_50%_50%,color-mix(in_oklch,var(--aurora-1)_30%,transparent),color-mix(in_oklch,var(--aurora-2)_30%,transparent),color-mix(in_oklch,var(--aurora-3)_30%,transparent),color-mix(in_oklch,var(--aurora-1)_30%,transparent))] opacity-[0.18] blur-[100px] dark:opacity-30" />
+          </Parallax>
+        </div>
+
         <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
           <Reveal y={24} className="">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur">
@@ -329,6 +336,10 @@ function HeroPreview() {
   return (
     <Parallax distance={50} className="relative hidden lg:block">
       <Reveal y={32} delay={0.1}>
+        {/* Soft aurora glow lifts the card off the page — most visible in dark mode,
+            where a flat bg-card slab would otherwise read as a dim grey rectangle. */}
+        <div className="pointer-events-none absolute -inset-8 -z-10 rounded-[2rem] bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--aurora-2)_35%,transparent),transparent)] opacity-0 blur-2xl dark:opacity-40" />
+
         <Link
           href={`/courses/${c.slug}`}
           className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
