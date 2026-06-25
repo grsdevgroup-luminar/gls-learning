@@ -4,10 +4,11 @@ import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
 import { Price } from "@/components/shared/price";
 import { SpotlightCard } from "@/components/shared/motion";
+import { BestsellerBadge } from "@/components/shared/bestseller-badge";
 import { getInstructor } from "@/lib/mock/instructors";
 import { courseDurationMin, courseLessonCount } from "@/lib/mock/courses";
 import { compactNumber, formatHoursFromMin } from "@/lib/format";
-import { Clock, Users, Dot, PlayCircle, ArrowRight, Crown, Gauge } from "lucide-react";
+import { Clock, Users, Dot, PlayCircle, ArrowRight, Gauge } from "lucide-react";
 
 export function CourseCard({ course }: { course: Course }) {
   const instructor = getInstructor(course.instructorId);
@@ -36,9 +37,7 @@ export function CourseCard({ course }: { course: Course }) {
               </span>
             </div>
             {course.bestseller && (
-              <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-md bg-linear-to-r from-amber-400 to-orange-500 px-2 py-1 text-[11px] font-semibold tracking-wide text-white shadow-md ring-1 ring-white/20 transition-transform duration-300 group-hover:-translate-y-0.5">
-                <Crown className="size-3" /> Bestseller
-              </span>
+              <BestsellerBadge className="absolute right-3 top-3 shadow-sm" />
             )}
           </div>
 

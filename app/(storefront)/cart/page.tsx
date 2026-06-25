@@ -12,10 +12,10 @@ import { formatUsd } from "@/lib/format";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
 import { RegionSelect } from "@/components/shared/region-select";
+import { BestsellerBadge } from "@/components/shared/bestseller-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Tag, ShoppingCart, ArrowRight, Check, Globe2 } from "lucide-react";
 import { toast } from "sonner";
@@ -88,7 +88,7 @@ export default function CartPage() {
                     <p className="text-xs text-muted-foreground">{instructor?.name}</p>
                     <div className="mt-1 flex items-center gap-2 text-xs">
                       <Stars rating={c.rating} size={12} showValue />
-                      {c.bestseller && <Badge className="h-5 bg-amber-400 text-amber-950 hover:bg-amber-400">Bestseller</Badge>}
+                      {c.bestseller && <BestsellerBadge />}
                     </div>
                     <button
                       onClick={() => { removeFromCart(c.id); toast("Removed from cart"); }}

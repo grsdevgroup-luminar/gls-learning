@@ -167,7 +167,7 @@ export function LearnClient({ course }: { course: Course }) {
               </TabsList>
               <TabsContent value="overview" className="pt-4 text-sm leading-relaxed text-muted-foreground">
                 <p>
-                  In this lesson, <span className="font-medium text-foreground">{current.title}</span>, you'll build
+                  In this lesson, <span className="font-medium text-foreground">{current.title}</span>, you&apos;ll build
                   practical, hands-on understanding through clear examples. Follow along with the
                   protected video — your progress saves automatically.
                 </p>

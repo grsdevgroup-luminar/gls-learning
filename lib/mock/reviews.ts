@@ -28,13 +28,24 @@ const courseIds = [
   "c_react", "c_ts", "c_ml", "c_design", "c_aws", "c_growth", "c_python", "c_design_adv",
 ];
 
+// Deterministic pseudo-random so server-rendered and client-rendered output
+// always match (Math.random() would differ between SSR and the browser and
+// trigger a hydration mismatch).
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
 let rid = 0;
 function gen(courseId: string, count: number): Review[] {
   const out: Review[] = [];
   for (let i = 0; i < count; i++) {
     rid += 1;
-    const rating = Math.random() < 0.78 ? 5 : Math.random() < 0.6 ? 4 : 3;
-    const daysAgo = Math.floor(Math.random() * 220) + 2;
+    const r1 = seededRandom(rid * 7.13);
+    const r2 = seededRandom(rid * 3.71 + 1);
+    const r3 = seededRandom(rid * 11.27 + 2);
+    const rating = r1 < 0.78 ? 5 : r1 < 0.6 ? 4 : 3;
+    const daysAgo = Math.floor(r2 * 220) + 2;
     const d = new Date("2026-06-23");
     d.setDate(d.getDate() - daysAgo);
     out.push({
@@ -47,7 +58,7 @@ function gen(courseId: string, count: number): Review[] {
       title: titles[(rid * 3 + i) % titles.length],
       body: bodies[(rid * 2 + i) % bodies.length],
       status: i === 0 && courseId === "c_react" ? "pending" : "approved",
-      helpful: Math.floor(Math.random() * 64),
+      helpful: Math.floor(r3 * 64),
     });
   }
   return out;

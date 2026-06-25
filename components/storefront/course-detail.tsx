@@ -18,6 +18,7 @@ import { ProtectedPlayer } from '@/components/player/protected-player';
 import { Price } from '@/components/shared/price';
 import { Stars } from '@/components/shared/stars';
 import { StarRatingInput } from '@/components/shared/star-rating-input';
+import { BestsellerBadge, HighestRatedBadge, isHighestRated } from '@/components/shared/bestseller-badge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,7 +56,6 @@ import {
   Award,
   ThumbsUp,
   Lock,
-  Star,
   PenLine,
   ClipboardList,
   Smartphone,
@@ -126,11 +126,8 @@ export function CourseDetail({ course }: { course: Course }) {
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{course.category}</Badge>
-              {course.bestseller && (
-                <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-400">
-                  Bestseller
-                </Badge>
-              )}
+              {course.bestseller && <BestsellerBadge />}
+              {isHighestRated(course) && <HighestRatedBadge />}
               <span className="text-sm opacity-80">{course.level}</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
@@ -203,7 +200,7 @@ export function CourseDetail({ course }: { course: Course }) {
           {/* What you'll learn */}
           <Card>
             <CardContent className="pt-6">
-              <h2 className="mb-4 text-xl font-bold">What you'll learn</h2>
+              <h2 className="mb-4 text-xl font-bold">What you&apos;ll learn</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {course.whatYouLearn.map((w) => (
                   <div key={w} className="flex gap-2 text-sm">

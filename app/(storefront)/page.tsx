@@ -13,6 +13,7 @@ import {
   Counter,
   Parallax,
   Magnetic,
+  SpotlightCard,
 } from "@/components/shared/motion";
 import { publishedCourses, categories } from "@/lib/mock/courses";
 import { instructors } from "@/lib/mock/instructors";
@@ -73,13 +74,6 @@ export default function HomePage() {
 
       {/* ── Hero ───────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-border">
-        {/* Conic aurora bloom behind the headline */}
-        <div className="pointer-events-none absolute inset-0 -z-10">
-          <Parallax distance={40} className="absolute inset-0">
-            <div className="absolute left-1/2 top-[-14rem] h-[40rem] w-[60rem] -translate-x-1/2 rounded-full bg-[conic-gradient(from_180deg_at_50%_50%,color-mix(in_oklch,var(--aurora-1)_30%,transparent),color-mix(in_oklch,var(--aurora-2)_30%,transparent),color-mix(in_oklch,var(--aurora-3)_30%,transparent),color-mix(in_oklch,var(--aurora-1)_30%,transparent))] opacity-[0.18] blur-[100px] dark:opacity-30" />
-          </Parallax>
-        </div>
-
         <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
           <Reveal y={24} className="">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs backdrop-blur">
@@ -262,7 +256,6 @@ export default function HomePage() {
         <Reveal>
           <div className="relative overflow-hidden rounded-3xl border border-border bg-foreground px-8 py-16 text-center text-background shadow-xl">
             <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,currentColor_1px,transparent_0)] [background-size:22px_22px]" />
-            <div className="pointer-events-none absolute -inset-x-20 -top-32 h-64 bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--aurora-2)_60%,transparent),transparent)] opacity-40 blur-2xl" />
             <h2 className="relative text-3xl font-bold tracking-tight md:text-4xl">
               Start learning today
             </h2>
@@ -336,40 +329,52 @@ function HeroPreview() {
   return (
     <Parallax distance={50} className="relative hidden lg:block">
       <Reveal y={32} delay={0.1}>
-        <div className="rounded-2xl border border-border bg-card p-2 shadow-xl transition-transform duration-500 hover:rotate-[0.4deg]">
-          <div className="relative overflow-hidden rounded-xl">
-            <CourseArt
-              seed={c.thumbnail}
-              title={c.title}
-              category={c.category}
-              className="aspect-[16/10]"
-            />
-            <div className="absolute inset-0 grid place-items-center bg-black/15">
-              <span className="grid size-14 place-items-center rounded-full bg-background/90 text-primary shadow-lg backdrop-blur transition-transform duration-300 hover:scale-110">
-                <PlayCircle className="size-7" />
-              </span>
+        <Link
+          href={`/courses/${c.slug}`}
+          className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          {/* Same spotlight surface as every CourseCard, so the hero preview matches
+              the rest of the course cards instead of being a one-off flat panel. */}
+          <SpotlightCard
+            lift={false}
+            className="rounded-2xl border border-border bg-card p-2 shadow-xl transition-transform duration-500 group-hover:rotate-[0.4deg]"
+          >
+            <div className="relative overflow-hidden rounded-xl border border-border">
+              <CourseArt
+                seed={c.thumbnail}
+                title={c.title}
+                category={c.category}
+                className="aspect-[16/10]"
+              />
+              <div className="absolute inset-0 grid place-items-center bg-black/15">
+                <span className="grid size-14 place-items-center rounded-full bg-background/90 text-primary shadow-lg backdrop-blur transition-transform duration-300 group-hover:scale-110">
+                  <PlayCircle className="size-7" />
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">{c.category}</p>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                <ShieldCheck className="size-3.5" /> DRM protected
-              </span>
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">{c.category}</p>
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+                  <ShieldCheck className="size-3.5" /> DRM protected
+                </span>
+              </div>
+              <h3 className="mt-1.5 font-semibold leading-snug text-foreground">{c.title}</h3>
+              {/* foreground/10 (not bg-secondary) so the track stays visible against
+                  bg-card in dark mode, where secondary and card are nearly the same lightness. */}
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-foreground/10">
+                <div className="h-full w-2/3 rounded-full bg-primary" />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Lesson 12 of 18 · 68% complete</p>
             </div>
-            <h3 className="mt-1.5 font-semibold leading-snug">{c.title}</h3>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full w-2/3 rounded-full bg-primary" />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Lesson 12 of 18 · 68% complete</p>
-          </div>
-        </div>
+          </SpotlightCard>
+        </Link>
       </Reveal>
 
       {/* Metadata chip — anchored to the card's corner, rides along with its parallax */}
       <div className="absolute -bottom-5 -left-5 hidden xl:block">
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur">
-          <span className="inline-flex items-center gap-1 text-sm font-semibold">
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
             4.8 <Star className="size-4 fill-warning text-warning" />
           </span>
           <span className="text-xs text-muted-foreground">avg. rating</span>

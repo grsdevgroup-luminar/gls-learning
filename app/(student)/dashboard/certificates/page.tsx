@@ -127,7 +127,7 @@ function CertificatePreview({
   const instructor = getInstructor(course.instructorId);
   return (
     <div
-      className={`relative overflow-hidden ${small ? 'rounded-t-xl' : 'rounded-xl'} border bg-gradient-to-br from-primary/5 via-background to-chart-2/5 ${small ? 'p-5' : 'p-10'} text-center`}
+      className={`relative overflow-hidden ${small ? 'rounded-t-xl' : 'rounded-xl'} border bg-muted/30 ${small ? 'p-5' : 'p-10'} text-center`}
     >
       <div className="absolute inset-0 m-2 rounded-lg border-2 border-primary/20" />
       <div className="relative">

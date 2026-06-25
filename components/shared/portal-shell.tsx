@@ -74,12 +74,14 @@ export function PortalShell({
 
   const SidebarInner = (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border pl-4 pr-6">
-        <Logo />
-        <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {badge}
-        </span>
-        <ThemeToggle className="ml-auto" />
+      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border pl-4 pr-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Logo className="shrink-0" />
+          <span className="truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {badge}
+          </span>
+        </div>
+        <ThemeToggle className="shrink-0" />
       </div>
       <div className="px-3 pt-3">
         <CommandPalette items={items} />

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function Logo({
@@ -17,9 +16,43 @@ export function Logo({
       aria-label="SkillStream home"
       className={cn('flex items-center gap-2 font-bold', className)}
     >
-      <span className="brand-gradient grid h-8 w-8 place-items-center rounded-lg text-white shadow-sm">
-        <GraduationCap className="h-5 w-5" />
-      </span>
+      <svg
+        width={32}
+        height={32}
+        viewBox="0 0 64 64"
+        xmlns="http://www.w3.org/2000/svg"
+        role="img"
+        aria-label="SkillStream logo"
+        className="shrink-0"
+      >
+        <title>SkillStream</title>
+        <defs>
+          <linearGradient id="ssBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1e3a8a" />
+            <stop offset="55%" stopColor="#1d4ed8" />
+            <stop offset="100%" stopColor="#2563eb" />
+          </linearGradient>
+          <linearGradient id="ssBar" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#dbeafe" />
+          </linearGradient>
+          <radialGradient id="ssSheen" cx="30%" cy="20%" r="65%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+          <filter id="ssShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#1e3a8a" floodOpacity="0.35" />
+          </filter>
+        </defs>
+
+        <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#ssBg)" filter="url(#ssShadow)" />
+        <ellipse cx="22" cy="16" rx="26" ry="14" fill="url(#ssSheen)" />
+        <rect x="6" y="6" width="52" height="52" rx="14" fill="none" stroke="#ffffff" strokeOpacity="0.18" />
+        <rect x="18" y="32" width="8" height="16" rx="4" fill="url(#ssBar)" opacity="0.65" />
+        <rect x="30" y="24" width="8" height="24" rx="4" fill="url(#ssBar)" opacity="0.85" />
+        <rect x="42" y="14" width="8" height="34" rx="4" fill="url(#ssBar)" />
+        <circle cx="46" cy="9" r="3" fill="#fbbf24" />
+      </svg>
       {!iconOnly && <span className="text-lg tracking-tight">SkillStream</span>}
     </Link>
   );

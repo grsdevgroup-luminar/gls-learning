@@ -17,12 +17,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
-  Lock, CreditCard, ShieldCheck, Check, Loader2, Globe2,
+  Lock, CreditCard, ShieldCheck, Check, Loader2, Globe2, ShoppingCart,
+  ChevronRight, Wallet, BadgeCheck, Infinity as InfinityIcon, Award, ArrowLeft,
 } from "lucide-react";
 
 const methods = [
   { id: "stripe", label: "Credit / debit card", sub: "Visa, Mastercard, Amex", icon: CreditCard },
-  { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: WalletIcon },
+  { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: Wallet },
+];
+
+const perks = [
+  { icon: InfinityIcon, label: "Lifetime access on any device" },
+  { icon: Award, label: "Certificate of completion" },
+  { icon: ShieldCheck, label: "30-day money-back guarantee" },
 ];
 
 export default function CheckoutPage() {
@@ -54,6 +61,9 @@ export default function CheckoutPage() {
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-muted">
+          <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+        </div>
         <h1 className="text-2xl font-bold">Nothing to check out</h1>
         <p className="mt-2 text-muted-foreground">Your cart is empty.</p>
         <Button className="mt-6" render={<Link href="/courses" />}>Browse courses</Button>
@@ -63,18 +73,35 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight">Checkout</h1>
+      {/* Header: back link + step indicator */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <Link href="/cart" className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to cart
+          </Link>
+          <h1 className="text-3xl font-bold tracking-tight">Checkout</h1>
+        </div>
+        <Steps />
+      </div>
+
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         {/* Left: billing + payment */}
         <div className="space-y-6">
-          <Card>
+          <Card variant="elevated">
             <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold">Billing details</h2>
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Globe2 className="h-4 w-4" /> <RegionSelect className="w-44" />
-                </span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-sky)" }}>
+                    <Globe2 className="size-4" />
+                  </span>
+                  <div>
+                    <h2 className="font-semibold leading-tight">Billing details</h2>
+                    <p className="text-xs text-muted-foreground">{region.country} · {region.currency}</p>
+                  </div>
+                </div>
+                <RegionSelect className="w-40 shrink-0" />
               </div>
+              <Separator />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Full name" placeholder="Alex Morgan" />
                 <Field label="Email" placeholder="you@example.com" type="email" />
@@ -84,53 +111,87 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card variant="elevated">
             <CardContent className="space-y-4 pt-6">
-              <h2 className="font-semibold">Payment method</h2>
+              <div className="flex items-center gap-3">
+                <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-violet)" }}>
+                  <CreditCard className="size-4" />
+                </span>
+                <div>
+                  <h2 className="font-semibold leading-tight">Payment method</h2>
+                  <p className="text-xs text-muted-foreground">Choose how you&apos;d like to pay</p>
+                </div>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 {methods.map((m) => (
                   <button
                     key={m.id}
                     onClick={() => setMethod(m.id)}
-                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
-                      method === m.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"
+                    className={`relative flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all ${
+                      method === m.id
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border hover:border-primary/30 hover:bg-muted/50"
                     }`}
                   >
-                    <m.icon className="h-5 w-5" />
+                    <span
+                      className="icon-tile grid size-9 shrink-0 place-items-center"
+                      style={{ ["--tile" as string]: method === m.id ? "var(--primary)" : "var(--muted-foreground)" }}
+                    >
+                      <m.icon className="size-4" />
+                    </span>
                     <div>
                       <div className="text-sm font-medium">{m.label}</div>
                       <div className="text-xs text-muted-foreground">{m.sub}</div>
                     </div>
-                    {method === m.id && <Check className="ml-auto h-4 w-4 text-primary" />}
+                    {method === m.id && (
+                      <span className="absolute right-3 top-3 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3" />
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
 
               {method === "stripe" ? (
-                <div className="grid gap-4">
+                <div className="grid gap-4 rounded-xl border border-border bg-muted/30 p-4">
                   <Field label="Card number" placeholder="4242 4242 4242 4242" icon={<CreditCard className="h-4 w-4" />} />
                   <div className="grid grid-cols-2 gap-4">
                     <Field label="Expiry" placeholder="MM / YY" />
                     <Field label="CVC" placeholder="123" />
                   </div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Lock className="h-3.5 w-3.5" /> Payments are encrypted. This is a demo — no card is charged.
-                  </p>
+                  <Field label="Name on card" placeholder="Alex Morgan" />
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  You'll be redirected to PayPal to complete your purchase. (Simulated)
+                <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  You&apos;ll be redirected to PayPal to complete your purchase. (Simulated)
                 </div>
               )}
+
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 shrink-0" /> Payments are encrypted with 256-bit SSL. This is a demo — no card is ever charged.
+              </p>
             </CardContent>
           </Card>
+
+          {/* Trust strip */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-muted/30 px-5 py-4">
+            {perks.map((p) => (
+              <span key={p.label} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <p.icon className="h-4 w-4 text-primary" /> {p.label}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Right: order summary */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <Card>
+          <Card variant="elevated" className="overflow-visible">
             <CardContent className="space-y-4 pt-6">
-              <h2 className="font-semibold">Order summary</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold">Order summary</h2>
+                <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
+              </div>
               <div className="space-y-3">
                 {items.map((c) => (
                   <div key={c.id} className="flex items-center gap-3">
@@ -164,12 +225,41 @@ export default function CheckoutPage() {
                 {processing ? <><Loader2 className="animate-spin" /> Processing…</> : <><Lock /> Pay {formatUsd(total)}</>}
               </Button>
               <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-                <ShieldCheck className="h-3.5 w-3.5" /> 30-day money-back guarantee
+                <BadgeCheck className="h-3.5 w-3.5 text-success" /> 30-day money-back guarantee
               </p>
             </CardContent>
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Steps() {
+  const steps = [
+    { label: "Cart", done: true },
+    { label: "Checkout", done: false, active: true },
+    { label: "Confirmation", done: false },
+  ];
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-medium">
+      {steps.map((s, i) => (
+        <span key={s.label} className="flex items-center gap-1.5">
+          <span
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${
+              s.active
+                ? "bg-primary text-primary-foreground"
+                : s.done
+                  ? "text-success"
+                  : "text-muted-foreground"
+            }`}
+          >
+            {s.done && <Check className="size-3" />}
+            {s.label}
+          </span>
+          {i < steps.length - 1 && <ChevronRight className="size-3.5 text-muted-foreground" />}
+        </span>
+      ))}
     </div>
   );
 }
@@ -186,8 +276,4 @@ function Field({
       </div>
     </div>
   );
-}
-
-function WalletIcon(props: React.ComponentProps<"svg">) {
-  return <CreditCard {...props} />;
 }

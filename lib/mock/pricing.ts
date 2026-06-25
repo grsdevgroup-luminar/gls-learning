@@ -72,13 +72,18 @@ export function regionalUsd(basePrice: number, region: RegionRow): number {
 
 export function formatLocal(usd: number, region: RegionRow): string {
   const local = usd * region.fxRate;
-  // Let Intl decide the symbol, placement and the currency's natural number of
-  // decimals (e.g. JPY/0, USD/2). Round whole units for low-value currencies so
-  // we don't show misleading sub-unit precision on FX-converted prices.
+  // Round whole units for low-value currencies so we don't show misleading
+  // sub-unit precision on FX-converted prices.
   const wholeUnits = local >= 1000 || region.fxRate >= 50;
-  return new Intl.NumberFormat(region.locale, {
-    style: "currency",
-    currency: region.currency,
-    ...(wholeUnits ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
+  // Always format the number with the "en-US" locale: Node's default ICU
+  // build only ships full grouping/decimal data for en-US, while browsers
+  // ship full ICU for every locale. Formatting with `region.locale` here
+  // would render differently on the server vs. the client (e.g. "1,306" vs
+  // "1 306" for en-ZA) and trigger a hydration mismatch. en-US grouping is
+  // guaranteed identical in both environments.
+  const numberStr = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: wholeUnits ? 0 : 2,
+    maximumFractionDigits: wholeUnits ? 0 : 2,
   }).format(local);
+  return `${region.symbol} ${numberStr}`;
 }
