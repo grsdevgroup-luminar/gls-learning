@@ -4,15 +4,15 @@ import { useState } from "react";
 import { useStore } from "@/lib/context/store";
 import { categories } from "@/lib/mock/courses";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
+import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/format";
 import { Save, ShieldCheck, Clock } from "lucide-react";
@@ -49,55 +49,58 @@ export default function InstructorProfile() {
         </Badge>
       </header>
 
-      <Card>
-        <CardContent className="flex items-center gap-4 pt-6">
-          <Avatar className="size-16 ring-1 ring-border">
-            <AvatarFallback className="brand-gradient text-xl text-white">{initials(name || currentInstructor.name)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="font-heading text-lg font-semibold">{name || "Your name"}</div>
-            <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
-          </div>
-        </CardContent>
-      </Card>
+      <Reveal y={20}>
+        <Card>
+          <CardContent className="flex items-center gap-4 pt-6">
+            <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
+              <AvatarFallback className="brand-gradient text-xl text-white">{initials(name || currentInstructor.name)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-heading text-lg font-semibold">{name || "Your name"}</div>
+              <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
+            </div>
+          </CardContent>
+        </Card>
+      </Reveal>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Full name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
+      <Reveal y={20} delay={0.08}>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <Stagger className="space-y-4" gap={0.05}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Full name">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
+                </FormField>
+                <FormField label="Email">
+                  <Input value={currentInstructor.email ?? ""} readOnly className="opacity-70" />
+                </FormField>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Headline">
+                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
+                </FormField>
+                <FormField label="Primary expertise">
+                  <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              </div>
+              <FormField label="Bio">
+                <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell learners about your background and what you teach…" className="min-h-32" />
+              </FormField>
+            </Stagger>
+            <div className="flex justify-end">
+              <Magnetic strength={0.15}>
+                <Button className="sheen" onClick={save}><Save /> Save profile</Button>
+              </Magnetic>
             </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input value={currentInstructor.email ?? ""} readOnly className="opacity-70" />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Headline</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Primary expertise</Label>
-              <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Bio</Label>
-            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell learners about your background and what you teach…" className="min-h-32" />
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={save}><Save /> Save profile</Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </Reveal>
     </div>
   );
 }

@@ -16,7 +16,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Search, Users, UserCheck, AlertTriangle, Send, Mail, MessageSquare } from "lucide-react";
+import { Search, Users, UserCheck, AlertTriangle, Mail, MessageSquare } from "lucide-react";
 import type { Student } from "@/types";
 import { toast } from "sonner";
 

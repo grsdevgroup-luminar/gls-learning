@@ -6,10 +6,10 @@ import { useState } from "react";
 import { useStore } from "@/lib/context/store";
 import { categories } from "@/lib/mock/courses";
 import { Section } from "@/components/shared/section";
-import { Reveal } from "@/components/shared/motion";
+import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
+import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -55,6 +55,9 @@ export default function TeachPage() {
     <>
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute left-1/2 top-[-12rem] h-[34rem] w-[52rem] -translate-x-1/2 rounded-full bg-[conic-gradient(from_180deg_at_50%_50%,color-mix(in_oklch,var(--aurora-1)_30%,transparent),color-mix(in_oklch,var(--aurora-2)_30%,transparent),color-mix(in_oklch,var(--aurora-3)_30%,transparent),color-mix(in_oklch,var(--aurora-1)_30%,transparent))] opacity-[0.16] blur-[100px] dark:opacity-30" />
+        </div>
         <div className="mx-auto max-w-3xl px-4 py-20 text-center lg:py-24">
           <Reveal>
             <span className="icon-tile mx-auto mb-6 grid size-14 place-items-center" style={{ ["--tile" as string]: "var(--tint-violet)" }}>
@@ -99,53 +102,53 @@ export default function TeachPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card variant="elevated">
-              <CardHeader>
-                <CardTitle className="text-xl">Apply to teach</CardTitle>
-                <p className="text-sm text-muted-foreground">Tell us about yourself. Approved instructors can publish courses immediately.</p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={submit} className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Full name</Label>
-                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Email</Label>
-                      <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Professional headline</Label>
-                      <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Senior Data Scientist" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Primary expertise</Label>
-                      <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Teaching sample or portfolio (optional)</Label>
-                    <Input value={sampleUrl} onChange={(e) => setSampleUrl(e.target.value)} placeholder="https://…" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Tell us about yourself</Label>
-                    <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Your background, experience, and what you'd love to teach…" className="min-h-32" />
-                  </div>
-                  <Button type="submit" size="lg" className="w-full">Submit application <ArrowRight /></Button>
-                  <p className="text-center text-xs text-muted-foreground">
-                    Already applied? <Link href="/instructor" className="text-primary hover:underline">Check your status</Link>
-                  </p>
-                </form>
-              </CardContent>
-            </Card>
+            <Reveal y={20}>
+              <Card variant="elevated">
+                <CardHeader>
+                  <CardTitle className="text-xl">Apply to teach</CardTitle>
+                  <p className="text-sm text-muted-foreground">Tell us about yourself. Approved instructors can publish courses immediately.</p>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={submit} className="space-y-4">
+                    <Stagger className="space-y-4" gap={0.05}>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField label="Full name">
+                          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
+                        </FormField>
+                        <FormField label="Email">
+                          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                        </FormField>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField label="Professional headline">
+                          <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Senior Data Scientist" />
+                        </FormField>
+                        <FormField label="Primary expertise">
+                          <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FormField>
+                      </div>
+                      <FormField label="Teaching sample or portfolio (optional)">
+                        <Input value={sampleUrl} onChange={(e) => setSampleUrl(e.target.value)} placeholder="https://…" />
+                      </FormField>
+                      <FormField label="Tell us about yourself">
+                        <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Your background, experience, and what you'd love to teach…" className="min-h-32" />
+                      </FormField>
+                    </Stagger>
+                    <Magnetic strength={0.15} className="flex w-full">
+                      <Button type="submit" size="lg" className="sheen w-full">Submit application <ArrowRight /></Button>
+                    </Magnetic>
+                    <p className="text-center text-xs text-muted-foreground">
+                      Already applied? <Link href="/instructor" className="text-primary hover:underline">Check your status</Link>
+                    </p>
+                  </form>
+                </CardContent>
+              </Card>
+            </Reveal>
           )}
         </div>
       </Section>

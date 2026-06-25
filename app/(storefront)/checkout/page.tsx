@@ -10,6 +10,7 @@ import { validateCoupon, discountAmount } from "@/lib/mock/coupons";
 import { formatUsd } from "@/lib/format";
 import { RegionSelect } from "@/components/shared/region-select";
 import { CourseArt } from "@/components/shared/course-art";
+import { Reveal, Stagger, StaggerItem, Magnetic } from "@/components/shared/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,148 +88,156 @@ export default function CheckoutPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         {/* Left: billing + payment */}
         <div className="space-y-6">
-          <Card variant="elevated">
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-sky)" }}>
-                    <Globe2 className="size-4" />
-                  </span>
-                  <div>
-                    <h2 className="font-semibold leading-tight">Billing details</h2>
-                    <p className="text-xs text-muted-foreground">{region.country} · {region.currency}</p>
-                  </div>
-                </div>
-                <RegionSelect className="w-40 shrink-0" />
-              </div>
-              <Separator />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Full name" placeholder="Alex Morgan" />
-                <Field label="Email" placeholder="you@example.com" type="email" />
-                <Field label="Country" value={region.country} readOnly />
-                <Field label="ZIP / Postal code" placeholder="10001" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card variant="elevated">
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center gap-3">
-                <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-violet)" }}>
-                  <CreditCard className="size-4" />
-                </span>
-                <div>
-                  <h2 className="font-semibold leading-tight">Payment method</h2>
-                  <p className="text-xs text-muted-foreground">Choose how you&apos;d like to pay</p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                {methods.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setMethod(m.id)}
-                    className={`relative flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all ${
-                      method === m.id
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border hover:border-primary/30 hover:bg-muted/50"
-                    }`}
-                  >
-                    <span
-                      className="icon-tile grid size-9 shrink-0 place-items-center"
-                      style={{ ["--tile" as string]: method === m.id ? "var(--primary)" : "var(--muted-foreground)" }}
-                    >
-                      <m.icon className="size-4" />
+          <Reveal y={20}>
+            <Card variant="elevated">
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-sky)" }}>
+                      <Globe2 className="size-4" />
                     </span>
                     <div>
-                      <div className="text-sm font-medium">{m.label}</div>
-                      <div className="text-xs text-muted-foreground">{m.sub}</div>
+                      <h2 className="font-semibold leading-tight">Billing details</h2>
+                      <p className="text-xs text-muted-foreground">{region.country} · {region.currency}</p>
                     </div>
-                    {method === m.id && (
-                      <span className="absolute right-3 top-3 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
-                        <Check className="size-3" />
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {method === "stripe" ? (
-                <div className="grid gap-4 rounded-xl border border-border bg-muted/30 p-4">
-                  <Field label="Card number" placeholder="4242 4242 4242 4242" icon={<CreditCard className="h-4 w-4" />} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Expiry" placeholder="MM / YY" />
-                    <Field label="CVC" placeholder="123" />
                   </div>
-                  <Field label="Name on card" placeholder="Alex Morgan" />
+                  <RegionSelect className="w-40 shrink-0" />
                 </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  You&apos;ll be redirected to PayPal to complete your purchase. (Simulated)
-                </div>
-              )}
+                <Separator />
+                <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>
+                  <Field label="Full name" placeholder="Alex Morgan" />
+                  <Field label="Email" placeholder="you@example.com" type="email" />
+                  <Field label="Country" value={region.country} readOnly />
+                  <Field label="ZIP / Postal code" placeholder="10001" />
+                </Stagger>
+              </CardContent>
+            </Card>
+          </Reveal>
 
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Lock className="h-3.5 w-3.5 shrink-0" /> Payments are encrypted with 256-bit SSL. This is a demo — no card is ever charged.
-              </p>
-            </CardContent>
-          </Card>
+          <Reveal y={20} delay={0.06}>
+            <Card variant="elevated">
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex items-center gap-3">
+                  <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-violet)" }}>
+                    <CreditCard className="size-4" />
+                  </span>
+                  <div>
+                    <h2 className="font-semibold leading-tight">Payment method</h2>
+                    <p className="text-xs text-muted-foreground">Choose how you&apos;d like to pay</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {methods.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setMethod(m.id)}
+                      className={`relative flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all duration-200 ${
+                        method === m.id
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted/50"
+                      }`}
+                    >
+                      <span
+                        className="icon-tile grid size-9 shrink-0 place-items-center"
+                        style={{ ["--tile" as string]: method === m.id ? "var(--primary)" : "var(--muted-foreground)" }}
+                      >
+                        <m.icon className="size-4" />
+                      </span>
+                      <div>
+                        <div className="text-sm font-medium">{m.label}</div>
+                        <div className="text-xs text-muted-foreground">{m.sub}</div>
+                      </div>
+                      {method === m.id && (
+                        <span className="absolute right-3 top-3 grid size-5 animate-in place-items-center rounded-full bg-primary text-primary-foreground zoom-in-50 duration-200">
+                          <Check className="size-3" />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {method === "stripe" ? (
+                  <Stagger className="grid gap-4 rounded-xl border border-border bg-muted/30 p-4" gap={0.05}>
+                    <Field label="Card number" placeholder="4242 4242 4242 4242" icon={<CreditCard className="h-4 w-4" />} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Expiry" placeholder="MM / YY" />
+                      <Field label="CVC" placeholder="123" />
+                    </div>
+                    <Field label="Name on card" placeholder="Alex Morgan" />
+                  </Stagger>
+                ) : (
+                  <div className="animate-in rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground fade-in zoom-in-95 duration-200">
+                    You&apos;ll be redirected to PayPal to complete your purchase. (Simulated)
+                  </div>
+                )}
+
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5 shrink-0" /> Payments are encrypted with 256-bit SSL. This is a demo — no card is ever charged.
+                </p>
+              </CardContent>
+            </Card>
+          </Reveal>
 
           {/* Trust strip */}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-muted/30 px-5 py-4">
+          <Stagger className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-muted/30 px-5 py-4" gap={0.06}>
             {perks.map((p) => (
-              <span key={p.label} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <StaggerItem key={p.label} y={8} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <p.icon className="h-4 w-4 text-primary" /> {p.label}
-              </span>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
 
         {/* Right: order summary */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <Card variant="elevated" className="overflow-visible">
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold">Order summary</h2>
-                <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
-              </div>
-              <div className="space-y-3">
-                {items.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3">
-                    <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{c.title}</div>
+          <Reveal y={20} delay={0.1}>
+            <Card variant="elevated" className="overflow-visible">
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold">Order summary</h2>
+                  <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
+                </div>
+                <div className="space-y-3">
+                  {items.map((c) => (
+                    <div key={c.id} className="flex items-center gap-3">
+                      <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{c.title}</div>
+                      </div>
+                      <div className="text-sm font-semibold">{formatUsd(regionalUsd(c.basePrice, region))}</div>
                     </div>
-                    <div className="text-sm font-semibold">{formatUsd(regionalUsd(c.basePrice, region))}</div>
-                  </div>
-                ))}
-              </div>
-              <Separator />
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatUsd(subtotal)}</span></div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-success">
-                    <span className="flex items-center gap-1"><Badge variant="secondary" className="text-success">{coupon}</Badge></span>
-                    <span>-{formatUsd(discount)}</span>
-                  </div>
-                )}
-                <Separator className="my-2" />
-                <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{formatUsd(total)}</span></div>
-                {region.code !== "US" && (
-                  <div className="text-right text-xs text-muted-foreground">
-                    ≈ {formatLocal(total, region)} · charged in USD
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+                <Separator />
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatUsd(subtotal)}</span></div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-success">
+                      <span className="flex items-center gap-1"><Badge variant="secondary" className="text-success">{coupon}</Badge></span>
+                      <span>-{formatUsd(discount)}</span>
+                    </div>
+                  )}
+                  <Separator className="my-2" />
+                  <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{formatUsd(total)}</span></div>
+                  {region.code !== "US" && (
+                    <div className="text-right text-xs text-muted-foreground">
+                      ≈ {formatLocal(total, region)} · charged in USD
+                    </div>
+                  )}
+                </div>
 
-              <Button className="w-full" size="lg" onClick={pay} disabled={processing}>
-                {processing ? <><Loader2 className="animate-spin" /> Processing…</> : <><Lock /> Pay {formatUsd(total)}</>}
-              </Button>
-              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-                <BadgeCheck className="h-3.5 w-3.5 text-success" /> 30-day money-back guarantee
-              </p>
-            </CardContent>
-          </Card>
+                <Magnetic strength={0.12} className="flex w-full">
+                  <Button className="sheen w-full" size="lg" onClick={pay} disabled={processing}>
+                    {processing ? <><Loader2 className="animate-spin" /> Processing…</> : <><Lock /> Pay {formatUsd(total)}</>}
+                  </Button>
+                </Magnetic>
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+                  <BadgeCheck className="h-3.5 w-3.5 text-success" /> 30-day money-back guarantee
+                </p>
+              </CardContent>
+            </Card>
+          </Reveal>
         </div>
       </div>
     </div>
@@ -268,12 +277,12 @@ function Field({
   label, placeholder, type = "text", value, readOnly, icon,
 }: { label: string; placeholder?: string; type?: string; value?: string; readOnly?: boolean; icon?: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <StaggerItem y={10} className="field-glow space-y-1.5">
       <Label className="text-xs">{label}</Label>
       <div className="relative">
         {icon && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
         <Input placeholder={placeholder} type={type} defaultValue={value} readOnly={readOnly} className={icon ? "pl-8" : ""} />
       </div>
-    </div>
+    </StaggerItem>
   );
 }

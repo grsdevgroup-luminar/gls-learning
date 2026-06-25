@@ -98,13 +98,13 @@ export function DemoBar() {
     >
       {open ? (
         <div className="w-64 rounded-xl border bg-card p-3 shadow-xl">
-          <div
-            className="mb-2 flex touch-none items-center justify-between cursor-grab active:cursor-grabbing"
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-          >
-            <span className="flex items-center gap-1.5 text-sm font-semibold">
+          <div className="mb-2 flex items-center justify-between">
+            <span
+              className="flex touch-none items-center gap-1.5 text-sm font-semibold cursor-grab active:cursor-grabbing"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+            >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
               <Sparkles className="h-4 w-4 text-primary" /> Demo controls
             </span>

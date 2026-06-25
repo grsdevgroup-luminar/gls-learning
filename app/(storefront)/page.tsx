@@ -263,6 +263,7 @@ export default function HomePage() {
         <Reveal>
           <div className="relative overflow-hidden rounded-3xl border border-border bg-foreground px-8 py-16 text-center text-background shadow-xl">
             <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,currentColor_1px,transparent_0)] [background-size:22px_22px]" />
+            <div className="pointer-events-none absolute -inset-x-20 -top-32 h-64 bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--aurora-2)_60%,transparent),transparent)] opacity-40 blur-2xl" />
             <h2 className="relative text-3xl font-bold tracking-tight md:text-4xl">
               Start learning today
             </h2>

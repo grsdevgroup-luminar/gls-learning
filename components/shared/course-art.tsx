@@ -22,6 +22,11 @@ const icons: Record<string, LucideIcon> = {
   language: Languages,
 };
 
+// A thumbnail is either a seed key (gradient + icon) or an uploaded/remote image.
+export function isImageThumbnail(value: string) {
+  return /^(data:image\/|https?:\/\/)/.test(value);
+}
+
 export function CourseArt({
   seed,
   title,
@@ -35,12 +40,36 @@ export function CourseArt({
   className?: string;
   iconSize?: number;
 }) {
-  const Icon = icons[seed] ?? Code2;
   // Small thumbnails (list rows, cart items) have no room for the title/category
   // overlay — at text-sm + p-4 padding the text gets clipped by overflow-hidden
   // and reads as garbled glyphs instead of words, so we drop the text and just
   // center the icon below this size.
   const compact = iconSize < 32;
+
+  if (isImageThumbnail(seed)) {
+    return (
+      <div className={cn("relative overflow-hidden", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- data: URLs aren't supported by next/image */}
+        <img src={seed} alt={title} className="absolute inset-0 h-full w-full object-cover" />
+        {!compact && (
+          <div className="absolute inset-0 flex flex-col justify-between bg-linear-to-t from-black/65 via-black/0 to-black/0 p-4 text-white">
+            {category && (
+              <span className="w-fit rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium backdrop-blur">
+                {category}
+              </span>
+            )}
+            {title && (
+              <span className="mt-auto max-w-[80%] text-sm font-semibold leading-tight drop-shadow-sm line-clamp-2">
+                {title}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const Icon = icons[seed] ?? Code2;
 
   if (compact) {
     return (

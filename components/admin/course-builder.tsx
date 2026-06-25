@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Course, Lesson, Quiz } from "@/types";
 import { categories } from "@/lib/mock/courses";
 import { useStore } from "@/lib/context/store";
 import { VideoUpload } from "@/components/admin/video-upload";
 import { QuizEditor, emptyQuiz } from "@/components/admin/quiz-editor";
-import { CourseArt } from "@/components/shared/course-art";
+import { CourseArt, isImageThumbnail } from "@/components/shared/course-art";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,39 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, Video,
+  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, Video, ImagePlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+const MAX_THUMBNAIL_DIM = 800;
+const THUMBNAIL_JPEG_QUALITY = 0.82;
+
+function readImageFile(file: File, maxDim = MAX_THUMBNAIL_DIM, quality = THUMBNAIL_JPEG_QUALITY): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That file isn't a valid image"));
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Image processing isn't supported in this browser"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface BLesson {
   id: string;
@@ -74,7 +104,10 @@ export function CourseBuilder({
   const [level, setLevel] = useState(course?.level ?? "Beginner");
   const [description, setDescription] = useState(course?.description ?? "");
   const [price, setPrice] = useState(String(course?.basePrice ?? 49.99));
-  const [seed, setSeed] = useState(course?.thumbnail ?? "react");
+  const [thumbnail, setThumbnail] = useState(course?.thumbnail ?? "react");
+  const [thumbDrag, setThumbDrag] = useState(false);
+  const [thumbError, setThumbError] = useState("");
+  const thumbInputRef = useRef<HTMLInputElement>(null);
   const [published, setPublished] = useState(course?.status === "published");
   const [sections, setSections] = useState<BSection[]>(
     course
@@ -117,6 +150,20 @@ export function CourseBuilder({
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
   }
 
+  async function handleThumbnailFile(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setThumbError("Please upload an image file (PNG or JPG).");
+      return;
+    }
+    try {
+      setThumbError("");
+      setThumbnail(await readImageFile(file));
+    } catch (err) {
+      setThumbError(err instanceof Error ? err.message : "Couldn't process that image");
+    }
+  }
+
   function originalDurationSec(lessonId: string) {
     for (const s of course?.sections ?? []) {
       const l = s.lessons.find((x) => x.id === lessonId);
@@ -137,7 +184,7 @@ export function CourseBuilder({
       description,
       category,
       level: level as Course["level"],
-      thumbnail: seed,
+      thumbnail,
       instructorId: course?.instructorId ?? instructorId ?? "ins_sara",
       basePrice: Number(price) || 0,
       originalPrice: course?.originalPrice,
@@ -191,11 +238,13 @@ export function CourseBuilder({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save("draft")}><Save /> Save draft</Button>
           {mode === "instructor" ? (
-            <Button onClick={() => save("review")}><Rocket /> Submit for review</Button>
+            <>
+              <Button variant="outline" onClick={() => save("draft")}><Save /> Save draft</Button>
+              <Button onClick={() => save("review")}><Rocket /> Submit for review</Button>
+            </>
           ) : (
-            <Button onClick={() => save("publish")}><Rocket /> Publish</Button>
+            <Button onClick={() => save(published ? "publish" : "draft")}><Save /> Save</Button>
           )}
         </div>
       </div>
@@ -243,7 +292,7 @@ export function CourseBuilder({
               <Button size="sm" variant="outline" onClick={addSection}><Plus /> Add section</Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              {sections.map((s, si) => (
+              {sections.map((s) => (
                 <div key={s.id} className="rounded-xl border bg-muted/20 p-3">
                   <div className="flex items-center gap-2">
                     <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
@@ -339,13 +388,59 @@ export function CourseBuilder({
           <Card>
             <CardHeader><CardTitle className="text-base">Course thumbnail</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <CourseArt seed={seed} title={title || "Course title"} category={category} className="h-32 rounded-lg" />
-              <div className="flex flex-wrap gap-1.5">
-                {thumbSeeds.map((t) => (
-                  <button key={t} onClick={() => setSeed(t)} className={`h-7 w-7 rounded-md border-2 ${seed === t ? "border-primary" : "border-transparent"}`}>
-                    <CourseArt seed={t} title="" className="h-full w-full rounded" iconSize={12} />
-                  </button>
-                ))}
+              <CourseArt seed={thumbnail} title={title || "Course title"} category={category} className="h-32 rounded-lg" />
+
+              <input
+                ref={thumbInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleThumbnailFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => thumbInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setThumbDrag(true); }}
+                onDragLeave={() => setThumbDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setThumbDrag(false);
+                  handleThumbnailFile(e.dataTransfer.files?.[0]);
+                }}
+                className={cn(
+                  "flex w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-4 text-center transition-colors",
+                  thumbDrag ? "border-primary bg-primary/5" : "hover:border-primary/50 hover:bg-muted/40",
+                )}
+              >
+                <ImagePlus className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-medium">Drag & drop an image, or click to upload</span>
+                <span className="text-[11px] text-muted-foreground">PNG or JPG · recommended 1280×720</span>
+              </button>
+              {thumbError && <p className="text-xs text-destructive">{thumbError}</p>}
+              {isImageThumbnail(thumbnail) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-muted-foreground"
+                  onClick={() => setThumbnail(thumbSeeds[0])}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Remove image
+                </Button>
+              )}
+
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Or pick a color theme</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {thumbSeeds.map((t) => (
+                    <button key={t} type="button" onClick={() => setThumbnail(t)} className={`h-7 w-7 rounded-md border-2 ${thumbnail === t ? "border-primary" : "border-transparent"}`}>
+                      <CourseArt seed={t} title="" className="h-full w-full rounded" iconSize={12} />
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>

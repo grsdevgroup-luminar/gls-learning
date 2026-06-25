@@ -471,6 +471,32 @@
   transform: translateX(130%) skewX(-18deg);
 }
 
+/* Form field glow — wraps a label + control. On focus the control blooms with
+   an aurora-tinted ring/shadow and the label warms to the primary hue, so
+   forms feel alive without any JS. Pairs with <FormField>. */
+@utility field-glow {
+  position: relative;
+  transition: transform 0.2s ease;
+}
+.field-glow:has(:focus-visible) {
+  transform: translateY(-1px);
+}
+.field-glow > label {
+  transition: color 0.2s ease;
+}
+.field-glow:has(:focus-visible) > label {
+  color: var(--primary);
+}
+.field-glow :where(input, textarea, [data-slot="select-trigger"]) {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
+}
+.field-glow:has(:focus-visible) :where(input, textarea, [data-slot="select-trigger"]) {
+  border-color: color-mix(in oklch, var(--primary) 55%, var(--border));
+  box-shadow:
+    0 0 0 4px color-mix(in oklch, var(--primary) 14%, transparent),
+    0 6px 20px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
 /* Honor reduced-motion: drop the heavy stuff, keep opacity transitions. */
 @media (prefers-reduced-motion: reduce) {
   *,
