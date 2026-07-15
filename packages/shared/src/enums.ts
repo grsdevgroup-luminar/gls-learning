@@ -8,6 +8,8 @@ export const UserRole = {
   STUDENT: "STUDENT",
   INSTRUCTOR: "INSTRUCTOR",
   ADMIN: "ADMIN",
+  SALES_AGENT: "SALES_AGENT",
+  ORG_ADMIN: "ORG_ADMIN",
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
@@ -116,6 +118,35 @@ export const ReminderStatus = {
 } as const;
 export type ReminderStatus =
   (typeof ReminderStatus)[keyof typeof ReminderStatus];
+
+export const CourseVisibility = {
+  PUBLIC: "PUBLIC",
+  PRIVATE: "PRIVATE",
+} as const;
+export type CourseVisibility =
+  (typeof CourseVisibility)[keyof typeof CourseVisibility];
+
+export const SalesAgentStatus = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  SUSPENDED: "SUSPENDED",
+} as const;
+export type SalesAgentStatus =
+  (typeof SalesAgentStatus)[keyof typeof SalesAgentStatus];
+
+export const OrgStatus = {
+  ACTIVE: "ACTIVE",
+  TRIAL: "TRIAL",
+  SUSPENDED: "SUSPENDED",
+} as const;
+export type OrgStatus = (typeof OrgStatus)[keyof typeof OrgStatus];
+
+export const OrgMemberRole = {
+  ADMIN: "ADMIN",
+  MEMBER: "MEMBER",
+} as const;
+export type OrgMemberRole = (typeof OrgMemberRole)[keyof typeof OrgMemberRole];
 
 // Display-label maps for enums the frontend renders verbatim.
 export const LEVEL_LABELS: Record<CourseLevel, string> = {

@@ -11,16 +11,24 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
   courseStatusSchema,
   createCourseSchema,
+  createQuizQuestionSchema,
+  createQuizSchema,
   lessonSchema,
   reorderSchema,
   sectionSchema,
   updateCourseSchema,
+  updateQuizQuestionSchema,
+  updateQuizSchema,
   type CourseStatusInput,
   type CreateCourseInput,
+  type CreateQuizInput,
+  type CreateQuizQuestionInput,
   type LessonInput,
   type ReorderInput,
   type SectionInput,
   type UpdateCourseInput,
+  type UpdateQuizInput,
+  type UpdateQuizQuestionInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../common/decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -36,6 +44,21 @@ export class AuthoringController {
   @Get("me/instructor/courses")
   myCourses(@CurrentUser() user: RequestUser) {
     return this.authoring.myCourses(user);
+  }
+
+  /** Owner/admin course detail — includes drafts, which the public catalog hides. */
+  @Get("authoring/courses/:id")
+  authoringDetail(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.authoring.ownerDetail(user, id);
+  }
+
+  /** Owner/admin quiz content (with answers) for the builder. */
+  @Get("authoring/lessons/:lessonId/quiz")
+  authoringQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param("lessonId") lessonId: string,
+  ) {
+    return this.authoring.ownerQuiz(user, lessonId);
   }
 
   @Post("courses")
@@ -133,5 +156,68 @@ export class AuthoringController {
     @Body(new ZodValidationPipe(reorderSchema)) body: ReorderInput,
   ) {
     return this.authoring.reorderLessons(user, sectionId, body.ids);
+  }
+
+  // ── quiz authoring ───────────────────────────────────────────────────────
+
+  @Post("lessons/:lessonId/quiz")
+  createQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param("lessonId") lessonId: string,
+    @Body(new ZodValidationPipe(createQuizSchema)) body: CreateQuizInput,
+  ) {
+    return this.authoring.createQuiz(user, lessonId, body);
+  }
+
+  @Patch("quizzes/:quizId")
+  updateQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param("quizId") quizId: string,
+    @Body(new ZodValidationPipe(updateQuizSchema)) body: UpdateQuizInput,
+  ) {
+    return this.authoring.updateQuiz(user, quizId, body);
+  }
+
+  @Delete("quizzes/:quizId")
+  deleteQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param("quizId") quizId: string,
+  ) {
+    return this.authoring.deleteQuiz(user, quizId);
+  }
+
+  @Post("quizzes/:quizId/questions")
+  addQuestion(
+    @CurrentUser() user: RequestUser,
+    @Param("quizId") quizId: string,
+    @Body(new ZodValidationPipe(createQuizQuestionSchema)) body: CreateQuizQuestionInput,
+  ) {
+    return this.authoring.addQuestion(user, quizId, body);
+  }
+
+  @Patch("quiz-questions/:questionId")
+  updateQuestion(
+    @CurrentUser() user: RequestUser,
+    @Param("questionId") questionId: string,
+    @Body(new ZodValidationPipe(updateQuizQuestionSchema)) body: UpdateQuizQuestionInput,
+  ) {
+    return this.authoring.updateQuestion(user, questionId, body);
+  }
+
+  @Delete("quiz-questions/:questionId")
+  deleteQuestion(
+    @CurrentUser() user: RequestUser,
+    @Param("questionId") questionId: string,
+  ) {
+    return this.authoring.deleteQuestion(user, questionId);
+  }
+
+  @Post("quizzes/:quizId/questions/reorder")
+  reorderQuestions(
+    @CurrentUser() user: RequestUser,
+    @Param("quizId") quizId: string,
+    @Body(new ZodValidationPipe(reorderSchema)) body: ReorderInput,
+  ) {
+    return this.authoring.reorderQuestions(user, quizId, body.ids);
   }
 }

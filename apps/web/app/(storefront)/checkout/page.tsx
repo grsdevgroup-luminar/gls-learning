@@ -3,11 +3,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/context/store";
-import { getCourseById } from "@/lib/mock/courses";
-import { regionalUsd, formatLocal } from "@/lib/mock/pricing";
-import { validateCoupon, discountAmount } from "@/lib/mock/coupons";
+import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { useSession } from "@/lib/api/session";
+import { formatLocal } from "@/lib/mock/pricing";
+import { getReferralCode, clearReferralCode } from "@/lib/referral";
 import { formatUsd } from "@/lib/format";
+import { toast } from "sonner";
 import { RegionSelect } from "@/components/shared/region-select";
 import { CourseArt } from "@/components/shared/course-art";
 import { Reveal, Stagger, StaggerItem, Magnetic } from "@/components/shared/motion";
@@ -34,27 +38,73 @@ const perks = [
 ];
 
 export default function CheckoutPage() {
-  const { cart, region, coupon, enroll, clearCart, mounted } = useStore();
+  const { cart, region, regionCode, coupon, clearCart, mounted } = useStore();
+  const { user } = useSession();
   const router = useRouter();
   const [method, setMethod] = useState("stripe");
   const [processing, setProcessing] = useState(false);
 
+  const { data: catalog } = useQuery({
+    queryKey: ["store", "courses"],
+    queryFn: () => api.courses({ pageSize: 100 }),
+    staleTime: 60_000,
+  });
   const items = useMemo(
-    () => cart.map((id) => getCourseById(id)).filter(Boolean) as NonNullable<ReturnType<typeof getCourseById>>[],
-    [cart],
+    () =>
+      cart
+        .map((id) => catalog?.items.find((c) => c.id === id))
+        .filter(Boolean) as NonNullable<typeof catalog>["items"],
+    [cart, catalog],
   );
-  const subtotal = items.reduce((s, c) => s + regionalUsd(c.basePrice, region), 0);
-  const couponResult = coupon ? validateCoupon(coupon, subtotal, cart) : null;
-  const discount = couponResult?.ok && couponResult.coupon ? discountAmount(couponResult.coupon, subtotal) : 0;
-  const total = Math.max(0, subtotal - discount);
 
-  function pay() {
+  // Authoritative totals come from the server quote (PPP + coupon recomputed there).
+  const { data: quote } = useQuery({
+    queryKey: ["quote", cart.join(","), coupon ?? "", regionCode],
+    queryFn: () =>
+      api.quote({ courseIds: cart, couponCode: coupon ?? undefined, regionCode }),
+    enabled: mounted && cart.length > 0,
+  });
+  const lineUsd = (courseId: string) => {
+    const line = quote?.lines.find((l) => l.courseId === courseId);
+    if (line) return line.priceCents / 100;
+    const c = items.find((i) => i.id === courseId);
+    return c ? c.basePriceCents / 100 : 0;
+  };
+  const subtotal = (quote?.subtotalCents ?? 0) / 100;
+  const discount = (quote?.discountCents ?? 0) / 100;
+  const total = (quote?.totalCents ?? 0) / 100;
+
+  async function pay() {
+    if (!user) {
+      router.push("/login?next=/checkout");
+      return;
+    }
     setProcessing(true);
-    setTimeout(() => {
-      enroll(cart);
+    try {
+      const session = await api.checkoutSession({
+        courseIds: cart,
+        couponCode: coupon ?? undefined,
+        regionCode,
+        gateway: method === "paypal" ? "PAYPAL" : "STRIPE",
+        referralCode: getReferralCode() ?? undefined,
+      });
+      clearReferralCode();
+      // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
+      if (session.redirectUrl && !session.devSimulateToken) {
+        clearCart();
+        window.location.assign(session.redirectUrl);
+        return;
+      }
+      // Dev environment without gateway credentials → simulate the payment.
+      if (session.devSimulateToken) {
+        await api.devSimulatePayment(session.orderId);
+      }
       clearCart();
-      router.push("/checkout/success");
-    }, 1600);
+      router.push(`/checkout/success?order=${session.orderId}`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+      setProcessing(false);
+    }
   }
 
   if (!mounted) return <div className="mx-auto max-w-7xl px-4 py-16" />;
@@ -205,7 +255,7 @@ export default function CheckoutPage() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{c.title}</div>
                       </div>
-                      <div className="text-sm font-semibold">{formatUsd(regionalUsd(c.basePrice, region))}</div>
+                      <div className="text-sm font-semibold">{formatUsd(lineUsd(c.id))}</div>
                     </div>
                   ))}
                 </div>

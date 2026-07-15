@@ -16,12 +16,37 @@ enum UserRole {
   STUDENT
   INSTRUCTOR
   ADMIN
+  SALES_AGENT
+  ORG_ADMIN
 }
 
 enum CourseStatus {
   DRAFT
   REVIEW
   PUBLISHED
+}
+
+enum CourseVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum SalesAgentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum OrgStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+}
+
+enum OrgMemberRole {
+  ADMIN
+  MEMBER
 }
 
 enum CourseLevel {
@@ -129,6 +154,8 @@ model User {
   reminderLogs      ReminderLog[]
   couponRedemptions CouponRedemption[]
   authoredCourses   Course[]           @relation("InstructorCourses")
+  salesAgent        SalesAgent?
+  orgMemberships    OrgMember[]
 
   @@index([role])
 }
@@ -215,6 +242,10 @@ model Course {
   updatedAt         DateTime     @updatedAt
   publishedAt       DateTime?
 
+  visibility  CourseVisibility @default(PUBLIC)
+  orgId       String?
+  org         Organization?   @relation(fields: [orgId], references: [id])
+
   sections    Section[]
   enrollments Enrollment[]
   reviews     Review[]
@@ -224,6 +255,7 @@ model Course {
   @@index([status])
   @@index([instructorId])
   @@index([category])
+  @@index([visibility])
 }
 
 model Section {
@@ -400,11 +432,16 @@ model Order {
   createdAt         DateTime       @default(now())
   paidAt            DateTime?
 
+  agentReferralCode String?
+  agentId           String?
+
   items       OrderItem[]
   redemptions CouponRedemption[]
+  agentReferral SalesAgentReferral?
 
   @@index([userId])
   @@index([status])
+  @@index([agentId])
 }
 
 model OrderItem {
@@ -533,4 +570,109 @@ model WebhookEvent {
   createdAt   DateTime  @default(now())
 
   @@unique([provider, eventId])
+}
+
+// ─── Sales Agents ─────────────────────────────────────────────────────────────
+
+model SalesAgent {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referralCode      String           @unique
+  commissionPercent Float            @default(10)
+  region            String           @default("")
+  status            SalesAgentStatus @default(PENDING)
+  totalEarningsCents   Int           @default(0)
+  pendingEarningsCents Int           @default(0)
+  paidEarningsCents    Int           @default(0)
+  referralCount     Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  referrals SalesAgentReferral[]
+
+  @@index([status])
+}
+
+model SalesAgentApplication {
+  id         String           @id @default(cuid())
+  userId     String?
+  name       String
+  email      String
+  phone      String?
+  region     String
+  bio        String
+  status     SalesAgentStatus @default(PENDING)
+  appliedAt  DateTime         @default(now())
+  reviewedAt DateTime?
+  reviewedBy String?
+  note       String?
+
+  @@index([status])
+}
+
+model SalesAgentReferral {
+  id                String      @id @default(cuid())
+  agentId           String
+  agent             SalesAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  orderId           String      @unique
+  order             Order       @relation(fields: [orderId], references: [id])
+  commissionCents   Int
+  status            String      @default("pending") // pending | confirmed | paid
+  createdAt         DateTime    @default(now())
+
+  @@index([agentId])
+}
+
+// ─── B2B Organizations ────────────────────────────────────────────────────────
+
+model Organization {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  name         String
+  domain       String?
+  logoUrl      String?
+  adminEmail   String
+  status       OrgStatus @default(TRIAL)
+  seatCount    Int       @default(10)
+  usedSeats    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  members     OrgMember[]
+  invitations OrgInvitation[]
+  courses     Course[]
+
+  @@index([status])
+}
+
+model OrgMember {
+  id        String        @id @default(cuid())
+  orgId     String
+  org       Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  role      OrgMemberRole @default(MEMBER)
+  joinedAt  DateTime      @default(now())
+
+  @@unique([orgId, email])
+  @@index([orgId])
+  @@index([userId])
+}
+
+model OrgInvitation {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  email     String
+  role      OrgMemberRole @default(MEMBER)
+  token     String       @unique
+  expiresAt DateTime
+  claimedAt DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([orgId])
+  @@index([token])
 }

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { demoStudent } from '@/lib/mock/students';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession, SESSION_QUERY_KEY } from '@/lib/api/session';
+import { apiFetch } from '@/lib/api/client';
 import { initials } from '@/lib/format';
 import {
   Card,
@@ -17,7 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Mail, MessageSquare, Bell } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Mail, MessageSquare, Bell, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 const reminderRows = [
@@ -44,20 +47,121 @@ const reminderRows = [
 ] as const;
 
 export default function AccountPage() {
-  const [prefs, setPrefs] = useState<
-    Record<string, { email: boolean; sms: boolean }>
-  >({
-    idle: { email: true, sms: true },
-    low_progress: { email: true, sms: false },
-    almost_done: { email: true, sms: false },
-    promotions: { email: true, sms: false },
+  const { user, isLoading } = useSession();
+  const qc = useQueryClient();
+
+  // Profile form state — initialised from session once loaded
+  const [name, setName] = useState('');
+  const [country, setCountry] = useState('');
+  const [profileReady, setProfileReady] = useState(false);
+
+  // Initialise form values from the session exactly once
+  if (!profileReady && user) {
+    setName(user.name ?? '');
+    setCountry(user.country ?? '');
+    setProfileReady(true);
+  }
+
+  // Password form state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Notification prefs (local — persisted to localStorage)
+  const [prefs, setPrefs] = useState<Record<string, { email: boolean; sms: boolean }>>(() => {
+    if (typeof window === 'undefined') {
+      return {
+        idle: { email: true, sms: true },
+        low_progress: { email: true, sms: false },
+        almost_done: { email: true, sms: false },
+        promotions: { email: true, sms: false },
+      };
+    }
+    try {
+      const saved = localStorage.getItem('skillstream:notif-prefs');
+      return saved
+        ? JSON.parse(saved)
+        : {
+            idle: { email: true, sms: true },
+            low_progress: { email: true, sms: false },
+            almost_done: { email: true, sms: false },
+            promotions: { email: true, sms: false },
+          };
+    } catch {
+      return {
+        idle: { email: true, sms: true },
+        low_progress: { email: true, sms: false },
+        almost_done: { email: true, sms: false },
+        promotions: { email: true, sms: false },
+      };
+    }
   });
 
   function toggle(key: string, channel: 'email' | 'sms') {
-    setPrefs((p) => ({
-      ...p,
-      [key]: { ...p[key], [channel]: !p[key][channel] },
-    }));
+    setPrefs((p) => {
+      const next = { ...p, [key]: { ...p[key], [channel]: !p[key][channel] } };
+      try { localStorage.setItem('skillstream:notif-prefs', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  // Profile mutation
+  const profileMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<void>('/auth/me/profile', {
+        method: 'PATCH',
+        body: { name: name.trim(), country: country.trim() || null },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      toast.success('Profile saved');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? 'Failed to save profile');
+    },
+  });
+
+  // Password mutation
+  const passwordMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<void>('/auth/me/password', {
+        method: 'POST',
+        body: { currentPassword, newPassword },
+      }),
+    onSuccess: () => {
+      toast.success('Password updated');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? 'Failed to update password');
+    },
+  });
+
+  function handlePasswordSubmit() {
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    passwordMutation.mutate();
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 p-6 md:p-8">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
   }
 
   return (
@@ -69,6 +173,7 @@ export default function AccountPage() {
         </p>
       </div>
 
+      {/* Profile */}
       <Reveal y={20}>
         <Card>
           <CardHeader>
@@ -78,7 +183,7 @@ export default function AccountPage() {
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 transition-transform duration-300 hover:scale-105">
                 <AvatarFallback className="brand-gradient text-lg text-white">
-                  {initials(demoStudent.name)}
+                  {initials(user?.name ?? '?')}
                 </AvatarFallback>
               </Avatar>
               <Button variant="outline" size="sm">
@@ -87,28 +192,92 @@ export default function AccountPage() {
             </div>
             <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>
               <FormField label="Full name">
-                <Input defaultValue={demoStudent.name} />
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                />
               </FormField>
               <FormField label="Email">
-                <Input defaultValue={demoStudent.email} type="email" />
-              </FormField>
-              <FormField label="Phone (for SMS)">
-                <Input defaultValue="+1 555 0142" />
+                <Input
+                  value={user?.email ?? ''}
+                  type="email"
+                  readOnly
+                  className="cursor-not-allowed opacity-60"
+                />
               </FormField>
               <FormField label="Country">
-                <Input defaultValue={demoStudent.country} />
+                <Input
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g. United States"
+                />
               </FormField>
             </Stagger>
             <Magnetic strength={0.15}>
-              <Button className="sheen" onClick={() => toast.success('Profile saved')}>
-                Save changes
+              <Button
+                className="sheen"
+                disabled={profileMutation.isPending}
+                onClick={() => profileMutation.mutate()}
+              >
+                {profileMutation.isPending ? 'Saving…' : 'Save changes'}
               </Button>
             </Magnetic>
           </CardContent>
         </Card>
       </Reveal>
 
-      <Reveal y={20} delay={0.08}>
+      {/* Password */}
+      <Reveal y={20} delay={0.06}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lock className="h-4 w-4 text-primary" /> Password
+            </CardTitle>
+            <CardDescription>
+              Choose a strong password of at least 8 characters.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>
+              <FormField label="Current password" className="sm:col-span-2">
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </FormField>
+              <FormField label="New password">
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </FormField>
+              <FormField label="Confirm new password">
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </FormField>
+            </Stagger>
+            <Button
+              variant="outline"
+              disabled={passwordMutation.isPending || !currentPassword || !newPassword}
+              onClick={handlePasswordSubmit}
+            >
+              {passwordMutation.isPending ? 'Updating…' : 'Update password'}
+            </Button>
+          </CardContent>
+        </Card>
+      </Reveal>
+
+      {/* Notification preferences */}
+      <Reveal y={20} delay={0.12}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

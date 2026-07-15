@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useStore } from "@/lib/context/store";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, instructorApi } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { categories } from "@/lib/mock/courses";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
@@ -19,19 +21,36 @@ import { Save, ShieldCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 export default function InstructorProfile() {
-  const { currentInstructor, updateInstructorProfile, mounted } = useStore();
-  const [name, setName] = useState(currentInstructor?.name ?? "");
-  const [title, setTitle] = useState(currentInstructor?.title ?? "");
-  const [expertise, setExpertise] = useState(currentInstructor?.expertise ?? categories[0]);
-  const [bio, setBio] = useState(currentInstructor?.bio ?? "");
+  const qc = useQueryClient();
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["instructor", "profile"],
+    queryFn: instructorApi.profile,
+  });
 
-  if (!mounted || !currentInstructor) return null;
-  const status = currentInstructor.status ?? "approved";
+  const [title, setTitle] = useState("");
+  const [expertise, setExpertise] = useState(categories[0]);
+  const [bio, setBio] = useState("");
 
-  function save() {
-    updateInstructorProfile({ name, title, expertise, bio });
-    toast.success("Profile saved");
-  }
+  // Seed the form once the profile loads.
+  useEffect(() => {
+    if (profile) {
+      setTitle(profile.title ?? "");
+      setExpertise(profile.expertise ?? categories[0]);
+      setBio(profile.bio ?? "");
+    }
+  }, [profile]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => api.updateInstructorProfile({ title, bio, expertise }),
+    onSuccess: () => {
+      toast.success("Profile saved");
+      void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  if (isLoading || !profile) return null;
+  const status = profile.status;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
@@ -42,10 +61,10 @@ export default function InstructorProfile() {
         </div>
         <Badge
           variant="outline"
-          className={status === "approved" ? "gap-1 text-success border-success/30 bg-success/10" : "gap-1 text-warning border-warning/30 bg-warning/10"}
+          className={status === "APPROVED" ? "gap-1 text-success border-success/30 bg-success/10" : "gap-1 text-warning border-warning/30 bg-warning/10"}
         >
-          {status === "approved" ? <ShieldCheck className="size-3" /> : <Clock className="size-3" />}
-          {status === "approved" ? "Approved instructor" : status === "pending" ? "Pending approval" : "Not approved"}
+          {status === "APPROVED" ? <ShieldCheck className="size-3" /> : <Clock className="size-3" />}
+          {status === "APPROVED" ? "Approved instructor" : status === "PENDING" ? "Pending approval" : "Not approved"}
         </Badge>
       </header>
 
@@ -53,10 +72,10 @@ export default function InstructorProfile() {
         <Card>
           <CardContent className="flex items-center gap-4 pt-6">
             <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
-              <AvatarFallback className="brand-gradient text-xl text-white">{initials(name || currentInstructor.name)}</AvatarFallback>
+              <AvatarFallback className="brand-gradient text-xl text-white">{initials(profile.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-heading text-lg font-semibold">{name || "Your name"}</div>
+              <div className="font-heading text-lg font-semibold">{profile.name}</div>
               <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
             </div>
           </CardContent>
@@ -70,10 +89,10 @@ export default function InstructorProfile() {
             <Stagger className="space-y-4" gap={0.05}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField label="Full name">
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
+                  <Input value={profile.name} readOnly className="opacity-70" />
                 </FormField>
                 <FormField label="Email">
-                  <Input value={currentInstructor.email ?? ""} readOnly className="opacity-70" />
+                  <Input value={profile.email} readOnly className="opacity-70" />
                 </FormField>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -95,7 +114,9 @@ export default function InstructorProfile() {
             </Stagger>
             <div className="flex justify-end">
               <Magnetic strength={0.15}>
-                <Button className="sheen" onClick={save}><Save /> Save profile</Button>
+                <Button className="sheen" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                  <Save /> {saveMutation.isPending ? "Saving…" : "Save profile"}
+                </Button>
               </Magnetic>
             </div>
           </CardContent>

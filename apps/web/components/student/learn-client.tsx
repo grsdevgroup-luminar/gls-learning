@@ -6,7 +6,9 @@ import { useTheme } from "next-themes";
 import type { Course, Lesson } from "@/types";
 import { useStore } from "@/lib/context/store";
 import { courseLessonCount } from "@/lib/mock/courses";
-import { demoStudent } from "@/lib/mock/students";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api/endpoints";
+import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { QuizPlayer } from "@/components/student/quiz-player";
 import { CircularProgress } from "@/components/shared/circular-progress";
@@ -43,7 +45,8 @@ interface FlatLesson extends Lesson {
 }
 
 export function LearnClient({ course }: { course: Course }) {
-  const { isLessonDone, toggleLesson, completedCount, getQuizResult, mounted } = useStore();
+  const { isLessonDone, toggleLesson, completedCount, mounted } = useStore();
+  const { user } = useSession();
 
   const flat: FlatLesson[] = useMemo(() => {
     let i = 0;
@@ -54,6 +57,13 @@ export function LearnClient({ course }: { course: Course }) {
 
   const [currentId, setCurrentId] = useState(flat[0].id);
   const current = flat.find((l) => l.id === currentId) ?? flat[0];
+
+  // Server-side quiz result for the current lesson (grading lives in the API).
+  const { data: quizResult } = useQuery({
+    queryKey: ["quiz-result", current.id],
+    queryFn: () => api.quizResult(current.id),
+    enabled: current.type === "quiz",
+  });
   const total = courseLessonCount(course);
   const done = mounted ? completedCount(course.id) : 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -95,14 +105,9 @@ export function LearnClient({ course }: { course: Course }) {
       <div className="grid flex-1 lg:grid-cols-[1fr_360px]">
         {/* Player + content */}
         <div className="flex flex-col">
-          {current.type === "quiz" && current.quiz ? (
+          {current.type === "quiz" ? (
             <div className="bg-secondary/20">
-              <QuizPlayer
-                key={current.id}
-                courseId={course.id}
-                lessonId={current.id}
-                quiz={current.quiz}
-              />
+              <QuizPlayer key={current.id} courseId={course.id} lessonId={current.id} />
             </div>
           ) : (
             <div className="bg-black p-0 lg:p-4">
@@ -111,7 +116,7 @@ export function LearnClient({ course }: { course: Course }) {
                   key={current.id}
                   title={current.title}
                   durationSec={current.durationSec}
-                  watermark={demoStudent.email}
+                  watermark={user?.email ?? ""}
                   seed={course.thumbnail}
                   onComplete={markAndMaybeAdvance}
                   onNext={() => goto(1)}
@@ -127,18 +132,17 @@ export function LearnClient({ course }: { course: Course }) {
                 <h1 className="text-xl font-bold">{current.title}</h1>
               </div>
               {current.type === "quiz" ? (
-                (() => {
-                  const result = mounted ? getQuizResult(course.id, current.id) : undefined;
-                  return result?.passed ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-success/10 px-3 py-1.5 text-sm font-medium text-success">
-                      <CheckCircle2 className="h-4 w-4" /> Passed · {result.bestScore}%
-                    </span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">
-                      {result ? `Best score so far: ${result.bestScore}%` : "Pass the quiz to mark this lesson complete"}
-                    </span>
-                  );
-                })()
+                quizResult?.passed ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-success/10 px-3 py-1.5 text-sm font-medium text-success">
+                    <CheckCircle2 className="h-4 w-4" /> Passed · {quizResult.bestScore}%
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {quizResult
+                      ? `Best score so far: ${quizResult.bestScore}%`
+                      : "Pass the quiz to mark this lesson complete"}
+                  </span>
+                )
               ) : (
                 <Button
                   variant={isLessonDone(course.id, current.id) ? "secondary" : "default"}

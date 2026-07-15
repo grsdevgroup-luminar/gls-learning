@@ -1,0 +1,353 @@
+import type {
+  AdminOverviewDto,
+  AdminStudentDto,
+  CourseDetailDto,
+  CourseSummaryDto,
+  CreateReviewInput,
+  EnrollmentDto,
+  InstructorApplicationDto,
+  InstructorProfileDto,
+  OrderDto,
+  OrganizationDto,
+  Paginated,
+  QuizAttemptInput,
+  QuizAttemptResultDto,
+  QuizPlayDto,
+  QuizResultDto,
+  QuoteDto,
+  ReviewDto,
+  SalesAgentDto,
+  SalesAgentReferralDto,
+  CheckoutQuoteInput,
+  CheckoutSessionInput,
+  CheckoutSessionDto,
+  ToggleLessonResultDto,
+} from "@skillstream/shared";
+import { apiFetch } from "./client";
+
+// Re-exported so pages can import DTO types alongside the endpoint helpers.
+export type {
+  AdminOverviewDto,
+  AdminStudentDto,
+  CourseDetailDto,
+  CourseSummaryDto,
+  EnrollmentDto,
+  InstructorApplicationDto,
+  InstructorProfileDto,
+  OrderDto,
+  OrganizationDto,
+  Paginated,
+  ReviewDto,
+  SalesAgentDto,
+  SalesAgentReferralDto,
+} from "@skillstream/shared";
+
+/** `GET /me/certificates` returns certificates enriched with course info
+ *  (unlike the bare `CertificateDto` embedded in enrollments). */
+export interface CertificateDto {
+  serial: string;
+  pdfUrl: string | null;
+  issuedAt: string;
+  courseId: string;
+  courseTitle: string;
+  courseSlug: string;
+}
+
+const qs = (params: Record<string, string | number | undefined>) => {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params))
+    if (v !== undefined && v !== "") sp.set(k, String(v));
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+};
+
+// Endpoint functions usable from the browser (credentials are always included).
+export const api = {
+  // catalog
+  courses: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<CourseSummaryDto>>(`/courses${qs(params)}`),
+  course: (slug: string) => apiFetch<CourseDetailDto>(`/courses/${slug}`),
+  categories: () => apiFetch<string[]>("/categories"),
+
+  // enrollment / progress
+  myEnrollments: () => apiFetch<EnrollmentDto[]>("/me/enrollments"),
+  progress: (courseId: string) =>
+    apiFetch<EnrollmentDto>(`/me/courses/${courseId}/progress`),
+  enrollFree: (courseId: string) =>
+    apiFetch<EnrollmentDto>(`/courses/${courseId}/enroll`, { method: "POST" }),
+  toggleLesson: (courseId: string, lessonId: string) =>
+    apiFetch<ToggleLessonResultDto>(
+      `/enrollments/${courseId}/lessons/${lessonId}/toggle`,
+      { method: "POST" },
+    ),
+
+  // quiz
+  quiz: (lessonId: string) => apiFetch<QuizPlayDto>(`/lessons/${lessonId}/quiz`),
+  quizResult: (lessonId: string) =>
+    apiFetch<QuizResultDto | null>(`/lessons/${lessonId}/quiz/result`),
+  submitQuiz: (lessonId: string, body: QuizAttemptInput) =>
+    apiFetch<QuizAttemptResultDto>(`/lessons/${lessonId}/quiz/attempt`, {
+      method: "POST",
+      body,
+    }),
+
+  // commerce
+  quote: (body: CheckoutQuoteInput) =>
+    apiFetch<QuoteDto>("/checkout/quote", { method: "POST", body }),
+  checkoutSession: (body: CheckoutSessionInput) =>
+    apiFetch<CheckoutSessionDto>("/checkout/session", { method: "POST", body }),
+  myOrders: () => apiFetch<OrderDto[]>("/me/orders"),
+  devSimulatePayment: (orderId: string) =>
+    apiFetch<OrderDto>(`/payments/dev/simulate/${orderId}`, { method: "POST" }),
+
+  // reviews
+  courseReviews: (courseId: string, page = 1) =>
+    apiFetch<Paginated<ReviewDto>>(`/courses/${courseId}/reviews${qs({ page })}`),
+  myReview: (courseId: string) =>
+    apiFetch<ReviewDto | null>(`/me/courses/${courseId}/review`),
+  submitReview: (courseId: string, body: CreateReviewInput) =>
+    apiFetch<ReviewDto>(`/courses/${courseId}/reviews`, { method: "POST", body }),
+
+  // admin — instructor applications
+  adminInstructorApplications: () =>
+    apiFetch<InstructorApplicationDto[]>("/admin/instructor-applications"),
+  approveInstructorApplication: (id: string, note?: string) =>
+    apiFetch<InstructorApplicationDto>(
+      `/admin/instructor-applications/${id}/approve`,
+      { method: "POST", body: { note } },
+    ),
+  rejectInstructorApplication: (id: string, note?: string) =>
+    apiFetch<InstructorApplicationDto>(
+      `/admin/instructor-applications/${id}/reject`,
+      { method: "POST", body: { note } },
+    ),
+
+  // certificates
+  myCertificates: () => apiFetch<CertificateDto[]>("/me/certificates"),
+
+  // admin overview & management
+  adminOverview: () => apiFetch<AdminOverviewDto>("/admin/overview"),
+  adminStudents: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<AdminStudentDto[]>(`/admin/students${qs(params)}`),
+  adminOrders: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<OrderDto[]>(`/admin/orders${qs(params)}`),
+  adminCourses: () => apiFetch<InstructorCourseDto[]>("/admin/courses"),
+  updateUserStatus: (userId: string, status: "ACTIVE" | "IDLE" | "AT_RISK") =>
+    apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
+  deleteUser: (userId: string) =>
+    apiFetch<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
+  refundOrder: (orderId: string) =>
+    apiFetch<{ ok: true }>(`/admin/orders/${orderId}/refund`, { method: "POST" }),
+  adminReviews: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<ReviewDto>>(`/admin/reviews${qs(params)}`),
+  updateReviewStatus: (reviewId: string, status: "APPROVED" | "HIDDEN") =>
+    apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { status } }),
+
+  // sales agent (self-service)
+  applySalesAgent: (body: {
+    name: string;
+    email: string;
+    phone?: string;
+    region: string;
+    bio: string;
+  }) =>
+    apiFetch<{ id: string; status: string }>("/sales-agents/apply", {
+      method: "POST",
+      body,
+    }),
+  mySalesAgent: () => apiFetch<SalesAgentDto | null>("/me/sales-agent"),
+  mySalesAgentReferrals: () =>
+    apiFetch<SalesAgentReferralDto[]>("/me/sales-agent/referrals"),
+
+  // admin — sales agents
+  adminSalesAgents: () => apiFetch<SalesAgentDto[]>("/admin/sales-agents"),
+  updateSalesAgent: (id: string, body: Partial<Pick<SalesAgentDto, "commissionPercent" | "status">>) =>
+    apiFetch<SalesAgentDto>(`/admin/sales-agents/${id}`, { method: "PATCH", body }),
+  payoutSalesAgent: (id: string) =>
+    apiFetch<{ ok: true }>(`/admin/sales-agents/${id}/payout`, { method: "POST" }),
+
+  // instructor
+  applyInstructor: (body: {
+    expertise: string;
+    headline: string;
+    bio: string;
+    sampleUrl?: string;
+  }) =>
+    apiFetch<InstructorApplicationDto>("/instructors/apply", {
+      method: "POST",
+      body,
+    }),
+  instructorProfile: () => apiFetch<InstructorProfileDto | null>("/me/instructor"),
+  instructorCourses: () =>
+    apiFetch<InstructorCourseDto[]>("/me/instructor/courses"),
+  updateInstructorProfile: (body: {
+    title?: string;
+    bio?: string;
+    expertise?: string;
+    avatar?: string;
+  }) =>
+    apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
+};
+
+/** Own-course listing includes revenue (owner-only field). */
+export type InstructorCourseDto = CourseSummaryDto & { revenueCents: number };
+
+// ── organizations (B2B portal) ─────────────────────────────────────────────
+
+export const orgApi = {
+  bySlug: (idOrSlug: string) =>
+    apiFetch<OrganizationDto>(`/organizations/${idOrSlug}`),
+  mine: () => apiFetch<OrganizationDto[]>("/me/organizations"),
+  update: (
+    orgId: string,
+    body: Partial<{ name: string; domain: string; logoUrl: string; seatCount: number }>,
+  ) => apiFetch<OrganizationDto>(`/organizations/${orgId}`, { method: "PATCH", body }),
+  invite: (orgId: string, email: string, role: "ADMIN" | "MEMBER") =>
+    apiFetch<{ id: string; token: string; email: string }>(
+      `/organizations/${orgId}/invite`,
+      { method: "POST", body: { email, role } },
+    ),
+  invitations: (orgId: string) =>
+    apiFetch<{ id: string; email: string; role: string; expiresAt: string }[]>(
+      `/organizations/${orgId}/invitations`,
+    ),
+  cancelInvitation: (orgId: string, inviteId: string) =>
+    apiFetch<{ ok: true }>(`/organizations/${orgId}/invitations/${inviteId}`, {
+      method: "DELETE",
+    }),
+  removeMember: (orgId: string, memberId: string) =>
+    apiFetch<OrganizationDto>(`/organizations/${orgId}/members/${memberId}`, {
+      method: "DELETE",
+    }),
+  claim: (token: string) =>
+    apiFetch<{ ok: true }>(`/organizations/claim/${token}`, { method: "POST" }),
+  courses: (orgId: string) =>
+    apiFetch<CourseSummaryDto[]>(`/organizations/${orgId}/courses`),
+  assignCourse: (orgId: string, courseId: string) =>
+    apiFetch<OrganizationDto>(`/organizations/${orgId}/courses`, {
+      method: "POST",
+      body: { courseId },
+    }),
+  unassignCourse: (orgId: string, courseId: string) =>
+    apiFetch<OrganizationDto>(`/organizations/${orgId}/courses/${courseId}`, {
+      method: "DELETE",
+    }),
+};
+
+// ── authoring (instructor/admin course builder) ────────────────────────────
+
+export interface AuthoringQuizQuestionDto {
+  id: string;
+  prompt: string;
+  explanation: string | null;
+  order: number;
+  options: { id: string; text: string; isCorrect: boolean; order: number }[];
+}
+export interface AuthoringQuizDto {
+  id: string;
+  lessonId: string;
+  passScore: number;
+  questions: AuthoringQuizQuestionDto[];
+}
+
+export type CourseLevelInput = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "ALL_LEVELS";
+export interface CourseFieldsInput {
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  category?: string;
+  level?: CourseLevelInput;
+  thumbnail?: string;
+  language?: string;
+  basePriceCents?: number;
+}
+export interface LessonFieldsInput {
+  title: string;
+  type: "VIDEO" | "QUIZ" | "ARTICLE";
+  durationSec?: number;
+  preview?: boolean;
+  order?: number;
+  articleContent?: string | null;
+  cfVideoUid?: string | null;
+}
+
+export const authoringApi = {
+  course: (id: string) => apiFetch<CourseDetailDto>(`/authoring/courses/${id}`),
+  createCourse: (body: CourseFieldsInput & { title: string; category: string }) =>
+    apiFetch<CourseDetailDto>("/courses", { method: "POST", body }),
+  updateCourse: (id: string, body: CourseFieldsInput) =>
+    apiFetch<CourseDetailDto>(`/courses/${id}`, { method: "PATCH", body }),
+  setCourseStatus: (id: string, status: "DRAFT" | "REVIEW" | "PUBLISHED") =>
+    apiFetch<CourseDetailDto>(`/courses/${id}/status`, {
+      method: "PATCH",
+      body: { status },
+    }),
+  deleteCourse: (id: string) =>
+    apiFetch<{ ok: true }>(`/courses/${id}`, { method: "DELETE" }),
+  addSection: (courseId: string, body: { title: string; order?: number }) =>
+    apiFetch<CourseDetailDto>(`/courses/${courseId}/sections`, {
+      method: "POST",
+      body,
+    }),
+  updateSection: (id: string, body: { title: string; order?: number }) =>
+    apiFetch<CourseDetailDto>(`/sections/${id}`, { method: "PATCH", body }),
+  deleteSection: (id: string) =>
+    apiFetch<CourseDetailDto>(`/sections/${id}`, { method: "DELETE" }),
+  addLesson: (sectionId: string, body: LessonFieldsInput) =>
+    apiFetch<CourseDetailDto>(`/sections/${sectionId}/lessons`, {
+      method: "POST",
+      body,
+    }),
+  updateLesson: (id: string, body: LessonFieldsInput) =>
+    apiFetch<CourseDetailDto>(`/lessons/${id}`, { method: "PATCH", body }),
+  deleteLesson: (id: string) =>
+    apiFetch<CourseDetailDto>(`/lessons/${id}`, { method: "DELETE" }),
+  quiz: (lessonId: string) =>
+    apiFetch<AuthoringQuizDto | null>(`/authoring/lessons/${lessonId}/quiz`),
+  upsertQuiz: (lessonId: string, passScore: number) =>
+    apiFetch<AuthoringQuizDto>(`/lessons/${lessonId}/quiz`, {
+      method: "POST",
+      body: { passScore },
+    }),
+  addQuizQuestion: (
+    quizId: string,
+    body: {
+      prompt: string;
+      explanation?: string;
+      order?: number;
+      options: { text: string; isCorrect: boolean; order?: number }[];
+    },
+  ) =>
+    apiFetch<AuthoringQuizDto>(`/quizzes/${quizId}/questions`, {
+      method: "POST",
+      body,
+    }),
+  deleteQuizQuestion: (questionId: string) =>
+    apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
+      method: "DELETE",
+    }),
+};
+
+// Grouped aliases so portal pages can import a namespaced client.
+export const adminApi = {
+  overview: () => api.adminOverview(),
+  students: () => api.adminStudents(),
+  orders: () => api.adminOrders(),
+  courses: () => api.adminCourses(),
+  updateUserStatus: api.updateUserStatus,
+  deleteUser: api.deleteUser,
+  refundOrder: api.refundOrder,
+  reviews: api.adminReviews,
+  updateReviewStatus: api.updateReviewStatus,
+  instructorApplications: api.adminInstructorApplications,
+  approveInstructorApplication: api.approveInstructorApplication,
+  rejectInstructorApplication: api.rejectInstructorApplication,
+  salesAgents: api.adminSalesAgents,
+  updateSalesAgent: api.updateSalesAgent,
+  payoutSalesAgent: api.payoutSalesAgent,
+};
+
+export const instructorApi = {
+  profile: () => api.instructorProfile(),
+  courses: () => api.instructorCourses(),
+};

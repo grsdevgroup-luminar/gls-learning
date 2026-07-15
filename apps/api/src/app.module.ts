@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_FILTER, APP_GUARD } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 import { validateEnv } from "./config/env";
 import { PrismaModule } from "./prisma/prisma.module";
+import { EmailModule } from "./email/email.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { CoursesModule } from "./courses/courses.module";
@@ -16,10 +17,14 @@ import { AuthoringModule } from "./authoring/authoring.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { InstructorModule } from "./instructor/instructor.module";
 import { AdminModule } from "./admin/admin.module";
+import { SalesAgentModule } from "./sales-agent/sales-agent.module";
+import { OrganizationsModule } from "./organizations/organizations.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { HealthController } from "./health/health.controller";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/jwt-auth.guard";
 import { RolesGuard } from "./common/roles.guard";
+import { AuditInterceptor } from "./common/audit.interceptor";
 
 @Module({
   imports: [
@@ -39,6 +44,7 @@ import { RolesGuard } from "./common/roles.guard";
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
+    EmailModule,
     UsersModule,
     AuthModule,
     CoursesModule,
@@ -50,6 +56,9 @@ import { RolesGuard } from "./common/roles.guard";
     ReviewsModule,
     InstructorModule,
     AdminModule,
+    SalesAgentModule,
+    OrganizationsModule,
+    JobsModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -57,6 +66,7 @@ import { RolesGuard } from "./common/roles.guard";
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
 export class AppModule {}

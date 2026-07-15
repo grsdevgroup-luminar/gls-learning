@@ -13,8 +13,12 @@ import { ReviewStatus } from "@prisma/client";
 import {
   reviewStatusSchema,
   upsertCouponSchema,
+  updateUserStatusSchema,
+  upsertAutomationRuleSchema,
   type ReviewStatusInput,
   type UpsertCouponInput,
+  type UpdateUserStatusInput,
+  type UpsertAutomationRuleInput,
 } from "@skillstream/shared";
 import { Roles } from "../common/decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -51,6 +55,25 @@ export class AdminController {
     return this.admin.orders();
   }
 
+  @Post("orders/:id/refund")
+  refundOrder(@Param("id") id: string) {
+    return this.admin.refundOrder(id);
+  }
+
+  // users
+  @Patch("users/:id/status")
+  updateUserStatus(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateUserStatusSchema)) body: UpdateUserStatusInput,
+  ) {
+    return this.admin.updateUserStatus(id, body);
+  }
+
+  @Delete("users/:id")
+  deleteUser(@Param("id") id: string) {
+    return this.admin.deleteUser(id);
+  }
+
   // coupons
   @Get("coupons")
   listCoupons() {
@@ -83,10 +106,30 @@ export class AdminController {
     return this.reviews.setStatus(id, body);
   }
 
-  // marketing
+  // marketing / automation
   @Get("automation-rules")
   automationRules() {
     return this.admin.listAutomationRules();
+  }
+
+  @Post("automation-rules")
+  createAutomationRule(
+    @Body(new ZodValidationPipe(upsertAutomationRuleSchema)) body: UpsertAutomationRuleInput,
+  ) {
+    return this.admin.upsertAutomationRule(undefined, body);
+  }
+
+  @Patch("automation-rules/:id")
+  updateAutomationRule(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(upsertAutomationRuleSchema)) body: UpsertAutomationRuleInput,
+  ) {
+    return this.admin.upsertAutomationRule(id, body);
+  }
+
+  @Delete("automation-rules/:id")
+  deleteAutomationRule(@Param("id") id: string) {
+    return this.admin.deleteAutomationRule(id);
   }
 
   @Get("reminder-logs")

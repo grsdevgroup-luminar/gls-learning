@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useStore, type Role } from "@/lib/context/store";
+import { useStore, DEMO_ORG_SLUG, type Role } from "@/lib/context/store";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, RotateCcw, User, Shield, Eye, GraduationCap, GripVertical } from "lucide-react";
+import { Sparkles, X, RotateCcw, User, Shield, Eye, GraduationCap, GripVertical, Link2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -13,13 +13,15 @@ const roleMeta: Record<Role, { label: string; icon: typeof User }> = {
   student: { label: "Student", icon: User },
   instructor: { label: "Instructor", icon: GraduationCap },
   admin: { label: "Admin", icon: Shield },
+  sales_agent: { label: "Sales Agent", icon: Link2 },
+  org_admin: { label: "Company Admin", icon: Building2 },
 };
 
 const DRAG_THRESHOLD = 4;
 const EDGE_MARGIN = 8;
 
 export function DemoBar() {
-  const { role, loginAs, loginAsInstructor, reset, mounted } = useStore();
+  const { role, loginAs, loginAsInstructor, loginAsAgent, loginAsOrgAdmin, reset, mounted } = useStore();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -89,6 +91,16 @@ export function DemoBar() {
     router.push("/instructor");
     setOpen(false);
   }
+  function goAgent() {
+    loginAsAgent();
+    router.push("/sales-agent");
+    setOpen(false);
+  }
+  function goOrgAdmin() {
+    loginAsOrgAdmin(DEMO_ORG_SLUG);
+    router.push(`/org/${DEMO_ORG_SLUG}`);
+    setOpen(false);
+  }
 
   return (
     <div
@@ -128,6 +140,12 @@ export function DemoBar() {
             </Button>
             <Button variant="outline" size="sm" className="justify-start" onClick={() => go("admin", "/admin")}>
               <Shield /> View as admin
+            </Button>
+            <Button variant="outline" size="sm" className="justify-start" onClick={goAgent}>
+              <Link2 /> View as sales agent
+            </Button>
+            <Button variant="outline" size="sm" className="justify-start" onClick={goOrgAdmin}>
+              <Building2 /> View as company admin
             </Button>
             <Button
               variant="ghost"

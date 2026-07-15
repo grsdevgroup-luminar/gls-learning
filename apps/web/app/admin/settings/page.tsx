@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { instructors } from '@/lib/mock/instructors';
-import { initials, compactNumber } from '@/lib/format';
 import {
   Card,
   CardContent,
@@ -135,28 +133,11 @@ export default function AdminSettings() {
             <Plus /> Invite
           </Button>
         </CardHeader>
-        <CardContent className="space-y-1">
-          {instructors.map((i, idx) => (
-            <div key={i.id}>
-              {idx > 0 && <Separator />}
-              <div className="flex items-center gap-3 py-3">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="text-xs">
-                    {initials(i.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{i.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {i.title} · {compactNumber(i.students)} students
-                  </div>
-                </div>
-                <Badge variant="outline">
-                  {idx === 0 ? 'Owner' : 'Instructor'}
-                </Badge>
-              </div>
-            </div>
-          ))}
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Manage instructors from the{" "}
+            <a href="/admin/instructors" className="text-primary hover:underline">Instructors</a> page.
+          </p>
         </CardContent>
       </Card>
 

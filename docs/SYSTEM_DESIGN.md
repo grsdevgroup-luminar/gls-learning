@@ -36,6 +36,27 @@ schema mirrors and normalizes every type.
 
 ---
 
+## 1.5 Infrastructure & external services — what you need to provide
+
+Everything except Postgres and the JWT secrets degrades gracefully when unset (dev-only
+simulate paths, console-logged emails, a targeted `503` on the specific feature) — the
+app still boots and most of it still works locally with just Docker Compose.
+
+| Service | Required? | What it's for | Env vars |
+|---|---|---|---|
+| **PostgreSQL** | Required | The single datastore — all 28 Prisma models. Local: `docker-compose.yml`. Prod: managed Postgres (Railway/Render/Neon/Supabase). | `DATABASE_URL` |
+| **Redis** | Required for jobs | Backs **BullMQ only** — not caching, not sessions. Drives the hourly maintenance rollup (reconciles enrollment completion, recomputes admin KPI counts) and the notifications queue (engagement reminders). `rediss://` scheme enables TLS for managed Redis (e.g. Upstash). Without it, the app still boots but job scheduling logs a warning and no-ops. | `REDIS_URL` |
+| **Cloudflare account + Stream product** | Required for video | Direct-creator-upload + signed HLS/iframe playback. Cloudflare Stream stores, encodes, and serves the video itself — **there is no separate object-storage (R2/S3) bucket in this system.** Without these vars, `media.service.ts` throws a `503` on upload/playback only. | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN` |
+| **Object storage / image CDN (R2, S3, Cloudflare Images, etc.)** | Not integrated | Course thumbnails and avatars are plain URL strings in Postgres (`authoring.service.ts`) — there is no upload endpoint yet. Instructors/admins currently paste an already-hosted image URL from wherever you choose to host images. | — |
+| **Stripe account** | Required for card checkout | Checkout Sessions + webhook-verified, idempotent order fulfillment (`WebhookEvent.eventId` unique constraint). | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| **PayPal developer app** | Required for PayPal checkout | REST order create/capture + webhook fulfillment, same idempotency path as Stripe. Sandbox vs. live is chosen by `NODE_ENV`. | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
+| **Resend account + verified sending domain** | Required for real email | Welcome + password-reset transactional email. Unset → emails are logged to console instead of sent (safe for local dev; auth flows still work). **Not yet wired into the marketing-automation reminder job** — `notifications.processor.ts` writes a `ReminderLog` row but the actual Resend/Twilio send is a stub (`// TODO`). | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
+| **Twilio (or similar SMS provider)** | Not integrated | Reserved for SMS reminders in the automation engine; no code path calls it yet. | — |
+| **Sentry** | Optional | Error tracking, initialized only if a DSN is present. | `SENTRY_DSN` |
+| **JWT secrets** | Self-generated | `openssl rand -base64 48` — no external service. | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` |
+
+---
+
 ## 2. Target architecture
 
 ```
@@ -284,25 +305,157 @@ The visual layer stays; the data layer is replaced:
 
 ---
 
+---
+
+## 11. Sales Agent program
+
+Worldwide sales agents earn a flat commission percentage on every purchase they
+refer. Agents have a unique referral code/link; any order placed through it is
+attributed to them.
+
+### Data model additions
+
+| Model | Purpose |
+|---|---|
+| `SalesAgent` | One profile per approved agent user. Holds `referralCode` (unique), `commissionPercent`, earnings counters, `region`, `status` (`PENDING/APPROVED/REJECTED/SUSPENDED`). |
+| `SalesAgentApplication` | Pre-approval application form. Decoupled from `SalesAgent` so rejected apps are preserved. |
+| `SalesAgentReferral` | One row per attributed order. Tracks `commissionCents`, `status` (`pending/confirmed/paid`). Unique on `orderId` (one referral per order). |
+| `Order.agentReferralCode` | Nullable field set at order creation from the `?ref=CODE` query param. |
+
+New enum: `SalesAgentStatus` (PENDING / APPROVED / REJECTED / SUSPENDED).
+
+### Role: `SALES_AGENT`
+
+Added to `UserRole` enum (Prisma + `packages/shared`). A user with this role
+sees the `/sales-agent` portal. Seeded demo agent: `agent_james`.
+
+### Frontend portal: `/sales-agent`
+
+| Route | Content |
+|---|---|
+| `/sales-agent` | Overview: stats strip (lifetime earnings, pending, paid out, referral count), referral link copy widget, recent referrals list. |
+| `/sales-agent/referrals` | Full referral table with status badges and commission per row. |
+| `/sales-agent/earnings` | Ledger split by paid / confirmed / pending. |
+| `/sales-agent/profile` | Agent info card + referral code/link copy. |
+
+### Admin management: `/admin/agents`
+
+- Stats: active agent count, total referrals, commissions paid/pending.
+- Pending applications queue with inline approve/reject dialog (set commission % on approve).
+- Full agent table with inline commission % editor (save button appears on change) and suspend action.
+
+### API modules (Phase 11 — to implement)
+
+`GET /agents/me` (agent's own stats + referrals), `POST /agents/apply`,
+`GET /admin/agents`, `PATCH /admin/agents/:id` (commission / status),
+`PATCH /admin/agents/applications/:id/review`.
+
+At checkout, `POST /checkout/quote` accepts optional `referralCode`; if valid
+and the agent is `APPROVED`, the code is attached to the order and a
+`SalesAgentReferral` row is created on payment webhook (idempotent).
+
+---
+
+## 12. B2B Organizations
+
+Companies purchase a block of seats and get access to a set of private
+(org-only, unlisted) courses for their employees.
+
+### Data model additions
+
+| Model | Purpose |
+|---|---|
+| `Organization` | One org per company. `slug` (unique URL key), `seatCount`, `usedSeats`, `status` (`ACTIVE/TRIAL/SUSPENDED`). |
+| `OrgMember` | Employee row — `orgId × email` (unique). Holds `role` (`ADMIN/MEMBER`). Links to `userId` once the employee registers. |
+| `OrgInvitation` | Pending invite token (time-limited). Claimed on registration → creates `OrgMember`. |
+| `Course.visibility` | `PUBLIC` (default) or `PRIVATE`. Private courses are not listed in the public catalog; only org members enrolled by their org can access them. |
+| `Course.orgId` | Set when `visibility = PRIVATE`, pointing to the owning org. |
+
+New enums: `CourseVisibility`, `OrgStatus`, `OrgMemberRole`.
+
+### Role: `ORG_ADMIN`
+
+Added to `UserRole`. An org admin (the primary contact set at org creation)
+sees the `/org/[slug]` portal.
+
+### Frontend portal: `/org/[slug]`
+
+| Route | Content |
+|---|---|
+| `/org/[slug]` | Overview: seat usage bar, stats (members, courses, active learners, enrollments), recent members list, assigned course grid. |
+| `/org/[slug]/courses` | Assigned private course cards with remove button; dialog to assign any published public course as private. |
+| `/org/[slug]/members` | Member table with invite dialog (email + role), remove member button, per-member course count. |
+| `/org/[slug]/account` | Org info, seat plan summary (usage bar, seat counts), note to contact support for more seats. |
+
+Seeded demo orgs: `techcorp` (20 seats, 12 used, active) and `acadex` (50 seats, 7 used, trial).
+
+### Admin management: `/admin/organizations`
+
+Stats overview → full org table (seats, course count, status, created date) →
+"View portal" button that logs admin in as org_admin and navigates to the portal.
+"New organization" dialog creates an org in draft/trial state.
+
+### API modules (Phase 11 — to implement)
+
+`POST /admin/organizations`, `GET /admin/organizations`, `PATCH /admin/organizations/:id`,
+`POST /admin/organizations/:id/courses` (assign), `DELETE /admin/organizations/:id/courses/:courseId`,
+`POST /org/:slug/invitations` (org admin invite), `POST /invitations/:token/claim` (employee registers),
+`DELETE /org/:slug/members/:memberId`.
+
+Course catalog (`GET /courses`) filters out `visibility=PRIVATE` for
+unauthenticated users and students not in the owning org. The learn player
+checks org membership before granting access to a private course.
+
+---
+
 ## 10. Current status (branch `feat/production-backend`)
 
-**Done & verified:**
+**Backend (`apps/api`) — all planned modules are implemented:**
 - Monorepo scaffold (Turborepo + pnpm; `apps/{web,api}`, `packages/{shared,config}`).
-- `packages/shared` — enums, money, pricing, coupon, progress helpers (`quizPassed`,
-  etc.) + Zod contracts and DTO types; vitest passing.
-- `apps/api` (NestJS) — Prisma with the **full 28-model schema migrated** (`init`);
-  globally-registered `JwtAuthGuard` + `RolesGuard` + `ThrottlerGuard` + exception
-  filter; pino logging with header redaction; Swagger at `/docs`; Zod-validated env.
-- **Auth fully working** — register / login / refresh / logout / me with httpOnly
-  cookies, argon2id hashing, opaque single-use rotating refresh tokens. Seed creates
-  admin `admin@skillstream.dev` / `admin12345` + pricing tiers/regions.
-- **Catalog read API** — `courses/` module: list with filter/sort/search/pagination
-  + course detail, via DTO mappers that strip internal fields.
-- **Enrollment + progress** — `enrollment/` module: enroll, lesson completion,
-  progress percentage.
-- **Quiz (server-graded)** — `quiz/` module: play endpoint strips correctness;
-  `submitAttempt` grades server-side, writes `QuizResult` + `QuizAttempt` atomically,
-  and marks the lesson complete on pass.
+- `packages/shared` — enums, money, pricing, coupon, progress helpers + Zod contracts
+  and DTO types.
+- Core infra: Prisma with the full 28+-model schema (now including sales-agent and
+  organization models); globally-registered `JwtAuthGuard` + `RolesGuard` +
+  `ThrottlerGuard` + exception filter; pino logging with header redaction; Swagger at
+  `/docs`; Zod-validated env; an `AuditInterceptor` that logs every authenticated
+  mutation to `AuditLog`.
+- **Auth** — register / login / refresh / logout / me / forgot-password / reset-password
+  / change-password / update-profile, httpOnly cookies, argon2id, opaque single-use
+  rotating refresh tokens, welcome + reset emails via `EmailModule` (Resend).
+- **Catalog** — filter/sort/search/paginated course list + detail, categories.
+- **Enrollment + progress** — enroll, lesson-completion toggle, per-course progress,
+  certificate issuance (DB record + serial; no PDF rendering yet — `pdfUrl` stays null).
+- **Quiz** — server-graded; play endpoint strips correctness, `submitAttempt` grades
+  and marks the lesson complete atomically.
+- **Commerce** — `checkout/quote` (server-authoritative price + coupon recompute),
+  `checkout/session`, Stripe + PayPal session creation, webhook handlers with
+  `WebhookEvent`-based idempotency, dev-only simulate-payment path, coupon evaluation,
+  regional pricing, order history + refunds.
+- **Media** — Cloudflare Stream direct-creator-upload + enrollment-gated signed
+  playback tokens.
+- **Authoring** — course/section/lesson CRUD + reorder, status workflow, quiz/question
+  authoring + reorder, all scoped to the owning instructor (admin override).
+- **Reviews** — per-course reviews (one per user), admin moderation.
+- **Instructor program** — apply / profile / admin approve-reject.
+- **Sales-agent program** — apply, admin approve/reject + commission/status management,
+  referral attribution at checkout, payout action, agent-facing stats/referrals.
+- **B2B organizations** — org CRUD, invite/claim flow, seat tracking, private-course
+  assignment.
+- **Admin** — overview KPIs, students, courses, orders (+ refund), coupons, review
+  moderation, automation-rule CRUD, reminder logs.
+- **Jobs (Redis + BullMQ)** — hourly maintenance rollup (enrollment-completion
+  reconciliation + KPI snapshot logging) and a notifications queue (writes
+  `ReminderLog`; the actual Resend/Twilio send is still a stub — see §1.5).
+- A k6 load-test script for the catalog endpoint (`apps/api/load-test/catalog.k6.js`).
+
+**Frontend (`apps/web`) — partially rewired from the mock store onto the real API:**
+- `lib/api/` is a real typed client (`fetch` + React Query) against the NestJS API.
+- **Wired to the API:** auth, student dashboard/enrollments/progress/certificates,
+  catalog/course detail, checkout + orders, reviews, quiz play, and most of admin
+  (overview, students, orders, courses, reviews, instructors, agents).
+- **Still reading `lib/mock/*`, not yet rewired:** admin pricing tiers, admin coupons,
+  admin marketing/automation, the sales-agent portal's own dashboard, and the org
+  overview page — `lib/context/store.tsx` calls this out directly in its own comments.
 
 **Local dev workflow:**
 ```bash
@@ -312,11 +465,9 @@ pnpm --filter @skillstream/api prisma:seed
 pnpm dev                      # api on :4000 (/api prefix), web on :3000
 ```
 
-**Not started yet:** full mock-catalog seed → commerce (Stripe/PayPal + webhooks) →
-media (Cloudflare Stream) → authoring (course/section/lesson CRUD) → reviews/instructor
-program → admin/marketing/analytics → hardening (BullMQ jobs, audit logs, observability).
-Then rewire the frontend (replace `lib/context/store.tsx` with TanStack Query +
-cookie-based SSR fetch).
+**Remaining work:** finish rewiring the frontend surfaces listed above onto real
+endpoints; wire the notifications queue to actually send via Resend/Twilio instead of
+stub-logging; certificate PDF rendering + storage; broader e2e/security test coverage.
 
 ---
 
@@ -515,13 +666,20 @@ schema → runtime guard *and* static type (see A2).
 - **pnpm workspaces + Turborepo** orchestrate cross-package build order
   (`^build` dependency so `shared`/`config` build before `api`/`web`) and caching.
 
-### B7. Planned additions (later phases)
+### B7. Implemented vs. still-planned integrations
 
-- **Redis + BullMQ** — job queue/workers for emails, reminders, certificate PDFs,
-  analytics rollups, webhook retries, FX refresh (Redis already in `docker-compose.yml`;
-  `REDIS_URL` already in the env schema).
-- **Stripe + PayPal SDKs** — checkout sessions + webhook verification (`STRIPE_*`,
-  `PAYPAL_*` env slots reserved).
-- **Cloudflare Stream** — direct-creator-upload + signed playback tokens
-  (`CLOUDFLARE_*` reserved).
-- **Resend / Twilio** — transactional email + SMS for the automation engine.
+Live today:
+- **Redis + BullMQ** (`jobs/`) — maintenance rollup + notifications queue (see §1.5, §10).
+- **Stripe + PayPal** (`payments/payments.service.ts`) — checkout sessions + signature/
+  idempotency-verified webhooks.
+- **Cloudflare Stream** (`media/media.service.ts`) — direct-creator-upload + short-lived
+  signed playback tokens.
+- **Resend** (`email/email.service.ts`) — welcome + password-reset email, with a
+  console-log fallback when unconfigured.
+
+Still planned:
+- Wiring the notifications queue's actual send step to Resend/Twilio (currently a stub
+  that only writes `ReminderLog`).
+- Certificate PDF rendering + storage (currently a DB record only, no `pdfUrl`).
+- An image-upload path for thumbnails/avatars (currently plain URL strings — no R2/S3
+  integration exists in this codebase).

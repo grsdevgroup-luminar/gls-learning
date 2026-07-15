@@ -1,11 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Coupon } from "@prisma/client";
 import type {
   AdminOverviewDto,
   AdminStudentDto,
   CouponDto,
   OrderDto,
+  UpsertAutomationRuleInput,
   UpsertCouponInput,
+  UpdateUserStatusInput,
 } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -87,7 +89,8 @@ export class AdminService {
       include: COURSE_SUMMARY_INCLUDE,
       orderBy: { updatedAt: "desc" },
     });
-    return rows.map(toCourseSummary);
+    // Admin view also exposes revenue (not part of the public summary).
+    return rows.map((r) => ({ ...toCourseSummary(r), revenueCents: r.revenueCents }));
   }
 
   async orders(): Promise<OrderDto[]> {
@@ -164,9 +167,108 @@ export class AdminService {
     return { ok: true };
   }
 
-  // ── marketing ──────────────────────────────────────────────────────────
+  // ── user management ────────────────────────────────────────────────────────
+  async updateUserStatus(userId: string, input: UpdateUserStatusInput) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    await this.prisma.studentProfile.updateMany({
+      where: { userId },
+      data: { status: input.status },
+    });
+    return { ok: true as const };
+  }
+
+  async deleteUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { ok: true as const };
+  }
+
+  // ── order refunds ──────────────────────────────────────────────────────────
+  async refundOrder(orderId: string): Promise<OrderDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: "REFUNDED" },
+      });
+      for (const item of order.items) {
+        const course = await tx.course.update({
+          where: { id: item.courseId },
+          data: {
+            revenueCents: { decrement: item.priceCents },
+            studentCount: { decrement: 1 },
+          },
+          select: { instructorId: true },
+        });
+        await tx.instructorProfile.updateMany({
+          where: { userId: course.instructorId },
+          data: {
+            earningsCents: { decrement: item.priceCents },
+            studentCount: { decrement: 1 },
+          },
+        });
+      }
+      await tx.studentProfile.updateMany({
+        where: { userId: order.userId },
+        data: { totalSpentCents: { decrement: order.totalCents } },
+      });
+      await tx.enrollment.deleteMany({
+        where: {
+          userId: order.userId,
+          courseId: { in: order.items.map((i) => i.courseId) },
+        },
+      });
+    });
+
+    const updated = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    return {
+      id: updated.id,
+      status: updated.status,
+      gateway: updated.gateway,
+      subtotalCents: updated.subtotalCents,
+      discountCents: updated.discountCents,
+      totalCents: updated.totalCents,
+      currency: updated.currency,
+      couponCode: updated.couponCode,
+      items: updated.items.map((i) => ({
+        courseId: i.courseId,
+        title: i.titleSnapshot,
+        priceCents: i.priceCents,
+      })),
+      createdAt: updated.createdAt.toISOString(),
+      paidAt: updated.paidAt?.toISOString() ?? null,
+    };
+  }
+
+  // ── marketing / automation ─────────────────────────────────────────────────
   listAutomationRules() {
     return this.prisma.automationRule.findMany({ orderBy: { createdAt: "asc" } });
+  }
+
+  async upsertAutomationRule(id: string | undefined, input: UpsertAutomationRuleInput) {
+    if (id) {
+      const existing = await this.prisma.automationRule.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException("Automation rule not found");
+      return this.prisma.automationRule.update({ where: { id }, data: input });
+    }
+    return this.prisma.automationRule.create({ data: input });
+  }
+
+  async deleteAutomationRule(id: string) {
+    const existing = await this.prisma.automationRule.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException("Automation rule not found");
+    await this.prisma.automationRule.delete({ where: { id } });
+    return { ok: true as const };
   }
 
   listReminderLogs() {

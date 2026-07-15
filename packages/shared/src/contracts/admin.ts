@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CouponScope, CouponType } from "../enums.js";
+import { ReminderChannel, ReminderTrigger, StudentStatus } from "../enums.js";
 
 export interface AdminOverviewDto {
   revenueCents: number;
@@ -50,3 +51,22 @@ export interface CouponDto {
   used: number;
   active: boolean;
 }
+
+// ── User management ───────────────────────────────────────────────────────────
+
+export const updateUserStatusSchema = z.object({
+  status: z.nativeEnum(StudentStatus),
+});
+export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
+
+// ── Automation rules ──────────────────────────────────────────────────────────
+
+export const upsertAutomationRuleSchema = z.object({
+  name: z.string().min(1).max(120),
+  trigger: z.nativeEnum(ReminderTrigger),
+  condition: z.string().default(""),
+  channels: z.array(z.nativeEnum(ReminderChannel)).min(1),
+  template: z.string().min(1).max(2000),
+  active: z.boolean().default(true),
+});
+export type UpsertAutomationRuleInput = z.infer<typeof upsertAutomationRuleSchema>;

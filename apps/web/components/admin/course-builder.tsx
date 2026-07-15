@@ -1,10 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Course, Lesson, Quiz } from "@/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CourseDetailDto } from "@skillstream/shared";
+import type { Lesson, Quiz } from "@/types";
 import { categories } from "@/lib/mock/courses";
-import { useStore } from "@/lib/context/store";
+import { authoringApi } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { VideoUpload } from "@/components/admin/video-upload";
 import { QuizEditor, emptyQuiz } from "@/components/admin/quiz-editor";
 import { CourseArt, isImageThumbnail } from "@/components/shared/course-art";
@@ -20,7 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, Video, ImagePlus,
+  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, Video, ImagePlus, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -55,14 +58,17 @@ function readImageFile(file: File, maxDim = MAX_THUMBNAIL_DIM, quality = THUMBNA
 }
 
 interface BLesson {
-  id: string;
+  id: string;           // server id, or local temp id for new lessons
+  isNew: boolean;
   title: string;
   preview: boolean;
   hasVideo: boolean;
+  durationSec: number;
   type: Lesson["type"];
   quiz?: Quiz;
+  quizDirty?: boolean;  // quiz content changed since load
 }
-interface BSection { id: string; title: string; lessons: BLesson[] }
+interface BSection { id: string; isNew: boolean; title: string; lessons: BLesson[] }
 
 const lessonTypes: { value: Lesson["type"]; label: string }[] = [
   { value: "video", label: "Video" },
@@ -70,66 +76,145 @@ const lessonTypes: { value: Lesson["type"]; label: string }[] = [
   { value: "article", label: "Article" },
 ];
 
-let uid = 1000;
-const nid = (p: string) => `${p}${uid++}`;
+const LEVEL_TO_API = {
+  "Beginner": "BEGINNER",
+  "Intermediate": "INTERMEDIATE",
+  "Advanced": "ADVANCED",
+  "All Levels": "ALL_LEVELS",
+} as const;
+const LEVEL_FROM_API: Record<string, keyof typeof LEVEL_TO_API> = {
+  BEGINNER: "Beginner",
+  INTERMEDIATE: "Intermediate",
+  ADVANCED: "Advanced",
+  ALL_LEVELS: "All Levels",
+};
+const TYPE_TO_API = { video: "VIDEO", quiz: "QUIZ", article: "ARTICLE" } as const;
+const TYPE_FROM_API: Record<string, Lesson["type"]> = {
+  VIDEO: "video",
+  QUIZ: "quiz",
+  ARTICLE: "article",
+};
 
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+let uid = 1000;
+const nid = (p: string) => `new_${p}${uid++}`;
+const isTemp = (id: string) => id.startsWith("new_");
 
 const thumbSeeds = [
   "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
   "speaking", "social", "finance", "mindfulness", "language",
 ];
 
+function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
+  return detail.sections.map((s) => ({
+    id: s.id,
+    isNew: false,
+    title: s.title,
+    lessons: s.lessons.map((l) => ({
+      id: l.id,
+      isNew: false,
+      title: l.title,
+      preview: !!l.preview,
+      hasVideo: l.type === "VIDEO",
+      durationSec: l.durationSec,
+      type: TYPE_FROM_API[l.type] ?? "video",
+      quiz: undefined, // loaded lazily for quiz lessons
+    })),
+  }));
+}
+
 export function CourseBuilder({
-  course,
+  courseId,
   mode = "admin",
-  instructorId,
 }: {
-  course?: Course;
+  courseId?: string;
   mode?: "admin" | "instructor";
-  instructorId?: string;
 }) {
   const router = useRouter();
-  const { upsertCourse } = useStore();
+  const qc = useQueryClient();
   const backHref = mode === "instructor" ? "/instructor/courses" : "/admin/courses";
-  const [title, setTitle] = useState(course?.title ?? "");
-  const [subtitle, setSubtitle] = useState(course?.subtitle ?? "");
-  const [category, setCategory] = useState(course?.category ?? categories[0]);
-  const [level, setLevel] = useState(course?.level ?? "Beginner");
-  const [description, setDescription] = useState(course?.description ?? "");
-  const [price, setPrice] = useState(String(course?.basePrice ?? 49.99));
-  const [thumbnail, setThumbnail] = useState(course?.thumbnail ?? "react");
+
+  const { data: detail, isLoading } = useQuery({
+    queryKey: ["authoring", "course", courseId],
+    queryFn: () => authoringApi.course(courseId!),
+    enabled: !!courseId,
+  });
+
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [category, setCategory] = useState(categories[0]);
+  const [level, setLevel] = useState<keyof typeof LEVEL_TO_API>("Beginner");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("49.99");
+  const [thumbnail, setThumbnail] = useState("react");
   const [thumbDrag, setThumbDrag] = useState(false);
   const [thumbError, setThumbError] = useState("");
   const thumbInputRef = useRef<HTMLInputElement>(null);
-  const [published, setPublished] = useState(course?.status === "published");
-  const [sections, setSections] = useState<BSection[]>(
-    course
-      ? course.sections.map((s) => ({
-          id: s.id,
-          title: s.title,
-          lessons: s.lessons.map((l) => ({
-            id: l.id,
-            title: l.title,
-            preview: !!l.preview,
-            hasVideo: l.type === "video",
-            type: l.type,
-            quiz: l.quiz,
-          })),
-        }))
-      : [{ id: nid("s"), title: "Section 1: Introduction", lessons: [{ id: nid("l"), title: "Welcome & overview", preview: true, hasVideo: false, type: "video" }] }],
-  );
+  const [published, setPublished] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sections, setSections] = useState<BSection[]>([
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, durationSec: 300, type: "video" }] },
+  ]);
+  // Snapshot of server ids at load time, to compute deletions on save.
+  const loadedIds = useRef<{ sections: Set<string>; lessons: Set<string> }>({
+    sections: new Set(),
+    lessons: new Set(),
+  });
+
+  // Seed form state when editing an existing course.
+  useEffect(() => {
+    if (!detail) return;
+    setTitle(detail.title);
+    setSubtitle(detail.subtitle);
+    setCategory(detail.category);
+    setLevel(LEVEL_FROM_API[detail.level] ?? "Beginner");
+    setDescription(detail.description);
+    setPrice((detail.basePriceCents / 100).toFixed(2));
+    setThumbnail(detail.thumbnail || "react");
+    setPublished(detail.status === "PUBLISHED");
+    const secs = sectionsFromDetail(detail);
+    setSections(secs);
+    loadedIds.current = {
+      sections: new Set(secs.map((s) => s.id)),
+      lessons: new Set(secs.flatMap((s) => s.lessons.map((l) => l.id))),
+    };
+    // Pull quiz content for existing quiz lessons so the editor shows it.
+    for (const s of detail.sections) {
+      for (const l of s.lessons) {
+        if (l.type === "QUIZ" || l.hasQuiz) {
+          void authoringApi.quiz(l.id).then((qz) => {
+            if (!qz) return;
+            setSections((prev) =>
+              prev.map((ps) => ({
+                ...ps,
+                lessons: ps.lessons.map((pl) =>
+                  pl.id === l.id
+                    ? {
+                        ...pl,
+                        quiz: {
+                          passScore: qz.passScore,
+                          questions: qz.questions.map((q) => ({
+                            id: q.id,
+                            prompt: q.prompt,
+                            explanation: q.explanation ?? undefined,
+                            options: q.options.map((o) => ({ id: o.id, text: o.text })),
+                            correctOptionId: q.options.find((o) => o.isCorrect)?.id ?? "",
+                          })),
+                        },
+                      }
+                    : pl,
+                ),
+              })),
+            );
+          });
+        }
+      }
+    }
+  }, [detail]);
 
   const totalLessons = sections.reduce((a, s) => a + s.lessons.length, 0);
 
   function addSection() {
-    setSections((s) => [...s, { id: nid("s"), title: `Section ${s.length + 1}`, lessons: [] }]);
+    setSections((s) => [...s, { id: nid("s"), isNew: true, title: `Section ${s.length + 1}`, lessons: [] }]);
   }
   function patchSection(id: string, p: Partial<BSection>) {
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -138,13 +223,13 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), title: "New lesson", preview: false, hasVideo: false, type: "video" }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, durationSec: 300, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
   }
   function setLessonType(sid: string, lid: string, type: Lesson["type"]) {
-    patchLesson(sid, lid, { type, quiz: type === "quiz" ? emptyQuiz() : undefined });
+    patchLesson(sid, lid, { type, quiz: type === "quiz" ? emptyQuiz() : undefined, quizDirty: type === "quiz" });
   }
   function removeLesson(sid: string, lid: string) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
@@ -164,67 +249,146 @@ export function CourseBuilder({
     }
   }
 
-  function originalDurationSec(lessonId: string) {
-    for (const s of course?.sections ?? []) {
-      const l = s.lessons.find((x) => x.id === lessonId);
-      if (l) return l.durationSec;
+  /** Persist everything through the authoring API, then apply the status action. */
+  async function save(action: "draft" | "publish" | "review") {
+    if (!title.trim()) {
+      toast.error("Give your course a title first.");
+      return;
     }
-    return 300;
+    setSaving(true);
+    try {
+      const fields = {
+        title: title.trim(),
+        subtitle,
+        description,
+        category,
+        level: LEVEL_TO_API[level],
+        thumbnail,
+        basePriceCents: Math.max(0, Math.round((Number(price) || 0) * 100)),
+      };
+      const saved = courseId
+        ? await authoringApi.updateCourse(courseId, fields)
+        : await authoringApi.createCourse(fields);
+      const id = saved.id;
+
+      // Deletions first (anything loaded from the server but no longer present).
+      const keptSections = new Set(sections.map((s) => s.id));
+      const keptLessons = new Set(sections.flatMap((s) => s.lessons.map((l) => l.id)));
+      for (const sid of loadedIds.current.sections) {
+        if (!keptSections.has(sid)) await authoringApi.deleteSection(sid);
+      }
+      for (const lid of loadedIds.current.lessons) {
+        if (keptLessons.has(lid)) continue;
+        try {
+          await authoringApi.deleteLesson(lid);
+        } catch {
+          /* already gone via section-delete cascade */
+        }
+      }
+
+      // Upsert sections and lessons in display order.
+      const lessonServerIds = new Map<string, string>(); // builder id -> server id
+      for (const [si, s] of sections.entries()) {
+        let sectionServerId = s.id;
+        if (isTemp(s.id)) {
+          const before = new Set(
+            (await authoringApi.course(id)).sections.map((x) => x.id),
+          );
+          const after = await authoringApi.addSection(id, { title: s.title, order: si });
+          sectionServerId =
+            after.sections.find((x) => !before.has(x.id))?.id ?? s.id;
+        } else {
+          await authoringApi.updateSection(s.id, { title: s.title, order: si });
+        }
+
+        for (const [li, l] of s.lessons.entries()) {
+          const lessonBody = {
+            title: l.title || "Untitled lesson",
+            type: TYPE_TO_API[l.type],
+            durationSec: l.durationSec,
+            preview: l.preview,
+            order: li,
+          };
+          let lessonServerId = l.id;
+          if (isTemp(l.id)) {
+            const before = new Set(
+              (await authoringApi.course(id)).sections
+                .flatMap((x) => x.lessons)
+                .map((x) => x.id),
+            );
+            const after = await authoringApi.addLesson(sectionServerId, lessonBody);
+            lessonServerId =
+              after.sections
+                .flatMap((x) => x.lessons)
+                .find((x) => !before.has(x.id))?.id ?? l.id;
+          } else {
+            await authoringApi.updateLesson(l.id, lessonBody);
+          }
+          lessonServerIds.set(l.id, lessonServerId);
+
+          // Sync quiz content for quiz lessons (replace-all strategy).
+          if (l.type === "quiz" && l.quiz && (l.quizDirty || isTemp(l.id))) {
+            const quiz = await authoringApi.upsertQuiz(lessonServerId, l.quiz.passScore);
+            for (const q of quiz.questions) {
+              await authoringApi.deleteQuizQuestion(q.id);
+            }
+            for (const [qi, q] of l.quiz.questions.entries()) {
+              const options = q.options
+                .filter((o) => o.text.trim())
+                .map((o, oi) => ({
+                  text: o.text,
+                  isCorrect: o.id === q.correctOptionId,
+                  order: oi,
+                }));
+              if (!q.prompt.trim() || options.length < 2) continue;
+              await authoringApi.addQuizQuestion(quiz.id, {
+                prompt: q.prompt,
+                explanation: q.explanation || undefined,
+                order: qi,
+                options,
+              });
+            }
+          }
+        }
+      }
+
+      // Status transition.
+      const targetStatus =
+        action === "publish" ? "PUBLISHED" : action === "review" ? "REVIEW" : "DRAFT";
+      if (saved.status !== targetStatus) {
+        await authoringApi.setCourseStatus(id, targetStatus);
+      }
+
+      void qc.invalidateQueries({ queryKey: ["authoring", "course", id] });
+      void qc.invalidateQueries({ queryKey: ["instructor", "courses"] });
+      void qc.invalidateQueries({ queryKey: ["admin"] });
+
+      const msg =
+        action === "publish"
+          ? "Course published! 🚀"
+          : action === "review"
+          ? "Submitted for review 📩"
+          : "Draft saved";
+      toast.success(msg, {
+        description:
+          action === "review"
+            ? "Our team will review and publish it shortly."
+            : title || "Untitled course",
+      });
+      setTimeout(() => router.push(backHref), 700);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function save(action: "draft" | "publish" | "review") {
-    const id = course?.id ?? nid("c_");
-    const status: Course["status"] =
-      action === "publish" ? "published" : action === "review" ? "review" : "draft";
-    const newCourse: Course = {
-      id,
-      slug: course?.slug ?? (slugify(title) || id),
-      title: title || "Untitled course",
-      subtitle,
-      description,
-      category,
-      level: level as Course["level"],
-      thumbnail,
-      instructorId: course?.instructorId ?? instructorId ?? "ins_sara",
-      basePrice: Number(price) || 0,
-      originalPrice: course?.originalPrice,
-      rating: course?.rating ?? 0,
-      reviewCount: course?.reviewCount ?? 0,
-      studentCount: course?.studentCount ?? 0,
-      language: course?.language ?? "English",
-      updatedAt: new Date().toISOString(),
-      status,
-      bestseller: course?.bestseller,
-      whatYouLearn: course?.whatYouLearn ?? [],
-      requirements: course?.requirements ?? [],
-      sections: sections.map((s) => ({
-        id: s.id,
-        title: s.title,
-        lessons: s.lessons.map((l) => ({
-          id: l.id,
-          title: l.title,
-          durationSec: originalDurationSec(l.id),
-          type: l.type,
-          preview: l.preview,
-          quiz: l.quiz,
-        })),
-      })),
-      revenue: course?.revenue ?? 0,
-    };
-    upsertCourse(newCourse);
-    const msg =
-      action === "publish"
-        ? "Course published! 🚀"
-        : action === "review"
-        ? "Submitted for review 📩"
-        : "Draft saved";
-    toast.success(msg, {
-      description:
-        action === "review"
-          ? "Our team will review and publish it shortly."
-          : title || "Untitled course",
-    });
-    setTimeout(() => router.push(backHref), 700);
+  if (courseId && isLoading) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
@@ -233,18 +397,22 @@ export function CourseBuilder({
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{course ? "Edit course" : "Create a course"}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{courseId ? "Edit course" : "Create a course"}</h1>
             <p className="text-sm text-muted-foreground">{totalLessons} lessons · {sections.length} sections</p>
           </div>
         </div>
         <div className="flex gap-2">
           {mode === "instructor" ? (
             <>
-              <Button variant="outline" onClick={() => save("draft")}><Save /> Save draft</Button>
-              <Button onClick={() => save("review")}><Rocket /> Submit for review</Button>
+              <Button variant="outline" onClick={() => save("draft")} disabled={saving}><Save /> Save draft</Button>
+              <Button onClick={() => save("review")} disabled={saving}>
+                {saving ? <Loader2 className="animate-spin" /> : <Rocket />} Submit for review
+              </Button>
             </>
           ) : (
-            <Button onClick={() => save(published ? "publish" : "draft")}><Save /> Save</Button>
+            <Button onClick={() => save(published ? "publish" : "draft")} disabled={saving}>
+              {saving ? <Loader2 className="animate-spin" /> : <Save />} Save
+            </Button>
           )}
         </div>
       </div>
@@ -267,10 +435,10 @@ export function CourseBuilder({
                 </div>
                 <div className="space-y-1.5">
                   <Label>Level</Label>
-                  <Select value={level} onValueChange={(v) => setLevel(v as Course["level"])}>
+                  <Select value={level} onValueChange={(v) => v && setLevel(v as keyof typeof LEVEL_TO_API)}>
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["Beginner", "Intermediate", "Advanced", "All Levels"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                      {(Object.keys(LEVEL_TO_API) as (keyof typeof LEVEL_TO_API)[]).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -319,7 +487,10 @@ export function CourseBuilder({
                         </div>
                         <div className="mt-2">
                           {l.type === "quiz" ? (
-                            <QuizEditor quiz={l.quiz ?? emptyQuiz()} onChange={(quiz) => patchLesson(s.id, l.id, { quiz })} />
+                            <QuizEditor
+                              quiz={l.quiz ?? emptyQuiz()}
+                              onChange={(quiz) => patchLesson(s.id, l.id, { quiz, quizDirty: true })}
+                            />
                           ) : l.type === "video" ? (
                             <VideoUpload compact initialReady={l.hasVideo} onReady={() => patchLesson(s.id, l.id, { hasVideo: true })} />
                           ) : (
@@ -347,7 +518,7 @@ export function CourseBuilder({
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">Current</div>
-                  <CourseStatusBadge status={course?.status} />
+                  <CourseStatusBadge status={detail ? (detail.status.toLowerCase() as "draft" | "review" | "published") : "draft"} />
                 </div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   Save a draft any time. When you&apos;re ready, <span className="font-medium text-foreground">Submit for review</span> — our team approves new courses before they go live to keep quality high.

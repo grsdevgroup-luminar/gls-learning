@@ -1,84 +1,121 @@
-# SkillStream — Course Platform Prototype
+# SkillStream — Course Platform
 
-A clickable, high-fidelity prototype of a full course-selling platform: a polished
-student-facing **storefront**, a complete **student learning portal**, and an advanced
-**admin / management panel**. Built to demo the end-to-end product to a client.
+A full course-selling platform: a student-facing **storefront**, a complete **student
+learning portal**, an **instructor** program, a **B2B organizations** (seat-based)
+program, a worldwide **sales agent / referral** program, and an **admin** panel — backed
+by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 
-> This is a **prototype with realistic mock data** — no real backend, payments, video
-> files, or SMS. Every "backend" feature is simulated in the UI, with notes on how it
-> would work in production. See the table below.
+> This started as a static Next.js prototype with mocked data (see `docs/SYSTEM_DESIGN.md`
+> for the migration story). The backend below is real and production-shaped; parts of the
+> frontend are still being rewired from mock data onto it (see "What's live vs. mock").
 
 ## Tech stack
 
-- **Next.js 16** (App Router) + **TypeScript**
-- **Tailwind CSS v4** + **shadcn/ui** (Base UI primitives)
-- **Recharts** for analytics, **lucide-react** icons, **next-themes** (light/dark)
-- State persisted in `localStorage` (cart, auth, progress) so the demo survives reloads
+| Layer | Tech | Used for |
+|---|---|---|
+| Monorepo | Turborepo + pnpm workspaces | `apps/{web,api}`, `packages/{shared,config}` build/dev orchestration |
+| Frontend | Next.js 16 (App Router) + React 19 + TypeScript | Storefront, student, instructor, admin, org, sales-agent UIs |
+| Frontend UI | Tailwind CSS v4, shadcn/ui on Base UI, framer-motion, lucide-react, Recharts, sonner, next-themes | Styling, animation, charts, toasts, dark mode |
+| Frontend data | TanStack Query + a typed `lib/api` fetch client | Server state, caching, mutations against the NestJS API |
+| Backend | NestJS 11 + TypeScript | REST API, DI, guards/pipes/interceptors, Swagger |
+| Database | PostgreSQL 16 + Prisma 6 | 28-model schema, money as integer cents, `$transaction` for atomic writes |
+| Auth | `@nestjs/jwt` + `passport-jwt` + argon2id | Access + rotating single-use refresh tokens in httpOnly cookies, RBAC |
+| Validation | Zod (shared schemas in `packages/shared`) | One schema → runtime validation + static types on both API and web |
+| Jobs/queues | Redis + BullMQ (`@nestjs/bullmq`) | Hourly maintenance rollup, engagement-reminder queue |
+| Video | Cloudflare Stream | Direct-creator-upload + signed HLS/iframe playback (no separate object storage) |
+| Payments | Stripe + PayPal (REST) | Checkout sessions, webhook-verified idempotent order fulfillment |
+| Email | Resend | Welcome + password-reset transactional email (logs to console if unset) |
+| Observability | pino / nestjs-pino, Sentry (optional), global exception filter, audit log interceptor | Structured logs with secret redaction, error tracking, uniform error contract, mutation audit trail |
+| Rate limiting | `@nestjs/throttler` | Global request throttling |
 
-## Run it locally
+## Monorepo layout
+
+```
+apps/
+  web/                 Next.js app — storefront, student, instructor, admin, org, sales-agent
+  api/                 NestJS app — all domain modules + Prisma schema/migrations
+packages/
+  shared/              Enums, Zod contracts/DTOs, and pure business logic (money, pricing,
+                       coupons, progress) shared by both api and web
+  config/              Shared tsconfig/eslint/prettier
+docker-compose.yml     Local Postgres + Redis
+```
+
+## Features by role
+
+### Storefront (public)
+- Landing page, course catalog (search/filter/sort/paginate), course detail pages
+- Cart, coupon codes, regional (PPP-style) pricing, checkout (Stripe + PayPal)
+- Register/login/forgot-password/reset-password
+- Instructor application landing page (`/teach`)
+
+### Student
+- Dashboard of enrollments, per-course progress, streaks
+- Protected lesson player (video via signed Cloudflare Stream playback, articles, quizzes)
+- Server-graded quizzes (correct answers never reach the client until after grading)
+- Certificates on 100% course completion
+- Billing/order history, account/profile settings
+
+### Instructor
+- Application → admin-approval workflow (`InstructorProfile.status`)
+- Course/section/lesson authoring with reorder, video upload flow, quiz builder
+- Course status workflow (draft → review → published)
+- Earnings dashboard
+
+### Admin
+- Platform overview (KPIs, charts)
+- Course, student, order (+ refund), review-moderation, coupon, and pricing-tier management
+- Instructor-application queue (approve/reject)
+- Marketing automation: rule builder (idle / low-progress / abandoned-cart / almost-done /
+  new-content triggers) + reminder send log
+- Sales-agent and B2B-organization management
+
+### B2B Organizations (`/org/[slug]`)
+- Seat-based access to private, org-only courses
+- Member invite/claim flow, seat usage, per-org course assignment
+- Org admin portal + platform-admin management screens
+
+### Sales Agents (`/sales-agent`)
+- Unique referral code/link; commission attributed on referred orders
+- Referral list, earnings ledger (pending/confirmed/paid), payout action (admin side)
+
+## What's live vs. mock (frontend)
+
+The backend implements all of the above. On the frontend:
+
+- **Wired to the real API:** auth, student dashboard/enrollments/progress/certificates,
+  course catalog/detail, checkout + orders, reviews, quiz play, and most of admin
+  (overview, students, orders, courses, reviews, instructors, agents).
+- **Still on `lib/mock/*` data, pending rewire:** admin pricing tiers, admin coupons,
+  admin marketing/automation, the sales-agent portal's own dashboard, and the org
+  overview page. `lib/context/store.tsx` documents this split directly in its own comments.
+
+## Local setup
+
+Prerequisites: Node ≥ 20, pnpm, Docker (for Postgres/Redis).
 
 ```bash
-npm install
-npm run dev      # http://localhost:3000
-# or a production build:
-npm run build && npm start
+pnpm install
+cp apps/api/.env.example apps/api/.env      # fill in secrets (see table above)
+cp apps/web/.env.example apps/web/.env.local
+
+pnpm infra:up                # Postgres :5432 + Redis :6379 via docker-compose
+pnpm db:migrate               # apply Prisma migrations
+pnpm db:seed                  # seed admin user, pricing tiers, demo data
+
+pnpm dev                      # api on :4000 (/api prefix, Swagger at /docs), web on :3000
 ```
 
-## Demo accounts & controls
+Everything except `DATABASE_URL`/`JWT_*` is optional for local dev — unset integrations
+(Stripe, PayPal, Cloudflare Stream, Resend, Sentry) degrade gracefully (dev-only simulate
+paths, console-logged emails, `503` on the specific feature) rather than failing to boot.
+See `apps/api/src/config/env.ts` for the full validated env schema, and
+`docs/SYSTEM_DESIGN.md` for what each external service is for and why it's needed.
 
-- A floating **Demo controls** button (bottom-left) lets you instantly switch between
-  **Visitor**, **Student**, and **Admin** views, and reset the demo data.
-- Login screen: use **Log in as student** / **Log in as admin** (any email/password works).
-  - `student@demo.com` · `admin@demo.com`
-
-## 5-minute demo script
-
-1. **Browse** the landing page → **Courses** (try search / filters / sort) → open a course → read **reviews**.
-2. On the course page, **change the country** in the price box (or header) → watch prices
-   localize with regional (purchasing-power) discounts. **Add to cart**.
-3. In the **cart**, apply coupon `LAUNCH40` or `WELCOME10` → totals update. **Checkout**
-   (Stripe/PayPal UI) → success.
-4. **Log in as student** → **Dashboard** → open a course → the **protected player**
-   (moving watermark, DRM badge, disabled right-click) → mark lessons complete →
-   watch **progress / streak** update → check **Certificates** and **Account → reminders**.
-5. **Switch to Admin** → **Overview** (charts) → **Courses → New course**: the **drag-drop
-   video upload** (upload → encoding → ready) + curriculum builder → **Students** (see the
-   at-risk learner + send a reminder) → **Coupons** (create one) → **Pricing** (region tiers
-   - per-country overrides, live price preview) → **Automation** (reminder rules + send log).
-
-## Prototype vs. production
-
-| Feature             | In this prototype                                                      | Production approach                                  |
-| ------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
-| Video protection    | Moving per-user watermark, DRM badge, disabled context menu, no source | Signed HLS + Widevine/FairPlay, domain-locked player |
-| Region pricing      | Country selector, PPP tiers + per-country overrides, live preview      | Geo-IP detection, live FX, server-enforced prices    |
-| Coupons             | Real client-side validation (%, fixed, free, expiry, limits, scope)    | Server-validated, fraud limits                       |
-| Payments            | Stripe/PayPal UI → simulated success                                   | Stripe Checkout + PayPal, webhooks, invoices         |
-| Auth                | Role-based session in `localStorage`                                   | NextAuth/Clerk, JWT/session, RBAC                    |
-| Progress            | Per-lesson completion in `localStorage`, streaks, charts               | DB events, resumable playback                        |
-| Email/SMS reminders | Rule builder + templates + simulated send log                          | Cron/queue + Resend/SendGrid + Twilio                |
-
-## Deploy a shareable link (Vercel)
-
-This is a standard Next.js app — zero config to deploy:
+## Scripts
 
 ```bash
-npm i -g vercel
-vercel            # first run links/creates the project
-vercel --prod     # deploys and prints your live https URL
-```
-
-Or push to GitHub and "Import Project" at vercel.com — it auto-detects Next.js.
-
-## Project structure
-
-```
-app/(storefront)/   landing, catalog, course detail, cart, checkout, auth
-app/(student)/      dashboard, progress, certificates, billing, account
-app/learn/[slug]/   the protected learning player
-app/admin/          overview, courses + builder, students, orders, coupons,
-                    pricing, reviews, automation, settings
-components/         storefront/ student/ admin/ player/ charts/ shared/ ui/
-lib/mock/           seeded data (courses, students, reviews, coupons, pricing, …)
-lib/context/        the client store (cart, auth, region, progress)
+pnpm dev / build / lint / typecheck / test   # turbo-orchestrated across all packages
+pnpm db:generate / db:migrate / db:seed / db:studio
+pnpm infra:up / infra:down                   # docker-compose for Postgres + Redis
 ```

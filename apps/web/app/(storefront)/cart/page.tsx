@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/context/store";
-import { getCourseById } from "@/lib/mock/courses";
-import { getInstructor } from "@/lib/mock/instructors";
-import { regionalUsd, formatLocal } from "@/lib/mock/pricing";
-import { validateCoupon, discountAmount } from "@/lib/mock/coupons";
+import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { formatLocal } from "@/lib/mock/pricing";
 import { formatUsd } from "@/lib/format";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
@@ -21,38 +21,73 @@ import { Trash2, Tag, ShoppingCart, ArrowRight, Check, Globe2 } from "lucide-rea
 import { toast } from "sonner";
 
 export default function CartPage() {
-  const { cart, removeFromCart, region, coupon, setCoupon, mounted } = useStore();
+  const { cart, removeFromCart, region, regionCode, coupon, setCoupon, mounted } = useStore();
   const router = useRouter();
   const [code, setCode] = useState("");
+  const [applying, setApplying] = useState(false);
 
+  const { data: catalog } = useQuery({
+    queryKey: ["store", "courses"],
+    queryFn: () => api.courses({ pageSize: 100 }),
+    staleTime: 60_000,
+  });
   const items = useMemo(
-    () => cart.map((id) => getCourseById(id)).filter(Boolean) as NonNullable<ReturnType<typeof getCourseById>>[],
-    [cart],
+    () =>
+      cart
+        .map((id) => catalog?.items.find((c) => c.id === id))
+        .filter(Boolean) as NonNullable<typeof catalog>["items"],
+    [cart, catalog],
   );
-  const subtotal = items.reduce((sum, c) => sum + regionalUsd(c.basePrice, region), 0);
-  const originalTotal = items.reduce((sum, c) => sum + (c.originalPrice ?? c.basePrice), 0);
 
-  const couponResult = coupon
-    ? validateCoupon(coupon, subtotal, cart)
-    : null;
-  const discount =
-    couponResult?.ok && couponResult.coupon ? discountAmount(couponResult.coupon, subtotal) : 0;
-  const total = Math.max(0, subtotal - discount);
+  // Server-authoritative pricing: regional adjustment + coupon validation.
+  const { data: quote } = useQuery({
+    queryKey: ["quote", cart.join(","), coupon ?? "", regionCode],
+    queryFn: () =>
+      api.quote({ courseIds: cart, couponCode: coupon ?? undefined, regionCode }),
+    enabled: mounted && cart.length > 0,
+  });
 
-  function apply() {
-    const res = validateCoupon(code, subtotal, cart);
-    if (!res.ok) {
-      toast.error(res.message);
-      return;
+  const lineUsd = (courseId: string) => {
+    const line = quote?.lines.find((l) => l.courseId === courseId);
+    if (line) return line.priceCents / 100;
+    const c = items.find((i) => i.id === courseId);
+    return c ? c.basePriceCents / 100 : 0;
+  };
+  const subtotal = (quote?.subtotalCents ?? items.reduce((s, c) => s + c.basePriceCents, 0)) / 100;
+  const discount = (quote?.discountCents ?? 0) / 100;
+  const total = (quote?.totalCents ?? quote?.subtotalCents ?? subtotal * 100) / 100;
+  const originalTotal = items.reduce(
+    (sum, c) => sum + (c.originalPriceCents ?? c.basePriceCents) / 100,
+    0,
+  );
+  const couponValid = !!quote?.coupon?.valid;
+
+  async function apply() {
+    if (!code.trim() || cart.length === 0) return;
+    setApplying(true);
+    try {
+      const res = await api.quote({
+        courseIds: cart,
+        couponCode: code.trim().toUpperCase(),
+        regionCode,
+      });
+      if (res.coupon?.valid) {
+        setCoupon(res.coupon.code);
+        setCode("");
+        toast.success(`Coupon applied: ${res.coupon.code}`, { description: res.coupon.message });
+      } else {
+        toast.error(res.coupon?.message ?? "This coupon can't be applied");
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setApplying(false);
     }
-    setCoupon(res.coupon!.code);
-    setCode("");
-    toast.success(`Coupon applied: ${res.coupon!.code}`, { description: res.message });
   }
 
   if (!mounted) return <div className="mx-auto max-w-7xl px-4 py-16" />;
 
-  if (items.length === 0) {
+  if (cart.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-muted">
@@ -75,8 +110,8 @@ export default function CartPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           {items.map((c) => {
-            const instructor = getInstructor(c.instructorId);
-            const price = regionalUsd(c.basePrice, region);
+            const price = lineUsd(c.id);
+            const original = c.originalPriceCents ? c.originalPriceCents / 100 : undefined;
             return (
               <Card key={c.id} className="p-0">
                 <CardContent className="flex gap-4 p-4">
@@ -85,9 +120,9 @@ export default function CartPage() {
                     <Link href={`/courses/${c.slug}`} className="font-semibold leading-snug hover:text-primary">
                       {c.title}
                     </Link>
-                    <p className="text-xs text-muted-foreground">{instructor?.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.instructor.name}</p>
                     <div className="mt-1 flex items-center gap-2 text-xs">
-                      <Stars rating={c.rating} size={12} showValue />
+                      <Stars rating={c.ratingAvg} size={12} showValue />
                       {c.bestseller && <BestsellerBadge />}
                     </div>
                     <button
@@ -99,8 +134,8 @@ export default function CartPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-bold">{formatUsd(price)}</div>
-                    {c.originalPrice && c.originalPrice > price && (
-                      <div className="text-xs text-muted-foreground line-through">{formatUsd(c.originalPrice)}</div>
+                    {original && original > price && (
+                      <div className="text-xs text-muted-foreground line-through">{formatUsd(original)}</div>
                     )}
                     {region.code !== "US" && (
                       <div className="text-[11px] text-muted-foreground">≈ {formatLocal(price, region)}</div>
@@ -131,7 +166,7 @@ export default function CartPage() {
               <Separator />
 
               {/* Coupon */}
-              {couponResult?.ok ? (
+              {coupon && couponValid ? (
                 <div className="flex items-center justify-between rounded-md border border-success/30 bg-success/10 p-2.5 text-sm">
                   <span className="flex items-center gap-1.5 font-medium text-success">
                     <Check className="h-4 w-4" /> {coupon}
@@ -152,7 +187,9 @@ export default function CartPage() {
                       onKeyDown={(e) => e.key === "Enter" && apply()}
                     />
                   </div>
-                  <Button variant="outline" onClick={apply}>Apply</Button>
+                  <Button variant="outline" onClick={apply} disabled={applying}>
+                    {applying ? "Checking…" : "Apply"}
+                  </Button>
                 </div>
               )}
               <p className="text-xs text-muted-foreground">Try <button onClick={() => setCode("LAUNCH40")} className="font-mono font-medium text-primary">LAUNCH40</button> or <button onClick={() => setCode("WELCOME10")} className="font-mono font-medium text-primary">WELCOME10</button></p>

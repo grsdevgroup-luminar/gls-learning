@@ -37,7 +37,11 @@ export class CoursesService {
   }
 
   async list(query: CourseListQuery): Promise<Paginated<CourseSummaryDto>> {
-    const where: Prisma.CourseWhereInput = { status: "PUBLISHED" };
+    // Public catalog never exposes org-private courses.
+    const where: Prisma.CourseWhereInput = {
+      status: "PUBLISHED",
+      visibility: "PUBLIC",
+    };
     if (query.category) where.category = query.category;
     if (query.level) where.level = query.level;
     if (query.q) {

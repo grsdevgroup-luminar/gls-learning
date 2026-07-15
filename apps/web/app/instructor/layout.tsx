@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useStore } from "@/lib/context/store";
+import { useSession } from "@/lib/api/session";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,11 @@ const items: NavItem[] = [
 ];
 
 export default function InstructorLayout({ children }: { children: React.ReactNode }) {
-  const { role, currentInstructor, mounted } = useStore();
+  const { user, isLoading } = useSession();
 
-  if (!mounted) return null;
+  if (isLoading) return null;
 
-  if (role !== "instructor" || !currentInstructor) {
+  if (!user || (user.role !== "INSTRUCTOR" && user.role !== "ADMIN")) {
     return (
       <div className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center px-4 py-12 text-center">
         <div className="mb-6 flex justify-center"><Logo /></div>
@@ -29,10 +29,12 @@ export default function InstructorLayout({ children }: { children: React.ReactNo
         </span>
         <h1 className="font-heading text-2xl font-bold tracking-tight">Instructor area</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in to your instructor account, or apply to teach on SkillStream.
+          {user
+            ? "Your account isn't an instructor yet. Apply to teach — once you're approved this area unlocks automatically."
+            : "Sign in to your instructor account, or apply to teach on SkillStream."}
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <Button render={<Link href="/login" />} size="lg">Log in as instructor</Button>
+          {!user && <Button render={<Link href="/login?next=/instructor" />} size="lg">Log in as instructor</Button>}
           <Button render={<Link href="/teach" />} size="lg" variant="outline">Become an instructor</Button>
         </div>
       </div>
@@ -44,9 +46,9 @@ export default function InstructorLayout({ children }: { children: React.ReactNo
       items={items}
       badge="Instructor"
       user={{
-        name: currentInstructor.name,
-        email: currentInstructor.email ?? "instructor@demo.com",
-        initials: initials(currentInstructor.name),
+        name: user.name,
+        email: user.email,
+        initials: initials(user.name),
       }}
     >
       {children}

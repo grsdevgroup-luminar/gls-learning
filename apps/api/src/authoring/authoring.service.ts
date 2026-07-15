@@ -6,9 +6,13 @@ import {
 import type {
   CreateCourseInput,
   CourseStatusInput,
+  CreateQuizInput,
+  CreateQuizQuestionInput,
   LessonInput,
   SectionInput,
   UpdateCourseInput,
+  UpdateQuizInput,
+  UpdateQuizQuestionInput,
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
@@ -76,6 +80,12 @@ export class AuthoringService {
       .then(toCourseDetail);
   }
 
+  /** Owner-gated detail so the course builder can edit drafts. */
+  async ownerDetail(user: RequestUser, id: string) {
+    await this.assertCourseAccess(id, user);
+    return this.detail(id);
+  }
+
   // ── courses ────────────────────────────────────────────────────────────
   async create(user: RequestUser, input: CreateCourseInput) {
     const slug = await this.uniqueSlug(input.slug ?? slugify(input.title));
@@ -114,12 +124,26 @@ export class AuthoringService {
 
   async setStatus(user: RequestUser, id: string, input: CourseStatusInput) {
     await this.assertCourseAccess(id, user);
-    await this.prisma.course.update({
+    // Check prior state BEFORE update to detect first publish.
+    const prior = await this.prisma.course.findUnique({
       where: { id },
-      data: {
-        status: input.status,
-        publishedAt: input.status === "PUBLISHED" ? new Date() : undefined,
-      },
+      select: { publishedAt: true, instructorId: true },
+    });
+    const isFirstPublish = input.status === "PUBLISHED" && !prior?.publishedAt;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.course.update({
+        where: { id },
+        data: {
+          status: input.status,
+          publishedAt: input.status === "PUBLISHED" ? new Date() : undefined,
+        },
+      });
+      if (isFirstPublish && prior) {
+        await tx.instructorProfile.updateMany({
+          where: { userId: prior.instructorId },
+          data: { courseCount: { increment: 1 } },
+        });
+      }
     });
     return this.detail(id);
   }
@@ -136,7 +160,8 @@ export class AuthoringService {
       include: COURSE_SUMMARY_INCLUDE,
       orderBy: { updatedAt: "desc" },
     });
-    return rows.map(toCourseSummary);
+    // Owners also get their own revenue figure (not part of the public summary).
+    return rows.map((r) => ({ ...toCourseSummary(r), revenueCents: r.revenueCents }));
   }
 
   // ── sections ───────────────────────────────────────────────────────────
@@ -231,5 +256,158 @@ export class AuthoringService {
       ),
     );
     return this.detail(courseId);
+  }
+
+  // ── quiz authoring ──────────────────────────────────────────────────────────
+
+  private async assertLessonAccess(lessonId: string, user: RequestUser) {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { section: { select: { courseId: true } } },
+    });
+    if (!lesson) throw new NotFoundException("Lesson not found");
+    await this.assertCourseAccess(lesson.section.courseId, user);
+    return lesson;
+  }
+
+  private async assertQuizAccess(quizId: string, user: RequestUser) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+      select: { lessonId: true },
+    });
+    if (!quiz) throw new NotFoundException("Quiz not found");
+    await this.assertLessonAccess(quiz.lessonId, user);
+    return quiz;
+  }
+
+  private async assertQuestionAccess(questionId: string, user: RequestUser) {
+    const q = await this.prisma.quizQuestion.findUnique({
+      where: { id: questionId },
+      select: { quiz: { select: { lessonId: true } } },
+    });
+    if (!q) throw new NotFoundException("Question not found");
+    await this.assertLessonAccess(q.quiz.lessonId, user);
+    return q;
+  }
+
+  private quizDetail(quizId: string) {
+    return this.prisma.quiz.findUniqueOrThrow({
+      where: { id: quizId },
+      include: {
+        questions: {
+          orderBy: { order: "asc" },
+          include: { options: { orderBy: { order: "asc" } } },
+        },
+      },
+    });
+  }
+
+  /** Owner-gated quiz content (with answers) for the course builder. */
+  async ownerQuiz(user: RequestUser, lessonId: string) {
+    await this.assertLessonAccess(lessonId, user);
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { lessonId },
+      select: { id: true },
+    });
+    return quiz ? this.quizDetail(quiz.id) : null;
+  }
+
+  async createQuiz(user: RequestUser, lessonId: string, input: CreateQuizInput) {
+    await this.assertLessonAccess(lessonId, user);
+    const quiz = await this.prisma.quiz.upsert({
+      where: { lessonId },
+      update: { passScore: input.passScore },
+      create: { lessonId, passScore: input.passScore },
+    });
+    return this.quizDetail(quiz.id);
+  }
+
+  async updateQuiz(user: RequestUser, quizId: string, input: UpdateQuizInput) {
+    await this.assertQuizAccess(quizId, user);
+    await this.prisma.quiz.update({
+      where: { id: quizId },
+      data: { passScore: input.passScore },
+    });
+    return this.quizDetail(quizId);
+  }
+
+  async deleteQuiz(user: RequestUser, quizId: string) {
+    await this.assertQuizAccess(quizId, user);
+    await this.prisma.quiz.delete({ where: { id: quizId } });
+    return { ok: true as const };
+  }
+
+  async addQuestion(user: RequestUser, quizId: string, input: CreateQuizQuestionInput) {
+    await this.assertQuizAccess(quizId, user);
+    const count = await this.prisma.quizQuestion.count({ where: { quizId } });
+    await this.prisma.quizQuestion.create({
+      data: {
+        quizId,
+        prompt: input.prompt,
+        explanation: input.explanation ?? null,
+        order: input.order ?? count,
+        options: {
+          create: input.options.map((o, i) => ({
+            text: o.text,
+            isCorrect: o.isCorrect,
+            order: o.order ?? i,
+          })),
+        },
+      },
+    });
+    return this.quizDetail(quizId);
+  }
+
+  async updateQuestion(
+    user: RequestUser,
+    questionId: string,
+    input: UpdateQuizQuestionInput,
+  ) {
+    const q = await this.assertQuestionAccess(questionId, user);
+    const quizId = await this.prisma.quizQuestion
+      .findUniqueOrThrow({ where: { id: questionId }, select: { quizId: true } })
+      .then((r) => r.quizId);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.quizQuestion.update({
+        where: { id: questionId },
+        data: {
+          prompt: input.prompt,
+          explanation: input.explanation ?? undefined,
+          order: input.order,
+        },
+      });
+      if (input.options) {
+        await tx.quizOption.deleteMany({ where: { questionId } });
+        await tx.quizOption.createMany({
+          data: input.options.map((o, i) => ({
+            questionId,
+            text: o.text,
+            isCorrect: o.isCorrect,
+            order: o.order ?? i,
+          })),
+        });
+      }
+    });
+    return this.quizDetail(quizId);
+  }
+
+  async deleteQuestion(user: RequestUser, questionId: string) {
+    await this.assertQuestionAccess(questionId, user);
+    const quizId = await this.prisma.quizQuestion
+      .findUniqueOrThrow({ where: { id: questionId }, select: { quizId: true } })
+      .then((r) => r.quizId);
+    await this.prisma.quizQuestion.delete({ where: { id: questionId } });
+    return this.quizDetail(quizId);
+  }
+
+  async reorderQuestions(user: RequestUser, quizId: string, ids: string[]) {
+    await this.assertQuizAccess(quizId, user);
+    await this.prisma.$transaction(
+      ids.map((id, i) =>
+        this.prisma.quizQuestion.update({ where: { id }, data: { order: i } }),
+      ),
+    );
+    return this.quizDetail(quizId);
   }
 }

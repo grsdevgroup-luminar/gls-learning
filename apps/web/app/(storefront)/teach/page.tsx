@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useStore } from "@/lib/context/store";
+import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { useSession } from "@/lib/api/session";
 import { categories } from "@/lib/mock/courses";
 import { Section } from "@/components/shared/section";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
@@ -28,7 +31,8 @@ const benefits = [
 ];
 
 export default function TeachPage() {
-  const { role, currentInstructor, applyAsInstructor, mounted } = useStore();
+  const { role, mounted } = useStore();
+  const { user } = useSession();
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -37,18 +41,36 @@ export default function TeachPage() {
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [sampleUrl, setSampleUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const alreadyInstructor = mounted && role === "instructor" && currentInstructor;
+  const alreadyInstructor = mounted && role === "instructor";
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !bio.trim()) {
-      toast.error("Please fill in your name, email and a short bio.");
+    if (!user) {
+      toast.error("Please log in first — your application is linked to your account.");
+      router.push("/login?next=/teach");
       return;
     }
-    applyAsInstructor({ name, email, expertise, headline, bio, sampleUrl });
-    toast.success("Application submitted! 🎉", { description: "We'll review it within 1–2 business days." });
-    router.push("/instructor");
+    if (!headline.trim() || !bio.trim()) {
+      toast.error("Please fill in your headline and a short bio.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.applyInstructor({
+        expertise,
+        headline: headline.trim(),
+        bio: bio.trim(),
+        sampleUrl: sampleUrl.trim() || undefined,
+      });
+      toast.success("Application submitted! 🎉", { description: "We'll review it within 1–2 business days." });
+      router.push("/instructor");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -113,10 +135,21 @@ export default function TeachPage() {
                     <Stagger className="space-y-4" gap={0.05}>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <FormField label="Full name">
-                          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
+                          <Input
+                            value={user ? user.name : name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Alex Morgan"
+                            readOnly={!!user}
+                          />
                         </FormField>
                         <FormField label="Email">
-                          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                          <Input
+                            type="email"
+                            value={user ? user.email : email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            readOnly={!!user}
+                          />
                         </FormField>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -140,7 +173,9 @@ export default function TeachPage() {
                       </FormField>
                     </Stagger>
                     <Magnetic strength={0.15} className="flex w-full">
-                      <Button type="submit" size="lg" className="sheen w-full">Submit application <ArrowRight /></Button>
+                      <Button type="submit" size="lg" className="sheen w-full" disabled={submitting}>
+                        {submitting ? "Submitting…" : <>Submit application <ArrowRight /></>}
+                      </Button>
                     </Magnetic>
                     <p className="text-center text-xs text-muted-foreground">
                       Already applied? <Link href="/instructor" className="text-primary hover:underline">Check your status</Link>

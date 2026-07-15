@@ -1,160 +1,115 @@
-'use client';
+"use client";
+
+// Real-data-backed replacement for the former mock/localStorage store. Preserves
+// the useStore() interface the UI already consumes, but sources data from the
+// live API (catalog, enrollments) + session (role) + localStorage (cart/region).
+// Course content (sections) is loaded from the API; quiz answers stay server-side
+// (the quiz player calls the quiz API directly).
+//
+// Note: instructor/sales-agent/organization program surfaces expose minimal
+// facade state here; those portals should migrate to their dedicated API hooks.
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useState,
-  useCallback,
   useMemo,
+  useState,
   type ReactNode,
-} from 'react';
-import { demoStudent, DEMO_STUDENT_ID } from '@/lib/mock/students';
-import { DEFAULT_REGION, getRegion } from '@/lib/mock/pricing';
-import { courses as baseCourses } from '@/lib/mock/courses';
+} from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_REGION, getRegion } from "@/lib/mock/pricing";
+import { captureReferralFromUrl } from "@/lib/referral";
+import { api } from "@/lib/api/endpoints";
 import {
-  getInstructor as getMockInstructor,
-  pendingApplications,
-} from '@/lib/mock/instructors';
+  enrollmentsToProgress,
+  toLegacyCourse,
+  toLegacyCourseDetail,
+} from "@/lib/api/adapters";
+import { useSession } from "@/lib/api/session";
 import type {
   Course,
   CourseStatus,
   Instructor,
   InstructorApplication,
   InstructorStatus,
-} from '@/types';
+  SalesAgent,
+  SalesAgentApplication,
+  Organization,
+  OrgMemberRole,
+} from "@/types";
 
-export type Role = 'guest' | 'student' | 'instructor' | 'admin';
+export type Role =
+  | "guest"
+  | "student"
+  | "instructor"
+  | "admin"
+  | "sales_agent"
+  | "org_admin";
 
-/** Default instructor identity for the "Log in as instructor" demo shortcut. */
-export const DEMO_INSTRUCTOR_ID = 'ins_sara';
+export const DEMO_INSTRUCTOR_ID = "ins_sara";
+export const DEMO_AGENT_ID = "agent_demo";
+export const DEMO_ORG_SLUG = "acme";
+export const DEMO_STUDENT_ID = "stu_alex";
 
 export interface QuizResult {
-  bestScore: number; // percent, best attempt
-  lastScore: number; // percent, most recent attempt
+  bestScore: number;
+  lastScore: number;
   attempts: number;
   passed: boolean;
-  lastAttemptAt: string; // ISO
+  lastAttemptAt: string;
 }
 
 export interface MyReview {
   rating: number;
   title: string;
   body: string;
-  date: string; // ISO
+  date: string;
 }
 
-interface PersistState {
-  role: Role;
-  regionCode: string;
-  cart: string[];
-  coupon: string | null;
-  enrolled: string[];
-  progress: Record<string, string[]>;
-  quizResults: Record<string, QuizResult>; // key: `${courseId}:${lessonId}`
-  myReviews: Record<string, MyReview>; // key: courseId
-  customCourses: Record<string, Course>; // admin-created/edited courses, keyed by id
-  deletedCourseIds: string[];
-  // instructor program
-  currentInstructorId: string | null; // who the logged-in instructor is
-  instructorApplications: InstructorApplication[]; // approval queue
-  customInstructors: Record<string, Instructor>; // approved-from-application profiles
-}
+const CART_KEY = "skillstream_cart_v2";
+const REGION_KEY = "skillstream_region_v2";
 
-const STORAGE_KEY = 'SkillStream_state_v1';
+const ROLE_FROM_SESSION: Record<string, Role> = {
+  STUDENT: "student",
+  INSTRUCTOR: "instructor",
+  ADMIN: "admin",
+  SALES_AGENT: "sales_agent",
+  ORG_ADMIN: "org_admin",
+};
 
 function quizKey(courseId: string, lessonId: string) {
   return `${courseId}:${lessonId}`;
 }
 
-/** Resolve an instructor from custom (approved-from-application) → seed mock →
- *  a still-pending application (so a freshly-applied user has a profile). */
-function resolveInstructor(
-  state: PersistState,
-  id: string | null,
-): Instructor | null {
-  if (!id) return null;
-  const custom = state.customInstructors[id];
-  if (custom) return custom;
-  const seed = getMockInstructor(id);
-  if (seed) return seed;
-  const app = state.instructorApplications.find((a) => a.id === id);
-  if (app) {
-    return {
-      id: app.id,
-      name: app.name,
-      title: app.headline,
-      avatar: '',
-      bio: app.bio,
-      rating: 0,
-      students: 0,
-      courses: 0,
-      email: app.email,
-      expertise: app.expertise,
-      status: app.status,
-    };
-  }
-  return null;
-}
-
-function instructorStatusOf(
-  state: PersistState,
-  id: string,
-): InstructorStatus | undefined {
-  const custom = state.customInstructors[id];
-  if (custom) return custom.status ?? 'approved';
-  if (getMockInstructor(id)) return 'approved';
-  return state.instructorApplications.find((a) => a.id === id)?.status;
-}
-
-function seedProgress(): Record<string, string[]> {
-  const p: Record<string, string[]> = {};
-  demoStudent.enrollments.forEach((e) => {
-    p[e.courseId] = [...e.completedLessonIds];
-  });
-  return p;
-}
-
-function defaultState(): PersistState {
-  return {
-    role: 'guest',
-    regionCode: DEFAULT_REGION,
-    cart: [],
-    coupon: null,
-    enrolled: demoStudent.enrollments.map((e) => e.courseId),
-    progress: seedProgress(),
-    quizResults: {},
-    myReviews: {},
-    customCourses: {},
-    deletedCourseIds: [],
-    currentInstructorId: null,
-    instructorApplications: pendingApplications.map((a) => ({ ...a })),
-    customInstructors: {},
-  };
-}
-
-interface StoreContextValue extends PersistState {
+interface StoreContextValue {
   mounted: boolean;
-  // auth
-  login: (asAdmin?: boolean) => void;
-  loginAs: (role: Role) => void;
-  logout: () => void;
+  role: Role;
   // region
-  setRegionCode: (code: string) => void;
+  regionCode: string;
   region: ReturnType<typeof getRegion>;
+  setRegionCode: (code: string) => void;
   // cart
+  cart: string[];
+  coupon: string | null;
   addToCart: (courseId: string) => void;
   removeFromCart: (courseId: string) => void;
   clearCart: () => void;
   inCart: (courseId: string) => boolean;
   setCoupon: (code: string | null) => void;
+  // auth (no-op shims kept for source compatibility; real auth is in useSession)
+  login: (asAdmin?: boolean) => void;
+  loginAs: (role: Role) => void;
+  logout: () => void;
   // enrollment + progress
+  enrolled: string[];
   isEnrolled: (courseId: string) => boolean;
   enroll: (courseIds: string[]) => void;
   toggleLesson: (courseId: string, lessonId: string) => void;
   isLessonDone: (courseId: string, lessonId: string) => boolean;
   completedCount: (courseId: string) => number;
-  // quizzes
+  // quizzes (client cache; server grading happens in the quiz API)
   getQuizResult: (courseId: string, lessonId: string) => QuizResult | undefined;
   submitQuizAttempt: (
     courseId: string,
@@ -170,14 +125,14 @@ interface StoreContextValue extends PersistState {
     title: string,
     body: string,
   ) => void;
-  // course management
+  // courses
   courses: Course[];
   getCourse: (id: string) => Course | undefined;
   upsertCourse: (course: Course) => void;
   deleteCourse: (id: string) => void;
   setCourseStatus: (id: string, status: CourseStatus) => void;
   reset: () => void;
-  // instructor program
+  // instructor program (facade)
   currentInstructor: Instructor | null;
   getInstructorById: (id: string) => Instructor | undefined;
   instructorStatusOf: (id: string) => InstructorStatus | undefined;
@@ -194,84 +149,193 @@ interface StoreContextValue extends PersistState {
   approveInstructor: (applicationId: string, note?: string) => void;
   rejectInstructor: (applicationId: string, note?: string) => void;
   updateInstructorProfile: (partial: Partial<Instructor>) => void;
+  instructorApplications: InstructorApplication[];
+  // sales agent program (facade)
+  allAgents: SalesAgent[];
+  currentAgent: SalesAgent | null;
+  agentApplications: SalesAgentApplication[];
+  loginAsAgent: (agentId?: string) => void;
+  applyAsSalesAgent: (data: {
+    name: string;
+    email: string;
+    phone?: string;
+    region: string;
+    bio: string;
+  }) => string;
+  approveAgent: (
+    applicationId: string,
+    commissionPercent: number,
+    note?: string,
+  ) => void;
+  rejectAgent: (applicationId: string, note?: string) => void;
+  updateAgentCommission: (agentId: string, commissionPercent: number) => void;
+  suspendAgent: (agentId: string) => void;
+  // organizations (facade)
+  allOrganizations: Organization[];
+  currentOrg: Organization | null;
+  loginAsOrgAdmin: (orgSlug?: string) => void;
+  createOrganization: (data: {
+    name: string;
+    slug: string;
+    domain?: string;
+    adminEmail: string;
+    seatCount: number;
+  }) => string;
+  updateOrganization: (
+    orgId: string,
+    partial: Partial<
+      Pick<Organization, "name" | "domain" | "logoUrl" | "seatCount" | "status">
+    >,
+  ) => void;
+  assignOrgCourse: (orgId: string, courseId: string) => void;
+  unassignOrgCourse: (orgId: string, courseId: string) => void;
+  inviteOrgMember: (orgId: string, email: string, role: OrgMemberRole) => void;
+  removeOrgMember: (orgId: string, memberId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PersistState>(defaultState);
+  const qc = useQueryClient();
+  const { user } = useSession();
   const [mounted, setMounted] = useState(false);
+
+  // ── client-only state (cart / region) ──
+  const [cart, setCart] = useState<string[]>([]);
+  const [coupon, setCouponState] = useState<string | null>(null);
+  const [regionCode, setRegionCodeState] = useState<string>(DEFAULT_REGION);
+
+  // ── client caches (quiz results / my reviews) ──
+  const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
+  const [myReviews, setMyReviews] = useState<Record<string, MyReview>>({});
+  const [detailsById, setDetailsById] = useState<Record<string, Course>>({});
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setState({ ...defaultState(), ...JSON.parse(raw) });
+      const c = localStorage.getItem(CART_KEY);
+      if (c) setCart(JSON.parse(c));
+      const r = localStorage.getItem(REGION_KEY);
+      if (r) setRegionCodeState(r);
     } catch {
       /* ignore */
     }
+    captureReferralFromUrl();
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (mounted) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, mounted]);
+    if (mounted) localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  }, [cart, mounted]);
+  useEffect(() => {
+    if (mounted) localStorage.setItem(REGION_KEY, regionCode);
+  }, [regionCode, mounted]);
 
-  const patch = useCallback((p: Partial<PersistState>) => {
-    setState((s) => ({ ...s, ...p }));
-  }, []);
+  // ── catalog (published summaries) ──
+  const { data: courseList } = useQuery({
+    queryKey: ["store", "courses"],
+    queryFn: () => api.courses({ pageSize: 100 }),
+    staleTime: 60_000,
+  });
+  const courses = useMemo<Course[]>(() => {
+    const summaries = (courseList?.items ?? []).map(toLegacyCourse);
+    // Prefer fully-loaded details (with curriculum) when available.
+    return summaries.map((c) => detailsById[c.id] ?? c);
+  }, [courseList, detailsById]);
 
-  const courses = useMemo(() => {
-    const known = baseCourses
-      .filter((c) => !state.deletedCourseIds.includes(c.id))
-      .map((c) => state.customCourses[c.id] ?? c);
-    const created = Object.values(state.customCourses).filter(
-      (c) =>
-        !baseCourses.some((b) => b.id === c.id) &&
-        !state.deletedCourseIds.includes(c.id),
-    );
-    return [...created, ...known];
-  }, [state.customCourses, state.deletedCourseIds]);
+  // ── enrollments / progress ──
+  const { data: enrollments } = useQuery({
+    queryKey: ["store", "enrollments"],
+    queryFn: () => api.myEnrollments(),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+  const enrolled = useMemo(
+    () => (enrollments ?? []).map((e) => e.courseId),
+    [enrollments],
+  );
+  const progress = useMemo(
+    () => enrollmentsToProgress(enrollments ?? []),
+    [enrollments],
+  );
+
+  // Lazily load a course's full curriculum into the details cache.
+  const ensureDetail = useCallback(
+    async (idOrSlug: string) => {
+      const known =
+        courseList?.items.find(
+          (c) => c.id === idOrSlug || c.slug === idOrSlug,
+        ) ?? null;
+      const slug = known?.slug ?? idOrSlug;
+      try {
+        const detail = await api.course(slug);
+        setDetailsById((m) => ({ ...m, [detail.id]: toLegacyCourseDetail(detail) }));
+      } catch {
+        /* ignore */
+      }
+    },
+    [courseList],
+  );
+
+  const getCourse = useCallback(
+    (id: string): Course | undefined => {
+      const found =
+        detailsById[id] ?? courses.find((c) => c.id === id || c.slug === id);
+      if (found && detailsById[found.id] === undefined) void ensureDetail(id);
+      return found;
+    },
+    [courses, detailsById, ensureDetail],
+  );
+
+  const refetchEnrollments = useCallback(
+    () => qc.invalidateQueries({ queryKey: ["store", "enrollments"] }),
+    [qc],
+  );
+
+  const role: Role = user ? ROLE_FROM_SESSION[user.role] ?? "student" : "guest";
 
   const value: StoreContextValue = {
-    ...state,
     mounted,
-    region: getRegion(state.regionCode),
-    login: (asAdmin) => patch({ role: asAdmin ? 'admin' : 'student' }),
-    loginAs: (role) => patch({ role }),
-    logout: () => patch({ role: 'guest' }),
-    setRegionCode: (regionCode) => patch({ regionCode }),
-    addToCart: (id) =>
-      setState((s) =>
-        s.cart.includes(id) ? s : { ...s, cart: [...s.cart, id] },
-      ),
-    removeFromCart: (id) =>
-      setState((s) => ({ ...s, cart: s.cart.filter((c) => c !== id) })),
-    clearCart: () => patch({ cart: [], coupon: null }),
-    inCart: (id) => state.cart.includes(id),
-    setCoupon: (code) => patch({ coupon: code }),
-    isEnrolled: (id) => state.enrolled.includes(id),
-    enroll: (ids) =>
-      setState((s) => ({
-        ...s,
-        enrolled: Array.from(new Set([...s.enrolled, ...ids])),
-      })),
-    toggleLesson: (courseId, lessonId) =>
-      setState((s) => {
-        const cur = s.progress[courseId] ?? [];
-        const next = cur.includes(lessonId)
-          ? cur.filter((l) => l !== lessonId)
-          : [...cur, lessonId];
-        return { ...s, progress: { ...s.progress, [courseId]: next } };
-      }),
+    role,
+    // region
+    regionCode,
+    region: getRegion(regionCode),
+    setRegionCode: setRegionCodeState,
+    // cart
+    cart,
+    coupon,
+    addToCart: (id) => setCart((c) => (c.includes(id) ? c : [...c, id])),
+    removeFromCart: (id) => setCart((c) => c.filter((x) => x !== id)),
+    clearCart: () => {
+      setCart([]);
+      setCouponState(null);
+    },
+    inCart: (id) => cart.includes(id),
+    setCoupon: setCouponState,
+    // auth shims (real auth lives in useSession/useLogin/useLogout)
+    login: () => undefined,
+    loginAs: () => undefined,
+    logout: () => undefined,
+    // enrollment + progress
+    enrolled,
+    isEnrolled: (id) => enrolled.includes(id),
+    enroll: (ids) => {
+      void Promise.allSettled(ids.map((id) => api.enrollFree(id))).then(
+        refetchEnrollments,
+      );
+    },
+    toggleLesson: (courseId, lessonId) => {
+      void api.toggleLesson(courseId, lessonId).then(refetchEnrollments);
+    },
     isLessonDone: (courseId, lessonId) =>
-      (state.progress[courseId] ?? []).includes(lessonId),
-    completedCount: (courseId) => (state.progress[courseId] ?? []).length,
+      (progress[courseId] ?? []).includes(lessonId),
+    completedCount: (courseId) => (progress[courseId] ?? []).length,
+    // quizzes
     getQuizResult: (courseId, lessonId) =>
-      state.quizResults[quizKey(courseId, lessonId)],
+      quizResults[quizKey(courseId, lessonId)],
     submitQuizAttempt: (courseId, lessonId, scorePercent, passScore) => {
       const key = quizKey(courseId, lessonId);
+      const prev = quizResults[key];
       const passed = scorePercent >= passScore;
-      const prev = state.quizResults[key];
       const result: QuizResult = {
         bestScore: Math.max(prev?.bestScore ?? 0, scorePercent),
         lastScore: scorePercent,
@@ -279,147 +343,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         passed: passed || !!prev?.passed,
         lastAttemptAt: new Date().toISOString(),
       };
-      setState((s) => {
-        const curLessons = s.progress[courseId] ?? [];
-        const nextLessons =
-          passed && !curLessons.includes(lessonId)
-            ? [...curLessons, lessonId]
-            : curLessons;
-        return {
-          ...s,
-          quizResults: { ...s.quizResults, [key]: result },
-          progress: { ...s.progress, [courseId]: nextLessons },
-        };
-      });
+      setQuizResults((m) => ({ ...m, [key]: result }));
       return result;
     },
-    getMyReview: (courseId) => state.myReviews[courseId],
-    submitReview: (courseId, rating, title, body) =>
-      setState((s) => ({
-        ...s,
-        myReviews: {
-          ...s.myReviews,
-          [courseId]: {
-            rating,
-            title,
-            body,
-            date: new Date().toISOString().slice(0, 10),
-          },
-        },
-      })),
-    courses,
-    getCourse: (id) => courses.find((c) => c.id === id),
-    upsertCourse: (course) =>
-      setState((s) => ({
-        ...s,
-        customCourses: { ...s.customCourses, [course.id]: course },
-      })),
-    deleteCourse: (id) =>
-      setState((s) => ({
-        ...s,
-        deletedCourseIds: Array.from(new Set([...s.deletedCourseIds, id])),
-      })),
-    setCourseStatus: (id, status) =>
-      setState((s) => {
-        const existing =
-          s.customCourses[id] ?? baseCourses.find((c) => c.id === id);
-        if (!existing) return s;
-        return {
-          ...s,
-          customCourses: {
-            ...s.customCourses,
-            [id]: { ...existing, status, updatedAt: new Date().toISOString() },
-          },
-        };
-      }),
-    reset: () => {
-      const d = defaultState();
-      setState(d);
-    },
-
-    // ── instructor program ──────────────────────────────────────────────
-    currentInstructor: resolveInstructor(state, state.currentInstructorId),
-    getInstructorById: (id) => resolveInstructor(state, id) ?? undefined,
-    instructorStatusOf: (id) => instructorStatusOf(state, id),
-    myCourses: state.currentInstructorId
-      ? courses.filter((c) => c.instructorId === state.currentInstructorId)
-      : [],
-    loginAsInstructor: (instructorId = DEMO_INSTRUCTOR_ID) =>
-      patch({ role: 'instructor', currentInstructorId: instructorId }),
-    applyAsInstructor: (data) => {
-      const id = `ins_app_${Math.random().toString(36).slice(2, 8)}`;
-      const application: InstructorApplication = {
-        id,
-        name: data.name,
-        email: data.email,
-        expertise: data.expertise,
-        headline: data.headline,
-        bio: data.bio,
-        sampleUrl: data.sampleUrl,
-        appliedAt: new Date().toISOString(),
-        status: 'pending',
-      };
-      setState((s) => ({
-        ...s,
-        role: 'instructor',
-        currentInstructorId: id,
-        instructorApplications: [application, ...s.instructorApplications],
+    // reviews
+    getMyReview: (courseId) => myReviews[courseId],
+    submitReview: (courseId, rating, title, body) => {
+      setMyReviews((m) => ({
+        ...m,
+        [courseId]: { rating, title, body, date: new Date().toISOString().slice(0, 10) },
       }));
-      return id;
+      void api.submitReview(courseId, { rating, title, body }).catch(() => undefined);
     },
-    approveInstructor: (applicationId, note) =>
-      setState((s) => {
-        const app = s.instructorApplications.find((a) => a.id === applicationId);
-        if (!app) return s;
-        const existing = s.customInstructors[app.id];
-        const fromApp: Instructor = {
-          id: app.id,
-          name: app.name,
-          title: app.headline,
-          avatar: '',
-          bio: app.bio,
-          rating: 0,
-          students: 0,
-          courses: 0,
-          email: app.email,
-          expertise: app.expertise,
-          status: 'approved',
-        };
-        // keep any profile edits the applicant made while pending
-        const profile: Instructor = { ...fromApp, ...existing, status: 'approved' };
-        return {
-          ...s,
-          instructorApplications: s.instructorApplications.map((a) =>
-            a.id === applicationId
-              ? { ...a, status: 'approved', reviewedAt: new Date().toISOString(), note }
-              : a,
-          ),
-          customInstructors: { ...s.customInstructors, [app.id]: profile },
-        };
-      }),
-    rejectInstructor: (applicationId, note) =>
-      setState((s) => ({
-        ...s,
-        instructorApplications: s.instructorApplications.map((a) =>
-          a.id === applicationId
-            ? { ...a, status: 'rejected', reviewedAt: new Date().toISOString(), note }
-            : a,
-        ),
-      })),
-    updateInstructorProfile: (partial) =>
-      setState((s) => {
-        const id = s.currentInstructorId;
-        if (!id) return s;
-        const base = resolveInstructor(s, id);
-        if (!base) return s;
-        return {
-          ...s,
-          customInstructors: {
-            ...s.customInstructors,
-            [id]: { ...base, ...partial },
-          },
-        };
-      }),
+    // courses
+    courses,
+    getCourse,
+    upsertCourse: () => undefined,
+    deleteCourse: () => undefined,
+    setCourseStatus: () => undefined,
+    reset: () => undefined,
+    // instructor program (facade — see dedicated API for full behaviour)
+    currentInstructor: null,
+    getInstructorById: () => undefined,
+    instructorStatusOf: () => undefined,
+    myCourses: [],
+    loginAsInstructor: () => undefined,
+    applyAsInstructor: () => "",
+    approveInstructor: () => undefined,
+    rejectInstructor: () => undefined,
+    updateInstructorProfile: () => undefined,
+    instructorApplications: [],
+    // sales agent program (facade)
+    allAgents: [],
+    currentAgent: null,
+    agentApplications: [],
+    loginAsAgent: () => undefined,
+    applyAsSalesAgent: () => "",
+    approveAgent: () => undefined,
+    rejectAgent: () => undefined,
+    updateAgentCommission: () => undefined,
+    suspendAgent: () => undefined,
+    // organizations (facade)
+    allOrganizations: [],
+    currentOrg: null,
+    loginAsOrgAdmin: () => undefined,
+    createOrganization: () => "",
+    updateOrganization: () => undefined,
+    assignOrgCourse: () => undefined,
+    unassignOrgCourse: () => undefined,
+    inviteOrgMember: () => undefined,
+    removeOrgMember: () => undefined,
   };
 
   return (
@@ -429,8 +402,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
 export function useStore() {
   const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error('useStore must be used within StoreProvider');
+  if (!ctx) throw new Error("useStore must be used within StoreProvider");
   return ctx;
 }
-
-export { DEMO_STUDENT_ID };

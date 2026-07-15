@@ -18,3 +18,5 @@ export * from "./contracts/authoring.js";
 export * from "./contracts/reviews.js";
 export * from "./contracts/instructor.js";
 export * from "./contracts/admin.js";
+export * from "./contracts/sales-agent.js";
+export * from "./contracts/organizations.js";

@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import * as Sentry from "@sentry/node";
 import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -8,6 +9,15 @@ import { AppModule } from "./app.module";
 import type { Env } from "./config/env";
 
 async function bootstrap(): Promise<void> {
+  // Initialise error tracking before anything else when a DSN is configured.
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV ?? "development",
+      tracesSampleRate: 0.1,
+    });
+  }
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
     rawBody: true, // needed for Stripe webhook signature verification

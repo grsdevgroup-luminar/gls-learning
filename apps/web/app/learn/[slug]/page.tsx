@@ -1,9 +1,6 @@
-import { courses } from "@/lib/mock/courses";
 import { LearnLoader } from "@/components/student/learn-loader";
 
-export function generateStaticParams() {
-  return courses.map((c) => ({ slug: c.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function LearnPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

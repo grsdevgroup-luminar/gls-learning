@@ -69,6 +69,22 @@ export class EnrollmentService {
     };
   }
 
+  async myCertificates(userId: string): Promise<CertificateDto[]> {
+    const certs = await this.prisma.certificate.findMany({
+      where: { enrollment: { userId } },
+      include: { enrollment: { select: { courseId: true, course: { select: { title: true, slug: true } } } } },
+      orderBy: { issuedAt: "desc" },
+    });
+    return certs.map((c) => ({
+      serial: c.serial,
+      pdfUrl: c.pdfUrl,
+      issuedAt: c.issuedAt.toISOString(),
+      courseId: c.enrollment.courseId,
+      courseTitle: (c.enrollment.course as { title: string }).title,
+      courseSlug: (c.enrollment.course as { slug: string }).slug,
+    }));
+  }
+
   async myEnrollments(userId: string): Promise<EnrollmentDto[]> {
     const rows = await this.prisma.enrollment.findMany({
       where: { userId },
@@ -93,16 +109,37 @@ export class EnrollmentService {
       .then((n) => n > 0);
   }
 
-  /** Free-course self-enroll. Paid courses must go through checkout. */
+  /**
+   * Free self-enroll. Allowed for: free PUBLIC courses, or org-PRIVATE courses
+   * the user has a seat for (org-paid). Paid public courses must go through
+   * checkout.
+   */
   async enrollFree(userId: string, courseId: string): Promise<EnrollmentDto> {
     const course = await this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { basePriceCents: true, status: true },
+      select: {
+        basePriceCents: true,
+        status: true,
+        visibility: true,
+        orgId: true,
+      },
     });
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
-    if (course.basePriceCents > 0)
+
+    if (course.visibility === "PRIVATE") {
+      // Org-private course: membership in the owning org grants seat-based access.
+      const member = course.orgId
+        ? await this.prisma.orgMember.findFirst({
+            where: { orgId: course.orgId, userId },
+          })
+        : null;
+      if (!member)
+        throw new ForbiddenException("This course is restricted to its organization");
+    } else if (course.basePriceCents > 0) {
       throw new ForbiddenException("This course requires purchase");
+    }
+
     await this.enrollMany(this.prisma, userId, [courseId]);
     return this.getOne(userId, courseId);
   }
@@ -118,15 +155,27 @@ export class EnrollmentService {
     courseIds: string[],
   ): Promise<void> {
     for (const courseId of courseIds) {
+      const existing = await tx.enrollment.findUnique({
+        where: { userId_courseId: { userId, courseId } },
+        select: { id: true },
+      });
       await tx.enrollment.upsert({
         where: { userId_courseId: { userId, courseId } },
         update: {},
         create: { userId, courseId },
       });
-      await tx.course.update({
-        where: { id: courseId },
-        data: { studentCount: { increment: 1 } },
-      });
+      // Only increment counters for genuinely new enrollments.
+      if (!existing) {
+        const course = await tx.course.update({
+          where: { id: courseId },
+          data: { studentCount: { increment: 1 } },
+          select: { instructorId: true },
+        });
+        await tx.instructorProfile.updateMany({
+          where: { userId: course.instructorId },
+          data: { studentCount: { increment: 1 } },
+        });
+      }
     }
   }
 

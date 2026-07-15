@@ -1,6 +1,7 @@
 "use client";
 
-import { useStore } from "@/lib/context/store";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api/endpoints";
 import { instructors as seedInstructors } from "@/lib/mock/instructors";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Stars } from "@/components/shared/stars";
@@ -23,25 +24,28 @@ function shortDate(iso: string) {
 }
 
 export default function AdminInstructors() {
-  const {
-    instructorApplications, approveInstructor, rejectInstructor,
-    customInstructors, courses, mounted,
-  } = useStore();
+  const qc = useQueryClient();
+  const { data: applications = [] } = useQuery({
+    queryKey: ["admin", "instructor-applications"],
+    queryFn: () => api.adminInstructorApplications(),
+  });
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ["admin", "instructor-applications"] });
+  const approveInstructor = useMutation({
+    mutationFn: (id: string) => api.approveInstructorApplication(id),
+    onSuccess: invalidate,
+  });
+  const rejectInstructor = useMutation({
+    mutationFn: (id: string) => api.rejectInstructorApplication(id),
+    onSuccess: invalidate,
+  });
 
-  if (!mounted) return null;
+  const pending = applications.filter((a) => a.status === "PENDING");
+  const decided = applications.filter((a) => a.status !== "PENDING");
 
-  const pending = instructorApplications.filter((a) => a.status === "pending");
-  const decided = instructorApplications.filter((a) => a.status !== "pending");
-
-  // Active roster = seed instructors + approved-from-application profiles
-  const approvedCustom = Object.values(customInstructors).filter(
-    (i) => (i.status ?? "approved") === "approved",
-  );
-  const roster: Instructor[] = [
-    ...seedInstructors,
-    ...approvedCustom.filter((c) => !seedInstructors.some((s) => s.id === c.id)),
-  ];
-  const courseCount = (id: string) => courses.filter((c) => c.instructorId === id).length;
+  // Active roster (seed reference until a roster endpoint is added).
+  const roster: Instructor[] = seedInstructors;
+  const courseCount = (id: string) => roster.find((r) => r.id === id)?.courses ?? 0;
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -92,13 +96,13 @@ export default function AdminInstructors() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => { rejectInstructor(a.id); toast("Application rejected", { description: a.name }); }}
+                      onClick={() => { rejectInstructor.mutate(a.id); toast("Application rejected", { description: a.name }); }}
                     >
                       <X /> Reject
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => { approveInstructor(a.id); toast.success("Instructor approved 🎉", { description: a.name }); }}
+                      onClick={() => { approveInstructor.mutate(a.id); toast.success("Instructor approved 🎉", { description: a.name }); }}
                     >
                       <Check /> Approve
                     </Button>
@@ -118,7 +122,7 @@ export default function AdminInstructors() {
                     <div className="text-xs text-muted-foreground">{a.headline}</div>
                   </div>
                 </div>
-                {a.status === "approved" ? (
+                {a.status === "APPROVED" ? (
                   <Badge variant="outline" className="gap-1 text-success border-success/30 bg-success/10"><CheckCircle2 className="size-3" /> Approved</Badge>
                 ) : (
                   <Badge variant="outline" className="gap-1 text-destructive border-destructive/30 bg-destructive/10"><X className="size-3" /> Rejected</Badge>

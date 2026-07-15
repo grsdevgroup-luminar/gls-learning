@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Req,
   Res,
@@ -12,11 +13,19 @@ import { ConfigService } from "@nestjs/config";
 import { ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
 import {
+  changePasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
+  updateProfileSchema,
   type AuthTokensDto,
+  type ChangePasswordInput,
+  type ForgotPasswordInput,
   type LoginInput,
   type RegisterInput,
+  type ResetPasswordInput,
+  type UpdateProfileInput,
 } from "@skillstream/shared";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { CurrentUser, Public, type RequestUser } from "../common/decorators";
@@ -131,5 +140,40 @@ export class AuthController {
   @Get("me")
   me(@CurrentUser() user: RequestUser) {
     return this.auth.me(user.id);
+  }
+
+  @Public()
+  @Post("forgot-password")
+  @HttpCode(200)
+  forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordInput,
+  ) {
+    return this.auth.forgotPassword(body);
+  }
+
+  @Public()
+  @Post("reset-password")
+  @HttpCode(200)
+  resetPassword(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput,
+  ) {
+    return this.auth.resetPassword(body);
+  }
+
+  @Patch("me/profile")
+  updateProfile(
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+  ) {
+    return this.auth.updateProfile(user.id, body);
+  }
+
+  @Post("me/password")
+  @HttpCode(200)
+  changePassword(
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordInput,
+  ) {
+    return this.auth.changePassword(user.id, body);
   }
 }

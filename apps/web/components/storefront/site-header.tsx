@@ -20,19 +20,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/context/store";
-import { demoStudent } from "@/lib/mock/students";
+import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
-import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare } from "lucide-react";
+import { toast } from "sonner";
+import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
-  const { cart, role, logout, mounted } = useStore();
+  const { cart, mounted } = useStore();
+  const { user, role, isLoading } = useSession();
+  const logoutMut = useLogout();
   const router = useRouter();
   const [q, setQ] = useState("");
-  const isAuthed = role !== "guest";
+  const isAuthed = !!user;
 
   function search(e: React.FormEvent) {
     e.preventDefault();
     router.push(`/courses?q=${encodeURIComponent(q)}`);
+  }
+
+  async function logout() {
+    await logoutMut.mutateAsync();
+    toast.success("Signed out");
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -48,8 +58,8 @@ export function SiteHeader() {
           <Button render={<Link href="/courses" />} variant="ghost" size="sm">
             Courses
           </Button>
-          <Button render={<Link href={role === "instructor" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
-            {role === "instructor" ? "Instructor" : "Teach"}
+          <Button render={<Link href={role === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
+            {role === "INSTRUCTOR" ? "Instructor" : "Teach"}
           </Button>
         </nav>
 
@@ -106,32 +116,34 @@ export function SiteHeader() {
             </Button>
           </div>
 
-          {!mounted ? null : isAuthed ? (
+          {isLoading ? null : isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="rounded-full" />}
               >
                 <Avatar className="h-8 w-8 ring-1 ring-border">
                   <AvatarFallback className="brand-gradient text-xs text-white">
-                    {role === "admin" ? "AD" : role === "instructor" ? "IN" : initials(demoStudent.name)}
+                    {role === "ADMIN" ? "AD" : role === "INSTRUCTOR" ? "IN" : role === "SALES_AGENT" ? "SA" : role === "ORG_ADMIN" ? "OA" : initials(user?.name ?? "User")}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>
-                    <div className="font-medium">{role === "admin" ? "Admin" : role === "instructor" ? "Instructor" : demoStudent.name}</div>
+                    <div className="font-medium">
+                      {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
+                    </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "admin" ? "admin@demo.com" : role === "instructor" ? "instructor@demo.com" : demoStudent.email}
+                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@skillstream.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                {role === "admin" ? (
+                {role === "ADMIN" ? (
                   <DropdownMenuItem render={<Link href="/admin" />}>
                     <Shield /> Admin panel
                   </DropdownMenuItem>
-                ) : role === "instructor" ? (
+                ) : role === "INSTRUCTOR" ? (
                   <>
                     <DropdownMenuItem render={<Link href="/instructor" />}>
                       <LayoutDashboard /> Instructor dashboard
@@ -143,6 +155,22 @@ export function SiteHeader() {
                       <GraduationCap /> My Learning
                     </DropdownMenuItem>
                   </>
+                ) : role === "SALES_AGENT" ? (
+                  <>
+                    <DropdownMenuItem render={<Link href="/sales-agent" />}>
+                      <LayoutDashboard /> Agent dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/sales-agent/referrals" />}>
+                      <Link2 /> My referrals
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/sales-agent/earnings" />}>
+                      <Shield /> Earnings
+                    </DropdownMenuItem>
+                  </>
+                ) : role === "ORG_ADMIN" ? (
+                  <DropdownMenuItem render={<Link href="/admin/organizations" />}>
+                    <Building2 /> Organization portal
+                  </DropdownMenuItem>
                 ) : (
                   <>
                     <DropdownMenuItem render={<Link href="/dashboard" />}>

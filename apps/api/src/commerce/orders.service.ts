@@ -3,6 +3,7 @@ import { Prisma, PaymentGateway } from "@prisma/client";
 import type { OrderDto } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import { SalesAgentService } from "../sales-agent/sales-agent.service";
 
 const orderInclude = { items: true } satisfies Prisma.OrderInclude;
 type OrderRow = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
@@ -24,6 +25,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly enrollment: EnrollmentService,
+    private readonly salesAgents: SalesAgentService,
   ) {}
 
   private toDto(row: OrderRow): OrderDto {
@@ -114,9 +116,14 @@ export class OrdersService {
       );
 
       for (const item of order.items) {
-        await tx.course.update({
+        const course = await tx.course.update({
           where: { id: item.courseId },
           data: { revenueCents: { increment: item.priceCents } },
+          select: { instructorId: true },
+        });
+        await tx.instructorProfile.updateMany({
+          where: { userId: course.instructorId },
+          data: { earningsCents: { increment: item.priceCents } },
         });
       }
 
@@ -139,6 +146,9 @@ export class OrdersService {
         });
       }
     });
+
+    // Credit any attributed sales-agent referral now that payment succeeded.
+    await this.salesAgents.confirmReferral(orderId);
 
     const updated = await this.findById(orderId);
     return this.toDto(updated!);

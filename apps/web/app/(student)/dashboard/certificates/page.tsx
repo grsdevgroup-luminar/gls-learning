@@ -1,37 +1,69 @@
 'use client';
 
-import Link from 'next/link';
-import { useStore } from '@/lib/context/store';
-import { getCourseById, courseLessonCount } from '@/lib/mock/courses';
-import { getInstructor } from '@/lib/mock/instructors';
-import { demoStudent } from '@/lib/mock/students';
+import { useQuery } from '@tanstack/react-query';
+import { useSession } from '@/lib/api/session';
+import { apiFetch } from '@/lib/api/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Award,
-  Lock,
   Download,
   GraduationCap,
   CheckCircle2,
 } from 'lucide-react';
-import type { Course } from '@/types';
+
+interface CertificateDto {
+  serial: string;
+  pdfUrl: string | null;
+  issuedAt: string;
+  courseId: string;
+  courseTitle: string;
+  courseSlug: string;
+}
 
 export default function CertificatesPage() {
-  const { enrolled, completedCount, mounted } = useStore();
-  if (!mounted) return <div className="p-6 md:p-8" />;
+  const { user } = useSession();
 
-  const courses = enrolled
-    .map((id) => getCourseById(id))
-    .filter(Boolean)
-    .map((c) => {
-      const total = courseLessonCount(c!);
-      const done = completedCount(c!.id);
-      return { course: c!, pct: total ? Math.round((done / total) * 100) : 0 };
-    });
-  const earned = courses.filter((c) => c.pct === 100);
-  const inProgress = courses.filter((c) => c.pct < 100);
+  const { data: certs, isLoading, isError } = useQuery({
+    queryKey: ['me', 'certificates'],
+    queryFn: () => apiFetch<CertificateDto[]>('/me/certificates'),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 p-6 md:p-8">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((n) => (
+            <Skeleton key={n} className="h-52 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-8 p-6 md:p-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
+        </div>
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            Could not load certificates. Please try again later.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const earned = certs ?? [];
 
   return (
     <div className="space-y-8 p-6 md:p-8">
@@ -45,71 +77,59 @@ export default function CertificatesPage() {
 
       {earned.length > 0 && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {earned.map(({ course }) => (
-            <Dialog key={course.id}>
-              <DialogTrigger
-                nativeButton={false}
-                render={
-                  <Card className="cursor-pointer p-0 transition-all hover:-translate-y-1 hover:shadow-lg" />
-                }
-              >
-                <CardContent className="p-0">
-                  <CertificatePreview course={course} small />
-                  <div className="flex items-center justify-between p-3">
-                    <span className="text-sm font-medium">{course.title}</span>
-                    <Badge variant="secondary" className="text-success">
-                      <Award className="mr-1 h-3 w-3" />
-                    </Badge>
-                  </div>
-                </CardContent>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl overflow-visible">
-                <CertificatePreview course={course} />
-                <div className="flex justify-center gap-3">
-                  <Button>
-                    <Download /> Download PDF
-                  </Button>
-                  <Button variant="outline">Share to LinkedIn</Button>
+          {earned.map((cert) => (
+            <Card
+              key={cert.serial}
+              className="overflow-hidden p-0 transition-all hover:-translate-y-1 hover:shadow-lg"
+            >
+              <CardContent className="p-0">
+                <CertificatePreview
+                  courseTitle={cert.courseTitle}
+                  userName={user?.name ?? ''}
+                  issuedAt={cert.issuedAt}
+                  serial={cert.serial}
+                  small
+                />
+                <div className="flex items-center justify-between p-3">
+                  <span className="truncate text-sm font-medium">{cert.courseTitle}</span>
+                  <Badge variant="secondary" className="shrink-0 text-success">
+                    <Award className="mr-1 h-3 w-3" />
+                  </Badge>
                 </div>
-              </DialogContent>
-            </Dialog>
+                <div className="flex gap-2 border-t border-border px-3 py-2">
+                  <TooltipProvider>
+                    {cert.pdfUrl ? (
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        render={<a href={cert.pdfUrl} target="_blank" rel="noopener noreferrer" />}
+                      >
+                        <Download className="mr-1 h-3.5 w-3.5" /> Download PDF
+                      </Button>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="flex-1" />}>
+                          <Button size="sm" className="w-full" disabled>
+                            <Download className="mr-1 h-3.5 w-3.5" /> Download PDF
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Coming soon</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </TooltipProvider>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
 
-      {inProgress.length > 0 && (
-        <div>
-          <h2 className="mb-4 text-lg font-bold">Keep going to unlock</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {inProgress.map(({ course, pct }) => (
-              <Card key={course.id}>
-                <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-                  <div className="grid h-14 w-14 place-items-center rounded-full bg-muted text-muted-foreground">
-                    <Lock className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-sm font-semibold">{course.title}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {pct}% complete — finish to earn your certificate
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1"
-                    render={<Link href={`/learn/${course.slug}`} />}
-                  >
-                    Continue
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {earned.length === 0 && inProgress.length === 0 && (
+      {earned.length === 0 && (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            No courses yet.
+            <GraduationCap className="mx-auto mb-3 h-10 w-10 opacity-40" />
+            <p className="font-medium">No certificates yet</p>
+            <p className="mt-1 text-sm">Complete a course to earn your first certificate.</p>
           </CardContent>
         </Card>
       )}
@@ -118,16 +138,26 @@ export default function CertificatesPage() {
 }
 
 function CertificatePreview({
-  course,
+  courseTitle,
+  userName,
+  issuedAt,
+  serial,
   small,
 }: {
-  course: Course;
+  courseTitle: string;
+  userName: string;
+  issuedAt: string;
+  serial: string;
   small?: boolean;
 }) {
-  const instructor = getInstructor(course.instructorId);
+  const issuedDate = new Date(issuedAt).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
     <div
-      className={`relative overflow-hidden ${small ? 'rounded-t-xl' : 'rounded-xl'} border bg-gradient-to-br from-primary/5 via-background to-chart-2/5 ${small ? 'p-5' : 'p-10'} text-center`}
+      className={`relative overflow-hidden ${small ? 'rounded-t-xl' : 'rounded-xl'} border bg-linear-to-br from-primary/5 via-background to-chart-2/5 ${small ? 'p-5' : 'p-10'} text-center`}
     >
       <div className="absolute inset-0 m-2 rounded-lg border-2 border-primary/20" />
       <div className="relative">
@@ -139,32 +169,27 @@ function CertificatePreview({
             Certificate of Completion
           </p>
         )}
-        <p
-          className={`mt-2 ${small ? 'text-xs' : 'text-sm'} text-muted-foreground`}
-        >
+        <p className={`mt-2 ${small ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
           This certifies that
         </p>
         <p className={`font-bold ${small ? 'text-base' : 'text-2xl'}`}>
-          {demoStudent.name}
+          {userName}
         </p>
-        <p
-          className={`mt-1 ${small ? 'text-xs' : 'text-sm'} text-muted-foreground`}
-        >
+        <p className={`mt-1 ${small ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
           has successfully completed
         </p>
-        <p
-          className={`font-semibold text-primary ${small ? 'text-sm' : 'text-lg'}`}
-        >
-          {course.title}
+        <p className={`font-semibold text-primary ${small ? 'text-sm' : 'text-lg'}`}>
+          {courseTitle}
         </p>
         {!small && (
-          <div className="mt-6 flex items-center justify-center gap-8 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Verified ·
-              SkillStream
+          <div className="mt-6 flex flex-col items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Verified · SkillStream
+              </div>
+              <div>{issuedDate}</div>
             </div>
-            <div>Instructor: {instructor?.name}</div>
-            <div>June 2026</div>
+            <div className="font-mono text-[10px] opacity-60">Serial: {serial}</div>
           </div>
         )}
       </div>

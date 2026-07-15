@@ -106,6 +106,8 @@ export interface Course {
   requirements: string[];
   sections: Section[];
   revenue: number; // admin metric
+  visibility?: 'public' | 'private'; // private = org-only, unlisted from storefront
+  orgId?: string; // owning org when visibility === 'private'
 }
 
 export type ReminderTrigger =
@@ -223,4 +225,92 @@ export interface AutomationRule {
 
 export interface CartItem {
   courseId: string;
+}
+
+// ── Sales Agents ─────────────────────────────────────────────────────────────
+
+export type SalesAgentStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+
+export interface SalesAgentApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  region: string; // geographic region they cover
+  bio: string;
+  appliedAt: string; // ISO
+  status: SalesAgentStatus;
+  reviewedAt?: string;
+  note?: string;
+}
+
+export interface SalesAgentReferral {
+  id: string;
+  agentId: string;
+  orderId: string;
+  studentName: string;
+  courseTitle: string;
+  orderTotal: number; // USD
+  commissionEarned: number; // USD
+  status: 'pending' | 'confirmed' | 'paid';
+  date: string; // ISO
+}
+
+export interface SalesAgent {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  phone?: string;
+  region: string;
+  referralCode: string;
+  commissionPercent: number;
+  status: SalesAgentStatus;
+  joinedAt: string; // ISO
+  totalEarnings: number; // USD lifetime confirmed commissions
+  pendingEarnings: number; // USD awaiting confirmation
+  paidEarnings: number; // USD already paid out
+  referralCount: number; // total referred orders
+}
+
+// ── B2B Organizations ─────────────────────────────────────────────────────────
+
+export type OrgStatus = 'active' | 'trial' | 'suspended';
+
+export type OrgMemberRole = 'admin' | 'member';
+
+export interface OrgMember {
+  id: string;
+  orgId: string;
+  name: string;
+  email: string;
+  avatar: string;
+  role: OrgMemberRole;
+  joinedAt: string; // ISO
+  enrolledCourseIds: string[];
+}
+
+export interface OrgInvitation {
+  id: string;
+  orgId: string;
+  email: string;
+  role: OrgMemberRole;
+  token: string;
+  expiresAt: string; // ISO
+  claimedAt?: string; // ISO; set when redeemed
+}
+
+export interface Organization {
+  id: string;
+  slug: string;
+  name: string;
+  domain?: string; // company email domain for auto-verification
+  logoUrl?: string;
+  adminEmail: string;
+  status: OrgStatus;
+  seatCount: number; // total purchased seats
+  usedSeats: number; // seats actively occupied
+  privateCourseIds: string[]; // courses assigned to this org
+  members: OrgMember[];
+  createdAt: string; // ISO
 }

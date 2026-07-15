@@ -1,7 +1,7 @@
 "use client";
 
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
-import { demoStudent } from "@/lib/mock/students";
+import { useSession } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { LayoutDashboard, BarChart3, Award, Receipt, Settings } from "lucide-react";
 
@@ -14,11 +14,14 @@ const items: NavItem[] = [
 ];
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useSession();
+  const name = user?.name ?? "Student";
+  const email = user?.email ?? "";
   return (
     <PortalShell
       items={items}
       badge="Student"
-      user={{ name: demoStudent.name, email: demoStudent.email, initials: initials(demoStudent.name) }}
+      user={{ name, email, initials: initials(name) }}
     >
       {children}
     </PortalShell>

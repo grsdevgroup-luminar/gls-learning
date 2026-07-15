@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useStore } from '@/lib/context/store';
+import { useState } from 'react';
+import { useRegister } from '@/lib/api/session';
+import { ApiError } from '@/lib/api/errors';
 import { Logo } from '@/components/shared/logo';
 import { Reveal, Stagger, StaggerItem, Magnetic } from '@/components/shared/motion';
 import { FormField } from '@/components/shared/form-field';
@@ -20,15 +22,25 @@ const perks = [
 ];
 
 export default function SignupPage() {
-  const { login } = useStore();
+  const register = useRegister();
   const router = useRouter();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  function create() {
-    login();
-    toast.success('Account created!', {
-      description: 'Welcome to SkillStream 🎉',
-    });
-    router.push('/dashboard');
+  async function create() {
+    try {
+      await register.mutateAsync({ name, email, password });
+      toast.success('Account created!', {
+        description: 'Welcome to SkillStream 🎉',
+      });
+      router.push('/dashboard');
+      router.refresh();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.displayMessage : 'Sign up failed';
+      toast.error('Could not create account', { description: message });
+    }
   }
 
   return (
@@ -69,22 +81,29 @@ export default function SignupPage() {
                 It&apos;s free to get started
               </p>
             </div>
-            <Stagger className="space-y-3" gap={0.06}>
-              <FormField label="Full name">
-                <Input placeholder="Alex Morgan" />
-              </FormField>
-              <FormField label="Email">
-                <Input type="email" placeholder="you@example.com" />
-              </FormField>
-              <FormField label="Password">
-                <Input type="password" placeholder="Create a password" />
-              </FormField>
-            </Stagger>
-            <Magnetic strength={0.15} className="flex w-full">
-              <Button className="sheen w-full" size="lg" onClick={create}>
-                Create account
-              </Button>
-            </Magnetic>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void create();
+              }}
+            >
+              <Stagger className="space-y-3" gap={0.06}>
+                <FormField label="Full name">
+                  <Input placeholder="Alex Morgan" value={name} onChange={(e) => setName(e.target.value)} />
+                </FormField>
+                <FormField label="Email">
+                  <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </FormField>
+                <FormField label="Password">
+                  <Input type="password" placeholder="Create a password (min 8 chars)" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </FormField>
+              </Stagger>
+              <Magnetic strength={0.15} className="mt-4 flex w-full">
+                <Button type="submit" className="sheen w-full" size="lg" disabled={register.isPending}>
+                  {register.isPending ? 'Creating…' : 'Create account'}
+                </Button>
+              </Magnetic>
+            </form>
             <p className="text-center text-xs text-muted-foreground">
               By signing up you agree to our Terms & Privacy Policy.
             </p>

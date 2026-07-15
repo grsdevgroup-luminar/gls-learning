@@ -1,60 +1,93 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Quiz } from "@/types";
-import { useStore } from "@/lib/context/store";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QuizAttemptResultDto } from "@skillstream/shared";
+import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, RotateCcw, PartyPopper, HelpCircle } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, PartyPopper, HelpCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+/** Server-graded quiz: questions come without answers; grading, best-score
+ *  tracking and lesson auto-completion all happen in the API. */
 export function QuizPlayer({
-  courseId,
   lessonId,
-  quiz,
   onPassed,
 }: {
-  courseId: string;
+  courseId?: string;
   lessonId: string;
-  quiz: Quiz;
   onPassed?: () => void;
 }) {
-  const { submitQuizAttempt, getQuizResult } = useStore();
+  const qc = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [scorePercent, setScorePercent] = useState(0);
+  const [attempt, setAttempt] = useState<QuizAttemptResultDto | null>(null);
 
-  const existing = getQuizResult(courseId, lessonId);
-  const allAnswered = quiz.questions.every((q) => answers[q.id]);
+  const { data: quiz, isLoading } = useQuery({
+    queryKey: ["quiz", lessonId],
+    queryFn: () => api.quiz(lessonId),
+  });
+  const { data: existing } = useQuery({
+    queryKey: ["quiz-result", lessonId],
+    queryFn: () => api.quizResult(lessonId),
+  });
 
-  const correctCount = useMemo(
-    () => quiz.questions.filter((q) => answers[q.id] === q.correctOptionId).length,
-    [answers, quiz.questions],
-  );
-
-  function submit() {
-    const pct = Math.round((correctCount / quiz.questions.length) * 100);
-    setScorePercent(pct);
-    setSubmitted(true);
-    const result = submitQuizAttempt(courseId, lessonId, pct, quiz.passScore);
-    if (result.lastScore >= quiz.passScore) {
-      toast.success("Quiz passed!", { description: `Scored ${pct}%` });
-      onPassed?.();
-    } else {
-      toast.error("Not quite — give it another shot", { description: `Scored ${pct}%` });
-    }
-  }
+  const submitMutation = useMutation({
+    mutationFn: () =>
+      api.submitQuiz(lessonId, {
+        answers: Object.entries(answers).map(([questionId, optionId]) => ({
+          questionId,
+          optionId,
+        })),
+      }),
+    onSuccess: (result) => {
+      setAttempt(result);
+      void qc.invalidateQueries({ queryKey: ["quiz-result", lessonId] });
+      // Passing may auto-complete the lesson (and even finish the course).
+      void qc.invalidateQueries({ queryKey: ["store", "enrollments"] });
+      void qc.invalidateQueries({ queryKey: ["enrollments"] });
+      if (result.passed) {
+        toast.success("Quiz passed!", { description: `Scored ${result.score}%` });
+        onPassed?.();
+      } else {
+        toast.error("Not quite — give it another shot", {
+          description: `Scored ${result.score}%`,
+        });
+      }
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
 
   function retake() {
     setAnswers({});
-    setSubmitted(false);
-    setScorePercent(0);
+    setAttempt(null);
   }
 
-  if (submitted) {
-    const passed = scorePercent >= quiz.passScore;
+  if (isLoading) {
+    return (
+      <div className="mx-auto grid w-full max-w-2xl place-items-center p-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!quiz || quiz.questions.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-2xl p-6 text-center text-sm text-muted-foreground">
+        This quiz has no questions yet.
+      </div>
+    );
+  }
+
+  const allAnswered = quiz.questions.every((q) => answers[q.id]);
+
+  if (attempt) {
+    const passed = attempt.passed;
+    const correctCount = attempt.results.filter((r) => r.correct).length;
+    const feedbackByQuestion = new Map(attempt.results.map((r) => [r.questionId, r]));
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
         <div
@@ -66,14 +99,14 @@ export function QuizPlayer({
         </div>
         <h2 className="text-xl font-bold">{passed ? "You passed!" : "Almost there"}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          You scored {scorePercent}% ({correctCount}/{quiz.questions.length} correct) — passing
+          You scored {attempt.score}% ({correctCount}/{quiz.questions.length} correct) — passing
           score is {quiz.passScore}%.
         </p>
 
         <div className="mt-6 space-y-3 text-left">
           {quiz.questions.map((q, i) => {
-            const userAnswer = answers[q.id];
-            const correct = userAnswer === q.correctOptionId;
+            const fb = feedbackByQuestion.get(q.id);
+            const correct = !!fb?.correct;
             return (
               <div key={q.id} className="rounded-lg border p-3">
                 <div className="flex items-start gap-2">
@@ -86,13 +119,13 @@ export function QuizPlayer({
                     <p className="text-sm font-medium">
                       {i + 1}. {q.prompt}
                     </p>
-                    {!correct && (
+                    {!correct && fb && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Correct answer: {q.options.find((o) => o.id === q.correctOptionId)?.text}
+                        Correct answer: {q.options.find((o) => o.id === fb.correctOptionId)?.text}
                       </p>
                     )}
-                    {q.explanation && (
-                      <p className="mt-1 text-xs text-muted-foreground">{q.explanation}</p>
+                    {fb?.explanation && (
+                      <p className="mt-1 text-xs text-muted-foreground">{fb.explanation}</p>
                     )}
                   </div>
                 </div>
@@ -149,8 +182,18 @@ export function QuizPlayer({
         ))}
       </div>
 
-      <Button className="mt-6 w-full" disabled={!allAnswered} onClick={submit}>
-        Submit quiz
+      <Button
+        className="mt-6 w-full"
+        disabled={!allAnswered || submitMutation.isPending}
+        onClick={() => submitMutation.mutate()}
+      >
+        {submitMutation.isPending ? (
+          <>
+            <Loader2 className="animate-spin" /> Grading…
+          </>
+        ) : (
+          "Submit quiz"
+        )}
       </Button>
     </div>
   );
