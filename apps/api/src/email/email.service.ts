@@ -43,6 +43,34 @@ export class EmailService {
     }
   }
 
+  async sendOrgInvite(
+    to: string,
+    orgName: string,
+    role: string,
+    token: string,
+  ): Promise<void> {
+    const link = `${this.frontendUrl}/join/${encodeURIComponent(token)}`;
+    const roleLabel = role === "ADMIN" ? "an admin" : "a member";
+
+    if (!this.resend) {
+      this.logger.log(`[DEV] Org invite for ${to} (${orgName}): ${link}`);
+      return;
+    }
+
+    const { error } = await this.resend.emails.send({
+      from: `SkillStream <${this.from}>`,
+      to,
+      subject: `You've been invited to ${orgName} on SkillStream`,
+      html: this.orgInviteHtml(orgName, roleLabel, link),
+      text: `You've been invited to join ${orgName} as ${roleLabel} on SkillStream.\n\nAccept your invitation:\n${link}\n\nThis invitation expires in 7 days.\n\n— The SkillStream team`,
+    });
+
+    if (error) {
+      this.logger.error("Failed to send org invite email", error);
+      throw new Error("Email delivery failed");
+    }
+  }
+
   async sendWelcome(to: string, name: string): Promise<void> {
     if (!this.resend) {
       this.logger.log(`[DEV] Welcome email would be sent to ${to}`);
@@ -74,6 +102,34 @@ export class EmailService {
           <p style="margin:0 0 24px;color:#6b7280;font-size:15px">Hi ${name}, we received a request to reset your password. Click the button below to choose a new one.</p>
           <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none">Reset password</a>
           <p style="margin:24px 0 0;color:#9ca3af;font-size:13px">This link expires in <strong>1 hour</strong>. If you didn't request this, you can safely ignore this email.</p>
+          <p style="margin:8px 0 0;color:#9ca3af;font-size:12px;word-break:break-all">Or copy this URL: ${link}</p>
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} SkillStream. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private orgInviteHtml(orgName: string, roleLabel: string, link: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Team invitation</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;margin:0;padding:0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 20px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;text-align:center">
+          <span style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px">SkillStream</span>
+        </td></tr>
+        <tr><td style="padding:36px 40px">
+          <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827">You're invited to ${orgName}</h1>
+          <p style="margin:0 0 24px;color:#6b7280;font-size:15px">Your organization has invited you to join their team on SkillStream as ${roleLabel}. Accept to get access to your company's courses.</p>
+          <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none">Accept invitation</a>
+          <p style="margin:24px 0 0;color:#9ca3af;font-size:13px">This invitation expires in <strong>7 days</strong>. If you weren't expecting this, you can ignore this email.</p>
           <p style="margin:8px 0 0;color:#9ca3af;font-size:12px;word-break:break-all">Or copy this URL: ${link}</p>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">

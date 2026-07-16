@@ -6,6 +6,274 @@
 
 ---
 
+## 0. Architecture & flows — read this first
+
+Everything below is diagram-first so a new reader can trace the system end to end
+without reading source. Diagrams are [Mermaid](https://mermaid.js.org) and render
+inline on GitHub. Section 0.9 is an architectural review: the weaknesses found in
+this codebase, what was fixed, and what is recommended next.
+
+### 0.1 System context — who talks to whom
+
+```mermaid
+flowchart TB
+    User([Browser / Learner])
+
+    subgraph Vercel["Vercel — Next.js 16"]
+      RSC[Server Components<br/>serverApi: forwards cookies, no-store]
+      CLI[Client Components<br/>apiFetch + React Query]
+    end
+
+    subgraph Railway["Railway / Render — NestJS API (single source of truth)"]
+      API[REST /api  ·  OpenAPI /docs]
+      WORK[BullMQ workers<br/>same process]
+    end
+
+    PG[(PostgreSQL<br/>Prisma · 40+ models)]
+    REDIS[(Redis<br/>BullMQ queues only)]
+
+    CF[Cloudflare Stream<br/>signed HLS/iframe]
+    PAY[Stripe · PayPal]
+    MAIL[Resend email]
+
+    User -->|HTTPS| RSC
+    User -->|HTTPS| CLI
+    RSC -->|cookie: access/refresh| API
+    CLI -->|credentials: include| API
+    API --> PG
+    API --> REDIS
+    WORK --> REDIS
+    WORK --> PG
+    API -->|signs token locally RS256| API
+    API -.->|upload URL + one-time key| CF
+    User -->|plays signed HLS| CF
+    API -->|create session / order| PAY
+    PAY -.->|verified webhook| API
+    WORK -.->|welcome / reset| MAIL
+
+    classDef ext fill:#eee,stroke:#999,color:#333;
+    class PG,REDIS,CF,PAY,MAIL ext;
+```
+
+**One rule governs the whole system: the API is the only authority.** The browser
+holds no trusted state — every price, entitlement, role, and counter is decided
+server-side. The Next.js app is a rendering client that forwards an httpOnly cookie;
+it never signs tokens, never computes a price it can act on, never gates a video.
+
+### 0.2 Request lifecycle — what every call passes through
+
+Global providers wire a fixed pipeline in [app.module.ts](../apps/api/src/app.module.ts).
+Order matters — auth runs before roles, roles before rate-limit, validation at the
+parameter boundary:
+
+```mermaid
+flowchart LR
+    REQ[HTTP request] --> HELMET[helmet + CORS<br/>cookie-parser]
+    HELMET --> JWT{JwtAuthGuard<br/>@Public? skip}
+    JWT -->|valid JWT| ROLE{RolesGuard<br/>@Roles match?}
+    JWT -->|no/expired| R401[401]
+    ROLE -->|ok| THR{ThrottlerGuard<br/>under limit?}
+    ROLE -->|wrong role| R403[403]
+    THR -->|ok| PIPE[ZodValidationPipe<br/>parse body/params]
+    THR -->|over| R429[429]
+    PIPE -->|invalid| R400[400 problem+json]
+    PIPE -->|valid| CTRL[Controller → Service → Prisma]
+    CTRL --> INT[AuditInterceptor<br/>logs mutations]
+    INT --> RES[Response]
+    R401 & R403 & R429 & R400 & CTRL -.->|throws| FILTER[AllExceptionsFilter<br/>→ RFC7807 problem+json]
+```
+
+**Secure by default:** `JwtAuthGuard` is registered globally, so *every* route
+requires a valid token unless explicitly annotated `@Public()`. You opt out of
+auth, never into it.
+
+### 0.3 Auth: identity model
+
+Two token types, deliberately different (Appendix A6):
+
+| Token | Form | Lifetime | Storage | Revocable? |
+|---|---|---|---|---|
+| **Access** | Signed JWT (`sub`, `email`, `role`) | 15 min | httpOnly `access_token` cookie | No — stateless, expires fast |
+| **Refresh** | Opaque 48-byte random | 7 days | httpOnly `refresh_token` cookie; **only its SHA-256 hash** is stored in `RefreshToken` | Yes — delete the row |
+
+The JWT is never stored server-side; the refresh token is never stored in plaintext.
+Passwords are argon2id. `JwtStrategy.validate` re-loads the user from the DB on every
+request, so a deleted user or changed role takes effect immediately (Appendix A7).
+
+### 0.4 Login → authenticated request → silent refresh (end-to-end)
+
+This is the flow most people get wrong, so here it is complete — including the
+**silent-refresh** step that was missing and is now fixed (see 0.9, finding #1).
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant W as Next.js client (apiFetch)
+    participant A as NestJS API
+    participant DB as Postgres
+
+    Note over B,DB: Login
+    B->>A: POST /api/auth/login {email,password}
+    A->>DB: find user by email
+    A->>A: argon2.verify (dummy hash if no user — constant time)
+    A->>DB: INSERT RefreshToken (sha256 hash, ua, ip, exp+7d)
+    A-->>B: Set-Cookie access_token(15m) + refresh_token(7d), httpOnly
+    Note right of A: body returns accessToken + expiresIn only
+
+    Note over B,DB: Normal call, token still valid
+    W->>A: GET /api/... (cookie rides along)
+    A->>A: JwtStrategy verifies JWT, loads user
+    A-->>W: 200
+
+    Note over B,DB: Token expired mid-session (the fixed path)
+    W->>A: GET /api/... (access_token expired)
+    A-->>W: 401
+    W->>A: POST /api/auth/refresh (refresh_token cookie)<br/>single-flight: one refresh even if N calls 401 at once
+    A->>DB: look up sha256(refresh); reject if revoked/expired
+    A->>DB: DELETE old row, INSERT new (rotation, single-use)
+    A-->>W: Set-Cookie new access_token + refresh_token
+    W->>A: retry original GET
+    A-->>W: 200
+```
+
+Why single-flight matters: refresh tokens are **single-use** (rotated on every
+refresh). If ten API calls 401 simultaneously and each fired its own refresh, the
+first would rotate the token and the other nine would present an already-deleted
+token — logging the user out. The client dedupes all concurrent refreshes into one
+shared request ([client.ts](../apps/web/lib/api/client.ts)).
+
+### 0.5 Password reset — single-use, DB-backed, session-revoking
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as API
+    participant DB as Postgres
+    participant M as Resend
+
+    B->>A: POST /auth/forgot-password {email}
+    A->>DB: find user
+    Note right of A: always returns {ok:true} — no email enumeration
+    A->>DB: INSERT PasswordResetToken (sha256, exp+1h, usedAt=null)
+    A->>M: send reset link (raw token in URL)
+    B->>A: POST /auth/reset-password {token,newPassword}
+    A->>DB: UPDATE ...WHERE hash AND usedAt IS NULL AND not expired<br/>SET usedAt=now  (atomic claim — no replay, no TOCTOU)
+    A->>DB: UPDATE user.passwordHash (argon2id)
+    A->>DB: DELETE all RefreshToken for user (kill every session)
+```
+
+Reset tokens are opaque + hashed + single-use, exactly like refresh tokens — a stolen
+or replayed link can never reset the password twice, and completing a reset revokes
+every existing session.
+
+### 0.6 Checkout → payment → webhook fulfillment (the money path)
+
+Money is only ever granted by a **verified webhook** (or the dev-simulate endpoint) —
+never by the browser returning from the gateway.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as API
+    participant DB as Postgres
+    participant G as Stripe/PayPal
+
+    B->>A: POST /checkout (items, coupon, gateway)
+    A->>A: re-price server-side (shared pricing/coupon fns)
+    A->>DB: INSERT Order status=PENDING (+ item snapshots)
+    A->>G: create Checkout Session / Order
+    A-->>B: redirectUrl
+    B->>G: pay on gateway
+    G-->>B: redirect to /checkout/success (NOT trusted for fulfillment)
+    G-->>A: webhook event (signed)
+    A->>A: verify signature (raw body)
+    A->>DB: INSERT WebhookEvent(provider,eventId) — UNIQUE = idempotency
+    Note right of A: duplicate event → unique violation → no-op
+    A->>DB: TRANSACTION — Order→PAID, enrollMany,<br/>+course revenue, +instructor earnings,<br/>+coupon redemption, +student spend
+    A->>A: confirm sales-agent referral
+```
+
+Idempotency is enforced at the database: the `WebhookEvent(provider, eventId)` unique
+constraint means a replayed or duplicated webhook can never double-enroll or
+double-credit. Fulfillment is a single Prisma transaction, so partial grants are
+impossible (Appendix A9).
+
+### 0.7 Protected video playback
+
+```mermaid
+sequenceDiagram
+    participant P as Player (browser)
+    participant A as API
+    participant DB as Postgres
+    participant CF as Cloudflare Stream
+
+    P->>A: GET /media/playback/:lessonId
+    A->>DB: load lesson (+ preview flag, courseId)
+    alt lesson.preview == false
+      A->>DB: isEnrolled(user, course)?
+      A-->>P: 403 if not enrolled
+    end
+    A->>CF: POST sign token (exp = now + 1h)
+    CF-->>A: signed token
+    A-->>P: hlsUrl / iframeUrl embedding the signed token
+    P->>CF: fetch HLS manifest with signed token
+```
+
+Videos require signed URLs at the Cloudflare edge; the API mints a 1-hour token only
+after confirming enrollment (or that the lesson is a free preview). The raw video UID
+never reaches an unentitled client.
+
+### 0.8 Background jobs (BullMQ on Redis)
+
+Producers run in the API process; consumers are `@Processor`s in the same codebase.
+Redis backs **queues only** — not caching, not sessions.
+
+```mermaid
+flowchart LR
+    SCHED[MaintenanceScheduler<br/>hourly cron] --> MQ[[maintenance queue]]
+    MQ --> MP[MaintenanceProcessor<br/>reconcile completion,<br/>recompute KPI counts]
+    SCHED --> SWEEP[AutomationService.sweep<br/>match active rules to audiences]
+    SWEEP -->|cooldown check vs ReminderLog| NQ[[notifications queue]]
+    NQ --> NP[NotificationsProcessor<br/>write ReminderLog + send*]
+    NP -.->|*send is a stub today| MAIL[Resend/Twilio]
+```
+
+The automation engine (`IDLE`, `LOW_PROGRESS`, `ABANDONED_CART`, `ALMOST_DONE`,
+`NEW_CONTENT`) is the producer half of marketing: each hour it finds who currently
+matches each active rule, respects a per-trigger cooldown, and enqueues reminder jobs.
+
+### 0.9 Architectural review — weaknesses found
+
+Reviewed auth, the request pipeline, the money path, media, and jobs. One real bug was
+found and **fixed**; the rest are documented with recommendations (deliberately not
+built — they change auth behavior or add surface area, so they're the owner's call).
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1 | **Frontend never refreshed the access token.** Backend had full rotating-refresh, a 7-day `refresh_token` cookie was set, but no client code ever called `/auth/refresh`. Sessions silently broke ~15 min after login; users appeared logged out despite a valid 7-day session. | **High** | **Fixed** |
+| 2 | **No refresh-token reuse detection.** The schema (`revokedAt`, `userAgent`, `ip`) and this doc's model text imply family revocation, but `rotateRefreshToken` hard-deletes the row, so a stolen-then-rotated token just fails silently — no family kill, no alert. | Medium (security) | Documented |
+| 3 | **Refresh rotation isn't atomic.** `rotateRefreshToken` does `delete` then `issueRefreshToken` as two awaits (the comment says "in a transaction" — it isn't). A crash between them forces a re-login. No data loss, no security hole. | Low | Documented |
+| 4 | **No server-side route authorization on the web.** Portal layouts (`/admin`, `/instructor`, …) are client components reading `useSession` with no redirect; there's no Next middleware. An unauthorized user renders an empty shell (the API still 403s every call, so **no data leak**) — but it relies entirely on the API and gives a broken-looking UX. | Low–Medium | Documented |
+| 5 | **Per-request DB lookup in `JwtStrategy`.** Every authenticated call loads the user by id. This is a *deliberate* freshness/revocation tradeoff, not a defect — noted so it isn't mistaken for one. Cache behind Redis only if it becomes hot. | Info | By design |
+| 6 | **Automation cooldown race** (already `ponytail:`-commented). Cooldown reads `ReminderLog`, which the processor writes on delivery, so an enqueued-but-unprocessed reminder is briefly invisible. Sweep is hourly, jobs drain in seconds — negligible. | Low | Accepted |
+| 7 | **Reminder delivery is a stub.** `NotificationsProcessor` writes `ReminderLog` but the Resend/Twilio send is a `// TODO`. Automations are built end-to-end except the final send. | Info | Known TODO |
+
+**Fix applied (finding #1):** a single-flight refresh-and-retry in the shared browser
+fetch wrapper — the one chokepoint every client API call routes through. On a browser
+`401` it calls `/auth/refresh` once (deduped across concurrent calls), then retries the
+original request. SSR calls carry `cookieHeader` and are skipped, since a Server
+Component can't persist a rotated cookie mid-render; those pages render logged-out and
+the client `SessionProvider` re-hydrates through the same refresh path.
+
+**Recommended next (in priority order):** #4 add a Next middleware that verifies the
+JWT for role-gated path prefixes and redirects unauthorized users (UX + defense in
+depth); #2 on presentation of a well-formed but unknown refresh token, revoke all of
+that user's sessions and log it — now safe to add, since the client no longer fires
+concurrent refreshes; #3 wrap rotation in `prisma.$transaction`; #7 wire the reminder
+send.
+
+---
+
 ## 1. Where we came from / where we're going
 
 **Prototype (the starting point):** Next.js 16 App Router, ~63 components, four role
@@ -47,6 +315,7 @@ app still boots and most of it still works locally with just Docker Compose.
 | **PostgreSQL** | Required | The single datastore — all 28 Prisma models. Local: `docker-compose.yml`. Prod: managed Postgres (Railway/Render/Neon/Supabase). | `DATABASE_URL` |
 | **Redis** | Required for jobs | Backs **BullMQ only** — not caching, not sessions. Drives the hourly maintenance rollup (reconciles enrollment completion, recomputes admin KPI counts) and the notifications queue (engagement reminders). `rediss://` scheme enables TLS for managed Redis (e.g. Upstash). Without it, the app still boots but job scheduling logs a warning and no-ops. | `REDIS_URL` |
 | **Cloudflare account + Stream product** | Required for video | Direct-creator-upload + signed HLS/iframe playback. Cloudflare Stream stores, encodes, and serves the video itself — **there is no separate object-storage (R2/S3) bucket in this system.** Without these vars, `media.service.ts` throws a `503` on upload/playback only. | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN` |
+| **Cloudflare Stream signing key** (optional) | Efficient DRM | Signs playback tokens **locally** (RS256, `node:crypto`) — no per-play API call. One-time `POST /stream/keys`; store id + base64 PEM. Absent → falls back to the per-play API token (still works, just slower). See §5.1. | `CLOUDFLARE_STREAM_KEY_ID`, `CLOUDFLARE_STREAM_KEY_PEM` |
 | **Object storage / image CDN (R2, S3, Cloudflare Images, etc.)** | Not integrated | Course thumbnails and avatars are plain URL strings in Postgres (`authoring.service.ts`) — there is no upload endpoint yet. Instructors/admins currently paste an already-hosted image URL from wherever you choose to host images. | — |
 | **Stripe account** | Required for card checkout | Checkout Sessions + webhook-verified, idempotent order fulfillment (`WebhookEvent.eventId` unique constraint). | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
 | **PayPal developer app** | Required for PayPal checkout | REST order create/capture + webhook fulfillment, same idempotency path as Stripe. Sandbox vs. live is chosen by `NODE_ENV`. | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
@@ -127,7 +396,8 @@ by services/jobs — **never trusted from clients**.
 - `User` — email (unique), passwordHash, name, avatar, country, role
   (`STUDENT|INSTRUCTOR|ADMIN`), emailVerified. Single user table; role-specific data
   lives in profile tables.
-- `RefreshToken` — tokenHash, expiresAt, revokedAt, userAgent/ip (rotation + reuse detection).
+- `RefreshToken` — tokenHash, expiresAt, revokedAt, userAgent/ip (single-use rotation; a
+  replayed token is rejected, though full family revocation is not yet implemented — see §0.9 #2).
 - `InstructorProfile` — title, bio, expertise, ratingAvg, studentCount, courseCount,
   status (`PENDING|APPROVED|REJECTED`), earningsCents.
 - `InstructorApplication` — name, email, expertise, headline, bio, sampleUrl, status, review fields.
@@ -224,15 +494,84 @@ These are the things the prototype gets "wrong" because it's a demo:
 3. **Prices & coupons recomputed server-side** at `/checkout/quote` and again at order
    creation. Client-sent prices are ignored. Coupon usage decremented atomically via
    the `CouponRedemption` unique constraint to prevent oversell/race.
-4. **Video access is gated.** `GET /lessons/:id/playback` checks enrollment (or
-   `lesson.preview`), then returns a short-lived Cloudflare Stream signed token. No
-   raw video URLs in DB responses.
+4. **Video access is gated + signed.** `GET /lessons/:id/playback` checks enrollment
+   (or `lesson.preview`), then returns a short-lived Cloudflare Stream signed token —
+   **signed locally** (RSA/RS256, `node:crypto`), no per-play API round-trip. Token is
+   non-downloadable and TTL-bounded. No raw video URLs in DB responses. See §5.1.
 5. **RBAC on every mutation.** Instructors edit only their own courses
    (`course.instructorId === user.id`); admin override. Status transitions validated
    (draft → review → published).
 6. **Auth hardening:** argon2id hashing, access token ~15m (memory), refresh ~7d
    (httpOnly+Secure+SameSite cookie) with rotation + reuse detection, email verify +
    password reset via Resend, throttled login.
+
+---
+
+## 5.1 Video DRM / content protection (logical design)
+
+The goal: an enrolled student can watch, but a leaked link can't, and the video
+file itself can't be trivially ripped. We lean on Cloudflare Stream for the hard
+parts (encoding, encrypted HLS/DASH, CDN) and own only the **access decision** and
+**token minting**.
+
+### The pipeline
+
+```
+Upload (instructor)                 Playback (enrolled student)
+─────────────────────               ────────────────────────────────
+POST /media/upload-url        GET /lessons/:id/playback
+  → CF direct_upload            1. authЗ (session or lesson.preview)
+     requireSignedURLs:true     2. enrollment check (server-side)
+  → { uploadURL, uid }          3. sign token LOCALLY (RS256, no API call)
+browser PUTs file → CF          4. return videodelivery.net/<jwt>/… URLs
+store uid on Lesson.cfVideoUid  player embeds signed iframe/HLS; token expires
+```
+
+### Why local signing (the efficiency win)
+
+Cloudflare can mint a playback token two ways:
+
+| | Per-play API call (old) | **Local signing (now)** |
+|---|---|---|
+| Cost per play | 1 HTTPS round-trip to CF | pure CPU, sub-millisecond |
+| Runtime dependency | CF API must be up at play time | none — key held in memory |
+| Rate-limit exposure | yes (CF API limits) | no |
+| Latency added to playback | ~100–300 ms | ~0 |
+
+Setup is one-time: `POST /accounts/:id/stream/keys` returns an RSA key
+(`id` + PEM). We store the id as `CLOUDFLARE_STREAM_KEY_ID` and the base64-encoded
+PEM as `CLOUDFLARE_STREAM_KEY_PEM`. Thereafter `media.service.ts` signs each token
+itself with `node:crypto` — no network. If the signing key is absent it falls back
+to the legacy per-play API call, so the change is non-breaking.
+
+### The token
+
+A Cloudflare-format JWT (`RS256`, `kid` header), claims:
+
+- `sub` = video UID — binds the token to one video.
+- `nbf` / `exp` — validity window (`TOKEN_TTL_SECONDS`, 2 h): long enough to watch
+  and re-scrub, short enough that a shared URL dies quickly.
+- `downloadable: false` — blocks Cloudflare's MP4 download endpoint.
+
+Because signing is local and keyed on the video UID, the token is **never reused
+across videos** and never leaves the server unsigned. `requireSignedURLs: true` at
+upload means CF rejects any unsigned request for that video — so the signed token
+is the *only* way in.
+
+### Defense in depth (what each layer stops)
+
+1. **Enrollment gate** (server) — stops a logged-in non-buyer. The token is only
+   minted after this passes.
+2. **Signed URL + short TTL** — stops link-sharing; a copied URL expires in ≤2 h.
+3. **`requireSignedURLs` + `downloadable:false`** — stops direct file/MP4 grabs.
+4. **Encrypted HLS via CF** — stops casual stream-ripping of segments.
+5. **Per-viewer watermark overlay** (client, `protected-player.tsx`) — a moving
+   overlay carrying the viewer's identity, so screen-recorded leaks are
+   traceable. Deterrent, not a hard control — it rides on top of the above.
+
+> Not in scope: studio-grade Widevine/FairPlay license servers or server-side
+> forensic burn-in. CF's encrypted delivery + signed non-downloadable tokens is
+> the pragmatic ceiling for a marketplace; the watermark covers attribution.
 
 ---
 
@@ -553,7 +892,8 @@ type-checked and guaranteed present.
   **hash** is stored (`token.service.ts`) — a database leak does not expose usable
   tokens. It is **single-use**: `rotateRefreshToken()` deletes the old row and issues a
   new one in the same flow, so a stolen-and-replayed token finds no matching row and is
-  rejected. This is the practical core of refresh-token reuse detection.
+  rejected. This blocks replay of a rotated token; it stops short of *family* reuse
+  detection (revoking every session on detecting a reused token) — see §0.9 #2.
 
 ### A7. Defense in depth on identity
 
@@ -673,7 +1013,8 @@ Live today:
 - **Stripe + PayPal** (`payments/payments.service.ts`) — checkout sessions + signature/
   idempotency-verified webhooks.
 - **Cloudflare Stream** (`media/media.service.ts`) — direct-creator-upload + short-lived
-  signed playback tokens.
+  signed playback tokens, **signed locally** (RS256, `node:crypto`, no per-play API
+  call) with an API fallback; non-downloadable, TTL-bounded. See §5.1.
 - **Resend** (`email/email.service.ts`) — welcome + password-reset email, with a
   console-log fallback when unconfigured.
 

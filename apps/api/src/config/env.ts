@@ -26,6 +26,10 @@ export const envSchema = z.object({
   PAYPAL_CLIENT_SECRET: z.string().optional(),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_STREAM_TOKEN: z.string().optional(),
+  // Local playback-token signing (efficient DRM: no API call per play). Generate
+  // once via `POST /accounts/:id/stream/keys`; store the returned id + base64 PEM.
+  CLOUDFLARE_STREAM_KEY_ID: z.string().optional(),
+  CLOUDFLARE_STREAM_KEY_PEM: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@skillstream.dev"),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),

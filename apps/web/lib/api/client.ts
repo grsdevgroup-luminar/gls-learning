@@ -11,25 +11,61 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
 }
 
 /**
+ * Single-flight refresh: the 15-minute access-token cookie expires long before
+ * the 7-day refresh cookie, so browser calls hit 401 mid-session. This POSTs
+ * /auth/refresh once and lets the Set-Cookie install a fresh access token.
+ * Deduped module-wide so a burst of parallel 401s triggers ONE rotation —
+ * refresh tokens are single-use, so N concurrent refreshes would invalidate
+ * each other and log the user out.
+ */
+let refreshInFlight: Promise<boolean> | null = null;
+function refreshSession(): Promise<boolean> {
+  refreshInFlight ??= fetch(`${BASE_URL}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
+/**
  * Core fetch wrapper used by both the browser and server clients. Always sends
  * credentials so the httpOnly auth cookies travel with the request. Parses
- * problem-detail errors into ApiError.
+ * problem-detail errors into ApiError. On a browser 401 it transparently
+ * refreshes the session once and retries (SSR calls carry cookieHeader and are
+ * skipped — a Server Component can't persist rotated cookies mid-render).
  */
 export async function apiFetch<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
   const { body, cookieHeader, headers, ...rest } = options;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...rest,
-    credentials: "include",
-    headers: {
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...(cookieHeader ? { cookie: cookieHeader } : {}),
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const send = () =>
+    fetch(`${BASE_URL}${path}`, {
+      ...rest,
+      credentials: "include",
+      headers: {
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+  let res = await send();
+  if (
+    res.status === 401 &&
+    typeof window !== "undefined" &&
+    !cookieHeader &&
+    !path.startsWith("/auth/refresh") &&
+    (await refreshSession())
+  ) {
+    res = await send();
+  }
 
   if (res.status === 204) return undefined as T;
 
