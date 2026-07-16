@@ -7,7 +7,7 @@ import {
   type CheckoutSessionInput,
 } from "@skillstream/shared";
 import { CurrentUser, Public, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { CheckoutService } from "./checkout.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
@@ -31,7 +31,7 @@ export class CheckoutController {
 
   @Post("checkout/quote")
   quote(
-    @Body(new ZodValidationPipe(checkoutQuoteSchema)) body: CheckoutQuoteInput,
+    @ZodBody(checkoutQuoteSchema) body: CheckoutQuoteInput,
   ) {
     return this.checkout.quote(body);
   }
@@ -39,7 +39,7 @@ export class CheckoutController {
   @Post("checkout/session")
   session(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(checkoutSessionSchema))
+    @ZodBody(checkoutSessionSchema)
     body: CheckoutSessionInput,
   ) {
     return this.checkout.createSession(user.id, body);

@@ -17,7 +17,7 @@ import {
   type UpsertTierInput,
 } from "@skillstream/shared";
 import { Roles } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { AdminPricingService } from "./admin-pricing.service";
 
 @ApiTags("admin-pricing")
@@ -34,7 +34,7 @@ export class AdminPricingController {
 
   @Post("tiers")
   createTier(
-    @Body(new ZodValidationPipe(UpsertTierSchema)) body: UpsertTierInput,
+    @ZodBody(UpsertTierSchema) body: UpsertTierInput,
   ) {
     return this.pricing.createTier(body);
   }
@@ -42,7 +42,7 @@ export class AdminPricingController {
   @Patch("tiers/:id")
   updateTier(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(PatchTierSchema)) body: PatchTierInput,
+    @ZodBody(PatchTierSchema) body: PatchTierInput,
   ) {
     return this.pricing.updateTier(id, body);
   }
@@ -55,7 +55,7 @@ export class AdminPricingController {
   @Patch("regions/:code")
   updateRegion(
     @Param("code") code: string,
-    @Body(new ZodValidationPipe(PatchRegionSchema)) body: PatchRegionInput,
+    @ZodBody(PatchRegionSchema) body: PatchRegionInput,
   ) {
     return this.pricing.updateRegion(code, body);
   }

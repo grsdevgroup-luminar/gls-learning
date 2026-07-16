@@ -28,7 +28,7 @@ import {
   type ResetPasswordInput,
   type UpdateProfileInput,
 } from "@skillstream/shared";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { CurrentUser, Public, type RequestUser } from "../common/decorators";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import type { Env } from "../config/env";
@@ -86,7 +86,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("register")
   async register(
-    @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
+    @ZodBody(registerSchema) body: RegisterInput,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthTokensDto> {
@@ -100,7 +100,7 @@ export class AuthController {
   @Post("login")
   @HttpCode(200)
   async login(
-    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
+    @ZodBody(loginSchema) body: LoginInput,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthTokensDto> {
@@ -150,7 +150,7 @@ export class AuthController {
   @Post("forgot-password")
   @HttpCode(200)
   forgotPassword(
-    @Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordInput,
+    @ZodBody(forgotPasswordSchema) body: ForgotPasswordInput,
   ) {
     return this.auth.forgotPassword(body);
   }
@@ -160,7 +160,7 @@ export class AuthController {
   @Post("reset-password")
   @HttpCode(200)
   resetPassword(
-    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput,
+    @ZodBody(resetPasswordSchema) body: ResetPasswordInput,
   ) {
     return this.auth.resetPassword(body);
   }
@@ -168,7 +168,7 @@ export class AuthController {
   @Patch("me/profile")
   updateProfile(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+    @ZodBody(updateProfileSchema) body: UpdateProfileInput,
   ) {
     return this.auth.updateProfile(user.id, body);
   }
@@ -178,7 +178,7 @@ export class AuthController {
   @HttpCode(200)
   changePassword(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordInput,
+    @ZodBody(changePasswordSchema) body: ChangePasswordInput,
   ) {
     return this.auth.changePassword(user.id, body);
   }

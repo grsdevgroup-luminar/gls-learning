@@ -50,6 +50,14 @@ export interface AdminRegionDto {
   symbol: string;
   locale: string;
   fxRate: number;
+  /** ISO date of the last FX-job refresh; null = never refreshed (seeded rate). */
+  fxUpdatedAt: string | null;
+  /**
+   * The daily FX job hasn't landed a rate for this currency recently. Computed
+   * server-side against the same clock the job runs on — a client can't judge
+   * this, its own clock may be skewed. Always false for USD (the 1.0 base).
+   */
+  fxStale: boolean;
   multiplier: number;
   tierId: string | null;
   override: boolean;

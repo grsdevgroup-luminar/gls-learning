@@ -31,7 +31,7 @@ import {
   type UpdateQuizQuestionInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { AuthoringService } from "./authoring.service";
 
 @ApiTags("authoring")
@@ -64,7 +64,7 @@ export class AuthoringController {
   @Post("courses")
   create(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(createCourseSchema)) body: CreateCourseInput,
+    @ZodBody(createCourseSchema) body: CreateCourseInput,
   ) {
     return this.authoring.create(user, body);
   }
@@ -73,7 +73,7 @@ export class AuthoringController {
   update(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(updateCourseSchema)) body: UpdateCourseInput,
+    @ZodBody(updateCourseSchema) body: UpdateCourseInput,
   ) {
     return this.authoring.update(user, id, body);
   }
@@ -82,7 +82,7 @@ export class AuthoringController {
   setStatus(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(courseStatusSchema)) body: CourseStatusInput,
+    @ZodBody(courseStatusSchema) body: CourseStatusInput,
   ) {
     return this.authoring.setStatus(user, id, body);
   }
@@ -97,7 +97,7 @@ export class AuthoringController {
   addSection(
     @CurrentUser() user: RequestUser,
     @Param("courseId") courseId: string,
-    @Body(new ZodValidationPipe(sectionSchema)) body: SectionInput,
+    @ZodBody(sectionSchema) body: SectionInput,
   ) {
     return this.authoring.addSection(user, courseId, body);
   }
@@ -106,7 +106,7 @@ export class AuthoringController {
   updateSection(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(sectionSchema)) body: SectionInput,
+    @ZodBody(sectionSchema) body: SectionInput,
   ) {
     return this.authoring.updateSection(user, id, body);
   }
@@ -120,7 +120,7 @@ export class AuthoringController {
   reorderSections(
     @CurrentUser() user: RequestUser,
     @Param("courseId") courseId: string,
-    @Body(new ZodValidationPipe(reorderSchema)) body: ReorderInput,
+    @ZodBody(reorderSchema) body: ReorderInput,
   ) {
     return this.authoring.reorderSections(user, courseId, body.ids);
   }
@@ -130,7 +130,7 @@ export class AuthoringController {
   addLesson(
     @CurrentUser() user: RequestUser,
     @Param("sectionId") sectionId: string,
-    @Body(new ZodValidationPipe(lessonSchema)) body: LessonInput,
+    @ZodBody(lessonSchema) body: LessonInput,
   ) {
     return this.authoring.addLesson(user, sectionId, body);
   }
@@ -139,7 +139,7 @@ export class AuthoringController {
   updateLesson(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(lessonSchema)) body: LessonInput,
+    @ZodBody(lessonSchema) body: LessonInput,
   ) {
     return this.authoring.updateLesson(user, id, body);
   }
@@ -153,7 +153,7 @@ export class AuthoringController {
   reorderLessons(
     @CurrentUser() user: RequestUser,
     @Param("sectionId") sectionId: string,
-    @Body(new ZodValidationPipe(reorderSchema)) body: ReorderInput,
+    @ZodBody(reorderSchema) body: ReorderInput,
   ) {
     return this.authoring.reorderLessons(user, sectionId, body.ids);
   }
@@ -164,7 +164,7 @@ export class AuthoringController {
   createQuiz(
     @CurrentUser() user: RequestUser,
     @Param("lessonId") lessonId: string,
-    @Body(new ZodValidationPipe(createQuizSchema)) body: CreateQuizInput,
+    @ZodBody(createQuizSchema) body: CreateQuizInput,
   ) {
     return this.authoring.createQuiz(user, lessonId, body);
   }
@@ -173,7 +173,7 @@ export class AuthoringController {
   updateQuiz(
     @CurrentUser() user: RequestUser,
     @Param("quizId") quizId: string,
-    @Body(new ZodValidationPipe(updateQuizSchema)) body: UpdateQuizInput,
+    @ZodBody(updateQuizSchema) body: UpdateQuizInput,
   ) {
     return this.authoring.updateQuiz(user, quizId, body);
   }
@@ -190,7 +190,7 @@ export class AuthoringController {
   addQuestion(
     @CurrentUser() user: RequestUser,
     @Param("quizId") quizId: string,
-    @Body(new ZodValidationPipe(createQuizQuestionSchema)) body: CreateQuizQuestionInput,
+    @ZodBody(createQuizQuestionSchema) body: CreateQuizQuestionInput,
   ) {
     return this.authoring.addQuestion(user, quizId, body);
   }
@@ -199,7 +199,7 @@ export class AuthoringController {
   updateQuestion(
     @CurrentUser() user: RequestUser,
     @Param("questionId") questionId: string,
-    @Body(new ZodValidationPipe(updateQuizQuestionSchema)) body: UpdateQuizQuestionInput,
+    @ZodBody(updateQuizQuestionSchema) body: UpdateQuizQuestionInput,
   ) {
     return this.authoring.updateQuestion(user, questionId, body);
   }
@@ -216,7 +216,7 @@ export class AuthoringController {
   reorderQuestions(
     @CurrentUser() user: RequestUser,
     @Param("quizId") quizId: string,
-    @Body(new ZodValidationPipe(reorderSchema)) body: ReorderInput,
+    @ZodBody(reorderSchema) body: ReorderInput,
   ) {
     return this.authoring.reorderQuestions(user, quizId, body.ids);
   }

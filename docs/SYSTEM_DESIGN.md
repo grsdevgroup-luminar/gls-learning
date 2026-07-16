@@ -335,6 +335,7 @@ app still boots and most of it still works locally with just Docker Compose.
 | **PayPal developer app** | Required for PayPal checkout | REST order create/capture + webhook fulfillment, same idempotency path as Stripe. Sandbox vs. live is chosen by `NODE_ENV`. | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
 | **Resend account + verified sending domain** | Required for real email | Welcome, password-reset, org-invite, **and marketing-automation reminder** email (`EMAIL`-channel reminders send via `EmailService.sendReminder`). Unset → emails are logged to console instead of sent (safe for local dev; auth flows still work). SMS-channel reminders have no provider wired and are logged only. | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
 | **Twilio (or similar SMS provider)** | Not integrated | Reserved for SMS reminders in the automation engine; no code path calls it yet. | — |
+| **FX rates feed** | Optional | Daily `Region.fxRate` refresh for the local-currency display hint (see §6). Defaults to a free, keyless USD-base endpoint; override only to swap providers. Unreachable → last known rates are kept and the staleness shows in `/admin/pricing`. Never affects what anyone is charged — orders are USD. | `FX_RATES_URL` |
 | **Sentry** | Optional | Error tracking, initialized only if a DSN is present. | `SENTRY_DSN` |
 | **JWT secrets** | Self-generated | `openssl rand -base64 48` — no external service. | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` |
 
@@ -454,7 +455,9 @@ by services/jobs — **never trusted from clients**.
 **Pricing / localization**
 - `PricingTier` — name, multiplier, countries[].
 - `CountryOverride` — country, flag, type, tierId?, flatPercent.
-- `Region` — code, country, flag, currency, symbol, fxRate (refreshed by a job).
+- `Region` — code, country, flag, currency, symbol, locale, fxRate, fxUpdatedAt
+  (null = never refreshed), multiplier, tierId?, override. `fxRate` is **display-only**
+  (orders are charged in USD) and is refreshed daily by the FX job — see §6.
 
 **Marketing / automation**
 - `AutomationRule` — name, trigger (`IDLE|LOW_PROGRESS|ABANDONED_CART|ALMOST_DONE|NEW_CONTENT`),
@@ -482,7 +485,7 @@ Each store method in `lib/context/store.tsx` maps to an endpoint:
 | **quiz** | `GET /lessons/:id/quiz` (no answers), `POST /lessons/:id/quiz/attempt` (server-graded) | `getQuizResult`, `submitQuizAttempt` |
 | **reviews** | `GET/POST /courses/:id/reviews`, admin `PATCH /reviews/:id/status` | `getMyReview`, `submitReview` |
 | **instructors** | `POST /instructors/apply`, `GET/PATCH /me/instructor`, admin approve/reject | `applyAsInstructor`, `updateInstructorProfile`, `approveInstructor`, `rejectInstructor`, `myCourses` |
-| **pricing** | `GET /pricing/regions`, admin tier/override CRUD, `GET /pricing/quote` | `region`, `setRegionCode`, regional price calc |
+| **pricing** | `GET /pricing/regions` (public), admin tier/override CRUD, `GET /pricing/quote` | `region`, `regions`, `setRegionCode`, `lib/pricing.ts` |
 | **admin** | orders, students, instructor queue, coupons CRUD, analytics KPIs | admin pages' mock reads |
 | **marketing** | automation rule CRUD, reminder logs | `lib/mock/automation.ts` |
 | **media** | `POST /media/upload-url` (Cloudflare direct-creator-upload), `GET /lessons/:id/playback` (signed token) | `video-upload.tsx`, learn player |
@@ -597,7 +600,17 @@ is the *only* way in.
   abandoned_cart / new_content` → enqueue email/SMS → write `ReminderLog`. Drives `/admin/marketing`.
 - **Analytics rollups** — nightly aggregation into summary tables so `/admin` KPIs are
   fast reads, not live `COUNT(*)` scans.
-- **FX refresh** — periodic `Region.fxRate` update.
+- **FX refresh** *(built)* — daily `Region.fxRate` update from a USD-base feed
+  (`FX_RATES_URL`, default `open.er-api.com` — free, keyless, and unlike ECB-sourced
+  feeds it carries BDT/NGN/PKR). Rides the maintenance queue as the `fx-refresh` job
+  (`fx.service.ts`); runs once on boot so a fresh deploy isn't stuck on seeded rates
+  for 24h. Daily is deliberate: the rate is display-only, so the customer's own bank
+  spread dwarfs a day of drift. A failed fetch, a bad-value rate, or a currency the
+  feed omits **keeps the last known rate** rather than substituting a wrong one, and
+  `Region.fxUpdatedAt` records the age so a quietly-failing feed surfaces as a "rate
+  N days ago" warning in `/admin/pricing` instead of only in the logs. Admins can
+  still hand-set `fxRate` (the escape hatch for currencies the feed doesn't carry);
+  the job overwrites manual values for any currency it *does* carry.
 - **Search index** (later) — Postgres full-text first; Meilisearch/Typesense if needed.
 
 ---
@@ -806,9 +819,15 @@ checks org membership before granting access to a private course.
 - **Wired to the API:** auth, student dashboard/enrollments/progress/certificates,
   catalog/course detail, checkout + orders, reviews, quiz play, and most of admin
   (overview, students, orders, courses, reviews, instructors, agents).
-- **Still reading `lib/mock/*`, not yet rewired:** admin pricing tiers, admin coupons,
-  admin marketing/automation, the sales-agent portal's own dashboard, and the org
+- **Still reading `lib/mock/*`, not yet rewired:** admin coupons, admin
+  marketing/automation, the sales-agent portal's own dashboard, and the org
   overview page — `lib/context/store.tsx` calls this out directly in its own comments.
+- **Regional pricing is fully wired:** the store fetches `GET /pricing/regions`
+  (`store.tsx`) and exposes `region` + `regions`; `lib/pricing.ts` wraps the shared
+  cents-based math for the dollar-denominated legacy types. `lib/mock/pricing.ts` is
+  **deleted** — it hardcoded a 2024 FX table that no admin edit or FX refresh could
+  ever reach, so the storefront silently ignored both (TRY was ~45% off). If the API
+  is unreachable the store falls back to full-price USD, never an invented discount.
 
 **Local dev workflow:**
 ```bash

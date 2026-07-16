@@ -14,6 +14,9 @@ import type {
 } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 
+/** The FX job runs daily; no write in this long means it isn't landing. */
+const FX_STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class AdminPricingService {
   constructor(private readonly prisma: PrismaService) {}
@@ -42,6 +45,12 @@ export class AdminPricingService {
           symbol: r.symbol,
           locale: r.locale,
           fxRate: r.fxRate,
+          fxUpdatedAt: r.fxUpdatedAt?.toISOString() ?? null,
+          // USD is the base — the job skips it by design, so it's never stale.
+          fxStale:
+            r.currency !== "USD" &&
+            (r.fxUpdatedAt === null ||
+              Date.now() - r.fxUpdatedAt.getTime() > FX_STALE_AFTER_MS),
           multiplier: r.multiplier,
           tierId: r.tierId,
           override: r.override,
@@ -126,6 +135,11 @@ export class AdminPricingService {
         override,
         multiplier,
         fxRate: input.fxRate,
+        // A hand-set rate is as "fresh" as a fetched one — stamp it so it
+        // doesn't read as never-refreshed. Note the daily FX job still wins for
+        // any currency the feed covers; manual entry is the escape hatch for
+        // the ones it doesn't.
+        fxUpdatedAt: input.fxRate !== undefined ? new Date() : undefined,
         currency: input.currency,
         symbol: input.symbol,
       },

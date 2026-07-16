@@ -6,6 +6,10 @@ export const courseSortSchema = z
   .default("popular");
 export type CourseSort = z.infer<typeof courseSortSchema>;
 
+/** Largest page the catalog will serve. Callers that want "the whole catalog"
+ *  must use this — asking for more is a 400. */
+export const MAX_PAGE_SIZE = 48;
+
 export const courseListQuerySchema = z.object({
   q: z.string().trim().optional(),
   category: z.string().optional(),
@@ -14,7 +18,7 @@ export const courseListQuerySchema = z.object({
     .optional(),
   sort: courseSortSchema,
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(48).default(12),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),
 });
 export type CourseListQuery = z.infer<typeof courseListQuerySchema>;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/context/store";
-import { regionalUsd, formatLocal } from "@/lib/mock/pricing";
+import { regionalUsd, formatLocal } from "@/lib/pricing";
 import { formatUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

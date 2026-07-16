@@ -42,8 +42,7 @@ export function initials(name: string): string {
 
 export function relativeDate(iso: string): string {
   const then = new Date(iso).getTime();
-  const now = new Date("2026-06-23").getTime();
-  const days = Math.round((now - then) / 86400000);
+  const days = Math.round((Date.now() - then) / 86400000);
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 30) return `${days} days ago`;

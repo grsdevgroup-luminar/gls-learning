@@ -11,7 +11,7 @@ import {
   type UpdateOrganizationInput,
 } from "@skillstream/shared";
 import { CurrentUser, Public, Roles, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { OrganizationsService } from "./organizations.service";
 
 @ApiTags("organizations")
@@ -23,7 +23,7 @@ export class OrganizationsController {
   @Roles("ADMIN")
   @Post("organizations")
   create(
-    @Body(new ZodValidationPipe(CreateOrganizationSchema))
+    @ZodBody(CreateOrganizationSchema)
     body: CreateOrganizationInput,
   ) {
     return this.orgs.create(body);
@@ -60,7 +60,7 @@ export class OrganizationsController {
   update(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(UpdateOrganizationSchema))
+    @ZodBody(UpdateOrganizationSchema)
     body: UpdateOrganizationInput,
   ) {
     return this.orgs.update(user, id, body);
@@ -70,7 +70,7 @@ export class OrganizationsController {
   invite(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(InviteOrgMemberSchema)) body: InviteOrgMemberInput,
+    @ZodBody(InviteOrgMemberSchema) body: InviteOrgMemberInput,
   ) {
     return this.orgs.invite(user, id, body);
   }
@@ -107,7 +107,7 @@ export class OrganizationsController {
   assignCourse(
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(AssignOrgCourseSchema)) body: AssignOrgCourseInput,
+    @ZodBody(AssignOrgCourseSchema) body: AssignOrgCourseInput,
   ) {
     return this.orgs.assignCourse(user, id, body);
   }

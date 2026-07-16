@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { api, orgApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
@@ -31,7 +32,7 @@ export default function OrgCourses() {
   });
   const { data: catalog } = useQuery({
     queryKey: ["store", "courses"],
-    queryFn: () => api.courses({ pageSize: 100 }),
+    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
     staleTime: 60_000,
   });
 

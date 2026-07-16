@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { quizAttemptSchema, type QuizAttemptInput } from "@skillstream/shared";
 import { CurrentUser, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { QuizService } from "./quiz.service";
 
 @ApiTags("quiz")
@@ -31,7 +31,7 @@ export class QuizController {
   submit(
     @CurrentUser() user: RequestUser,
     @Param("lessonId") lessonId: string,
-    @Body(new ZodValidationPipe(quizAttemptSchema)) body: QuizAttemptInput,
+    @ZodBody(quizAttemptSchema) body: QuizAttemptInput,
   ) {
     return this.quiz.submitAttempt(user.id, lessonId, body);
   }

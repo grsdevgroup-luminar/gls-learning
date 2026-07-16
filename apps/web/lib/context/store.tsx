@@ -19,7 +19,8 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DEFAULT_REGION, getRegion } from "@/lib/mock/pricing";
+import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import { DEFAULT_REGION, FALLBACK_REGION, type RegionRow } from "@/lib/pricing";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
 import {
@@ -88,7 +89,9 @@ interface StoreContextValue {
   role: Role;
   // region
   regionCode: string;
-  region: ReturnType<typeof getRegion>;
+  region: RegionRow;
+  /** Every region the storefront can price in (from the API). */
+  regions: RegionRow[];
   setRegionCode: (code: string) => void;
   // cart
   cart: string[];
@@ -230,10 +233,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (mounted) localStorage.setItem(REGION_KEY, regionCode);
   }, [regionCode, mounted]);
 
+  // ── pricing regions (rates refreshed daily server-side) ──
+  const { data: regionList } = useQuery({
+    queryKey: ["store", "regions"],
+    queryFn: () => api.regions(),
+    // Rates only move once a day; no reason to refetch on every mount.
+    staleTime: 60 * 60 * 1000,
+  });
+  const regions = regionList?.length ? regionList : [FALLBACK_REGION];
+  // An unknown saved code (a region the admin since removed) must resolve to US,
+  // matching `pricing.service.ts#resolveRegion` — falling back to regions[0]
+  // would price the user as whoever sorts first while checkout charges them US.
+  const region =
+    regions.find((r) => r.code === regionCode) ??
+    regions.find((r) => r.code === DEFAULT_REGION) ??
+    FALLBACK_REGION;
+
   // ── catalog (published summaries) ──
   const { data: courseList } = useQuery({
     queryKey: ["store", "courses"],
-    queryFn: () => api.courses({ pageSize: 100 }),
+    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
     staleTime: 60_000,
   });
   const courses = useMemo<Course[]>(() => {
@@ -298,7 +317,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     role,
     // region
     regionCode,
-    region: getRegion(regionCode),
+    region,
+    regions,
     setRegionCode: setRegionCodeState,
     // cart
     cart,

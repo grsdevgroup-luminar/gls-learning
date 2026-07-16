@@ -11,7 +11,8 @@ import {
 } from "@skillstream/shared";
 import { pricingAdminApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { formatUsd } from "@/lib/format";
+import { formatUsd, relativeDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Globe2, Layers, MapPin, Plus, Info, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, Globe2, Layers, MapPin, Plus, Info, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const KEY = ["admin", "pricing"] as const;
@@ -158,7 +159,10 @@ export default function AdminPricing() {
                     </span>
                     {r.override && <Badge variant="secondary" className="ml-2 text-[10px]">Custom</Badge>}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{r.symbol} {r.currency}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {r.symbol} {r.currency}
+                    <FxFreshness region={r} />
+                  </TableCell>
                   <TableCell className="pr-6 text-right">
                     <RegionDialog
                       region={r}
@@ -265,6 +269,24 @@ function TierDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// FX rates are refreshed daily by a background job. Surface how old the stored
+// rate is, so a feed that has been quietly failing (or a currency the feed
+// doesn't carry) shows up here instead of only in the API logs.
+function FxFreshness({ region }: { region: AdminRegionDto }) {
+  if (region.currency === "USD") return null; // base currency, always 1.0
+  return (
+    <div
+      className={cn(
+        "text-[10px]",
+        region.fxStale ? "text-warning" : "text-muted-foreground/70",
+      )}
+    >
+      {region.fxStale && <AlertTriangle className="mr-0.5 inline h-2.5 w-2.5" />}
+      rate {region.fxUpdatedAt ? relativeDate(region.fxUpdatedAt) : "never refreshed"}
+    </div>
   );
 }
 

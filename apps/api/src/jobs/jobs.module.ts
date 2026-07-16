@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Env } from "../config/env";
 import { AutomationService } from "./automation.service";
+import { FxService } from "./fx.service";
 import { MaintenanceProcessor } from "./maintenance.processor";
 import { MaintenanceScheduler } from "./maintenance.scheduler";
 import { NotificationsProcessor } from "./notifications.processor";
@@ -41,6 +42,7 @@ function parseRedis(url: string | undefined) {
   ],
   providers: [
     AutomationService,
+    FxService,
     MaintenanceProcessor,
     MaintenanceScheduler,
     NotificationsProcessor,

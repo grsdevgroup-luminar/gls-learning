@@ -545,6 +545,9 @@ model Region {
   symbol     String
   locale     String  @default("en-US")
   fxRate     Float
+  // Null = never refreshed by the FX job (seeded value). Surfaced in admin so a
+  // silently-failing feed shows up as a stale rate instead of hiding in logs.
+  fxUpdatedAt DateTime?
   multiplier Float
   tierId     String?
   override   Boolean @default(false)

@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
-import { formatLocal } from "@/lib/mock/pricing";
+import { formatLocal } from "@/lib/pricing";
 import { getReferralCode, clearReferralCode } from "@/lib/referral";
 import { formatUsd } from "@/lib/format";
 import { toast } from "sonner";
@@ -46,7 +47,7 @@ export default function CheckoutPage() {
 
   const { data: catalog } = useQuery({
     queryKey: ["store", "courses"],
-    queryFn: () => api.courses({ pageSize: 100 }),
+    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
     staleTime: 60_000,
   });
   const items = useMemo(

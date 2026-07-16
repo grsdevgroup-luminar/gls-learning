@@ -10,7 +10,7 @@ import {
   type UpdateAgentInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { SalesAgentService } from "./sales-agent.service";
 
 @ApiTags("sales-agent")
@@ -22,7 +22,7 @@ export class SalesAgentController {
   @Post("sales-agents/apply")
   apply(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(ApplySalesAgentSchema)) body: ApplySalesAgentInput,
+    @ZodBody(ApplySalesAgentSchema) body: ApplySalesAgentInput,
   ) {
     return this.agents.apply(user, body);
   }
@@ -48,7 +48,7 @@ export class SalesAgentController {
   @Post("admin/sales-agent-applications/:id/review")
   review(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(ReviewAgentApplicationSchema))
+    @ZodBody(ReviewAgentApplicationSchema)
     body: ReviewAgentApplicationInput,
   ) {
     return this.agents.reviewApplication(id, body);
@@ -64,7 +64,7 @@ export class SalesAgentController {
   @Patch("admin/sales-agents/:id")
   updateAgent(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(UpdateAgentSchema)) body: UpdateAgentInput,
+    @ZodBody(UpdateAgentSchema) body: UpdateAgentInput,
   ) {
     return this.agents.updateAgent(id, body);
   }

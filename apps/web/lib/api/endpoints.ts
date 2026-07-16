@@ -26,6 +26,7 @@ import type {
   QuizPlayDto,
   QuizResultDto,
   QuoteDto,
+  RegionRow,
   ReminderLogDto,
   ReviewDto,
   SalesAgentDto,
@@ -85,6 +86,9 @@ export const api = {
     apiFetch<Paginated<CourseSummaryDto>>(`/courses${qs(params)}`),
   course: (slug: string) => apiFetch<CourseDetailDto>(`/courses/${slug}`),
   categories: () => apiFetch<string[]>("/categories"),
+
+  // pricing regions (public; FX rates refreshed daily by the API's fx job)
+  regions: () => apiFetch<RegionRow[]>("/pricing/regions"),
 
   // enrollment / progress
   myEnrollments: () => apiFetch<EnrollmentDto[]>("/me/enrollments"),

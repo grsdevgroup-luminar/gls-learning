@@ -2,7 +2,7 @@ import { Controller, Get, Param, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { courseListQuerySchema, type CourseListQuery } from "@skillstream/shared";
 import { Public } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodQuery } from "../common/swagger";
 import { CoursesService } from "./courses.service";
 
 @ApiTags("catalog")
@@ -13,7 +13,7 @@ export class CatalogController {
   @Public()
   @Get("courses")
   list(
-    @Query(new ZodValidationPipe(courseListQuerySchema)) query: CourseListQuery,
+    @ZodQuery(courseListQuerySchema) query: CourseListQuery,
   ) {
     return this.courses.list(query);
   }

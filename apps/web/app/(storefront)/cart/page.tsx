@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { formatLocal } from "@/lib/mock/pricing";
+import { formatLocal } from "@/lib/pricing";
 import { formatUsd } from "@/lib/format";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
@@ -28,7 +29,7 @@ export default function CartPage() {
 
   const { data: catalog } = useQuery({
     queryKey: ["store", "courses"],
-    queryFn: () => api.courses({ pageSize: 100 }),
+    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
     staleTime: 60_000,
   });
   const items = useMemo(

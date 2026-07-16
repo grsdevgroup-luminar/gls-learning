@@ -10,7 +10,7 @@ import {
   type UpdateInstructorProfileInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { InstructorService } from "./instructor.service";
 
 @ApiTags("instructor")
@@ -22,7 +22,7 @@ export class InstructorController {
   @Post("instructors/apply")
   apply(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(applyInstructorSchema)) body: ApplyInstructorInput,
+    @ZodBody(applyInstructorSchema) body: ApplyInstructorInput,
   ) {
     return this.instructor.apply(user, body);
   }
@@ -35,7 +35,7 @@ export class InstructorController {
   @Patch("me/instructor")
   updateProfile(
     @CurrentUser() user: RequestUser,
-    @Body(new ZodValidationPipe(updateInstructorProfileSchema))
+    @ZodBody(updateInstructorProfileSchema)
     body: UpdateInstructorProfileInput,
   ) {
     return this.instructor.updateProfile(user, body);
@@ -52,7 +52,7 @@ export class InstructorController {
   @Post("admin/instructor-applications/:id/approve")
   approve(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(reviewApplicationSchema))
+    @ZodBody(reviewApplicationSchema)
     body: ReviewApplicationInput,
   ) {
     return this.instructor.approve(id, body.note);
@@ -62,7 +62,7 @@ export class InstructorController {
   @Post("admin/instructor-applications/:id/reject")
   reject(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(reviewApplicationSchema))
+    @ZodBody(reviewApplicationSchema)
     body: ReviewApplicationInput,
   ) {
     return this.instructor.reject(id, body.note);

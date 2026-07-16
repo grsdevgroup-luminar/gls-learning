@@ -1,7 +1,6 @@
 "use client";
 
 import { useStore } from "@/lib/context/store";
-import { regions } from "@/lib/mock/pricing";
 import {
   Select,
   SelectContent,
@@ -19,7 +18,7 @@ export function RegionSelect({
   className?: string;
   compact?: boolean;
 }) {
-  const { regionCode, setRegionCode } = useStore();
+  const { regionCode, setRegionCode, region, regions } = useStore();
 
   return (
     <Select value={regionCode} onValueChange={(v) => v && setRegionCode(v)}>
@@ -31,8 +30,7 @@ export function RegionSelect({
         )}
         {compact && (
           <span className="text-sm">
-            {regions.find((r) => r.code === regionCode)?.flag}{" "}
-            {regions.find((r) => r.code === regionCode)?.currency}
+            {region.flag} {region.currency}
           </span>
         )}
       </SelectTrigger>

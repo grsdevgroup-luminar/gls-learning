@@ -7,7 +7,7 @@ import {
   type PaginationQuery,
 } from "@skillstream/shared";
 import { CurrentUser, Public, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody, ZodQuery } from "../common/swagger";
 import { CommentsService } from "./comments.service";
 
 @ApiTags("comments")
@@ -20,7 +20,7 @@ export class CommentsController {
   @Get("courses/:courseId/comments")
   list(
     @Param("courseId") courseId: string,
-    @Query(new ZodValidationPipe(paginationQuerySchema)) page: PaginationQuery,
+    @ZodQuery(paginationQuerySchema) page: PaginationQuery,
   ) {
     return this.comments.listForCourse(courseId, page);
   }
@@ -31,7 +31,7 @@ export class CommentsController {
   create(
     @CurrentUser() user: RequestUser,
     @Param("courseId") courseId: string,
-    @Body(new ZodValidationPipe(createCommentSchema)) body: CreateCommentInput,
+    @ZodBody(createCommentSchema) body: CreateCommentInput,
   ) {
     return this.comments.create(user.id, courseId, body);
   }

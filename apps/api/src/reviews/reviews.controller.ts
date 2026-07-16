@@ -7,7 +7,7 @@ import {
   type PaginationQuery,
 } from "@skillstream/shared";
 import { CurrentUser, Public, type RequestUser } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody, ZodQuery } from "../common/swagger";
 import { ReviewsService } from "./reviews.service";
 
 @ApiTags("reviews")
@@ -19,7 +19,7 @@ export class ReviewsController {
   @Get("courses/:courseId/reviews")
   list(
     @Param("courseId") courseId: string,
-    @Query(new ZodValidationPipe(paginationQuerySchema)) page: PaginationQuery,
+    @ZodQuery(paginationQuerySchema) page: PaginationQuery,
   ) {
     return this.reviews.listForCourse(courseId, page);
   }
@@ -38,7 +38,7 @@ export class ReviewsController {
   create(
     @CurrentUser() user: RequestUser,
     @Param("courseId") courseId: string,
-    @Body(new ZodValidationPipe(createReviewSchema)) body: CreateReviewInput,
+    @ZodBody(createReviewSchema) body: CreateReviewInput,
   ) {
     return this.reviews.create(user.id, courseId, body);
   }

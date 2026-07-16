@@ -23,7 +23,7 @@ import {
   type UpsertAutomationRuleInput,
 } from "@skillstream/shared";
 import { Roles } from "../common/decorators";
-import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ZodBody } from "../common/swagger";
 import { AdminService } from "./admin.service";
 import { ReviewsService } from "../reviews/reviews.service";
 
@@ -66,7 +66,7 @@ export class AdminController {
   @Patch("users/:id/status")
   updateUserStatus(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(updateUserStatusSchema)) body: UpdateUserStatusInput,
+    @ZodBody(updateUserStatusSchema) body: UpdateUserStatusInput,
   ) {
     return this.admin.updateUserStatus(id, body);
   }
@@ -84,7 +84,7 @@ export class AdminController {
 
   @Post("coupons")
   upsertCoupon(
-    @Body(new ZodValidationPipe(upsertCouponSchema)) body: UpsertCouponInput,
+    @ZodBody(upsertCouponSchema) body: UpsertCouponInput,
   ) {
     return this.admin.upsertCoupon(body);
   }
@@ -92,7 +92,7 @@ export class AdminController {
   @Patch("coupons/:code")
   patchCoupon(
     @Param("code") code: string,
-    @Body(new ZodValidationPipe(patchCouponSchema)) body: PatchCouponInput,
+    @ZodBody(patchCouponSchema) body: PatchCouponInput,
   ) {
     return this.admin.patchCoupon(code, body);
   }
@@ -111,7 +111,7 @@ export class AdminController {
   @Patch("reviews/:id/status")
   setReviewStatus(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(reviewStatusSchema)) body: ReviewStatusInput,
+    @ZodBody(reviewStatusSchema) body: ReviewStatusInput,
   ) {
     return this.reviews.setStatus(id, body);
   }
@@ -124,7 +124,7 @@ export class AdminController {
 
   @Post("automation-rules")
   createAutomationRule(
-    @Body(new ZodValidationPipe(upsertAutomationRuleSchema)) body: UpsertAutomationRuleInput,
+    @ZodBody(upsertAutomationRuleSchema) body: UpsertAutomationRuleInput,
   ) {
     return this.admin.upsertAutomationRule(undefined, body);
   }
@@ -132,7 +132,7 @@ export class AdminController {
   @Patch("automation-rules/:id")
   updateAutomationRule(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(upsertAutomationRuleSchema)) body: UpsertAutomationRuleInput,
+    @ZodBody(upsertAutomationRuleSchema) body: UpsertAutomationRuleInput,
   ) {
     return this.admin.upsertAutomationRule(id, body);
   }
