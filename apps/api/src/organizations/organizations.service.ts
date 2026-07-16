@@ -15,6 +15,7 @@ import type {
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
+import { EmailService } from "../email/email.service";
 import {
   COURSE_SUMMARY_INCLUDE,
   toCourseSummary,
@@ -28,7 +29,10 @@ type OrgRow = Prisma.OrganizationGetPayload<{ include: typeof orgInclude }>;
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+  ) {}
 
   private toDto(o: OrgRow): OrganizationDto {
     return {
@@ -127,7 +131,7 @@ export class OrganizationsService {
     if (org.usedSeats >= org.seatCount)
       throw new BadRequestException("No seats remaining");
     const token = randomUUID();
-    return this.prisma.orgInvitation.create({
+    const invitation = await this.prisma.orgInvitation.create({
       data: {
         orgId,
         email: input.email.toLowerCase(),
@@ -136,6 +140,30 @@ export class OrganizationsService {
         expiresAt: new Date(Date.now() + 7 * 86_400_000),
       },
     });
+    // Deliver the join link. Non-blocking: the admin still gets the invitation
+    // (with token) back so the link can be copied if email delivery fails.
+    this.email
+      .sendOrgInvite(invitation.email, org.name, invitation.role, token)
+      .catch(() => {});
+    return invitation;
+  }
+
+  /** Public: minimal invitation info for the join page (prefill + validity).
+   *  The token is an unguessable secret, so returning the invited email is safe. */
+  async invitationInfo(token: string) {
+    const invite = await this.prisma.orgInvitation.findUnique({
+      where: { token },
+      include: { org: { select: { name: true, slug: true } } },
+    });
+    const valid =
+      !!invite && !invite.claimedAt && invite.expiresAt > new Date();
+    return {
+      valid,
+      email: invite?.email ?? null,
+      role: invite?.role ?? null,
+      orgName: invite?.org.name ?? null,
+      orgSlug: invite?.org.slug ?? null,
+    };
   }
 
   /** A logged-in user claims an invitation, becoming an org member + consuming a seat. */

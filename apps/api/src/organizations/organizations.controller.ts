@@ -10,7 +10,7 @@ import {
   type InviteOrgMemberInput,
   type UpdateOrganizationInput,
 } from "@skillstream/shared";
-import { CurrentUser, Roles, type RequestUser } from "../common/decorators";
+import { CurrentUser, Public, Roles, type RequestUser } from "../common/decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { OrganizationsService } from "./organizations.service";
 
@@ -38,6 +38,12 @@ export class OrganizationsController {
   @Get("me/organizations")
   mine(@CurrentUser() user: RequestUser) {
     return this.orgs.myOrganizations(user);
+  }
+
+  @Public()
+  @Get("organizations/invitations/:token")
+  invitationInfo(@Param("token") token: string) {
+    return this.orgs.invitationInfo(token);
   }
 
   @Post("organizations/claim/:token")

@@ -67,10 +67,18 @@ export class TokenService {
     return raw;
   }
 
+  /** How long a just-rotated token may still be presented without tripping reuse
+   *  detection. Covers benign races (two tabs refresh at once before the new
+   *  Set-Cookie lands); beyond it, re-presentation means the token was captured.
+   *  ponytail: a thief who replays within the grace window looks benign — the
+   *  standard rotation/reuse tradeoff; shrink the window to tighten it. */
+  private readonly REUSE_GRACE_MS = 60_000;
+
   /**
    * Validates a refresh token and rotates it (single-use). Returns the userId,
-   * or null if invalid/expired/revoked. Reuse of an already-rotated token is
-   * impossible because the row is deleted on rotation.
+   * or null if invalid/expired/revoked. Old rows are kept and marked revoked so
+   * a *reused* (already-rotated) token can be detected: presented after the
+   * grace window, it revokes every session for that user (token-theft response).
    */
   async rotateRefreshToken(
     raw: string,
@@ -80,13 +88,43 @@ export class TokenService {
     const existing = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
     });
-    if (!existing || existing.revokedAt || existing.expiresAt < new Date()) {
+    if (!existing) return null;
+
+    if (existing.revokedAt) {
+      const age = Date.now() - existing.revokedAt.getTime();
+      if (age > this.REUSE_GRACE_MS) {
+        // Reuse detected: a token we already rotated away is back. Revoke the
+        // whole family (every live session for the user).
+        await this.prisma.refreshToken.updateMany({
+          where: { userId: existing.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
       return null;
     }
-    // Rotate: delete old, issue new in a transaction.
-    await this.prisma.refreshToken.delete({ where: { tokenHash } });
-    const newToken = await this.issueRefreshToken(existing.userId, meta);
-    return { userId: existing.userId, newToken };
+
+    if (existing.expiresAt < new Date()) return null;
+
+    // Atomic rotation: revoke the old row and mint the new one in one transaction
+    // so a crash can't leave the user with neither.
+    const newRaw = randomBytes(48).toString("base64url");
+    const days = this.config.get("JWT_REFRESH_TTL_DAYS", { infer: true });
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.update({
+        where: { tokenHash },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.refreshToken.create({
+        data: {
+          userId: existing.userId,
+          tokenHash: this.hash(newRaw),
+          userAgent: meta.userAgent,
+          ip: meta.ip,
+          expiresAt: new Date(Date.now() + days * 86_400_000),
+        },
+      }),
+    ]);
+    return { userId: existing.userId, newToken: newRaw };
   }
 
   async revokeRefreshToken(raw: string): Promise<void> {

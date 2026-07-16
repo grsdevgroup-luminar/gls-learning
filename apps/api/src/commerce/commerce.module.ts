@@ -5,6 +5,8 @@ import { PaymentsService } from "../payments/payments.service";
 import { PaymentsController } from "../payments/payments.controller";
 import { PricingService } from "./pricing.service";
 import { PricingController } from "./pricing.controller";
+import { AdminPricingService } from "./admin-pricing.service";
+import { AdminPricingController } from "./admin-pricing.controller";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
 import { CheckoutService } from "./checkout.service";
@@ -15,9 +17,15 @@ import { CheckoutController } from "./checkout.controller";
 // module dependencies.
 @Module({
   imports: [EnrollmentModule, SalesAgentModule],
-  controllers: [CheckoutController, PricingController, PaymentsController],
+  controllers: [
+    CheckoutController,
+    PricingController,
+    AdminPricingController,
+    PaymentsController,
+  ],
   providers: [
     PricingService,
+    AdminPricingService,
     CouponsService,
     OrdersService,
     CheckoutService,

@@ -1,5 +1,6 @@
 import type {
   AdminOverviewDto,
+  AdminPricingDto,
   AdminStudentDto,
   AutomationRuleDto,
   CommentDto,
@@ -265,8 +266,16 @@ export const orgApi = {
     apiFetch<OrganizationDto>(`/organizations/${orgId}/members/${memberId}`, {
       method: "DELETE",
     }),
+  invitationInfo: (token: string) =>
+    apiFetch<{
+      valid: boolean;
+      email: string | null;
+      role: "ADMIN" | "MEMBER" | null;
+      orgName: string | null;
+      orgSlug: string | null;
+    }>(`/organizations/invitations/${token}`),
   claim: (token: string) =>
-    apiFetch<{ ok: true }>(`/organizations/claim/${token}`, { method: "POST" }),
+    apiFetch<OrganizationDto>(`/organizations/claim/${token}`, { method: "POST" }),
   courses: (orgId: string) =>
     apiFetch<CourseSummaryDto[]>(`/organizations/${orgId}/courses`),
   assignCourse: (orgId: string, courseId: string) =>
@@ -278,6 +287,29 @@ export const orgApi = {
     apiFetch<OrganizationDto>(`/organizations/${orgId}/courses/${courseId}`, {
       method: "DELETE",
     }),
+};
+
+// ── admin pricing (region / PPP tiers) ─────────────────────────────────────
+
+export const pricingAdminApi = {
+  getAll: () => apiFetch<AdminPricingDto>("/admin/pricing"),
+  createTier: (body: { name: string; multiplier: number }) =>
+    apiFetch<AdminPricingDto>("/admin/pricing/tiers", { method: "POST", body }),
+  updateTier: (id: string, body: { name?: string; multiplier?: number }) =>
+    apiFetch<AdminPricingDto>(`/admin/pricing/tiers/${id}`, { method: "PATCH", body }),
+  deleteTier: (id: string) =>
+    apiFetch<AdminPricingDto>(`/admin/pricing/tiers/${id}`, { method: "DELETE" }),
+  updateRegion: (
+    code: string,
+    body: Partial<{
+      tierId: string;
+      fxRate: number;
+      currency: string;
+      symbol: string;
+      override: boolean;
+      multiplier: number;
+    }>,
+  ) => apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "PATCH", body }),
 };
 
 // ── authoring (instructor/admin course builder) ────────────────────────────

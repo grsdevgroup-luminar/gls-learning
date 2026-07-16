@@ -71,6 +71,28 @@ export class EmailService {
     }
   }
 
+  /** Engagement reminder (marketing automation). `subject` is the already-
+   *  rendered template line and doubles as the body's headline. */
+  async sendReminder(to: string, name: string, subject: string): Promise<void> {
+    if (!this.resend) {
+      this.logger.log(`[DEV] Reminder to ${to}: ${subject}`);
+      return;
+    }
+
+    const { error } = await this.resend.emails.send({
+      from: `SkillStream <${this.from}>`,
+      to,
+      subject,
+      html: this.reminderHtml(name, subject),
+      text: `Hi ${name},\n\n${subject}\n\n${this.frontendUrl}/dashboard\n\n— The SkillStream team`,
+    });
+
+    if (error) {
+      this.logger.error("Failed to send reminder email", error);
+      throw new Error("Email delivery failed");
+    }
+  }
+
   async sendWelcome(to: string, name: string): Promise<void> {
     if (!this.resend) {
       this.logger.log(`[DEV] Welcome email would be sent to ${to}`);
@@ -131,6 +153,32 @@ export class EmailService {
           <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none">Accept invitation</a>
           <p style="margin:24px 0 0;color:#9ca3af;font-size:13px">This invitation expires in <strong>7 days</strong>. If you weren't expecting this, you can ignore this email.</p>
           <p style="margin:8px 0 0;color:#9ca3af;font-size:12px;word-break:break-all">Or copy this URL: ${link}</p>
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} SkillStream. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private reminderHtml(name: string, message: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${message}</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;margin:0;padding:0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 20px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;text-align:center">
+          <span style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px">SkillStream</span>
+        </td></tr>
+        <tr><td style="padding:36px 40px">
+          <p style="margin:0 0 24px;color:#374151;font-size:16px">Hi ${name},</p>
+          <p style="margin:0 0 24px;color:#374151;font-size:16px">${message}</p>
+          <a href="${this.frontendUrl}/dashboard" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none">Continue learning</a>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
           <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} SkillStream. All rights reserved.</p>

@@ -25,6 +25,8 @@ function LoginForm() {
 
   function destinationFor(role: string): string {
     const next = params.get("next");
+    // An explicit return path (e.g. an org-invite join link) always wins.
+    if (next) return next;
     if (role === "ADMIN") return "/admin";
     if (role === "INSTRUCTOR") return "/instructor";
     if (role === "SALES_AGENT") return "/sales-agent";

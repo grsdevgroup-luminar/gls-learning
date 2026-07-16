@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
 import { ApiError } from '@/lib/api/errors';
 import { Logo } from '@/components/shared/logo';
@@ -21,11 +21,15 @@ const perks = [
   '30-day guarantee',
 ];
 
-export default function SignupPage() {
+function SignupForm() {
   const register = useRegister();
   const router = useRouter();
+  const params = useSearchParams();
+  // Carried from an org-invite link: prefill the invited email and return to
+  // the join page (which auto-claims) after the account is created.
+  const next = params.get('next');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(params.get('email') ?? '');
   const [password, setPassword] = useState('');
 
   async function create() {
@@ -34,7 +38,7 @@ export default function SignupPage() {
       toast.success('Account created!', {
         description: 'Welcome to SkillStream 🎉',
       });
-      router.push('/dashboard');
+      router.push(next || '/dashboard');
       router.refresh();
     } catch (err) {
       const message =
@@ -120,5 +124,13 @@ export default function SignupPage() {
         </Card>
       </Reveal>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md px-4 py-16">Loading…</div>}>
+      <SignupForm />
+    </Suspense>
   );
 }

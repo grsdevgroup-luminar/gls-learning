@@ -235,7 +235,7 @@ flowchart LR
     SCHED --> SWEEP[AutomationService.sweep<br/>match active rules to audiences]
     SWEEP -->|cooldown check vs ReminderLog| NQ[[notifications queue]]
     NQ --> NP[NotificationsProcessor<br/>write ReminderLog + send*]
-    NP -.->|*send is a stub today| MAIL[Resend/Twilio]
+    NP -.->|EMAIL via Resend; SMS stubbed| MAIL[Resend/Twilio]
 ```
 
 The automation engine (`IDLE`, `LOW_PROGRESS`, `ABANDONED_CART`, `ALMOST_DONE`,
@@ -245,32 +245,46 @@ matches each active rule, respects a per-trigger cooldown, and enqueues reminder
 ### 0.9 Architectural review — weaknesses found
 
 Reviewed auth, the request pipeline, the money path, media, and jobs. One real bug was
-found and **fixed**; the rest are documented with recommendations (deliberately not
-built — they change auth behavior or add surface area, so they're the owner's call).
+found; findings #1–#4 and #7 are now **built**, #5–#6 stand as accepted/by-design.
 
 | # | Finding | Severity | Status |
 |---|---|---|---|
 | 1 | **Frontend never refreshed the access token.** Backend had full rotating-refresh, a 7-day `refresh_token` cookie was set, but no client code ever called `/auth/refresh`. Sessions silently broke ~15 min after login; users appeared logged out despite a valid 7-day session. | **High** | **Fixed** |
-| 2 | **No refresh-token reuse detection.** The schema (`revokedAt`, `userAgent`, `ip`) and this doc's model text imply family revocation, but `rotateRefreshToken` hard-deletes the row, so a stolen-then-rotated token just fails silently — no family kill, no alert. | Medium (security) | Documented |
-| 3 | **Refresh rotation isn't atomic.** `rotateRefreshToken` does `delete` then `issueRefreshToken` as two awaits (the comment says "in a transaction" — it isn't). A crash between them forces a re-login. No data loss, no security hole. | Low | Documented |
-| 4 | **No server-side route authorization on the web.** Portal layouts (`/admin`, `/instructor`, …) are client components reading `useSession` with no redirect; there's no Next middleware. An unauthorized user renders an empty shell (the API still 403s every call, so **no data leak**) — but it relies entirely on the API and gives a broken-looking UX. | Low–Medium | Documented |
+| 2 | **No refresh-token reuse detection.** Rotation hard-deleted the old row, so a stolen-then-rotated token just failed silently — no family kill, no signal. | Medium (security) | **Fixed** |
+| 3 | **Refresh rotation wasn't atomic.** `rotateRefreshToken` did `delete` then `create` as two separate awaits; a crash between them forced a re-login. | Low | **Fixed** |
+| 4 | **No server-side route authorization on the web.** Portal layouts (`/admin`, `/instructor`, …) are client components with no redirect. An unauthorized user renders an empty shell (the API still 403s every call, so **no data leak**) — but it relied entirely on the API and gave a broken-looking UX. | Low–Medium | **Fixed** |
 | 5 | **Per-request DB lookup in `JwtStrategy`.** Every authenticated call loads the user by id. This is a *deliberate* freshness/revocation tradeoff, not a defect — noted so it isn't mistaken for one. Cache behind Redis only if it becomes hot. | Info | By design |
 | 6 | **Automation cooldown race** (already `ponytail:`-commented). Cooldown reads `ReminderLog`, which the processor writes on delivery, so an enqueued-but-unprocessed reminder is briefly invisible. Sweep is hourly, jobs drain in seconds — negligible. | Low | Accepted |
-| 7 | **Reminder delivery is a stub.** `NotificationsProcessor` writes `ReminderLog` but the Resend/Twilio send is a `// TODO`. Automations are built end-to-end except the final send. | Info | Known TODO |
+| 7 | **Reminder delivery was a stub.** `NotificationsProcessor` wrote `ReminderLog` but never sent. | Info | **Fixed** (email) |
 
-**Fix applied (finding #1):** a single-flight refresh-and-retry in the shared browser
-fetch wrapper — the one chokepoint every client API call routes through. On a browser
-`401` it calls `/auth/refresh` once (deduped across concurrent calls), then retries the
-original request. SSR calls carry `cookieHeader` and are skipped, since a Server
-Component can't persist a rotated cookie mid-render; those pages render logged-out and
-the client `SessionProvider` re-hydrates through the same refresh path.
+**#1 — silent refresh.** A single-flight refresh-and-retry in the shared browser fetch
+wrapper ([client.ts](../apps/web/lib/api/client.ts)) — the one chokepoint every client
+API call routes through. On a browser `401` it calls `/auth/refresh` once (deduped
+across concurrent calls) and retries. SSR calls carry `cookieHeader` and are skipped
+(a Server Component can't persist a rotated cookie mid-render); those pages render
+logged-out and the client `SessionProvider` re-hydrates through the same path.
 
-**Recommended next (in priority order):** #4 add a Next middleware that verifies the
-JWT for role-gated path prefixes and redirects unauthorized users (UX + defense in
-depth); #2 on presentation of a well-formed but unknown refresh token, revoke all of
-that user's sessions and log it — now safe to add, since the client no longer fires
-concurrent refreshes; #3 wrap rotation in `prisma.$transaction`; #7 wire the reminder
-send.
+**#2 + #3 — reuse detection + atomic rotation** ([token.service.ts](../apps/api/src/auth/token.service.ts)).
+Rotation now *revokes* the old row (sets `revokedAt`) and mints the new one in a single
+`prisma.$transaction` — atomic, no lost sessions. Revoked rows are kept, so a re-presented
+rotated token is detected: within a 60s grace window it's treated as a benign tab race,
+beyond it every live session for that user is revoked (token-theft response). Expired
+rows are swept by the hourly maintenance rollup so they don't accumulate. No migration —
+the `revokedAt` column already existed.
+
+**#4 — optimistic route guard** ([proxy.ts](../apps/web/proxy.ts), Next 16 renames
+Middleware → Proxy). Logged-out users (no `refresh_token` cookie) are redirected to
+`/login?next=…`; on the role portals (`/admin`, `/instructor`, `/sales-agent`) the role
+is read from the access-token JWT and mismatches are redirected to the user's own home.
+Deliberately optimistic per the Next docs — presence keys off the 7-day refresh cookie
+(the access cookie is dropped at 15 min), and the role claim is *decoded, not verified*,
+because the API remains the hard authorization boundary.
+
+**#7 — reminder send** ([notifications.processor.ts](../apps/api/src/jobs/notifications.processor.ts)).
+`EMAIL` reminders now go out via Resend (`EmailService.sendReminder`); the `ReminderLog`
+row is written only after a successful send, so a failure throws and BullMQ retries
+without marking it sent or starting the cooldown. SMS has no provider wired and is
+logged only.
 
 ---
 
@@ -319,7 +333,7 @@ app still boots and most of it still works locally with just Docker Compose.
 | **Object storage / image CDN (R2, S3, Cloudflare Images, etc.)** | Not integrated | Course thumbnails and avatars are plain URL strings in Postgres (`authoring.service.ts`) — there is no upload endpoint yet. Instructors/admins currently paste an already-hosted image URL from wherever you choose to host images. | — |
 | **Stripe account** | Required for card checkout | Checkout Sessions + webhook-verified, idempotent order fulfillment (`WebhookEvent.eventId` unique constraint). | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
 | **PayPal developer app** | Required for PayPal checkout | REST order create/capture + webhook fulfillment, same idempotency path as Stripe. Sandbox vs. live is chosen by `NODE_ENV`. | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
-| **Resend account + verified sending domain** | Required for real email | Welcome + password-reset transactional email. Unset → emails are logged to console instead of sent (safe for local dev; auth flows still work). **Not yet wired into the marketing-automation reminder job** — `notifications.processor.ts` writes a `ReminderLog` row but the actual Resend/Twilio send is a stub (`// TODO`). | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
+| **Resend account + verified sending domain** | Required for real email | Welcome, password-reset, org-invite, **and marketing-automation reminder** email (`EMAIL`-channel reminders send via `EmailService.sendReminder`). Unset → emails are logged to console instead of sent (safe for local dev; auth flows still work). SMS-channel reminders have no provider wired and are logged only. | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
 | **Twilio (or similar SMS provider)** | Not integrated | Reserved for SMS reminders in the automation engine; no code path calls it yet. | — |
 | **Sentry** | Optional | Error tracking, initialized only if a DSN is present. | `SENTRY_DSN` |
 | **JWT secrets** | Self-generated | `openssl rand -base64 48` — no external service. | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` |

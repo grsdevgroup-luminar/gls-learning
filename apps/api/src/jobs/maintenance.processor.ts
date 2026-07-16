@@ -50,13 +50,19 @@ export class MaintenanceProcessor extends WorkerHost {
       }
     }
 
+    // Prune refresh tokens past expiry. Rotation now keeps revoked rows (for
+    // reuse detection), so they must be swept once expired or they accumulate.
+    const { count: prunedTokens } = await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+
     const [users, courses, paid] = await this.prisma.$transaction([
       this.prisma.user.count(),
       this.prisma.course.count({ where: { status: "PUBLISHED" } }),
       this.prisma.order.count({ where: { status: "PAID" } }),
     ]);
 
-    const snapshot = { fixedCompletions: fixed, users, courses, paidOrders: paid };
+    const snapshot = { fixedCompletions: fixed, prunedTokens, users, courses, paidOrders: paid };
     this.logger.log(`maintenance rollup: ${JSON.stringify(snapshot)}`);
     return snapshot;
   }
