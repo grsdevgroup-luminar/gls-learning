@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { Coupon } from "@prisma/client";
+import { AutomationRule, Coupon } from "@prisma/client";
 import type {
   AdminOverviewDto,
   AdminStudentDto,
+  AutomationRuleDto,
   CouponDto,
+  ReminderLogDto,
   OrderDto,
+  PatchCouponInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
   UpdateUserStatusInput,
@@ -132,6 +135,7 @@ export class AdminService {
       usageLimit: c.usageLimit,
       used: c.used,
       active: c.active,
+      featured: c.featured,
     };
   }
 
@@ -158,6 +162,22 @@ export class AdminService {
       where: { code: input.code },
       update: data,
       create: { code: input.code, ...data },
+    });
+    return this.toCouponDto(c);
+  }
+
+  /** Enable/disable and promote/unpromote. Promoting demotes the incumbent in the
+   *  same transaction, so the "only one featured" index is never violated. */
+  async patchCoupon(code: string, input: PatchCouponInput): Promise<CouponDto> {
+    const c = await this.prisma.$transaction(async (tx) => {
+      if (!(await tx.coupon.findUnique({ where: { code } })))
+        throw new NotFoundException("Coupon not found");
+      if (input.featured === true)
+        await tx.coupon.updateMany({
+          where: { featured: true, code: { not: code } },
+          data: { featured: false },
+        });
+      return tx.coupon.update({ where: { code }, data: input });
     });
     return this.toCouponDto(c);
   }
@@ -251,17 +271,40 @@ export class AdminService {
   }
 
   // ── marketing / automation ─────────────────────────────────────────────────
-  listAutomationRules() {
-    return this.prisma.automationRule.findMany({ orderBy: { createdAt: "asc" } });
+  private toAutomationRuleDto(r: AutomationRule): AutomationRuleDto {
+    return {
+      id: r.id,
+      name: r.name,
+      trigger: r.trigger,
+      condition: r.condition,
+      channels: r.channels,
+      template: r.template,
+      active: r.active,
+      sentCount: r.sentCount,
+    };
   }
 
-  async upsertAutomationRule(id: string | undefined, input: UpsertAutomationRuleInput) {
+  async listAutomationRules(): Promise<AutomationRuleDto[]> {
+    const rows = await this.prisma.automationRule.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => this.toAutomationRuleDto(r));
+  }
+
+  async upsertAutomationRule(
+    id: string | undefined,
+    input: UpsertAutomationRuleInput,
+  ): Promise<AutomationRuleDto> {
     if (id) {
       const existing = await this.prisma.automationRule.findUnique({ where: { id } });
       if (!existing) throw new NotFoundException("Automation rule not found");
-      return this.prisma.automationRule.update({ where: { id }, data: input });
+      return this.toAutomationRuleDto(
+        await this.prisma.automationRule.update({ where: { id }, data: input }),
+      );
     }
-    return this.prisma.automationRule.create({ data: input });
+    return this.toAutomationRuleDto(
+      await this.prisma.automationRule.create({ data: input }),
+    );
   }
 
   async deleteAutomationRule(id: string) {
@@ -271,10 +314,24 @@ export class AdminService {
     return { ok: true as const };
   }
 
-  listReminderLogs() {
-    return this.prisma.reminderLog.findMany({
+  /** Recent sends, newest first. Joined with the recipient's name so the admin
+   *  table doesn't need a second lookup per row. */
+  async listReminderLogs(): Promise<ReminderLogDto[]> {
+    const rows = await this.prisma.reminderLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 200,
+      include: { user: { select: { name: true } } },
     });
+    return rows.map((l) => ({
+      id: l.id,
+      userId: l.userId,
+      userName: l.user?.name ?? null,
+      ruleId: l.ruleId,
+      channel: l.channel,
+      trigger: l.trigger,
+      subject: l.subject,
+      status: l.status,
+      createdAt: l.createdAt.toISOString(),
+    }));
   }
 }

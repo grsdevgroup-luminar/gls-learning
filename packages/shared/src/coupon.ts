@@ -15,9 +15,24 @@ export interface CouponLike {
   scope: CouponScope;
   courseId?: string | null;
   expiresAt: string | Date;
-  usageLimit: number;
+  usageLimit: number; // 0 = unlimited
   used: number;
   active: boolean;
+}
+
+export type CouponStatus = "disabled" | "expired" | "limit-reached" | "active";
+
+/** Derived lifecycle status for the admin table. Order matters: an admin who
+ *  disabled a coupon should see "disabled" even once it also expires. */
+export function couponStatus(
+  coupon: CouponLike,
+  now: Date = new Date(),
+): CouponStatus {
+  if (!coupon.active) return "disabled";
+  if (new Date(coupon.expiresAt) < now) return "expired";
+  if (coupon.usageLimit > 0 && coupon.used >= coupon.usageLimit)
+    return "limit-reached";
+  return "active";
 }
 
 export interface CouponResult {
@@ -39,7 +54,7 @@ export function validateCoupon(
   if (!coupon) return { ok: false, message: "That code isn't valid." };
   if (!coupon.active || new Date(coupon.expiresAt) < now)
     return { ok: false, message: "This coupon has expired." };
-  if (coupon.used >= coupon.usageLimit)
+  if (coupon.usageLimit > 0 && coupon.used >= coupon.usageLimit)
     return { ok: false, message: "This coupon has reached its usage limit." };
   if (coupon.minSpendCents && subtotalCents < coupon.minSpendCents)
     return {

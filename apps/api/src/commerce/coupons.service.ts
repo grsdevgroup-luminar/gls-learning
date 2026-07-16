@@ -1,10 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { Coupon } from "@prisma/client";
 import {
+  couponStatus,
   discountCents,
   validateCoupon,
   type CouponLike,
   type CouponResult,
+  type FeaturedCouponDto,
 } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -31,6 +33,21 @@ export class CouponsService {
       usageLimit: c.usageLimit,
       used: c.used,
       active: c.active,
+    };
+  }
+
+  /** The single promoted coupon for the storefront banner, or null when none is
+   *  featured or the featured one is no longer usable (disabled/expired/capped). */
+  async featured(): Promise<FeaturedCouponDto | null> {
+    const c = await this.prisma.coupon.findFirst({ where: { featured: true } });
+    if (!c || couponStatus(this.toCouponLike(c)) !== "active") return null;
+    return {
+      code: c.code,
+      type: c.type,
+      value: c.value,
+      description: c.description,
+      minSpendCents: c.minSpendCents,
+      expiresAt: c.expiresAt.toISOString(),
     };
   }
 

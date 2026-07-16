@@ -93,4 +93,35 @@ export class TokenService {
     const tokenHash = this.hash(raw);
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
   }
+
+  /** Issues an opaque, single-use password-reset token (1h TTL). Only its hash
+   *  is persisted, matching the refresh-token pattern. */
+  async issuePasswordResetToken(userId: string): Promise<string> {
+    const raw = randomBytes(32).toString("base64url");
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId,
+        tokenHash: this.hash(raw),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+    return raw;
+  }
+
+  /**
+   * Validates a password-reset token and immediately marks it used so it
+   * cannot be replayed, even if intercepted. Returns the userId or null.
+   */
+  async consumePasswordResetToken(raw: string): Promise<string | null> {
+    const tokenHash = this.hash(raw);
+    // Atomic claim: the usedAt: null condition means a concurrent replay of
+    // the same raw token can never both succeed (no TOCTOU window).
+    const { count } = await this.prisma.passwordResetToken.updateMany({
+      where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (count === 0) return null;
+    const record = await this.prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+    return record?.userId ?? null;
+  }
 }

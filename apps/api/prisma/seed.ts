@@ -332,6 +332,8 @@ async function main() {
         usageLimit: c.usageLimit,
         used: c.used,
         active: c.active,
+        // Exactly one may be featured; LAUNCH40 drives the storefront banner.
+        featured: c.code === "LAUNCH40",
       },
     });
   }

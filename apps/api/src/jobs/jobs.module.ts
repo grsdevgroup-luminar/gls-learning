@@ -2,6 +2,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Env } from "../config/env";
+import { AutomationService } from "./automation.service";
 import { MaintenanceProcessor } from "./maintenance.processor";
 import { MaintenanceScheduler } from "./maintenance.scheduler";
 import { NotificationsProcessor } from "./notifications.processor";
@@ -38,6 +39,11 @@ function parseRedis(url: string | undefined) {
       { name: NOTIFICATIONS_QUEUE },
     ),
   ],
-  providers: [MaintenanceProcessor, MaintenanceScheduler, NotificationsProcessor],
+  providers: [
+    AutomationService,
+    MaintenanceProcessor,
+    MaintenanceScheduler,
+    NotificationsProcessor,
+  ],
 })
 export class JobsModule {}

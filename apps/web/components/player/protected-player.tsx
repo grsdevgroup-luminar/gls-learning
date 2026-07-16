@@ -1,214 +1,121 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { gradientFor, lessonTime } from '@/lib/format';
-import { Button } from '@/components/ui/button';
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  ShieldCheck,
-  Settings,
-  RotateCcw,
-  SkipForward,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api/endpoints';
+import { getApiErrorMessage } from '@/lib/api/errors';
+import { gradientFor } from '@/lib/format';
+import { AlertTriangle, Clock, Loader2, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
-// A simulated, DRM-styled video player. Demonstrates content protection
-// (moving per-user watermark, disabled context menu, "protected" badge) without
-// a real video file — perfect for the prototype.
+const STREAM_ORIGIN = 'https://iframe.videodelivery.net';
+
+// Renders whatever the lesson actually is (video / article / not-yet-uploaded)
+// against the real, enrollment-gated `/lessons/:id/playback` endpoint. Video
+// plays through Cloudflare Stream's own signed iframe embed, so we don't own
+// any transcoding, HLS, or DRM logic here — just the enrollment-gated URL.
 export function ProtectedPlayer({
+  lessonId,
   title,
-  durationSec,
   watermark,
   seed = title,
   onComplete,
-  onNext,
-  compact = false,
 }: {
+  lessonId: string;
   title: string;
-  durationSec: number;
   watermark: string;
   seed?: string;
   onComplete?: () => void;
-  onNext?: () => void;
-  compact?: boolean;
 }) {
-  const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState(0);
-  const [muted, setMuted] = useState(false);
-  const [rate, setRate] = useState(1);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['playback', lessonId],
+    queryFn: () => api.playback(lessonId),
+  });
 
-  // Reset when the lesson changes
+  // Cloudflare's signed iframe embed posts player events to the parent window.
   useEffect(() => {
-    setTime(0);
-    setPlaying(false);
-    setStarted(false);
-  }, [title, durationSec]);
+    if (!data?.ready || !data.iframeUrl) return;
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== STREAM_ORIGIN) return;
+      if ((e.data as { event?: string } | undefined)?.event === 'ended') onComplete?.();
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [data?.ready, data?.iframeUrl, onComplete]);
 
-  useEffect(() => {
-    if (!playing) return;
-    const id = setInterval(() => {
-      setTime((t) => {
-        const next = t + rate;
-        if (next >= durationSec) {
-          clearInterval(id);
-          setPlaying(false);
-          onComplete?.();
-          return durationSec;
-        }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [playing, rate, durationSec, onComplete]);
+  if (isLoading) {
+    return (
+      <Frame seed={seed}>
+        <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+      </Frame>
+    );
+  }
 
-  const pct = (time / durationSec) * 100;
+  if (error) {
+    return (
+      <Frame seed={seed}>
+        <AlertTriangle className="h-8 w-8 text-white/70" />
+        <p className="mt-2 max-w-xs text-center text-sm text-white/80">
+          {getApiErrorMessage(error)}
+        </p>
+      </Frame>
+    );
+  }
 
-  function toggle() {
-    setStarted(true);
-    setPlaying((p) => !p);
+  if (data?.type === 'ARTICLE') {
+    return (
+      <div className="rounded-xl border bg-card p-6">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          {data.articleContent}
+        </p>
+      </div>
+    );
+  }
+
+  if (!data?.ready) {
+    return (
+      <Frame seed={seed}>
+        <Clock className="h-8 w-8 text-white/70" />
+        <p className="mt-2 max-w-xs text-center text-sm text-white/80">
+          This video isn&apos;t available yet — check back shortly.
+        </p>
+      </Frame>
+    );
   }
 
   return (
-    <div
-      ref={ref}
-      onContextMenu={(e) => e.preventDefault()}
-      className={cn(
-        'group relative w-full select-none overflow-hidden rounded-xl bg-black text-white',
-        compact ? 'aspect-video' : 'aspect-video',
-      )}
-      style={{ backgroundImage: gradientFor(seed) }}
-    >
-      {/* fake video texture */}
-      <div className="absolute inset-0 bg-black/35" />
-      <div className="pointer-events-none absolute inset-0 opacity-30 [background:radial-gradient(circle_at_30%_30%,rgba(255,255,255,.25),transparent_45%)]" />
+    <div className="group relative w-full overflow-hidden rounded-xl bg-black">
+      <div className="aspect-video">
+        <iframe
+          key={lessonId}
+          src={data.iframeUrl ?? undefined}
+          title={title}
+          className="h-full w-full"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
 
-      {/* moving per-user watermark (anti-piracy) */}
       <Watermark text={watermark} />
 
-      {/* protected badge */}
-      <div className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs backdrop-blur">
+      <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs text-white backdrop-blur">
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
         DRM protected
       </div>
+    </div>
+  );
+}
 
-      {/* center play */}
-      {!playing && (
-        <button
-          onClick={toggle}
-          className="absolute inset-0 z-20 grid place-items-center"
-          aria-label="Play"
-        >
-          <span className="grid h-16 w-16 place-items-center rounded-full bg-white/90 text-black shadow-lg transition-transform hover:scale-105">
-            {time >= durationSec ? (
-              <RotateCcw className="h-7 w-7" />
-            ) : (
-              <Play className="ml-1 h-7 w-7 fill-black" />
-            )}
-          </span>
-        </button>
+function Frame({ seed, children }: { seed: string; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        'flex aspect-video w-full flex-col items-center justify-center rounded-xl bg-black text-white',
       )}
-
-      {/* title */}
-      {!started && (
-        <div className="absolute left-4 top-12 z-10 max-w-[70%]">
-          <p className="text-xs uppercase tracking-wide text-white/70">
-            Now playing
-          </p>
-          <p className="text-lg font-semibold drop-shadow">{title}</p>
-        </div>
-      )}
-
-      {/* clickable area to pause */}
-      {playing && (
-        <button
-          onClick={toggle}
-          className="absolute inset-0 z-10"
-          aria-label="Pause"
-        />
-      )}
-
-      {/* controls */}
-      <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-3">
-        <input
-          type="range"
-          min={0}
-          max={durationSec}
-          value={time}
-          onChange={(e) => {
-            setStarted(true);
-            setTime(Number(e.target.value));
-          }}
-          className="mb-2 h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-white [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-          style={{
-            background: `linear-gradient(to right, white ${pct}%, rgba(255,255,255,.3) ${pct}%)`,
-          }}
-        />
-        <div className="flex items-center gap-2 text-sm">
-          <button onClick={toggle} aria-label="Play/Pause">
-            {playing ? (
-              <Pause className="h-5 w-5" />
-            ) : (
-              <Play className="h-5 w-5" />
-            )}
-          </button>
-          {onNext && (
-            <button onClick={onNext} aria-label="Next lesson">
-              <SkipForward className="h-5 w-5" />
-            </button>
-          )}
-          <button onClick={() => setMuted((m) => !m)} aria-label="Mute">
-            {muted ? (
-              <VolumeX className="h-5 w-5" />
-            ) : (
-              <Volume2 className="h-5 w-5" />
-            )}
-          </button>
-          <span className="tabular-nums text-xs text-white/90">
-            {lessonTime(Math.floor(time))} / {lessonTime(durationSec)}
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-white hover:bg-white/20 hover:text-white"
-                  />
-                }
-                aria-label="Settings"
-              >
-                <Settings className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Playback speed</DropdownMenuLabel>
-                {[0.5, 1, 1.25, 1.5, 2].map((r) => (
-                  <DropdownMenuItem key={r} onClick={() => setRate(r)}>
-                    {rate === r ? '● ' : ''}
-                    {r}×
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <button aria-label="Fullscreen">
-              <Maximize className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
+      style={{ backgroundImage: gradientFor(seed) }}
+    >
+      <div className="absolute inset-0 rounded-xl bg-black/35" />
+      <div className="relative z-10 flex flex-col items-center">{children}</div>
     </div>
   );
 }
@@ -223,7 +130,7 @@ function Watermark({ text }: { text: string }) {
   }, []);
   return (
     <div
-      className="pointer-events-none absolute z-20 text-[11px] font-medium text-white/35 transition-all duration-[3000ms] ease-in-out"
+      className="pointer-events-none absolute z-20 text-[11px] font-medium text-white/35 transition-all duration-3000 ease-in-out"
       style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
     >
       {text} · SkillStream

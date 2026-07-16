@@ -11,10 +11,12 @@ import {
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { ReviewStatus } from "@prisma/client";
 import {
+  patchCouponSchema,
   reviewStatusSchema,
   upsertCouponSchema,
   updateUserStatusSchema,
   upsertAutomationRuleSchema,
+  type PatchCouponInput,
   type ReviewStatusInput,
   type UpsertCouponInput,
   type UpdateUserStatusInput,
@@ -85,6 +87,14 @@ export class AdminController {
     @Body(new ZodValidationPipe(upsertCouponSchema)) body: UpsertCouponInput,
   ) {
     return this.admin.upsertCoupon(body);
+  }
+
+  @Patch("coupons/:code")
+  patchCoupon(
+    @Param("code") code: string,
+    @Body(new ZodValidationPipe(patchCouponSchema)) body: PatchCouponInput,
+  ) {
+    return this.admin.patchCoupon(code, body);
   }
 
   @Delete("coupons/:code")

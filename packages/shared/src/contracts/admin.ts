@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { CouponScope, CouponType } from "../enums.js";
-import { ReminderChannel, ReminderTrigger, StudentStatus } from "../enums.js";
+import {
+  ReminderChannel,
+  ReminderStatus,
+  ReminderTrigger,
+  StudentStatus,
+} from "../enums.js";
 
 export interface AdminOverviewDto {
   revenueCents: number;
@@ -33,10 +38,22 @@ export const upsertCouponSchema = z.object({
   scope: z.enum(["GLOBAL", "COURSE"]).default("GLOBAL"),
   courseId: z.string().nullable().optional(),
   expiresAt: z.string(),
+  /** 0 = unlimited. */
   usageLimit: z.number().int().min(0).default(0),
   active: z.boolean().default(true),
 });
 export type UpsertCouponInput = z.infer<typeof upsertCouponSchema>;
+
+/** Lifecycle actions on an existing coupon: enable/disable, promote/unpromote. */
+export const patchCouponSchema = z
+  .object({
+    active: z.boolean().optional(),
+    featured: z.boolean().optional(),
+  })
+  .refine((v) => v.active !== undefined || v.featured !== undefined, {
+    message: "Provide active and/or featured",
+  });
+export type PatchCouponInput = z.infer<typeof patchCouponSchema>;
 
 export interface CouponDto {
   code: string;
@@ -50,6 +67,17 @@ export interface CouponDto {
   usageLimit: number;
   used: number;
   active: boolean;
+  featured: boolean;
+}
+
+/** Public shape for the storefront promo banner — no usage/limit internals. */
+export interface FeaturedCouponDto {
+  code: string;
+  type: CouponType;
+  value: number;
+  description: string;
+  minSpendCents: number | null;
+  expiresAt: string;
 }
 
 // ── User management ───────────────────────────────────────────────────────────
@@ -60,6 +88,31 @@ export const updateUserStatusSchema = z.object({
 export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
 
 // ── Automation rules ──────────────────────────────────────────────────────────
+
+export interface AutomationRuleDto {
+  id: string;
+  name: string;
+  trigger: ReminderTrigger;
+  /** Admin-facing prose describing the rule ("No activity for 7 days"). The
+   *  sweep's thresholds live in code — this string is not parsed. */
+  condition: string;
+  channels: ReminderChannel[];
+  template: string;
+  active: boolean;
+  sentCount: number;
+}
+
+export interface ReminderLogDto {
+  id: string;
+  userId: string | null;
+  userName: string | null;
+  ruleId: string | null;
+  channel: ReminderChannel;
+  trigger: ReminderTrigger;
+  subject: string;
+  status: ReminderStatus;
+  createdAt: string;
+}
 
 export const upsertAutomationRuleSchema = z.object({
   name: z.string().min(1).max(120),

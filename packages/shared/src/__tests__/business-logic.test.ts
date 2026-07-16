@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { regionalPriceCents } from "../pricing.js";
-import { validateCoupon, discountCents, type CouponLike } from "../coupon.js";
+import {
+  validateCoupon,
+  discountCents,
+  couponStatus,
+  type CouponLike,
+} from "../coupon.js";
 import { completionPct, isCourseComplete, quizPassed } from "../progress.js";
 import { CouponType, CouponScope } from "../enums.js";
 
@@ -49,6 +54,11 @@ describe("validateCoupon / discountCents", () => {
       validateCoupon({ ...base, minSpendCents: 6000 }, 5000, [], now).ok,
     ).toBe(false);
   });
+  it("treats usageLimit 0 as unlimited (the schema default)", () => {
+    expect(
+      validateCoupon({ ...base, usageLimit: 0, used: 9999 }, 5000, [], now).ok,
+    ).toBe(true);
+  });
   it("enforces course scope", () => {
     const c = { ...base, scope: CouponScope.COURSE, courseId: "c_react" };
     expect(validateCoupon(c, 5000, ["c_python"], now).ok).toBe(false);
@@ -64,6 +74,37 @@ describe("validateCoupon / discountCents", () => {
     ).toBe(5000);
     expect(discountCents({ ...base, type: CouponType.FREE }, 5000)).toBe(5000);
   });
+});
+
+describe("couponStatus", () => {
+  const base: CouponLike = {
+    code: "LAUNCH40",
+    type: CouponType.PERCENT,
+    value: 40,
+    description: "40% off",
+    scope: CouponScope.GLOBAL,
+    expiresAt: "2099-01-01",
+    usageLimit: 100,
+    used: 1,
+    active: true,
+  };
+  const now = new Date("2026-06-25");
+
+  it("reports active", () => expect(couponStatus(base, now)).toBe("active"));
+  it("reports disabled ahead of expiry", () =>
+    expect(
+      couponStatus({ ...base, active: false, expiresAt: "2025-01-01" }, now),
+    ).toBe("disabled"));
+  it("reports expired", () =>
+    expect(couponStatus({ ...base, expiresAt: "2025-01-01" }, now)).toBe(
+      "expired",
+    ));
+  it("reports limit-reached", () =>
+    expect(couponStatus({ ...base, used: 100 }, now)).toBe("limit-reached"));
+  it("stays active at an unlimited cap", () =>
+    expect(couponStatus({ ...base, usageLimit: 0, used: 9999 }, now)).toBe(
+      "active",
+    ));
 });
 
 describe("progress", () => {

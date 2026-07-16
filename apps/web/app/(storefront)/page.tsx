@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SaleBanner } from "@/components/storefront/sale-banner";
 import { CourseCard } from "@/components/storefront/course-card";
 import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/shared/stars";
@@ -70,8 +69,6 @@ export default function HomePage() {
 
   return (
     <>
-      <SaleBanner />
-
       {/* ── Hero ───────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-border">
         {/* Conic aurora bloom behind the headline */}

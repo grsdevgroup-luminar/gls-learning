@@ -49,8 +49,12 @@ export class MediaService {
     return { uploadUrl: json.result.uploadURL, uid: json.result.uid };
   }
 
-  /** Returns signed playback for an enrolled (or preview) lesson. */
-  async getPlayback(userId: string, lessonId: string): Promise<PlaybackDto> {
+  /** Returns signed playback for an enrolled (or preview) lesson. `userId` is
+   *  undefined for logged-out visitors previewing free lessons. */
+  async getPlayback(
+    userId: string | undefined,
+    lessonId: string,
+  ): Promise<PlaybackDto> {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
       select: {
@@ -65,10 +69,9 @@ export class MediaService {
     if (!lesson) throw new NotFoundException("Lesson not found");
 
     if (!lesson.preview) {
-      const enrolled = await this.enrollment.isEnrolled(
-        userId,
-        lesson.section.courseId,
-      );
+      const enrolled =
+        !!userId &&
+        (await this.enrollment.isEnrolled(userId, lesson.section.courseId));
       if (!enrolled) throw new ForbiddenException("Enroll to access this lesson");
     }
 

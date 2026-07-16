@@ -1,20 +1,31 @@
 import type {
   AdminOverviewDto,
   AdminStudentDto,
+  AutomationRuleDto,
+  CommentDto,
+  CouponDto,
   CourseDetailDto,
   CourseSummaryDto,
+  CreateCommentInput,
   CreateReviewInput,
+  FeaturedCouponDto,
+  PatchCouponInput,
+  UpsertAutomationRuleInput,
+  UpsertCouponInput,
   EnrollmentDto,
   InstructorApplicationDto,
   InstructorProfileDto,
   OrderDto,
+  DirectUploadDto,
   OrganizationDto,
   Paginated,
+  PlaybackDto,
   QuizAttemptInput,
   QuizAttemptResultDto,
   QuizPlayDto,
   QuizResultDto,
   QuoteDto,
+  ReminderLogDto,
   ReviewDto,
   SalesAgentDto,
   SalesAgentReferralDto,
@@ -29,6 +40,11 @@ import { apiFetch } from "./client";
 export type {
   AdminOverviewDto,
   AdminStudentDto,
+  AutomationRuleDto,
+  CommentDto,
+  CouponDto,
+  ReminderLogDto,
+  FeaturedCouponDto,
   CourseDetailDto,
   CourseSummaryDto,
   EnrollmentDto,
@@ -81,6 +97,10 @@ export const api = {
       { method: "POST" },
     ),
 
+  // media
+  playback: (lessonId: string) =>
+    apiFetch<PlaybackDto>(`/lessons/${lessonId}/playback`),
+
   // quiz
   quiz: (lessonId: string) => apiFetch<QuizPlayDto>(`/lessons/${lessonId}/quiz`),
   quizResult: (lessonId: string) =>
@@ -107,6 +127,12 @@ export const api = {
     apiFetch<ReviewDto | null>(`/me/courses/${courseId}/review`),
   submitReview: (courseId: string, body: CreateReviewInput) =>
     apiFetch<ReviewDto>(`/courses/${courseId}/reviews`, { method: "POST", body }),
+
+  // comments — flat course discussion, public read / logged-in write
+  courseComments: (courseId: string, page = 1) =>
+    apiFetch<Paginated<CommentDto>>(`/courses/${courseId}/comments${qs({ page })}`),
+  postComment: (courseId: string, body: CreateCommentInput) =>
+    apiFetch<CommentDto>(`/courses/${courseId}/comments`, { method: "POST", body }),
 
   // admin — instructor applications
   adminInstructorApplications: () =>
@@ -138,6 +164,26 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
   refundOrder: (orderId: string) =>
     apiFetch<{ ok: true }>(`/admin/orders/${orderId}/refund`, { method: "POST" }),
+  // coupons — the featured one drives the public storefront banner
+  featuredCoupon: () => apiFetch<FeaturedCouponDto | null>("/coupons/featured"),
+  adminCoupons: () => apiFetch<CouponDto[]>("/admin/coupons"),
+  adminUpsertCoupon: (input: UpsertCouponInput) =>
+    apiFetch<CouponDto>("/admin/coupons", { method: "POST", body: input }),
+  adminPatchCoupon: (code: string, input: PatchCouponInput) =>
+    apiFetch<CouponDto>(`/admin/coupons/${code}`, { method: "PATCH", body: input }),
+  adminDeleteCoupon: (code: string) =>
+    apiFetch<{ ok: true }>(`/admin/coupons/${code}`, { method: "DELETE" }),
+
+  // marketing automation
+  adminAutomationRules: () => apiFetch<AutomationRuleDto[]>("/admin/automation-rules"),
+  adminCreateAutomationRule: (input: UpsertAutomationRuleInput) =>
+    apiFetch<AutomationRuleDto>("/admin/automation-rules", { method: "POST", body: input }),
+  adminUpdateAutomationRule: (id: string, input: UpsertAutomationRuleInput) =>
+    apiFetch<AutomationRuleDto>(`/admin/automation-rules/${id}`, { method: "PATCH", body: input }),
+  adminDeleteAutomationRule: (id: string) =>
+    apiFetch<{ ok: true }>(`/admin/automation-rules/${id}`, { method: "DELETE" }),
+  adminReminderLogs: () => apiFetch<ReminderLogDto[]>("/admin/reminder-logs"),
+
   adminReviews: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<ReviewDto>>(`/admin/reviews${qs(params)}`),
   updateReviewStatus: (reviewId: string, status: "APPROVED" | "HIDDEN") =>
@@ -326,6 +372,8 @@ export const authoringApi = {
     apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
       method: "DELETE",
     }),
+  mediaUploadUrl: () =>
+    apiFetch<DirectUploadDto>("/media/upload-url", { method: "POST" }),
 };
 
 // Grouped aliases so portal pages can import a namespaced client.

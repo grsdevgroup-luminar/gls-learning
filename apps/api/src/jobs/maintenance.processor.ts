@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
+import { AutomationService } from "./automation.service";
 import { MAINTENANCE_QUEUE } from "./jobs.constants";
 
 /**
@@ -13,11 +14,16 @@ import { MAINTENANCE_QUEUE } from "./jobs.constants";
 export class MaintenanceProcessor extends WorkerHost {
   private readonly logger = new Logger(MaintenanceProcessor.name);
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly automation: AutomationService,
+  ) {
     super();
   }
 
   async process(job: Job): Promise<unknown> {
+    // Marketing automation rides the same periodic queue as the rollup.
+    if (job.name === "automation-sweep") return this.automation.sweep();
     if (job.name !== "rollup") return undefined;
 
     // Reconcile enrollment completion: mark COMPLETED when every lesson is done.

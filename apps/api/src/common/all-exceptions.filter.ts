@@ -33,9 +33,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message = (b.message as string | string[]) ?? exception.message;
         error = (b.error as string) ?? exception.name;
       }
-    } else if (exception instanceof Error) {
-      message = exception.message;
     }
+    // Anything that isn't an HttpException is unintended (Prisma errors, bugs).
+    // Its message can carry file paths, SQL, and query source, so the client
+    // keeps the generic 500 above and the detail goes to the log below only.
 
     if (status >= 500) {
       this.logger.error(

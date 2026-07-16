@@ -24,6 +24,17 @@ export class MaintenanceScheduler implements OnModuleInit {
           removeOnFail: 50,
         },
       );
+      // Marketing automation: evaluate rules hourly and enqueue reminders.
+      await this.queue.add(
+        "automation-sweep",
+        {},
+        {
+          repeat: { every: 60 * 60 * 1000 },
+          jobId: "automation-sweep",
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
       // Kick one off immediately so fresh deploys reconcile right away.
       await this.queue.add("rollup", {}, { removeOnComplete: true });
     } catch (err) {

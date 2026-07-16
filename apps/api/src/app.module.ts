@@ -15,6 +15,7 @@ import { CommerceModule } from "./commerce/commerce.module";
 import { MediaModule } from "./media/media.module";
 import { AuthoringModule } from "./authoring/authoring.module";
 import { ReviewsModule } from "./reviews/reviews.module";
+import { CommentsModule } from "./comments/comments.module";
 import { InstructorModule } from "./instructor/instructor.module";
 import { AdminModule } from "./admin/admin.module";
 import { SalesAgentModule } from "./sales-agent/sales-agent.module";
@@ -54,6 +55,7 @@ import { AuditInterceptor } from "./common/audit.interceptor";
     MediaModule,
     AuthoringModule,
     ReviewsModule,
+    CommentsModule,
     InstructorModule,
     AdminModule,
     SalesAgentModule,

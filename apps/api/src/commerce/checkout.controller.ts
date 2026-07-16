@@ -6,9 +6,10 @@ import {
   type CheckoutQuoteInput,
   type CheckoutSessionInput,
 } from "@skillstream/shared";
-import { CurrentUser, type RequestUser } from "../common/decorators";
+import { CurrentUser, Public, type RequestUser } from "../common/decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { CheckoutService } from "./checkout.service";
+import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
 
 @ApiTags("checkout")
@@ -18,7 +19,15 @@ export class CheckoutController {
   constructor(
     private readonly checkout: CheckoutService,
     private readonly orders: OrdersService,
+    private readonly coupons: CouponsService,
   ) {}
+
+  /** Drives the site-wide promo banner — unauthenticated visitors see it too. */
+  @Public()
+  @Get("coupons/featured")
+  featuredCoupon() {
+    return this.coupons.featured();
+  }
 
   @Post("checkout/quote")
   quote(

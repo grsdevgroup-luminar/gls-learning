@@ -6,9 +6,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import type {
+  AutomationRuleDto,
   CheckoutQuoteInput,
+  CreateCommentInput,
   CreateReviewInput,
+  PatchCouponInput,
   QuizAttemptInput,
+  UpsertAutomationRuleInput,
+  UpsertCouponInput,
 } from "@skillstream/shared";
 import { api } from "./endpoints";
 
@@ -22,6 +27,7 @@ export const qk = {
   quizResult: (lessonId: string) => ["quiz-result", lessonId] as const,
   orders: ["orders"] as const,
   reviews: (courseId: string) => ["reviews", courseId] as const,
+  comments: (courseId: string) => ["comments", courseId] as const,
   myReview: (courseId: string) => ["my-review", courseId] as const,
   certificates: ["certificates"] as const,
   adminOverview: ["admin-overview"] as const,
@@ -30,6 +36,10 @@ export const qk = {
   instructorProfile: ["instructor-profile"] as const,
   instructorCourses: ["instructor-courses"] as const,
   salesAgents: ["sales-agents"] as const,
+  adminCoupons: ["admin-coupons"] as const,
+  featuredCoupon: ["featured-coupon"] as const,
+  automationRules: ["automation-rules"] as const,
+  reminderLogs: ["reminder-logs"] as const,
 };
 
 // ── catalog ──────────────────────────────────────────────────────────────
@@ -140,6 +150,89 @@ export function useUpdateUserStatus() {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.adminStudents() }),
   });
 }
+
+// ── comments ──────────────────────────────────────────────────────────────
+export const useCourseComments = (courseId: string) =>
+  useQuery({
+    queryKey: qk.comments(courseId),
+    queryFn: () => api.courseComments(courseId),
+  });
+
+export function usePostComment(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCommentInput) => api.postComment(courseId, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.comments(courseId) }),
+  });
+}
+
+// ── marketing automation ──────────────────────────────────────────────────
+export const useAutomationRules = () =>
+  useQuery({ queryKey: qk.automationRules, queryFn: api.adminAutomationRules });
+
+export const useReminderLogs = () =>
+  useQuery({ queryKey: qk.reminderLogs, queryFn: api.adminReminderLogs });
+
+function useRuleMutation<TArgs, TData>(fn: (args: TArgs) => Promise<TData>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.automationRules }),
+  });
+}
+
+export const useCreateAutomationRule = () =>
+  useRuleMutation((input: UpsertAutomationRuleInput) => api.adminCreateAutomationRule(input));
+
+/** The API's PATCH takes a full rule body, so callers send the whole rule. */
+export const useUpdateAutomationRule = () =>
+  useRuleMutation(({ id, ...input }: UpsertAutomationRuleInput & { id: string }) =>
+    api.adminUpdateAutomationRule(id, input),
+  );
+
+export const useDeleteAutomationRule = () =>
+  useRuleMutation((id: string) => api.adminDeleteAutomationRule(id));
+
+/** Body the PATCH expects, derived from an existing rule. */
+export const ruleToInput = (r: AutomationRuleDto): UpsertAutomationRuleInput => ({
+  name: r.name,
+  trigger: r.trigger,
+  condition: r.condition,
+  channels: r.channels,
+  template: r.template,
+  active: r.active,
+});
+
+// ── coupons ───────────────────────────────────────────────────────────────
+export const useFeaturedCoupon = () =>
+  useQuery({ queryKey: qk.featuredCoupon, queryFn: api.featuredCoupon });
+
+export const useAdminCoupons = () =>
+  useQuery({ queryKey: qk.adminCoupons, queryFn: api.adminCoupons });
+
+/** Any coupon write can change which one is promoted, so both the admin table
+ *  and the public banner are refetched. */
+function useCouponMutation<TArgs, TData>(fn: (args: TArgs) => Promise<TData>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.adminCoupons });
+      void qc.invalidateQueries({ queryKey: qk.featuredCoupon });
+    },
+  });
+}
+
+export const useUpsertCoupon = () =>
+  useCouponMutation((input: UpsertCouponInput) => api.adminUpsertCoupon(input));
+
+export const usePatchCoupon = () =>
+  useCouponMutation(({ code, ...input }: PatchCouponInput & { code: string }) =>
+    api.adminPatchCoupon(code, input),
+  );
+
+export const useDeleteCoupon = () =>
+  useCouponMutation((code: string) => api.adminDeleteCoupon(code));
 
 // ── instructor ────────────────────────────────────────────────────────────
 export const useInstructorProfile = () =>

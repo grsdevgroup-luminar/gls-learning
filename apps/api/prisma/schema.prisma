@@ -146,10 +146,12 @@ model User {
   studentProfile    StudentProfile?
   instructorProfile InstructorProfile?
   refreshTokens     RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   enrollments       Enrollment[]
   quizResults       QuizResult[]
   quizAttempts      QuizAttempt[]
   reviews           Review[]
+  comments          Comment[]
   orders            Order[]
   reminderLogs      ReminderLog[]
   couponRedemptions CouponRedemption[]
@@ -169,6 +171,18 @@ model RefreshToken {
   ip        String?
   expiresAt DateTime
   revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@index([userId])
@@ -249,6 +263,7 @@ model Course {
   sections    Section[]
   enrollments Enrollment[]
   reviews     Review[]
+  comments    Comment[]
   orderItems  OrderItem[]
   coupons     Coupon[]
 
@@ -415,6 +430,20 @@ model Review {
 
 // ─── Commerce ─────────────────────────────────────────────────────────────────
 
+/// Flat (non-threaded) course discussion. No moderation state by design --
+/// any logged-in user may post, and comments are read publicly.
+model Comment {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([courseId, createdAt])
+}
+
 model Order {
   id                String         @id @default(cuid())
   userId            String
@@ -469,6 +498,9 @@ model Coupon {
   usageLimit    Int         @default(0)
   used          Int         @default(0)
   active        Boolean     @default(true)
+  /// Storefront promo banner. At most one coupon may be featured at a time —
+  /// enforced by a partial unique index (see the migration), not just by service code.
+  featured      Boolean     @default(false)
   createdAt     DateTime    @default(now())
 
   redemptions CouponRedemption[]

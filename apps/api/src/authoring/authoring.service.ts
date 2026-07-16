@@ -77,7 +77,7 @@ export class AuthoringService {
   private detail(id: string) {
     return this.prisma.course
       .findUniqueOrThrow({ where: { id }, include: COURSE_DETAIL_INCLUDE })
-      .then(toCourseDetail);
+      .then((row) => toCourseDetail(row, { includeArticleContent: true }));
   }
 
   /** Owner-gated detail so the course builder can edit drafts. */

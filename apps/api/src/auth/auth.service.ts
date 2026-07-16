@@ -2,12 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 import * as argon2 from "argon2";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
 import { UserRole } from "@prisma/client";
 import type {
   AuthUserDto,
@@ -22,33 +19,27 @@ import { UsersService } from "../users/users.service";
 import { TokenService } from "./token.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
-import type { Env } from "../config/env";
 
 export interface SessionMeta {
   userAgent?: string;
   ip?: string;
 }
 
-interface ResetTokenPayload {
-  sub: string;
-  purpose: "password-reset";
-  iat?: number;
-}
+// Verified against a real argon2id hash even when the account doesn't exist,
+// so a login attempt against an unknown email takes the same time as a wrong
+// password on a known one (otherwise the branch is a timing side-channel that
+// lets an attacker enumerate registered emails).
+const DUMMY_HASH =
+  "$argon2id$v=19$m=65536,t=3,p=4$qG3iYM79HzmML4nYYbNiIw$wQtTB/quYQc5M3BK7ciJ5h0BoT7NJzD3fCT+t+2Ra3g";
 
 @Injectable()
 export class AuthService {
-  private readonly resetSecret: string;
-
   constructor(
     private readonly users: UsersService,
     private readonly tokens: TokenService,
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
-    private readonly jwt: JwtService,
-    private readonly config: ConfigService<Env, true>,
-  ) {
-    this.resetSecret = config.get("JWT_ACCESS_SECRET", { infer: true }) + "_reset";
-  }
+  ) {}
 
   async register(input: RegisterInput, meta: SessionMeta) {
     const existing = await this.users.findByEmail(input.email);
@@ -72,9 +63,8 @@ export class AuthService {
 
   async login(input: LoginInput, meta: SessionMeta) {
     const user = await this.users.findByEmail(input.email);
-    if (!user) throw new UnauthorizedException("Invalid credentials");
-    const valid = await argon2.verify(user.passwordHash, input.password);
-    if (!valid) throw new UnauthorizedException("Invalid credentials");
+    const valid = await argon2.verify(user?.passwordHash ?? DUMMY_HASH, input.password);
+    if (!user || !valid) throw new UnauthorizedException("Invalid credentials");
     return this.issueSession(user.id, user.email, user.role, meta);
   }
 
@@ -120,36 +110,24 @@ export class AuthService {
     // Always return ok to prevent email enumeration.
     if (!user) return { ok: true };
 
-    const token = this.jwt.sign(
-      { sub: user.id, purpose: "password-reset" } satisfies ResetTokenPayload,
-      { secret: this.resetSecret, expiresIn: "1h" },
-    );
+    const token = await this.tokens.issuePasswordResetToken(user.id);
     await this.email.sendPasswordReset(user.email, user.name, token);
     return { ok: true };
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<{ ok: true }> {
-    let payload: ResetTokenPayload;
-    try {
-      payload = this.jwt.verify<ResetTokenPayload>(input.token, {
-        secret: this.resetSecret,
-      });
-    } catch {
-      throw new BadRequestException("Invalid or expired reset token");
-    }
-    if (payload.purpose !== "password-reset")
-      throw new BadRequestException("Invalid token purpose");
-
-    const user = await this.users.findById(payload.sub);
-    if (!user) throw new NotFoundException("User not found");
+    // Single-use, DB-backed token: consuming it here means a captured/replayed
+    // link can never reset the password a second time, unlike a stateless JWT.
+    const userId = await this.tokens.consumePasswordResetToken(input.token);
+    if (!userId) throw new BadRequestException("Invalid or expired reset token");
 
     const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
     await this.prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: { passwordHash },
     });
     // Revoke all existing sessions so old sessions can't be reused.
-    await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
     return { ok: true };
   }
 

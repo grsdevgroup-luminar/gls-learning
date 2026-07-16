@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import { AppModule } from "./app.module";
 import type { Env } from "./config/env";
 
@@ -27,6 +28,9 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService<Env, true>);
 
   app.setGlobalPrefix("api");
+  // crossOriginResourcePolicy: cross-site is disabled by default — this API is
+  // consumed by a separate frontend origin (WEB_ORIGIN), so relax it there.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cookieParser());
   app.enableCors({
     origin: config.get("WEB_ORIGIN", { infer: true }),

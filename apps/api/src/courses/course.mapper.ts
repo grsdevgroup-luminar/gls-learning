@@ -87,7 +87,10 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
   };
 }
 
-export function toCourseDetail(row: CourseDetailRow): CourseDetailDto {
+export function toCourseDetail(
+  row: CourseDetailRow,
+  opts?: { includeArticleContent?: boolean },
+): CourseDetailDto {
   let durationSec = 0;
   let lessonCount = 0;
   const sections: SectionDto[] = row.sections.map((s) => ({
@@ -105,6 +108,10 @@ export function toCourseDetail(row: CourseDetailRow): CourseDetailDto {
         preview: l.preview,
         order: l.order,
         hasQuiz: l.quiz !== null,
+        hasVideo: l.cfVideoUid !== null,
+        ...(opts?.includeArticleContent
+          ? { articleContent: l.articleContent }
+          : {}),
       };
     }),
   }));

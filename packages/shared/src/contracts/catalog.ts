@@ -37,6 +37,11 @@ export interface LessonPublicDto {
   preview: boolean;
   order: number;
   hasQuiz: boolean;
+  /** Whether a Cloudflare Stream video is attached (course builder upload status). */
+  hasVideo: boolean;
+  /** Owner/admin only (course builder) — omitted from the public catalog so
+   *  paid article content can't be read without enrolling. */
+  articleContent?: string | null;
 }
 
 export interface SectionDto {

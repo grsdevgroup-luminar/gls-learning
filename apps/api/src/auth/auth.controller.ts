@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
 import {
@@ -82,6 +83,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("register")
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
@@ -94,6 +96,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
   @Post("login")
   @HttpCode(200)
   async login(
@@ -143,6 +146,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post("forgot-password")
   @HttpCode(200)
   forgotPassword(
@@ -152,6 +156,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
   @Post("reset-password")
   @HttpCode(200)
   resetPassword(
@@ -168,6 +173,7 @@ export class AuthController {
     return this.auth.updateProfile(user.id, body);
   }
 
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
   @Post("me/password")
   @HttpCode(200)
   changePassword(

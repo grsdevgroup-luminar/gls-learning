@@ -186,6 +186,17 @@ export class OrganizationsService {
 
   async removeMember(user: RequestUser, orgId: string, memberId: string) {
     await this.assertOrgAdmin(user, orgId);
+    const member = await this.prisma.orgMember.findFirst({
+      where: { id: memberId, orgId },
+    });
+    if (!member) throw new NotFoundException("Member not found");
+    if (member.role === "ADMIN") {
+      const admins = await this.prisma.orgMember.count({
+        where: { orgId, role: "ADMIN" },
+      });
+      if (admins <= 1)
+        throw new BadRequestException("An organization must keep one admin");
+    }
     await this.prisma.orgMember.delete({ where: { id: memberId } });
     await this.prisma.organization.update({
       where: { id: orgId },

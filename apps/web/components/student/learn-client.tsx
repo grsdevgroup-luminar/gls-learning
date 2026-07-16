@@ -110,16 +110,15 @@ export function LearnClient({ course }: { course: Course }) {
               <QuizPlayer key={current.id} courseId={course.id} lessonId={current.id} />
             </div>
           ) : (
-            <div className="bg-black p-0 lg:p-4">
+            <div className="p-0 lg:p-4">
               <div className="mx-auto w-full max-w-4xl">
                 <ProtectedPlayer
                   key={current.id}
+                  lessonId={current.id}
                   title={current.title}
-                  durationSec={current.durationSec}
                   watermark={user?.email ?? ""}
                   seed={course.thumbnail}
                   onComplete={markAndMaybeAdvance}
-                  onNext={() => goto(1)}
                 />
               </div>
             </div>

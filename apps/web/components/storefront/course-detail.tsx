@@ -7,6 +7,7 @@ import type { Course } from '@/types';
 import { useStore } from '@/lib/context/store';
 import { getInstructor } from '@/lib/mock/instructors';
 import { reviewsForCourse } from '@/lib/mock/reviews';
+import { CourseComments } from '@/components/storefront/course-comments';
 import {
   courseDurationMin,
   courseLessonCount,
@@ -185,8 +186,8 @@ export function CourseDetail({ course }: { course: Course }) {
               </Badge>
             </div>
             <ProtectedPlayer
+              lessonId={previewLesson.id}
               title={previewLesson.title}
-              durationSec={previewLesson.durationSec}
               watermark={watermark}
               seed={course.thumbnail}
             />
@@ -376,6 +377,9 @@ export function CourseDetail({ course }: { course: Course }) {
               ))}
             </div>
           </div>
+
+          {/* Discussion */}
+          <CourseComments courseId={course.id} />
         </div>
 
         {/* Purchase card — pulled up to overlap the hero, then sticky */}

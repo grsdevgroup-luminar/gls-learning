@@ -23,7 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, Video, ImagePlus, Loader2,
+  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -63,6 +63,8 @@ interface BLesson {
   title: string;
   preview: boolean;
   hasVideo: boolean;
+  cfVideoUid: string | null; // set locally after a fresh upload this session
+  articleContent: string;
   durationSec: number;
   type: Lesson["type"];
   quiz?: Quiz;
@@ -114,7 +116,9 @@ function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       isNew: false,
       title: l.title,
       preview: !!l.preview,
-      hasVideo: l.type === "VIDEO",
+      hasVideo: l.hasVideo,
+      cfVideoUid: null,
+      articleContent: l.articleContent ?? "",
       durationSec: l.durationSec,
       type: TYPE_FROM_API[l.type] ?? "video",
       quiz: undefined, // loaded lazily for quiz lessons
@@ -152,7 +156,7 @@ export function CourseBuilder({
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, durationSec: 300, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", durationSec: 300, type: "video" }] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ sections: Set<string>; lessons: Set<string> }>({
@@ -223,7 +227,7 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, durationSec: 300, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", durationSec: 300, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
@@ -308,6 +312,10 @@ export function CourseBuilder({
             durationSec: l.durationSec,
             preview: l.preview,
             order: li,
+            // Only sent when a fresh upload just happened — omitting it leaves
+            // an already-attached video untouched (see authoring.service.ts).
+            ...(l.cfVideoUid ? { cfVideoUid: l.cfVideoUid } : {}),
+            ...(l.type === "article" ? { articleContent: l.articleContent } : {}),
           };
           let lessonServerId = l.id;
           if (isTemp(l.id)) {
@@ -447,12 +455,6 @@ export function CourseBuilder({
             </CardContent>
           </Card>
 
-          {/* Promo video */}
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Video className="h-4 w-4 text-primary" /> Promo video</CardTitle></CardHeader>
-            <CardContent><VideoUpload /></CardContent>
-          </Card>
-
           {/* Curriculum builder */}
           <Card>
             <CardHeader className="flex-row items-center justify-between">
@@ -492,9 +494,18 @@ export function CourseBuilder({
                               onChange={(quiz) => patchLesson(s.id, l.id, { quiz, quizDirty: true })}
                             />
                           ) : l.type === "video" ? (
-                            <VideoUpload compact initialReady={l.hasVideo} onReady={() => patchLesson(s.id, l.id, { hasVideo: true })} />
+                            <VideoUpload
+                              compact
+                              initiallyUploaded={l.hasVideo}
+                              onReady={(uid) => patchLesson(s.id, l.id, { cfVideoUid: uid, hasVideo: true })}
+                            />
                           ) : (
-                            <p className="text-xs text-muted-foreground">Article lessons use the description above — no media upload needed.</p>
+                            <Textarea
+                              value={l.articleContent}
+                              onChange={(e) => patchLesson(s.id, l.id, { articleContent: e.target.value })}
+                              placeholder="Write the article content students will read for this lesson…"
+                              className="min-h-32 text-sm"
+                            />
                           )}
                         </div>
                       </div>
