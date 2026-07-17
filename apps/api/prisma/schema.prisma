@@ -584,6 +584,22 @@ model ReminderLog {
 
 // ─── Ops ──────────────────────────────────────────────────────────────────────
 
+/// Platform-wide settings. Exactly one row: `id` is pinned to "singleton" so a
+/// second row cannot be created, and reads upsert the defaults on first access.
+model PlatformSettings {
+  id              String   @id @default("singleton")
+  platformName    String   @default("SkillStream")
+  supportEmail    String   @default("support@skillstream.dev")
+  baseCurrency    String   @default("USD")
+  defaultLanguage String   @default("English")
+  /// Gateway kill-switches — enforced at checkout, not just displayed.
+  stripeEnabled   Boolean  @default(true)
+  paypalEnabled   Boolean  @default(true)
+  /// Admin notification toggles, keyed by id (display-only for now).
+  notifications   Json     @default("{}")
+  updatedAt       DateTime @updatedAt
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   actorUserId String?

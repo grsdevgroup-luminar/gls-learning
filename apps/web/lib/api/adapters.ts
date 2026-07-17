@@ -40,6 +40,16 @@ function baseCourse(dto: CourseSummaryDto): Omit<Course, "sections"> {
     level: LEVEL_TO_LEGACY[dto.level],
     thumbnail: dto.thumbnail,
     instructorId: dto.instructor.id,
+    instructor: {
+      id: dto.instructor.id,
+      name: dto.instructor.name,
+      title: dto.instructor.title,
+      avatar: dto.instructor.avatar,
+      bio: dto.instructor.bio,
+      rating: dto.instructor.ratingAvg,
+      students: dto.instructor.studentCount,
+      courses: dto.instructor.courseCount,
+    },
     basePrice: dto.basePriceCents / 100,
     originalPrice: dto.originalPriceCents
       ? dto.originalPriceCents / 100
@@ -53,6 +63,8 @@ function baseCourse(dto: CourseSummaryDto): Omit<Course, "sections"> {
     bestseller: dto.bestseller,
     whatYouLearn: [],
     requirements: [],
+    lessonCount: dto.lessonCount,
+    durationSec: dto.durationSec,
     revenue: 0,
   };
 }

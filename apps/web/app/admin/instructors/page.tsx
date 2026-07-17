@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/endpoints";
-import { instructors as seedInstructors } from "@/lib/mock/instructors";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Stars } from "@/components/shared/stars";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -17,7 +16,6 @@ import {
   Clock, Users, GraduationCap, CheckCircle2, Check, X, ExternalLink, Mail,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Instructor } from "@/types";
 
 function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -43,9 +41,10 @@ export default function AdminInstructors() {
   const pending = applications.filter((a) => a.status === "PENDING");
   const decided = applications.filter((a) => a.status !== "PENDING");
 
-  // Active roster (seed reference until a roster endpoint is added).
-  const roster: Instructor[] = seedInstructors;
-  const courseCount = (id: string) => roster.find((r) => r.id === id)?.courses ?? 0;
+  const { data: roster = [] } = useQuery({
+    queryKey: ["admin", "instructors"],
+    queryFn: () => api.instructors(),
+  });
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -57,7 +56,7 @@ export default function AdminInstructors() {
       <StatStrip className="grid-cols-2 lg:grid-cols-3">
         <Stat icon={Clock} label="Pending applications" value={pending.length} tint="var(--tint-amber)" />
         <Stat icon={GraduationCap} label="Active instructors" value={roster.length} tint="var(--tint-indigo)" />
-        <Stat icon={Users} label="Total students taught" value={compactNumber(roster.reduce((s, i) => s + i.students, 0))} tint="var(--tint-sky)" />
+        <Stat icon={Users} label="Total students taught" value={compactNumber(roster.reduce((s, i) => s + i.studentCount, 0))} tint="var(--tint-sky)" />
       </StatStrip>
 
       {/* Applications */}
@@ -161,9 +160,9 @@ export default function AdminInstructors() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{courseCount(i.id) || i.courses}</TableCell>
-                    <TableCell>{compactNumber(i.students)}</TableCell>
-                    <TableCell className="pr-6">{i.rating > 0 ? <Stars rating={i.rating} size={12} showValue /> : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{i.courseCount}</TableCell>
+                    <TableCell>{compactNumber(i.studentCount)}</TableCell>
+                    <TableCell className="pr-6">{i.ratingAvg > 0 ? <Stars rating={i.ratingAvg} size={12} showValue /> : <span className="text-muted-foreground">—</span>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

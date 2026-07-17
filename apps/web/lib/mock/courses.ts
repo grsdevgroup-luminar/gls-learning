@@ -842,26 +842,5 @@ export function getCourseById(id: string) {
 export const publishedCourses = courses.filter((c) => c.status === "published");
 export const categories = Array.from(new Set(courses.map((c) => c.category)));
 
-export function courseDurationMin(course: Course) {
-  return Math.round(
-    course.sections.reduce(
-      (sum, s) => sum + s.lessons.reduce((a, l) => a + l.durationSec, 0),
-      0,
-    ) / 60,
-  );
-}
-export function courseLessonCount(course: Course) {
-  return course.sections.reduce((a, s) => a + s.lessons.length, 0);
-}
-export function courseArticleCount(course: Course) {
-  return course.sections.reduce(
-    (a, s) => a + s.lessons.filter((l) => l.type === "article").length,
-    0,
-  );
-}
-export function courseResourceCount(course: Course) {
-  return course.sections.reduce(
-    (a, s) => a + s.lessons.reduce((b, l) => b + (l.resources?.length ?? 0), 0),
-    0,
-  );
-}
+// Curriculum stat helpers moved to `lib/course-stats.ts` — they work off the
+// API's Course shape now, and this file is seed fixture data only.

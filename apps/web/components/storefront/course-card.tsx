@@ -5,13 +5,12 @@ import { Stars } from "@/components/shared/stars";
 import { Price } from "@/components/shared/price";
 import { SpotlightCard } from "@/components/shared/motion";
 import { BestsellerBadge } from "@/components/shared/bestseller-badge";
-import { getInstructor } from "@/lib/mock/instructors";
-import { courseDurationMin, courseLessonCount } from "@/lib/mock/courses";
+import { courseDurationMin, courseLessonCount } from "@/lib/course-stats";
 import { compactNumber, formatHoursFromMin } from "@/lib/format";
 import { Clock, Users, Dot, PlayCircle, ArrowRight, Gauge } from "lucide-react";
 
 export function CourseCard({ course }: { course: Course }) {
-  const instructor = getInstructor(course.instructorId);
+  const instructor = course.instructor;
   return (
     <Link
       href={`/courses/${course.slug}`}

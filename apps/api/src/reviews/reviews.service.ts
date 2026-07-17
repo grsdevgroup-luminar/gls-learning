@@ -12,6 +12,7 @@ import { EnrollmentService } from "../enrollment/enrollment.service";
 
 const reviewInclude = {
   user: { select: { name: true, avatar: true } },
+  course: { select: { title: true } },
 } satisfies Prisma.ReviewInclude;
 type ReviewRow = Prisma.ReviewGetPayload<{ include: typeof reviewInclude }>;
 
@@ -34,6 +35,7 @@ export class ReviewsService {
       status: r.status,
       helpful: r.helpful,
       createdAt: r.createdAt.toISOString(),
+      courseTitle: r.course.title,
     };
   }
 

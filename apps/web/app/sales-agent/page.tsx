@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import type { SalesAgentDto } from "@skillstream/shared";
 import { useMySalesAgent, useMyAgentReferrals, referralLinkFor } from "@/lib/api/agent-hooks";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DollarSign, Link2, TrendingUp, Copy, CheckCircle2, Clock, Wallet, Loader2,
+  XCircle, PauseCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +26,47 @@ const statusBadge = {
   confirmed: { label: "Confirmed", cls: "text-primary" },
   pending:   { label: "Pending",   cls: "text-warning" },
 } as const;
+
+/** Explanatory state for every non-APPROVED agent status (spec §7). */
+function AgentBlocked({
+  status,
+}: {
+  status: Exclude<SalesAgentDto["status"], "APPROVED">;
+}) {
+  const copy = {
+    PENDING: {
+      icon: Clock,
+      cls: "text-warning",
+      title: "Application under review",
+      body: "We review new agent applications within 1–2 business days. Your referral tools unlock on approval.",
+    },
+    REJECTED: {
+      icon: XCircle,
+      cls: "text-destructive",
+      title: "Application not approved",
+      body: "Your application wasn't approved this time. If your circumstances have changed, contact support to ask for another review.",
+    },
+    SUSPENDED: {
+      icon: PauseCircle,
+      cls: "text-destructive",
+      title: "Account suspended",
+      body: "Your agent account is suspended, so referral links and commission are paused. Contact support to resolve this.",
+    },
+  }[status];
+
+  const Icon = copy.icon;
+  return (
+    <div className="grid min-h-[60vh] place-items-center p-6 text-center">
+      <div className="max-w-md">
+        <Icon className={`mx-auto mb-4 h-10 w-10 ${copy.cls}`} />
+        <h1 className="font-heading text-2xl font-bold tracking-tight">
+          {copy.title}
+        </h1>
+        <p className="mt-3 text-sm text-muted-foreground">{copy.body}</p>
+      </div>
+    </div>
+  );
+}
 
 function AgentApplyForm() {
   const qc = useQueryClient();
@@ -115,18 +158,10 @@ export default function SalesAgentOverview() {
     return <AgentApplyForm />;
   }
 
-  if (agent.status === "PENDING") {
-    return (
-      <div className="grid min-h-[60vh] place-items-center p-6 text-center">
-        <div className="max-w-md">
-          <Clock className="mx-auto mb-4 h-10 w-10 text-warning" />
-          <h1 className="font-heading text-2xl font-bold tracking-tight">Application under review</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            We review new agent applications within 1–2 business days. Your referral tools unlock on approval.
-          </p>
-        </div>
-      </div>
-    );
+  // Only an APPROVED agent gets referral tools. Anything else gets an
+  // explanatory state — a suspended agent must not keep earning links.
+  if (agent.status !== "APPROVED") {
+    return <AgentBlocked status={agent.status} />;
   }
 
   const recent = (referrals ?? []).slice(0, 5);

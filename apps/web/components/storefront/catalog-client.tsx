@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { categories } from "@/lib/mock/courses";
+import { useCategories } from "@/lib/api/hooks";
 import { useStore } from "@/lib/context/store";
 import { CourseCard } from "@/components/storefront/course-card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ const priceBuckets = [
 
 export function CatalogClient() {
   const { courses } = useStore();
+  const { data: categories = [] } = useCategories();
   const publishedCourses = useMemo(
     () => courses.filter((c) => c.status === "published"),
     [courses],

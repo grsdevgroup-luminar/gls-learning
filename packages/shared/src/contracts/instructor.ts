@@ -24,6 +24,18 @@ export const reviewApplicationSchema = z.object({
 });
 export type ReviewApplicationInput = z.infer<typeof reviewApplicationSchema>;
 
+/** Public roster entry — no email/earnings, so it is safe to serve unauthenticated. */
+export interface InstructorRosterDto {
+  id: string;
+  name: string;
+  avatar: string | null;
+  title: string;
+  bio: string;
+  ratingAvg: number;
+  studentCount: number;
+  courseCount: number;
+}
+
 export interface InstructorProfileDto {
   userId: string;
   name: string;

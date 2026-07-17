@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { AutomationRule, Coupon } from "@prisma/client";
+import { AutomationRule, Coupon, PlatformSettings } from "@prisma/client";
 import type {
   AdminOverviewDto,
   AdminStudentDto,
   AutomationRuleDto,
   CouponDto,
+  PlatformSettingsDto,
+  UpdatePlatformSettingsInput,
   ReminderLogDto,
   OrderDto,
   PatchCouponInput,
@@ -17,6 +19,9 @@ import {
   COURSE_SUMMARY_INCLUDE,
   toCourseSummary,
 } from "../courses/course.mapper";
+
+/** Settings are a single pinned row (see the PlatformSettings model). */
+const SETTINGS_ID = "singleton";
 
 @Injectable()
 export class AdminService {
@@ -185,6 +190,41 @@ export class AdminService {
   async deleteCoupon(code: string): Promise<{ ok: true }> {
     await this.prisma.coupon.delete({ where: { code } });
     return { ok: true };
+  }
+
+  // ── platform settings ──────────────────────────────────────────────────────
+  private toSettingsDto(s: PlatformSettings): PlatformSettingsDto {
+    return {
+      platformName: s.platformName,
+      supportEmail: s.supportEmail,
+      baseCurrency: s.baseCurrency,
+      defaultLanguage: s.defaultLanguage,
+      stripeEnabled: s.stripeEnabled,
+      paypalEnabled: s.paypalEnabled,
+      notifications: (s.notifications ?? {}) as Record<string, boolean>,
+      updatedAt: s.updatedAt.toISOString(),
+    };
+  }
+
+  /** The one settings row, created with schema defaults on first read. */
+  async settings(): Promise<PlatformSettingsDto> {
+    const s = await this.prisma.platformSettings.upsert({
+      where: { id: SETTINGS_ID },
+      update: {},
+      create: { id: SETTINGS_ID },
+    });
+    return this.toSettingsDto(s);
+  }
+
+  async updateSettings(
+    input: UpdatePlatformSettingsInput,
+  ): Promise<PlatformSettingsDto> {
+    const s = await this.prisma.platformSettings.upsert({
+      where: { id: SETTINGS_ID },
+      update: input,
+      create: { id: SETTINGS_ID, ...input },
+    });
+    return this.toSettingsDto(s);
   }
 
   // ── user management ────────────────────────────────────────────────────────

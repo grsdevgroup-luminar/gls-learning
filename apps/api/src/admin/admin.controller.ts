@@ -13,11 +13,13 @@ import { ReviewStatus } from "@prisma/client";
 import {
   patchCouponSchema,
   reviewStatusSchema,
+  updatePlatformSettingsSchema,
   upsertCouponSchema,
   updateUserStatusSchema,
   upsertAutomationRuleSchema,
   type PatchCouponInput,
   type ReviewStatusInput,
+  type UpdatePlatformSettingsInput,
   type UpsertCouponInput,
   type UpdateUserStatusInput,
   type UpsertAutomationRuleInput,
@@ -74,6 +76,19 @@ export class AdminController {
   @Delete("users/:id")
   deleteUser(@Param("id") id: string) {
     return this.admin.deleteUser(id);
+  }
+
+  // platform settings
+  @Get("settings")
+  settings() {
+    return this.admin.settings();
+  }
+
+  @Patch("settings")
+  updateSettings(
+    @ZodBody(updatePlatformSettingsSchema) body: UpdatePlatformSettingsInput,
+  ) {
+    return this.admin.updateSettings(body);
   }
 
   // coupons

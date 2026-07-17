@@ -5,16 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Course } from '@/types';
 import { useStore } from '@/lib/context/store';
-import { getInstructor } from '@/lib/mock/instructors';
-import { reviewsForCourse } from '@/lib/mock/reviews';
+import { useCourseReviews } from '@/lib/api/hooks';
+import { useSession } from '@/lib/api/session';
+import { toLegacyReview } from '@/lib/api/adapters';
 import { CourseComments } from '@/components/storefront/course-comments';
 import {
   courseDurationMin,
   courseLessonCount,
   courseArticleCount,
   courseResourceCount,
-} from '@/lib/mock/courses';
-import { demoStudent } from '@/lib/mock/students';
+} from '@/lib/course-stats';
 import { ProtectedPlayer } from '@/components/player/protected-player';
 import { Price } from '@/components/shared/price';
 import { Stars } from '@/components/shared/stars';
@@ -75,14 +75,19 @@ export function CourseDetail({ course }: { course: Course }) {
     inCart,
     addToCart,
     isEnrolled,
-    role,
     getMyReview,
     submitReview,
     mounted,
   } = useStore();
   const router = useRouter();
-  const instructor = getInstructor(course.instructorId);
-  const baseReviews = reviewsForCourse(course.id);
+  const { user } = useSession();
+  // Prefer the instructor the API sent; fall back to the mock list only for
+  // prototype rows that predate the API wiring.
+  const instructor = course.instructor;
+  const { data: reviewPage } = useCourseReviews(course.id);
+  // Only APPROVED reviews come back from the API, so a just-submitted one is
+  // invisible until moderated — prepend it locally so the author sees it landed.
+  const baseReviews = (reviewPage?.items ?? []).map(toLegacyReview);
   const enrolled = isEnrolled(course.id);
   const myReview = mounted ? getMyReview(course.id) : undefined;
   const reviews = myReview
@@ -90,7 +95,7 @@ export function CourseDetail({ course }: { course: Course }) {
         {
           id: 'mine',
           courseId: course.id,
-          author: demoStudent.name,
+          author: user?.name ?? 'You',
           avatar: '',
           rating: myReview.rating,
           date: myReview.date,
@@ -103,12 +108,13 @@ export function CourseDetail({ course }: { course: Course }) {
       ]
     : baseReviews;
   const inCartNow = inCart(course.id);
-  const watermark =
-    role === 'guest' ? 'preview@SkillStream' : demoStudent.email;
+  // The watermark is the anti-piracy trace — it must carry the actual viewer.
+  const watermark = user?.email ?? 'preview@SkillStream';
 
+  // Curriculum arrives a tick after the summary, so sections can still be empty.
   const previewLesson =
     course.sections.flatMap((s) => s.lessons).find((l) => l.preview) ??
-    course.sections[0].lessons[0];
+    course.sections[0]?.lessons[0];
 
   function add() {
     addToCart(course.id);
@@ -177,26 +183,28 @@ export function CourseDetail({ course }: { course: Course }) {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-10 lg:grid-cols-[1fr_380px]">
         <div className="space-y-10 pt-10">
           {/* Preview player */}
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <PlayCircle className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Free preview</h2>
-              <Badge variant="outline" className="ml-1 gap-1">
-                <ShieldCheck className="h-3 w-3" /> Protected stream
-              </Badge>
+          {previewLesson && (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <PlayCircle className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Free preview</h2>
+                <Badge variant="outline" className="ml-1 gap-1">
+                  <ShieldCheck className="h-3 w-3" /> Protected stream
+                </Badge>
+              </div>
+              <ProtectedPlayer
+                lessonId={previewLesson.id}
+                title={previewLesson.title}
+                watermark={watermark}
+                seed={course.thumbnail}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Demo: video is DRM-streamed with a per-student moving watermark,
+                disabled right-click, and no downloadable source. Real builds use
+                signed HLS + Widevine/FairPlay.
+              </p>
             </div>
-            <ProtectedPlayer
-              lessonId={previewLesson.id}
-              title={previewLesson.title}
-              watermark={watermark}
-              seed={course.thumbnail}
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Demo: video is DRM-streamed with a per-student moving watermark,
-              disabled right-click, and no downloadable source. Real builds use
-              signed HLS + Widevine/FairPlay.
-            </p>
-          </div>
+          )}
 
           {/* What you'll learn */}
           <Card>
@@ -223,7 +231,7 @@ export function CourseDetail({ course }: { course: Course }) {
               </span>
             </div>
             <Card className="p-0">
-              <Accordion defaultValue={[course.sections[0].id]}>
+              <Accordion defaultValue={course.sections[0] ? [course.sections[0].id] : []}>
                 {course.sections.map((s) => (
                   <AccordionItem key={s.id} value={s.id} className="px-4">
                     <AccordionTrigger>
@@ -304,16 +312,16 @@ export function CourseDetail({ course }: { course: Course }) {
                     </p>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <Stars rating={instructor.rating} size={12} showValue />{' '}
+                        <Stars rating={instructor.rating ?? 0} size={12} showValue />{' '}
                         rating
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />{' '}
-                        {compactNumber(instructor.students)} students
+                        {compactNumber(instructor.students ?? 0)} students
                       </span>
                       <span className="flex items-center gap-1">
                         <BarChart3 className="h-3.5 w-3.5" />{' '}
-                        {instructor.courses} courses
+                        {instructor.courses ?? 0} courses
                       </span>
                     </div>
                     <p className="mt-3 text-sm">{instructor.bio}</p>

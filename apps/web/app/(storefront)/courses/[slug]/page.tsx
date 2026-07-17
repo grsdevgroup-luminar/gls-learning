@@ -1,10 +1,7 @@
-import { courses } from "@/lib/mock/courses";
 import { CourseDetailLoader } from "@/components/storefront/course-detail-loader";
 
-export function generateStaticParams() {
-  return courses.map((c) => ({ slug: c.slug }));
-}
-
+// No generateStaticParams: the catalog is database-driven and the detail is
+// fetched client-side, so slugs are resolved on demand rather than baked in.
 export default async function CoursePage({
   params,
 }: {

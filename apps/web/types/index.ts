@@ -93,6 +93,20 @@ export interface Course {
   level: Level;
   thumbnail: string; // gradient seed / color key
   instructorId: string;
+  /** Instructor as returned by the API alongside the course. Prefer this over
+   *  looking `instructorId` up in the mock list — that only resolves for seeded
+   *  ids and renders blank for any course created through the app. The stats are
+   *  optional because the catalog summary omits them; only the detail DTO has them. */
+  instructor?: {
+    id: string;
+    name: string;
+    title: string;
+    avatar: string | null;
+    bio?: string;
+    rating?: number;
+    students?: number;
+    courses?: number;
+  };
   basePrice: number; // USD
   originalPrice?: number; // for "sale" display
   rating: number;
@@ -105,6 +119,10 @@ export interface Course {
   whatYouLearn: string[];
   requirements: string[];
   sections: Section[];
+  // Totals the API reports directly. Summaries carry no `sections`, so the
+  // curriculum can't be counted client-side — prefer these when present.
+  lessonCount?: number;
+  durationSec?: number;
   revenue: number; // admin metric
   visibility?: 'public' | 'private'; // private = org-only, unlisted from storefront
   orgId?: string; // owning org when visibility === 'private'

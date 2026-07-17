@@ -14,8 +14,15 @@ import {
   Magnetic,
   SpotlightCard,
 } from "@/components/shared/motion";
-import { publishedCourses, categories } from "@/lib/mock/courses";
-import { instructors } from "@/lib/mock/instructors";
+import { serverApi } from "@/lib/api/server";
+import { toLegacyCourse } from "@/lib/api/adapters";
+import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import type {
+  CourseSummaryDto,
+  InstructorRosterDto,
+  Paginated,
+} from "@skillstream/shared";
+import type { Course } from "@/types";
 import { compactNumber, initials } from "@/lib/format";
 import {
   ShieldCheck, Globe2, LineChart, BellRing, ArrowRight, Star,
@@ -63,9 +70,34 @@ const testimonials = [
   { name: "Chen W.", role: "Data Analyst", text: "Best learning experience I've used. The dashboards make it obvious what to do next." },
 ];
 
-export default function HomePage() {
-  const bestsellers = publishedCourses.filter((c) => c.bestseller);
+/** The landing page must render even if the API blips — a half-populated
+ *  marketing page beats a 500. Each section degrades to empty on its own. */
+async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await p;
+  } catch {
+    return fallback;
+  }
+}
+
+export default async function HomePage() {
+  // Server-fetched so the landing page ships real, indexable content.
+  const [coursePage, instructors, categories] = await Promise.all([
+    safe(serverApi<Paginated<CourseSummaryDto>>(`/courses?pageSize=${MAX_PAGE_SIZE}`), {
+      items: [],
+      page: 1,
+      pageSize: 0,
+      total: 0,
+      totalPages: 0,
+    }),
+    safe(serverApi<InstructorRosterDto[]>("/instructors"), []),
+    safe(serverApi<string[]>("/categories"), []),
+  ]);
+
+  const publishedCourses = coursePage.items.map(toLegacyCourse);
+  const bestsellers = publishedCourses.filter((c) => c.bestseller).slice(0, 4);
   const popular = publishedCourses.slice(0, 8);
+  const featured = publishedCourses[0];
 
   return (
     <>
@@ -106,7 +138,9 @@ export default function HomePage() {
                 </Button>
               </Magnetic>
               <Button
-                render={<Link href="/courses/modern-react-masterclass" />}
+                render={
+                  <Link href={featured ? `/courses/${featured.slug}` : "/courses"} />
+                }
                 size="lg"
                 variant="outline"
               >
@@ -135,7 +169,7 @@ export default function HomePage() {
           </Reveal>
 
           {/* Product shot — an elevated, calm preview panel that floats on scroll */}
-          <HeroPreview />
+          <HeroPreview course={featured} />
         </div>
       </section>
 
@@ -205,7 +239,7 @@ export default function HomePage() {
             className="mb-10"
           />
           <Stagger className="grid gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5" gap={0.06}>
-            {instructors.map((i) => (
+            {instructors.slice(0, 5).map((i) => (
               <StaggerItem key={i.id} className="group text-center" y={16}>
                 <Avatar className="mx-auto size-16 ring-1 ring-border transition-all duration-300 group-hover:-translate-y-1 group-hover:ring-2 group-hover:ring-primary/40">
                   <AvatarFallback className="brand-gradient text-lg text-white">
@@ -215,10 +249,10 @@ export default function HomePage() {
                 <h3 className="mt-3 font-semibold">{i.name}</h3>
                 <p className="text-xs text-muted-foreground">{i.title}</p>
                 <div className="mt-2 flex items-center justify-center">
-                  <Stars rating={i.rating} size={12} showValue />
+                  <Stars rating={i.ratingAvg} size={12} showValue />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {compactNumber(i.students)} students
+                  {compactNumber(i.studentCount)} students
                 </p>
               </StaggerItem>
             ))}
@@ -304,7 +338,7 @@ function SectionGrid({
 }: {
   title: string;
   sub?: string;
-  courses: typeof publishedCourses;
+  courses: Course[];
 }) {
   return (
     <Section>
@@ -329,8 +363,8 @@ function SectionGrid({
   );
 }
 
-function HeroPreview() {
-  const c = publishedCourses[0];
+function HeroPreview({ course: c }: { course: Course | undefined }) {
+  if (!c) return null;
   return (
     <Parallax distance={50} className="relative hidden lg:block">
       <Reveal y={32} delay={0.1}>

@@ -26,13 +26,7 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
-export function SessionProvider({
-  children,
-  initialUser = null,
-}: {
-  children: ReactNode;
-  initialUser?: AuthUserDto | null;
-}) {
+export function SessionProvider({ children }: { children: ReactNode }) {
   const { data, isLoading } = useQuery({
     queryKey: SESSION_QUERY_KEY,
     queryFn: async () => {
@@ -43,7 +37,9 @@ export function SessionProvider({
         throw err;
       }
     },
-    initialData: initialUser,
+    // No initialData: `null` counts as cached data to react-query, which (with
+    // staleTime) suppressed the mount fetch entirely — every hard load rendered
+    // a signed-in user as a guest until something else invalidated the key.
     staleTime: 60_000,
   });
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, instructorApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { categories } from "@/lib/mock/courses";
+import { useCategories } from "@/lib/api/hooks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
@@ -27,21 +27,26 @@ export default function InstructorProfile() {
     queryFn: instructorApi.profile,
   });
 
+  const { data: categories = [] } = useCategories();
+
   const [title, setTitle] = useState("");
-  const [expertise, setExpertise] = useState(categories[0]);
+  const [expertise, setExpertise] = useState("");
   const [bio, setBio] = useState("");
+  // Categories load async; fall back to the first once they arrive.
+  const expertiseValue = expertise || categories[0] || "";
 
   // Seed the form once the profile loads.
   useEffect(() => {
     if (profile) {
       setTitle(profile.title ?? "");
-      setExpertise(profile.expertise ?? categories[0]);
+      setExpertise(profile.expertise ?? "");
       setBio(profile.bio ?? "");
     }
   }, [profile]);
 
   const saveMutation = useMutation({
-    mutationFn: () => api.updateInstructorProfile({ title, bio, expertise }),
+    mutationFn: () =>
+      api.updateInstructorProfile({ title, bio, expertise: expertiseValue }),
     onSuccess: () => {
       toast.success("Profile saved");
       void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
@@ -100,7 +105,7 @@ export default function InstructorProfile() {
                   <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
                 </FormField>
                 <FormField label="Primary expertise">
-                  <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
+                  <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}

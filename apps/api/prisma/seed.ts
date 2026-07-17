@@ -16,6 +16,15 @@ import { students as mockStudents } from "../../web/lib/mock/students";
 import { coupons as mockCoupons } from "../../web/lib/mock/coupons";
 import { reviews as mockReviews } from "../../web/lib/mock/reviews";
 import { automationRules as mockRules } from "../../web/lib/mock/automation";
+import {
+  salesAgents as mockAgents,
+  pendingAgentApplications,
+  agentReferrals,
+} from "../../web/lib/mock/sales-agents";
+import {
+  organizations as mockOrgs,
+  pendingInvitations,
+} from "../../web/lib/mock/organizations";
 
 const prisma = new PrismaClient();
 
@@ -41,6 +50,17 @@ const REVIEW_STATUS: Record<string, "PENDING" | "APPROVED" | "HIDDEN"> = {
   approved: "APPROVED",
   pending: "PENDING",
   hidden: "HIDDEN",
+};
+const ORG_STATUS: Record<string, Prisma.OrganizationCreateInput["status"]> = {
+  active: "ACTIVE",
+  trial: "TRIAL",
+  suspended: "SUSPENDED",
+};
+const AGENT_STATUS: Record<string, Prisma.SalesAgentCreateInput["status"]> = {
+  approved: "APPROVED",
+  pending: "PENDING",
+  rejected: "REJECTED",
+  suspended: "SUSPENDED",
 };
 const REMINDER_TRIGGER: Record<string, any> = {
   idle: "IDLE",
@@ -356,6 +376,223 @@ async function main() {
     });
   }
 
+  // ── Sales agents → User + SalesAgent + attributed Orders + Referrals ──
+  // A referral only exists against a real paid Order (that's the FK), so each
+  // seeded referral gets a real order for a real student and course. Commission
+  // is derived from the order total and the agent's rate — the same rule
+  // orders.service.ts applies at payment — so the roster totals, the referral
+  // list, and live crediting can never disagree.
+  const sellableCourses = await prisma.course.findMany({
+    where: { status: "PUBLISHED" },
+    select: { id: true, title: true, basePriceCents: true },
+    orderBy: { id: "asc" },
+  });
+  // Restricted to the students this seed creates. Querying every STUDENT would
+  // sweep in throwaway users left by test runs, and their names surface as the
+  // referred student on the agent's referral list.
+  const buyers = await prisma.user.findMany({
+    where: { id: { in: mockStudents.map((s) => s.id) } },
+    select: { id: true, country: true },
+    orderBy: { id: "asc" },
+  });
+
+  for (const [i, a] of mockAgents.entries()) {
+    const user = await prisma.user.upsert({
+      where: { email: a.email },
+      update: {},
+      create: {
+        email: a.email,
+        name: a.name,
+        passwordHash: defaultHash,
+        role: "SALES_AGENT",
+        emailVerified: true,
+        createdAt: new Date(a.joinedAt),
+      },
+    });
+
+    const agent = await prisma.salesAgent.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: {
+        userId: user.id,
+        referralCode: a.referralCode,
+        commissionPercent: a.commissionPercent,
+        region: a.region,
+        status: AGENT_STATUS[a.status],
+        createdAt: new Date(a.joinedAt),
+      },
+    });
+
+    const refs = agentReferrals.filter((r) => r.agentId === a.id);
+    let paidCents = 0;
+    let pendingCents = 0;
+
+    for (const [j, r] of refs.entries()) {
+      const course = sellableCourses[(i + j) % sellableCourses.length];
+      const buyer = buyers[(i + j) % buyers.length];
+      const orderId = `seed_${r.id}`;
+      const totalCents = course.basePriceCents;
+      const commissionCents = Math.round(
+        (totalCents * a.commissionPercent) / 100,
+      );
+
+      await prisma.order.upsert({
+        where: { id: orderId },
+        update: {},
+        create: {
+          id: orderId,
+          userId: buyer.id,
+          country: buyer.country,
+          subtotalCents: totalCents,
+          totalCents,
+          gateway: "STRIPE",
+          status: "PAID",
+          createdAt: new Date(r.date),
+          paidAt: new Date(r.date),
+          agentReferralCode: a.referralCode,
+          agentId: agent.id,
+          items: {
+            create: {
+              courseId: course.id,
+              titleSnapshot: course.title,
+              priceCents: totalCents,
+            },
+          },
+        },
+      });
+
+      await prisma.salesAgentReferral.upsert({
+        where: { orderId },
+        update: {},
+        create: {
+          agentId: agent.id,
+          orderId,
+          commissionCents,
+          status: r.status,
+          createdAt: new Date(r.date),
+        },
+      });
+
+      // Paid out already, vs. still owed (spec: pending + confirmed are owed).
+      if (r.status === "paid") paidCents += commissionCents;
+      else pendingCents += commissionCents;
+    }
+
+    await prisma.salesAgent.update({
+      where: { id: agent.id },
+      data: {
+        referralCount: refs.length,
+        paidEarningsCents: paidCents,
+        pendingEarningsCents: pendingCents,
+        totalEarningsCents: paidCents + pendingCents,
+      },
+    });
+  }
+
+  // Pending applications so the admin review queue has something to action.
+  for (const app of pendingAgentApplications) {
+    await prisma.salesAgentApplication.upsert({
+      where: { id: app.id },
+      update: {},
+      create: {
+        id: app.id,
+        name: app.name,
+        email: app.email,
+        phone: app.phone,
+        region: app.region,
+        bio: app.bio,
+        status: "PENDING",
+        appliedAt: new Date(app.appliedAt),
+      },
+    });
+  }
+
+  // ── Organizations → Org + real member Users + private course assignment ──
+  // Every member is a real User so the org admin can actually log in and the
+  // member list joins to a live account. `usedSeats` is derived from the members
+  // actually created rather than copied from the mock, so the seat bar and the
+  // server-side seat check (organizations.service.ts) agree.
+  for (const org of mockOrgs) {
+    const organization = await prisma.organization.upsert({
+      where: { slug: org.slug },
+      update: {},
+      create: {
+        id: org.id,
+        slug: org.slug,
+        name: org.name,
+        domain: org.domain,
+        adminEmail: org.adminEmail,
+        status: ORG_STATUS[org.status],
+        seatCount: org.seatCount,
+        usedSeats: 0,
+        createdAt: new Date(org.createdAt),
+      },
+    });
+
+    for (const m of org.members) {
+      // An org ADMIN needs the ORG_ADMIN platform role to reach /org/[slug].
+      const user = await prisma.user.upsert({
+        where: { email: m.email },
+        update: {},
+        create: {
+          email: m.email,
+          name: m.name,
+          passwordHash: defaultHash,
+          role: m.role === "admin" ? "ORG_ADMIN" : "STUDENT",
+          emailVerified: true,
+          createdAt: new Date(m.joinedAt),
+        },
+      });
+
+      await prisma.orgMember.upsert({
+        where: { orgId_email: { orgId: organization.id, email: m.email } },
+        update: {},
+        create: {
+          id: m.id,
+          orgId: organization.id,
+          userId: user.id,
+          name: m.name,
+          email: m.email,
+          role: m.role === "admin" ? "ADMIN" : "MEMBER",
+          joinedAt: new Date(m.joinedAt),
+        },
+      });
+    }
+
+    // Assigning a course to an org makes it PRIVATE — visible to members only.
+    for (const courseId of org.privateCourseIds) {
+      await prisma.course.updateMany({
+        where: { id: courseId },
+        data: { orgId: organization.id, visibility: "PRIVATE" },
+      });
+    }
+
+    await prisma.organization.update({
+      where: { id: organization.id },
+      data: {
+        usedSeats: await prisma.orgMember.count({
+          where: { orgId: organization.id },
+        }),
+      },
+    });
+  }
+
+  // Outstanding invites so the members page has pending rows to action.
+  for (const inv of pendingInvitations) {
+    await prisma.orgInvitation.upsert({
+      where: { token: inv.token },
+      update: {},
+      create: {
+        id: inv.id,
+        orgId: inv.orgId,
+        email: inv.email,
+        role: inv.role === "admin" ? "ADMIN" : "MEMBER",
+        token: inv.token,
+        expiresAt: new Date(inv.expiresAt),
+      },
+    });
+  }
+
   const counts = {
     users: await prisma.user.count(),
     courses: await prisma.course.count(),
@@ -363,6 +600,10 @@ async function main() {
     reviews: await prisma.review.count(),
     coupons: await prisma.coupon.count(),
     enrollments: await prisma.enrollment.count(),
+    salesAgents: await prisma.salesAgent.count(),
+    agentReferrals: await prisma.salesAgentReferral.count(),
+    organizations: await prisma.organization.count(),
+    orgMembers: await prisma.orgMember.count(),
   };
   console.log("Seed complete:", counts);
 }

@@ -9,7 +9,7 @@ import {
   type ReviewApplicationInput,
   type UpdateInstructorProfileInput,
 } from "@skillstream/shared";
-import { CurrentUser, Roles, type RequestUser } from "../common/decorators";
+import { CurrentUser, Public, Roles, type RequestUser } from "../common/decorators";
 import { ZodBody } from "../common/swagger";
 import { InstructorService } from "./instructor.service";
 
@@ -25,6 +25,12 @@ export class InstructorController {
     @ZodBody(applyInstructorSchema) body: ApplyInstructorInput,
   ) {
     return this.instructor.apply(user, body);
+  }
+
+  @Public()
+  @Get("instructors")
+  roster() {
+    return this.instructor.roster();
   }
 
   @Get("me/instructor")

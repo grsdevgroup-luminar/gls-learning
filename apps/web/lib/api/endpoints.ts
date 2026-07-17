@@ -11,11 +11,14 @@ import type {
   CreateReviewInput,
   FeaturedCouponDto,
   PatchCouponInput,
+  PlatformSettingsDto,
+  UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
   EnrollmentDto,
   InstructorApplicationDto,
   InstructorProfileDto,
+  InstructorRosterDto,
   OrderDto,
   DirectUploadDto,
   OrganizationDto,
@@ -42,6 +45,7 @@ import { apiFetch } from "./client";
 export type {
   AdminOverviewDto,
   AdminStudentDto,
+  PlatformSettingsDto,
   AutomationRuleDto,
   CommentDto,
   CouponDto,
@@ -52,6 +56,7 @@ export type {
   EnrollmentDto,
   InstructorApplicationDto,
   InstructorProfileDto,
+  InstructorRosterDto,
   OrderDto,
   OrganizationDto,
   Paginated,
@@ -139,6 +144,9 @@ export const api = {
   postComment: (courseId: string, body: CreateCommentInput) =>
     apiFetch<CommentDto>(`/courses/${courseId}/comments`, { method: "POST", body }),
 
+  /** Approved instructors (public roster). */
+  instructors: () => apiFetch<InstructorRosterDto[]>("/instructors"),
+
   // admin — instructor applications
   adminInstructorApplications: () =>
     apiFetch<InstructorApplicationDto[]>("/admin/instructor-applications"),
@@ -179,6 +187,11 @@ export const api = {
   adminDeleteCoupon: (code: string) =>
     apiFetch<{ ok: true }>(`/admin/coupons/${code}`, { method: "DELETE" }),
 
+  // platform settings
+  adminSettings: () => apiFetch<PlatformSettingsDto>("/admin/settings"),
+  adminUpdateSettings: (input: UpdatePlatformSettingsInput) =>
+    apiFetch<PlatformSettingsDto>("/admin/settings", { method: "PATCH", body: input }),
+
   // marketing automation
   adminAutomationRules: () => apiFetch<AutomationRuleDto[]>("/admin/automation-rules"),
   adminCreateAutomationRule: (input: UpsertAutomationRuleInput) =>
@@ -189,8 +202,9 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/automation-rules/${id}`, { method: "DELETE" }),
   adminReminderLogs: () => apiFetch<ReminderLogDto[]>("/admin/reminder-logs"),
 
+  // NB: returns a bare array (not Paginated) — the API takes a status filter.
   adminReviews: (params: Record<string, string | number | undefined> = {}) =>
-    apiFetch<Paginated<ReviewDto>>(`/admin/reviews${qs(params)}`),
+    apiFetch<ReviewDto[]>(`/admin/reviews${qs(params)}`),
   updateReviewStatus: (reviewId: string, status: "APPROVED" | "HIDDEN") =>
     apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { status } }),
 

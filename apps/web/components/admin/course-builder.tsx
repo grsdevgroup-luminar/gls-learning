@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CourseDetailDto } from "@skillstream/shared";
 import type { Lesson, Quiz } from "@/types";
-import { categories } from "@/lib/mock/courses";
+import { useCategories } from "@/lib/api/hooks";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { VideoUpload } from "@/components/admin/video-upload";
@@ -142,10 +142,11 @@ export function CourseBuilder({
     queryFn: () => authoringApi.course(courseId!),
     enabled: !!courseId,
   });
+  const { data: categories = [] } = useCategories();
 
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [category, setCategory] = useState(categories[0]);
+  const [category, setCategory] = useState("");
   const [level, setLevel] = useState<keyof typeof LEVEL_TO_API>("Beginner");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("49.99");
@@ -153,6 +154,8 @@ export function CourseBuilder({
   const [thumbDrag, setThumbDrag] = useState(false);
   const [thumbError, setThumbError] = useState("");
   const thumbInputRef = useRef<HTMLInputElement>(null);
+  // Categories load async; fall back to the first once they arrive.
+  const categoryValue = category || categories[0] || "";
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState<BSection[]>([
@@ -265,7 +268,7 @@ export function CourseBuilder({
         title: title.trim(),
         subtitle,
         description,
-        category,
+        category: categoryValue,
         level: LEVEL_TO_API[level],
         thumbnail,
         basePriceCents: Math.max(0, Math.round((Number(price) || 0) * 100)),
@@ -436,7 +439,7 @@ export function CourseBuilder({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Category</Label>
-                  <Select value={category} onValueChange={(v) => v && setCategory(v)}>
+                  <Select value={categoryValue} onValueChange={(v) => v && setCategory(v)}>
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
@@ -570,7 +573,7 @@ export function CourseBuilder({
           <Card>
             <CardHeader><CardTitle className="text-base">Course thumbnail</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <CourseArt seed={thumbnail} title={title || "Course title"} category={category} className="h-32 rounded-lg" />
+              <CourseArt seed={thumbnail} title={title || "Course title"} category={categoryValue} className="h-32 rounded-lg" />
 
               <input
                 ref={thumbInputRef}

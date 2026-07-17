@@ -12,6 +12,7 @@ import type {
   CreateReviewInput,
   PatchCouponInput,
   QuizAttemptInput,
+  UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
 } from "@skillstream/shared";
@@ -36,8 +37,10 @@ export const qk = {
   instructorProfile: ["instructor-profile"] as const,
   instructorCourses: ["instructor-courses"] as const,
   salesAgents: ["sales-agents"] as const,
+  categories: ["categories"] as const,
   adminCoupons: ["admin-coupons"] as const,
   featuredCoupon: ["featured-coupon"] as const,
+  adminSettings: ["admin-settings"] as const,
   automationRules: ["automation-rules"] as const,
   reminderLogs: ["reminder-logs"] as const,
 };
@@ -48,6 +51,14 @@ export const useCourses = (params: Record<string, string | number | undefined>) 
 
 export const useCourse = (slug: string) =>
   useQuery({ queryKey: qk.course(slug), queryFn: () => api.course(slug) });
+
+/** Course categories from the API. Rarely change, so cache them for the session. */
+export const useCategories = () =>
+  useQuery({
+    queryKey: qk.categories,
+    queryFn: api.categories,
+    staleTime: 60 * 60 * 1000,
+  });
 
 // ── enrollment / progress ─────────────────────────────────────────────────
 export const useMyEnrollments = () =>
@@ -163,6 +174,18 @@ export function usePostComment(courseId: string) {
   return useMutation({
     mutationFn: (body: CreateCommentInput) => api.postComment(courseId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.comments(courseId) }),
+  });
+}
+
+// ── platform settings ─────────────────────────────────────────────────────
+export const useAdminSettings = () =>
+  useQuery({ queryKey: qk.adminSettings, queryFn: api.adminSettings });
+
+export function useUpdateSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdatePlatformSettingsInput) => api.adminUpdateSettings(input),
+    onSuccess: (s) => qc.setQueryData(qk.adminSettings, s),
   });
 }
 

@@ -77,10 +77,27 @@ export class CheckoutService {
     };
   }
 
+  /** Admin gateway kill-switch (PlatformSettings). Enforced here, server-side —
+   *  the storefront hiding a button is not a control. */
+  private async assertGatewayEnabled(gateway: "STRIPE" | "PAYPAL") {
+    const settings = await this.prisma.platformSettings.findUnique({
+      where: { id: "singleton" },
+    });
+    if (!settings) return; // never configured — nothing disabled yet
+    const enabled =
+      gateway === "STRIPE" ? settings.stripeEnabled : settings.paypalEnabled;
+    if (!enabled)
+      throw new BadRequestException(
+        `${gateway === "STRIPE" ? "Card" : "PayPal"} payments are currently unavailable`,
+      );
+  }
+
   async createSession(
     userId: string,
     input: CheckoutSessionInput,
   ): Promise<CheckoutSessionDto> {
+    await this.assertGatewayEnabled(input.gateway);
+
     // Never sell a course the user already owns.
     const owned = await this.prisma.enrollment.findMany({
       where: { userId, courseId: { in: input.courseIds } },

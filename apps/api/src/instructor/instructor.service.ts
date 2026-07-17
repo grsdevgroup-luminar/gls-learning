@@ -8,6 +8,7 @@ import type {
   ApplyInstructorInput,
   InstructorApplicationDto,
   InstructorProfileDto,
+  InstructorRosterDto,
   UpdateInstructorProfileInput,
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
@@ -58,6 +59,25 @@ export class InstructorService {
       },
     });
     return this.toAppDto(app);
+  }
+
+  /** Approved instructors, best-rated first — powers the public roster. */
+  async roster(): Promise<InstructorRosterDto[]> {
+    const rows = await this.prisma.user.findMany({
+      where: { instructorProfile: { status: InstructorStatus.APPROVED } },
+      include: { instructorProfile: true },
+      orderBy: { instructorProfile: { ratingAvg: "desc" } },
+    });
+    return rows.map((u) => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar,
+      title: u.instructorProfile?.title ?? "",
+      bio: u.instructorProfile?.bio ?? "",
+      ratingAvg: u.instructorProfile?.ratingAvg ?? 0,
+      studentCount: u.instructorProfile?.studentCount ?? 0,
+      courseCount: u.instructorProfile?.courseCount ?? 0,
+    }));
   }
 
   async myProfile(user: RequestUser): Promise<InstructorProfileDto | null> {

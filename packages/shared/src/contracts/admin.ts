@@ -80,6 +80,37 @@ export interface FeaturedCouponDto {
   expiresAt: string;
 }
 
+// ── Platform settings ─────────────────────────────────────────────────────────
+
+export interface PlatformSettingsDto {
+  platformName: string;
+  supportEmail: string;
+  baseCurrency: string;
+  defaultLanguage: string;
+  /** Gateway kill-switches — checkout rejects a disabled gateway. */
+  stripeEnabled: boolean;
+  paypalEnabled: boolean;
+  notifications: Record<string, boolean>;
+  updatedAt: string;
+}
+
+/** Every field optional: the settings form saves one card at a time. */
+export const updatePlatformSettingsSchema = z
+  .object({
+    platformName: z.string().trim().min(1).max(80),
+    supportEmail: z.string().email(),
+    baseCurrency: z.string().trim().length(3).toUpperCase(),
+    defaultLanguage: z.string().trim().min(1).max(40),
+    stripeEnabled: z.boolean(),
+    paypalEnabled: z.boolean(),
+    notifications: z.record(z.boolean()),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, { message: "Nothing to update" });
+export type UpdatePlatformSettingsInput = z.infer<
+  typeof updatePlatformSettingsSchema
+>;
+
 // ── User management ───────────────────────────────────────────────────────────
 
 export const updateUserStatusSchema = z.object({

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import type { Course, Lesson } from "@/types";
 import { useStore } from "@/lib/context/store";
-import { courseLessonCount } from "@/lib/mock/courses";
+import { courseLessonCount } from "@/lib/course-stats";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/endpoints";
 import { useSession } from "@/lib/api/session";

@@ -7,7 +7,7 @@ import { useStore } from "@/lib/context/store";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
-import { categories } from "@/lib/mock/courses";
+import { useCategories } from "@/lib/api/hooks";
 import { Section } from "@/components/shared/section";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
@@ -34,14 +34,17 @@ export default function TeachPage() {
   const { role, mounted } = useStore();
   const { user } = useSession();
   const router = useRouter();
+  const { data: categories = [] } = useCategories();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [expertise, setExpertise] = useState(categories[0]);
+  // Categories load async, so hold "" and fall back to the first one on render.
+  const [expertise, setExpertise] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [sampleUrl, setSampleUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const expertiseValue = expertise || categories[0] || "";
 
   const alreadyInstructor = mounted && role === "instructor";
 
@@ -59,7 +62,7 @@ export default function TeachPage() {
     setSubmitting(true);
     try {
       await api.applyInstructor({
-        expertise,
+        expertise: expertiseValue,
         headline: headline.trim(),
         bio: bio.trim(),
         sampleUrl: sampleUrl.trim() || undefined,
@@ -157,7 +160,7 @@ export default function TeachPage() {
                           <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Senior Data Scientist" />
                         </FormField>
                         <FormField label="Primary expertise">
-                          <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
+                          <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}

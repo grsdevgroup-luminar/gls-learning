@@ -59,13 +59,22 @@ export class OrganizationsService {
     };
   }
 
+  /** Resolves an id-or-slug route param to the real org id. `getRow` accepts
+   *  either, so every other lookup must too — querying `orgMember.orgId` with a
+   *  slug silently finds nothing and 403s instead of 404-ing. */
+  private async resolveOrgId(idOrSlug: string): Promise<string> {
+    return (await this.getRow(idOrSlug)).id;
+  }
+
   /** Platform ADMIN can manage any org; an org's own ADMIN member can manage it. */
-  private async assertOrgAdmin(user: RequestUser, orgId: string) {
-    if (user.role === "ADMIN") return;
+  private async assertOrgAdmin(user: RequestUser, idOrSlug: string): Promise<string> {
+    const orgId = await this.resolveOrgId(idOrSlug);
+    if (user.role === "ADMIN") return orgId;
     const member = await this.prisma.orgMember.findFirst({
       where: { orgId, userId: user.id, role: "ADMIN" },
     });
     if (!member) throw new ForbiddenException("Not an admin of this organization");
+    return orgId;
   }
 
   /** Accepts either the org id or its slug (the web app routes by slug). */
@@ -116,17 +125,17 @@ export class OrganizationsService {
 
   async update(
     user: RequestUser,
-    orgId: string,
+    idOrSlug: string,
     input: UpdateOrganizationInput,
   ): Promise<OrganizationDto> {
-    await this.assertOrgAdmin(user, orgId);
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     await this.prisma.organization.update({ where: { id: orgId }, data: input });
     return this.toDto(await this.getRow(orgId));
   }
 
   // ── members / invitations ─────────────────────────────────────────────────
-  async invite(user: RequestUser, orgId: string, input: InviteOrgMemberInput) {
-    await this.assertOrgAdmin(user, orgId);
+  async invite(user: RequestUser, idOrSlug: string, input: InviteOrgMemberInput) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     const org = await this.getRow(orgId);
     if (org.usedSeats >= org.seatCount)
       throw new BadRequestException("No seats remaining");
@@ -212,8 +221,8 @@ export class OrganizationsService {
     return this.toDto(await this.getRow(invite.orgId));
   }
 
-  async removeMember(user: RequestUser, orgId: string, memberId: string) {
-    await this.assertOrgAdmin(user, orgId);
+  async removeMember(user: RequestUser, idOrSlug: string, memberId: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     const member = await this.prisma.orgMember.findFirst({
       where: { id: memberId, orgId },
     });
@@ -236,10 +245,10 @@ export class OrganizationsService {
   // ── private course assignment ─────────────────────────────────────────────
   async assignCourse(
     user: RequestUser,
-    orgId: string,
+    idOrSlug: string,
     input: AssignOrgCourseInput,
   ): Promise<OrganizationDto> {
-    await this.assertOrgAdmin(user, orgId);
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     await this.prisma.course.update({
       where: { id: input.courseId },
       data: { orgId, visibility: "PRIVATE" },
@@ -250,10 +259,10 @@ export class OrganizationsService {
   /** Detach a private course from the org and return it to the public catalog. */
   async unassignCourse(
     user: RequestUser,
-    orgId: string,
+    idOrSlug: string,
     courseId: string,
   ): Promise<OrganizationDto> {
-    await this.assertOrgAdmin(user, orgId);
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     const course = await this.prisma.course.findFirst({
       where: { id: courseId, orgId },
     });
@@ -266,16 +275,16 @@ export class OrganizationsService {
   }
 
   // ── invitation management ─────────────────────────────────────────────────
-  async listInvitations(user: RequestUser, orgId: string) {
-    await this.assertOrgAdmin(user, orgId);
+  async listInvitations(user: RequestUser, idOrSlug: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     return this.prisma.orgInvitation.findMany({
       where: { orgId, claimedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  async revokeInvitation(user: RequestUser, orgId: string, inviteId: string) {
-    await this.assertOrgAdmin(user, orgId);
+  async revokeInvitation(user: RequestUser, idOrSlug: string, inviteId: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
     const invite = await this.prisma.orgInvitation.findUnique({
       where: { id: inviteId },
     });
@@ -286,7 +295,9 @@ export class OrganizationsService {
   }
 
   /** Courses assigned to an org — visible to any member (or platform admin). */
-  async listCourses(user: RequestUser, orgId: string) {
+  /** Any member (not just admins) can see the org's assigned courses. */
+  async listCourses(user: RequestUser, idOrSlug: string) {
+    const orgId = await this.resolveOrgId(idOrSlug);
     if (user.role !== "ADMIN") {
       const member = await this.prisma.orgMember.findFirst({
         where: { orgId, userId: user.id },
