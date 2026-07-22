@@ -12,9 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Target, Clock, TrendingUp, PlayCircle, Award } from "lucide-react";
 import { formatHoursFromMin } from "@/lib/format";
 
+const WEEKDAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function ProgressPage() {
   const { data: enrollments, isLoading } = useMyEnrollments();
-  useWeeklyActivity();
+  const { data: weeklyActivity } = useWeeklyActivity();
 
   if (isLoading) {
     return (

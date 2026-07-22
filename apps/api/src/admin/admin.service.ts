@@ -1,12 +1,15 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { AutomationRule, Coupon, PlatformSettings } from "@prisma/client";
+import { AutomationRule, Coupon, PlatformSettings, Prisma } from "@prisma/client";
 import type {
   AdminAnalyticsDto,
   AdminOverviewDto,
   AdminStudentDto,
+  AdminStudentStatsDto,
   AutomationRuleDto,
   CouponDto,
+  Paginated,
   PlatformSettingsDto,
+  SearchQuery,
   UpdatePlatformSettingsInput,
   ReminderLogDto,
   OrderDto,
@@ -206,26 +209,58 @@ export class AdminService {
     return { revenueTrend, revenueByRegion, funnel, recentActivity };
   }
 
-  async students(): Promise<AdminStudentDto[]> {
-    const rows = await this.prisma.user.findMany({
-      where: { role: "STUDENT" },
-      include: {
-        studentProfile: true,
-        _count: { select: { enrollments: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
-    return rows.map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      country: u.country,
-      status: u.studentProfile?.status ?? "ACTIVE",
-      totalSpentCents: u.studentProfile?.totalSpentCents ?? 0,
-      enrollments: u._count.enrollments,
-      joinedAt: u.createdAt.toISOString(),
-    }));
+  async students(query: SearchQuery): Promise<Paginated<AdminStudentDto>> {
+    const where: Prisma.UserWhereInput = {
+      role: "STUDENT",
+      ...(query.q
+        ? {
+            OR: [
+              { name: { contains: query.q, mode: "insensitive" } },
+              { email: { contains: query.q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        include: {
+          studentProfile: true,
+          _count: { select: { enrollments: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return {
+      items: rows.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        country: u.country,
+        status: u.studentProfile?.status ?? "ACTIVE",
+        totalSpentCents: u.studentProfile?.totalSpentCents ?? 0,
+        enrollments: u._count.enrollments,
+        joinedAt: u.createdAt.toISOString(),
+      })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.ceil(total / query.pageSize),
+    };
+  }
+
+  /** Global counts, independent of the students search/pagination above. */
+  async studentStats(): Promise<AdminStudentStatsDto> {
+    const [total, active] = await this.prisma.$transaction([
+      this.prisma.user.count({ where: { role: "STUDENT" } }),
+      this.prisma.user.count({
+        where: { role: "STUDENT", studentProfile: { status: "ACTIVE" } },
+      }),
+    ]);
+    return { total, active, atRisk: total - active };
   }
 
   async courses() {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useCategories } from "@/lib/api/hooks";
-import { useStore } from "@/lib/context/store";
+import { useCategories, useCourses } from "@/lib/api/hooks";
+import { toLegacyCourse, LEVEL_TO_API } from "@/lib/api/adapters";
 import { CourseCard } from "@/components/storefront/course-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Level } from "@/types";
+import type { CourseSort } from "@skillstream/shared";
 
 const levels: Level[] = ["Beginner", "Intermediate", "Advanced", "All Levels"];
 const priceBuckets = [
@@ -26,57 +27,66 @@ const priceBuckets = [
   { id: "30to70", label: "$30 – $70", test: (p: number) => p >= 30 && p <= 70 },
   { id: "gt70", label: "Over $70", test: (p: number) => p > 70 },
 ];
+const SORT_TO_API: Record<string, CourseSort> = {
+  popular: "popular",
+  rating: "rating",
+  newest: "newest",
+  price_low: "price_asc",
+  price_high: "price_desc",
+};
 
 export function CatalogClient() {
-  const { courses } = useStore();
   const { data: categories = [] } = useCategories();
-  const publishedCourses = useMemo(
-    () => courses.filter((c) => c.status === "published"),
-    [courses],
-  );
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
-  const [cats, setCats] = useState<string[]>(
-    params.get("category") ? [params.get("category") as string] : [],
-  );
-  const [lvls, setLvls] = useState<Level[]>([]);
+  // Backend `GET /courses` only accepts one category / one level at a time —
+  // the filter UI matches that instead of pretending to support multi-select
+  // then silently only honoring the first pick.
+  const [cat, setCat] = useState<string | null>(params.get("category"));
+  const [lvl, setLvl] = useState<Level | null>(null);
   const [price, setPrice] = useState("all");
   const [minRating, setMinRating] = useState(0);
   const [sort, setSort] = useState("popular");
+  const [page, setPage] = useState(1);
 
+  // Re-searching from the header (`/courses?q=...`) while already on this
+  // page changes the URL but not this component's initial state — pick it up.
+  useEffect(() => {
+    setQ(params.get("q") ?? "");
+    setCat(params.get("category"));
+  }, [params]);
+
+  // Any change to a server-backed filter resets pagination.
+  useEffect(() => setPage(1), [q, cat, lvl, sort]);
+
+  const { data: coursePage, isLoading } = useCourses({
+    q: q || undefined,
+    category: cat ?? undefined,
+    level: lvl ? LEVEL_TO_API[lvl] : undefined,
+    sort: SORT_TO_API[sort],
+    page,
+  });
+
+  const fetchedCourses = useMemo(
+    () => (coursePage?.items ?? []).map(toLegacyCourse),
+    [coursePage],
+  );
+
+  // Price/rating aren't in the backend's filter contract — refine within the
+  // fetched page client-side (a page at a time, not the whole catalog).
   const filtered = useMemo(() => {
     const bucket = priceBuckets.find((b) => b.id === price)!;
-    const out = publishedCourses.filter((c) => {
-      if (q && !`${c.title} ${c.subtitle} ${c.category}`.toLowerCase().includes(q.toLowerCase()))
-        return false;
-      if (cats.length && !cats.includes(c.category)) return false;
-      if (lvls.length && !lvls.includes(c.level)) return false;
-      if (!bucket.test(c.basePrice)) return false;
-      if (c.rating < minRating) return false;
-      return true;
-    });
-    out.sort((a, b) => {
-      switch (sort) {
-        case "rating": return b.rating - a.rating;
-        case "newest": return +new Date(b.updatedAt) - +new Date(a.updatedAt);
-        case "price_low": return a.basePrice - b.basePrice;
-        case "price_high": return b.basePrice - a.basePrice;
-        default: return b.studentCount - a.studentCount;
-      }
-    });
-    return out;
-  }, [q, cats, lvls, price, minRating, sort, publishedCourses]);
-
-  function toggle<T>(list: T[], value: T, set: (v: T[]) => void) {
-    set(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
-  }
+    return fetchedCourses.filter(
+      (c) => bucket.test(c.basePrice) && c.rating >= minRating,
+    );
+  }, [fetchedCourses, price, minRating]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">All courses</h1>
         <p className="text-muted-foreground">
-          {filtered.length} course{filtered.length !== 1 && "s"} · learn at your own pace
+          {coursePage?.total ?? filtered.length} course{(coursePage?.total ?? filtered.length) !== 1 && "s"} · learn at your own pace
         </p>
       </div>
 
@@ -89,19 +99,19 @@ export function CatalogClient() {
           </div>
 
           <FilterGroup title="Category">
-            {categories.map((cat) => (
-              <label key={cat} className="flex cursor-pointer items-center gap-2 text-sm">
-                <Checkbox checked={cats.includes(cat)} onCheckedChange={() => toggle(cats, cat, setCats)} />
-                {cat}
+            {categories.map((c) => (
+              <label key={c} className="flex cursor-pointer items-center gap-2 text-sm">
+                <Checkbox checked={cat === c} onCheckedChange={() => setCat(cat === c ? null : c)} />
+                {c}
               </label>
             ))}
           </FilterGroup>
 
           <FilterGroup title="Level">
-            {levels.map((lvl) => (
-              <label key={lvl} className="flex cursor-pointer items-center gap-2 text-sm">
-                <Checkbox checked={lvls.includes(lvl)} onCheckedChange={() => toggle(lvls, lvl, setLvls)} />
-                {lvl}
+            {levels.map((l) => (
+              <label key={l} className="flex cursor-pointer items-center gap-2 text-sm">
+                <Checkbox checked={lvl === l} onCheckedChange={() => setLvl(lvl === l ? null : l)} />
+                {l}
               </label>
             ))}
           </FilterGroup>
@@ -161,21 +171,52 @@ export function CatalogClient() {
             </Select>
           </div>
 
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-64 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
               No courses match your filters.
               <div className="mt-3">
-                <Button variant="outline" size="sm" onClick={() => { setQ(""); setCats([]); setLvls([]); setPrice("all"); setMinRating(0); }}>
+                <Button variant="outline" size="sm" onClick={() => { setQ(""); setCat(null); setLvl(null); setPrice("all"); setMinRating(0); }}>
                   Clear all filters
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((c) => (
-                <CourseCard key={c.id} course={c} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((c) => (
+                  <CourseCard key={c.id} course={c} />
+                ))}
+              </div>
+              {coursePage && coursePage.totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {coursePage.page} of {coursePage.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= coursePage.totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

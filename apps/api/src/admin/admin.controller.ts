@@ -13,19 +13,21 @@ import { ReviewStatus } from "@prisma/client";
 import {
   patchCouponSchema,
   reviewStatusSchema,
+  searchQuerySchema,
   updatePlatformSettingsSchema,
   upsertCouponSchema,
   updateUserStatusSchema,
   upsertAutomationRuleSchema,
   type PatchCouponInput,
   type ReviewStatusInput,
+  type SearchQuery,
   type UpdatePlatformSettingsInput,
   type UpsertCouponInput,
   type UpdateUserStatusInput,
   type UpsertAutomationRuleInput,
 } from "@skillstream/shared";
 import { Roles } from "../common/decorators";
-import { ZodBody } from "../common/swagger";
+import { ZodBody, ZodQuery } from "../common/swagger";
 import { AdminService } from "./admin.service";
 import { ReviewsService } from "../reviews/reviews.service";
 
@@ -50,8 +52,13 @@ export class AdminController {
   }
 
   @Get("students")
-  students() {
-    return this.admin.students();
+  students(@ZodQuery(searchQuerySchema) query: SearchQuery) {
+    return this.admin.students(query);
+  }
+
+  @Get("students/stats")
+  studentStats() {
+    return this.admin.studentStats();
   }
 
   @Get("courses")

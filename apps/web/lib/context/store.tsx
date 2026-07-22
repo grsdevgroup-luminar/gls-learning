@@ -13,7 +13,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -65,30 +64,6 @@ const ROLE_FROM_SESSION: Record<string, Role> = {
 
 function quizKey(courseId: string, lessonId: string) {
   return `${courseId}:${lessonId}`;
-}
-
-// `mounted` flips to true after hydration without a setState-in-effect.
-const noopSubscribe = () => () => {};
-
-// localStorage is client-only; read it lazily so SSR/hydration still render
-// the defaults, exactly as the mount effect used to deliver them.
-function readStoredCart(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const c = localStorage.getItem(CART_KEY);
-    return c ? JSON.parse(c) : [];
-  } catch {
-    return [];
-  }
-}
-
-function readStoredRegion(): string {
-  if (typeof window === "undefined") return DEFAULT_REGION;
-  try {
-    return localStorage.getItem(REGION_KEY) || DEFAULT_REGION;
-  } catch {
-    return DEFAULT_REGION;
-  }
 }
 
 interface StoreContextValue {
@@ -154,16 +129,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [detailsById, setDetailsById] = useState<Record<string, Course>>({});
 
   useEffect(() => {
-    try {
-      const c = localStorage.getItem(CART_KEY);
-      if (c) setCart(JSON.parse(c));
-      const r = localStorage.getItem(REGION_KEY);
-      if (r) setRegionCodeState(r);
-    } catch {
-      /* ignore */
-    }
+    // Restore persisted client state after mount. Deferred to a task so the
+    // effect body only schedules work instead of setting state synchronously
+    // (which would cascade a render before paint); the reads still happen
+    // before `mounted` flips, so the write-back effects below stay no-ops
+    // until the stored values are in place.
+    const id = setTimeout(() => {
+      try {
+        const c = localStorage.getItem(CART_KEY);
+        if (c) setCart(JSON.parse(c));
+        const r = localStorage.getItem(REGION_KEY);
+        if (r) setRegionCodeState(r);
+      } catch {
+        /* ignore */
+      }
+      setMounted(true);
+    }, 0);
     captureReferralFromUrl();
-    setMounted(true);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {

@@ -7,6 +7,12 @@ export const paginationQuerySchema = z.object({
 });
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
+/** Pagination + a free-text search term, for admin list endpoints. */
+export const searchQuerySchema = paginationQuerySchema.extend({
+  q: z.string().trim().optional(),
+});
+export type SearchQuery = z.infer<typeof searchQuerySchema>;
+
 export interface Paginated<T> {
   items: T[];
   page: number;

@@ -1,6 +1,7 @@
 import type {
   AdminAnalyticsDto,
   AdminOverviewDto,
+  AdminStudentStatsDto,
   AdminPricingDto,
   AdminStudentDto,
   AutomationRuleDto,
@@ -172,7 +173,9 @@ export const api = {
   adminOverview: () => apiFetch<AdminOverviewDto>("/admin/overview"),
   adminAnalytics: () => apiFetch<AdminAnalyticsDto>("/admin/analytics"),
   adminStudents: (params: Record<string, string | number | undefined> = {}) =>
-    apiFetch<AdminStudentDto[]>(`/admin/students${qs(params)}`),
+    apiFetch<Paginated<AdminStudentDto>>(`/admin/students${qs(params)}`),
+  adminStudentStats: () =>
+    apiFetch<AdminStudentStatsDto>("/admin/students/stats"),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<OrderDto[]>(`/admin/orders${qs(params)}`),
   adminCourses: () => apiFetch<InstructorCourseDto[]>("/admin/courses"),
@@ -435,7 +438,9 @@ export const authoringApi = {
 export const adminApi = {
   overview: () => api.adminOverview(),
   analytics: () => api.adminAnalytics(),
-  students: () => api.adminStudents(),
+  students: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminStudents(params),
+  studentStats: () => api.adminStudentStats(),
   orders: () => api.adminOrders(),
   courses: () => api.adminCourses(),
   updateUserStatus: api.updateUserStatus,

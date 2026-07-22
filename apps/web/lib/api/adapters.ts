@@ -17,6 +17,15 @@ const LEVEL_TO_LEGACY: Record<CourseLevel, Level> = {
   ALL_LEVELS: "All Levels",
 };
 
+/** Reverse of LEVEL_TO_LEGACY — for sending the catalog UI's level filter to
+ * `GET /courses`, which expects the upper-case enum. */
+export const LEVEL_TO_API: Record<Level, CourseLevel> = {
+  Beginner: "BEGINNER",
+  Intermediate: "INTERMEDIATE",
+  Advanced: "ADVANCED",
+  "All Levels": "ALL_LEVELS",
+};
+
 const STATUS_TO_LEGACY = {
   DRAFT: "draft",
   REVIEW: "review",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, type AdminStudentDto } from "@/lib/api/endpoints";
 import { initials, formatUsd } from "@/lib/format";
@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Search, Users, UserCheck, AlertTriangle } from "lucide-react";
+import { Search, Users, UserCheck, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type StatusKey = "ACTIVE" | "IDLE" | "AT_RISK";
@@ -24,12 +24,25 @@ const statusBadge: Record<StatusKey, { label: string; cls: string }> = {
 };
 
 export default function AdminStudents() {
+  const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
   const qc = useQueryClient();
 
-  const { data: students, isLoading, error } = useQuery({
-    queryKey: ["admin", "students"],
-    queryFn: adminApi.students,
+  // Debounce the search box so every keystroke doesn't hit the API.
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput), 300);
+    return () => clearTimeout(t);
+  }, [qInput]);
+  useEffect(() => setPage(1), [q]);
+
+  const { data: studentPage, isLoading, error } = useQuery({
+    queryKey: ["admin", "students", q, page],
+    queryFn: () => adminApi.students({ q: q || undefined, page }),
+  });
+  const { data: statsData } = useQuery({
+    queryKey: ["admin", "students", "stats"],
+    queryFn: adminApi.studentStats,
   });
 
   const suspendMutation = useMutation({
@@ -41,15 +54,13 @@ export default function AdminStudents() {
     onError: () => toast.error("Failed to update status"),
   });
 
-  const list = (students ?? []).filter(
-    (s) => !q || `${s.name} ${s.email}`.toLowerCase().includes(q.toLowerCase()),
-  );
+  const list = studentPage?.items ?? [];
 
-  const stats = students
+  const stats = statsData
     ? [
-        { icon: Users, label: "Total students", value: students.length },
-        { icon: UserCheck, label: "Active", value: students.filter((s) => s.status === "ACTIVE").length },
-        { icon: AlertTriangle, label: "At risk / idle", value: students.filter((s) => s.status !== "ACTIVE").length },
+        { icon: Users, label: "Total students", value: statsData.total },
+        { icon: UserCheck, label: "Active", value: statsData.active },
+        { icon: AlertTriangle, label: "At risk / idle", value: statsData.atRisk },
       ]
     : [];
 
@@ -97,8 +108,8 @@ export default function AdminStudents() {
       <div className="relative sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={qInput}
+          onChange={(e) => setQInput(e.target.value)}
           placeholder="Search students…"
           className="pl-9"
         />
@@ -145,6 +156,30 @@ export default function AdminStudents() {
           </Table>
         </CardContent>
       </Card>
+
+      {studentPage && studentPage.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {studentPage.page} of {studentPage.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= studentPage.totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

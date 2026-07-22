@@ -32,6 +32,12 @@ export interface AdminAnalyticsDto {
   }[];
 }
 
+export interface AdminStudentStatsDto {
+  total: number;
+  active: number;
+  atRisk: number;
+}
+
 export interface AdminStudentDto {
   id: string;
   name: string;
