@@ -167,9 +167,11 @@ export function CourseBuilder({
     lessons: new Set(),
   });
 
-  // Seed form state when editing an existing course.
-  useEffect(() => {
-    if (!detail) return;
+  // Seed form state when editing an existing course — adjusting state during
+  // render instead of syncing in an effect.
+  const [prevDetail, setPrevDetail] = useState(detail);
+  if (detail && detail !== prevDetail) {
+    setPrevDetail(detail);
     setTitle(detail.title);
     setSubtitle(detail.subtitle);
     setCategory(detail.category);
@@ -178,8 +180,12 @@ export function CourseBuilder({
     setPrice((detail.basePriceCents / 100).toFixed(2));
     setThumbnail(detail.thumbnail || "react");
     setPublished(detail.status === "PUBLISHED");
+    setSections(sectionsFromDetail(detail));
+  }
+
+  useEffect(() => {
+    if (!detail) return;
     const secs = sectionsFromDetail(detail);
-    setSections(secs);
     loadedIds.current = {
       sections: new Set(secs.map((s) => s.id)),
       lessons: new Set(secs.flatMap((s) => s.lessons.map((l) => l.id))),

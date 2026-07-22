@@ -31,6 +31,6 @@ import { CheckoutController } from "./checkout.controller";
     CheckoutService,
     PaymentsService,
   ],
-  exports: [PricingService, CouponsService, OrdersService],
+  exports: [PricingService, CouponsService, OrdersService, PaymentsService],
 })
 export class CommerceModule {}

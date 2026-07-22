@@ -23,6 +23,7 @@ export const qk = {
   courses: (params?: unknown) => ["courses", params] as const,
   course: (slug: string) => ["course", slug] as const,
   enrollments: ["enrollments"] as const,
+  weeklyActivity: ["enrollments", "weekly-activity"] as const,
   progress: (courseId: string) => ["progress", courseId] as const,
   quiz: (lessonId: string) => ["quiz", lessonId] as const,
   quizResult: (lessonId: string) => ["quiz-result", lessonId] as const,
@@ -63,6 +64,9 @@ export const useCategories = () =>
 // ── enrollment / progress ─────────────────────────────────────────────────
 export const useMyEnrollments = () =>
   useQuery({ queryKey: qk.enrollments, queryFn: api.myEnrollments });
+
+export const useWeeklyActivity = () =>
+  useQuery({ queryKey: qk.weeklyActivity, queryFn: api.myWeeklyActivity });
 
 export const useProgress = (courseId: string, enabled = true) =>
   useQuery({

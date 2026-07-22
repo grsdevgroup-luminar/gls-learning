@@ -59,7 +59,7 @@ export function ApprovalGate({ children }: { children: React.ReactNode }) {
       body="Our team reviews new instructor applications within 1–2 business days. You can already set up your profile below — course creation unlocks the moment you're approved."
       action={
         <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Mail className="size-3.5" /> We'll email {profile.email} with the decision.
+          <Mail className="size-3.5" /> We&apos;ll email {profile.email} with the decision.
         </div>
       }
     />

@@ -44,6 +44,11 @@ export class AdminController {
     return this.admin.overview();
   }
 
+  @Get("analytics")
+  analytics() {
+    return this.admin.analytics();
+  }
+
   @Get("students")
   students() {
     return this.admin.students();

@@ -1,13 +1,10 @@
 "use client";
 
-// Real-data-backed replacement for the former mock/localStorage store. Preserves
-// the useStore() interface the UI already consumes, but sources data from the
-// live API (catalog, enrollments) + session (role) + localStorage (cart/region).
-// Course content (sections) is loaded from the API; quiz answers stay server-side
-// (the quiz player calls the quiz API directly).
-//
-// Note: instructor/sales-agent/organization program surfaces expose minimal
-// facade state here; those portals should migrate to their dedicated API hooks.
+// Storefront/learner client state: catalog + enrollments come from the live
+// API, role from the session, cart/region from localStorage. Course content
+// (sections) is loaded from the API; quiz answers stay server-side (the quiz
+// player calls the quiz API directly). Instructor/sales-agent/org portals use
+// their own dedicated API hooks (lib/api/endpoints.ts), not this store.
 
 import {
   createContext,
@@ -16,6 +13,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,17 +27,7 @@ import {
   toLegacyCourseDetail,
 } from "@/lib/api/adapters";
 import { useSession } from "@/lib/api/session";
-import type {
-  Course,
-  CourseStatus,
-  Instructor,
-  InstructorApplication,
-  InstructorStatus,
-  SalesAgent,
-  SalesAgentApplication,
-  Organization,
-  OrgMemberRole,
-} from "@/types";
+import type { Course } from "@/types";
 
 export type Role =
   | "guest"
@@ -48,11 +36,6 @@ export type Role =
   | "admin"
   | "sales_agent"
   | "org_admin";
-
-export const DEMO_INSTRUCTOR_ID = "ins_sara";
-export const DEMO_AGENT_ID = "agent_demo";
-export const DEMO_ORG_SLUG = "acme";
-export const DEMO_STUDENT_ID = "stu_alex";
 
 export interface QuizResult {
   bestScore: number;
@@ -84,6 +67,30 @@ function quizKey(courseId: string, lessonId: string) {
   return `${courseId}:${lessonId}`;
 }
 
+// `mounted` flips to true after hydration without a setState-in-effect.
+const noopSubscribe = () => () => {};
+
+// localStorage is client-only; read it lazily so SSR/hydration still render
+// the defaults, exactly as the mount effect used to deliver them.
+function readStoredCart(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const c = localStorage.getItem(CART_KEY);
+    return c ? JSON.parse(c) : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStoredRegion(): string {
+  if (typeof window === "undefined") return DEFAULT_REGION;
+  try {
+    return localStorage.getItem(REGION_KEY) || DEFAULT_REGION;
+  } catch {
+    return DEFAULT_REGION;
+  }
+}
+
 interface StoreContextValue {
   mounted: boolean;
   role: Role;
@@ -101,10 +108,6 @@ interface StoreContextValue {
   clearCart: () => void;
   inCart: (courseId: string) => boolean;
   setCoupon: (code: string | null) => void;
-  // auth (no-op shims kept for source compatibility; real auth is in useSession)
-  login: (asAdmin?: boolean) => void;
-  loginAs: (role: Role) => void;
-  logout: () => void;
   // enrollment + progress
   enrolled: string[];
   isEnrolled: (courseId: string) => boolean;
@@ -131,69 +134,6 @@ interface StoreContextValue {
   // courses
   courses: Course[];
   getCourse: (id: string) => Course | undefined;
-  upsertCourse: (course: Course) => void;
-  deleteCourse: (id: string) => void;
-  setCourseStatus: (id: string, status: CourseStatus) => void;
-  reset: () => void;
-  // instructor program (facade)
-  currentInstructor: Instructor | null;
-  getInstructorById: (id: string) => Instructor | undefined;
-  instructorStatusOf: (id: string) => InstructorStatus | undefined;
-  myCourses: Course[];
-  loginAsInstructor: (instructorId?: string) => void;
-  applyAsInstructor: (data: {
-    name: string;
-    email: string;
-    expertise: string;
-    headline: string;
-    bio: string;
-    sampleUrl?: string;
-  }) => string;
-  approveInstructor: (applicationId: string, note?: string) => void;
-  rejectInstructor: (applicationId: string, note?: string) => void;
-  updateInstructorProfile: (partial: Partial<Instructor>) => void;
-  instructorApplications: InstructorApplication[];
-  // sales agent program (facade)
-  allAgents: SalesAgent[];
-  currentAgent: SalesAgent | null;
-  agentApplications: SalesAgentApplication[];
-  loginAsAgent: (agentId?: string) => void;
-  applyAsSalesAgent: (data: {
-    name: string;
-    email: string;
-    phone?: string;
-    region: string;
-    bio: string;
-  }) => string;
-  approveAgent: (
-    applicationId: string,
-    commissionPercent: number,
-    note?: string,
-  ) => void;
-  rejectAgent: (applicationId: string, note?: string) => void;
-  updateAgentCommission: (agentId: string, commissionPercent: number) => void;
-  suspendAgent: (agentId: string) => void;
-  // organizations (facade)
-  allOrganizations: Organization[];
-  currentOrg: Organization | null;
-  loginAsOrgAdmin: (orgSlug?: string) => void;
-  createOrganization: (data: {
-    name: string;
-    slug: string;
-    domain?: string;
-    adminEmail: string;
-    seatCount: number;
-  }) => string;
-  updateOrganization: (
-    orgId: string,
-    partial: Partial<
-      Pick<Organization, "name" | "domain" | "logoUrl" | "seatCount" | "status">
-    >,
-  ) => void;
-  assignOrgCourse: (orgId: string, courseId: string) => void;
-  unassignOrgCourse: (orgId: string, courseId: string) => void;
-  inviteOrgMember: (orgId: string, email: string, role: OrgMemberRole) => void;
-  removeOrgMember: (orgId: string, memberId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -331,10 +271,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     inCart: (id) => cart.includes(id),
     setCoupon: setCouponState,
-    // auth shims (real auth lives in useSession/useLogin/useLogout)
-    login: () => undefined,
-    loginAs: () => undefined,
-    logout: () => undefined,
     // enrollment + progress
     enrolled,
     isEnrolled: (id) => enrolled.includes(id),
@@ -378,41 +314,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // courses
     courses,
     getCourse,
-    upsertCourse: () => undefined,
-    deleteCourse: () => undefined,
-    setCourseStatus: () => undefined,
-    reset: () => undefined,
-    // instructor program (facade — see dedicated API for full behaviour)
-    currentInstructor: null,
-    getInstructorById: () => undefined,
-    instructorStatusOf: () => undefined,
-    myCourses: [],
-    loginAsInstructor: () => undefined,
-    applyAsInstructor: () => "",
-    approveInstructor: () => undefined,
-    rejectInstructor: () => undefined,
-    updateInstructorProfile: () => undefined,
-    instructorApplications: [],
-    // sales agent program (facade)
-    allAgents: [],
-    currentAgent: null,
-    agentApplications: [],
-    loginAsAgent: () => undefined,
-    applyAsSalesAgent: () => "",
-    approveAgent: () => undefined,
-    rejectAgent: () => undefined,
-    updateAgentCommission: () => undefined,
-    suspendAgent: () => undefined,
-    // organizations (facade)
-    allOrganizations: [],
-    currentOrg: null,
-    loginAsOrgAdmin: () => undefined,
-    createOrganization: () => "",
-    updateOrganization: () => undefined,
-    assignOrgCourse: () => undefined,
-    unassignOrgCourse: () => undefined,
-    inviteOrgMember: () => undefined,
-    removeOrgMember: () => undefined,
   };
 
   return (

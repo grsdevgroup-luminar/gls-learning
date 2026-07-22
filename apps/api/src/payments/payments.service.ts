@@ -217,6 +217,41 @@ export class PaymentsService {
     await this.markProcessed("paypal", eventId);
   }
 
+  // ── Refunds ──────────────────────────────────────────────────────────────
+  /** Refunds the payment at the gateway. No-op (dev-simulated orders, or a
+   * gateway with no captured payment) is treated as success — the caller
+   * still records the refund in our own ledger. */
+  async refundGatewayPayment(order: OrderRow): Promise<void> {
+    if (!order.providerPaymentId || order.providerPaymentId === "dev_simulated")
+      return;
+
+    if (order.gateway === "STRIPE" && this.stripe) {
+      await this.stripe.refunds.create({
+        payment_intent: order.providerPaymentId,
+      });
+      return;
+    }
+
+    if (order.gateway === "PAYPAL" && this.paypalConfigured()) {
+      const token = await this.paypalAccessToken();
+      const res = await fetch(
+        `${this.paypalBase()}/v2/payments/captures/${order.providerPaymentId}/refund`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: "{}",
+        },
+      );
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new BadRequestException(`PayPal refund failed: ${detail}`);
+      }
+    }
+  }
+
   // ── Dev simulate (non-production only) ──────────────────────────────────
   async devSimulate(orderId: string) {
     if (this.isProd) throw new BadRequestException("Not available in production");

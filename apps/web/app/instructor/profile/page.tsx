@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, instructorApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -35,14 +35,15 @@ export default function InstructorProfile() {
   // Categories load async; fall back to the first once they arrive.
   const expertiseValue = expertise || categories[0] || "";
 
-  // Seed the form once the profile loads.
-  useEffect(() => {
-    if (profile) {
-      setTitle(profile.title ?? "");
-      setExpertise(profile.expertise ?? "");
-      setBio(profile.bio ?? "");
-    }
-  }, [profile]);
+  // Seed the form once the profile loads — adjusting state during render
+  // instead of syncing in an effect.
+  const [prevProfile, setPrevProfile] = useState(profile);
+  if (profile && profile !== prevProfile) {
+    setPrevProfile(profile);
+    setTitle(profile.title ?? "");
+    setExpertise(profile.expertise ?? "");
+    setBio(profile.bio ?? "");
+  }
 
   const saveMutation = useMutation({
     mutationFn: () =>

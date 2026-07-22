@@ -115,7 +115,7 @@ export default function CertificatesPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
         <p className="text-muted-foreground">
-          You've earned {earned.length} certificate{earned.length !== 1 && 's'}.
+          You&apos;ve earned {earned.length} certificate{earned.length !== 1 && 's'}.
           Finish a course to unlock more.
         </p>
       </div>

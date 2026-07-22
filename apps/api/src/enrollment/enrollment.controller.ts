@@ -19,6 +19,11 @@ export class EnrollmentController {
     return this.enrollment.myCertificates(user.id);
   }
 
+  @Get("me/activity/weekly")
+  weeklyActivity(@CurrentUser() user: RequestUser) {
+    return this.enrollment.weeklyActivity(user.id);
+  }
+
   @Get("me/courses/:courseId/progress")
   progress(
     @CurrentUser() user: RequestUser,

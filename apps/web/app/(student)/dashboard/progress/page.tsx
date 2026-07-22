@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMyEnrollments } from "@/lib/api/hooks";
+import { useMyEnrollments, useWeeklyActivity } from "@/lib/api/hooks";
 import { Meter } from "@/components/shared/meter";
 import { CourseArt } from "@/components/shared/course-art";
 import { AreaTrend } from "@/components/charts/charts";
@@ -12,18 +12,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Target, Clock, TrendingUp, PlayCircle, Award } from "lucide-react";
 import { formatHoursFromMin } from "@/lib/format";
 
-const weekly = [
-  { day: "Mon", minutes: 0 },
-  { day: "Tue", minutes: 0 },
-  { day: "Wed", minutes: 0 },
-  { day: "Thu", minutes: 0 },
-  { day: "Fri", minutes: 0 },
-  { day: "Sat", minutes: 0 },
-  { day: "Sun", minutes: 0 },
-];
-
 export default function ProgressPage() {
   const { data: enrollments, isLoading } = useMyEnrollments();
+  useWeeklyActivity();
 
   if (isLoading) {
     return (
@@ -84,10 +75,21 @@ export default function ProgressPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <AreaTrend data={weekly} xKey="day" yKey="minutes" prefix="" height={220} />
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Activity data will appear as you learn
-          </p>
+          <AreaTrend
+            data={(weeklyActivity ?? []).map((d) => ({
+              day: WEEKDAY_LABEL[new Date(d.date).getUTCDay()],
+              minutes: d.minutes,
+            }))}
+            xKey="day"
+            yKey="minutes"
+            prefix=""
+            height={220}
+          />
+          {(weeklyActivity ?? []).every((d) => d.minutes === 0) && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Activity data will appear as you learn
+            </p>
+          )}
         </CardContent>
       </Card>
 

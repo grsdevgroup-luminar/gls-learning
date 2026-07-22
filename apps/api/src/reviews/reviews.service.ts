@@ -63,6 +63,18 @@ export class ReviewsService {
     };
   }
 
+  /** Platform-wide highlights for marketing surfaces (landing page, etc.):
+   * highly-rated, approved reviews with an actual write-up. */
+  async featured(limit: number): Promise<ReviewDto[]> {
+    const rows = await this.prisma.review.findMany({
+      where: { status: "APPROVED", rating: { gte: 4 }, body: { not: "" } },
+      include: reviewInclude,
+      orderBy: [{ helpful: "desc" }, { createdAt: "desc" }],
+      take: limit,
+    });
+    return rows.map((r) => this.toDto(r));
+  }
+
   async myReview(userId: string, courseId: string): Promise<ReviewDto | null> {
     const r = await this.prisma.review.findUnique({
       where: { courseId_userId: { courseId, userId } },

@@ -1,4 +1,4 @@
-import type { Organization, OrgMember, OrgInvitation } from "@/types";
+import type { Organization, OrgInvitation } from "@/types";
 
 export const DEMO_ORG_SLUG = "techcorp";
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/shared/stars";
 import { CourseArt } from "@/components/shared/course-art";
 import { Section, SectionHeading } from "@/components/shared/section";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Reveal,
   Stagger,
@@ -21,6 +21,7 @@ import type {
   CourseSummaryDto,
   InstructorRosterDto,
   Paginated,
+  ReviewDto,
 } from "@skillstream/shared";
 import type { Course } from "@/types";
 import { compactNumber, initials } from "@/lib/format";
@@ -64,12 +65,6 @@ const catIcons: Record<string, { icon: typeof Code2; tint: string }> = {
   Marketing: { icon: TrendingUp, tint: "var(--tint-emerald)" },
 };
 
-const testimonials = [
-  { name: "Jordan M.", role: "Frontend Developer", text: "The protected player and progress tracking feel premium. I actually finished a course for once thanks to the streak nudges." },
-  { name: "Priya S.", role: "Founder", text: "Region pricing meant my team in three countries all paid a fair price. Checkout was effortless." },
-  { name: "Chen W.", role: "Data Analyst", text: "Best learning experience I've used. The dashboards make it obvious what to do next." },
-];
-
 /** The landing page must render even if the API blips — a half-populated
  *  marketing page beats a 500. Each section degrades to empty on its own. */
 async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
@@ -82,7 +77,7 @@ async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
 
 export default async function HomePage() {
   // Server-fetched so the landing page ships real, indexable content.
-  const [coursePage, instructors, categories] = await Promise.all([
+  const [coursePage, instructors, categories, testimonials] = await Promise.all([
     safe(serverApi<Paginated<CourseSummaryDto>>(`/courses?pageSize=${MAX_PAGE_SIZE}`), {
       items: [],
       page: 1,
@@ -92,6 +87,7 @@ export default async function HomePage() {
     }),
     safe(serverApi<InstructorRosterDto[]>("/instructors"), []),
     safe(serverApi<string[]>("/categories"), []),
+    safe(serverApi<ReviewDto[]>("/reviews/featured"), []),
   ]);
 
   const publishedCourses = coursePage.items.map(toLegacyCourse);
@@ -260,34 +256,37 @@ export default async function HomePage() {
       </Section>
 
       {/* ── Testimonials ───────────────────────────────────────── */}
-      <Section size="lg">
-        <SectionHeading
-          eyebrow="Loved worldwide"
-          title="What learners say"
-          className="mb-10"
-        />
-        <Stagger className="grid gap-5 md:grid-cols-3" gap={0.1}>
-          {testimonials.map((t) => (
-            <StaggerItem key={t.name}>
-              <figure className="flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg">
-                <Stars rating={5} size={15} />
-                <blockquote className="mt-4 flex-1 text-[0.9375rem] leading-relaxed text-foreground/90">
-                  “{t.text}”
-                </blockquote>
-                <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
-                  <Avatar className="size-9">
-                    <AvatarFallback className="text-xs">{initials(t.name)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="text-sm font-medium">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.role}</div>
-                  </div>
-                </figcaption>
-              </figure>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </Section>
+      {testimonials.length > 0 && (
+        <Section size="lg">
+          <SectionHeading
+            eyebrow="Loved worldwide"
+            title="What learners say"
+            className="mb-10"
+          />
+          <Stagger className="grid gap-5 md:grid-cols-3" gap={0.1}>
+            {testimonials.map((t) => (
+              <StaggerItem key={t.id}>
+                <figure className="flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg">
+                  <Stars rating={t.rating} size={15} />
+                  <blockquote className="mt-4 flex-1 text-[0.9375rem] leading-relaxed text-foreground/90">
+                    “{t.body}”
+                  </blockquote>
+                  <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
+                    <Avatar className="size-9">
+                      {t.avatar && <AvatarImage src={t.avatar} alt={t.author} />}
+                      <AvatarFallback className="text-xs">{initials(t.author)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="text-sm font-medium">{t.author}</div>
+                      <div className="text-xs text-muted-foreground">{t.courseTitle}</div>
+                    </div>
+                  </figcaption>
+                </figure>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </Section>
+      )}
 
       {/* ── CTA ────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pb-24">

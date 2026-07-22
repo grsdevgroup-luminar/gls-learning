@@ -221,7 +221,7 @@ export default function DashboardPage() {
         <div className="flex-1">
           <h3 className="font-semibold">Stay on track with smart reminders</h3>
           <p className="text-sm text-muted-foreground">
-            We'll nudge you by email or SMS if you go idle — manage exactly how in your account.
+            We&apos;ll nudge you by email or SMS if you go idle — manage exactly how in your account.
           </p>
         </div>
         <Button variant="outline" render={<Link href="/account" />}>

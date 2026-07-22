@@ -64,7 +64,13 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
     return commands.filter((c) => c.label.toLowerCase().includes(needle));
   }, [q, commands]);
 
-  useEffect(() => setActive(0), [q]);
+  // Reset the highlight whenever the query changes — adjusting state during
+  // render instead of syncing in an effect.
+  const [prevQ, setPrevQ] = useState(q);
+  if (prevQ !== q) {
+    setPrevQ(q);
+    setActive(0);
+  }
 
   useEffect(() => {
     if (open) {

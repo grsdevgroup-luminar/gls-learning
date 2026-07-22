@@ -1,9 +1,12 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Flips to true after hydration without a setState-in-effect.
+const subscribe = () => () => {};
 
 export function ThemeToggle({
   className,
@@ -13,8 +16,7 @@ export function ThemeToggle({
   size?: "icon" | "icon-sm";
 }) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   return (
     <Button

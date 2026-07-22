@@ -12,6 +12,7 @@ import {
   type CertificateDto,
   type EnrollmentDto,
   type ToggleLessonResultDto,
+  type WeeklyActivityDayDto,
 } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -67,6 +68,42 @@ export class EnrollmentService {
       completedAt: row.completedAt?.toISOString() ?? null,
       certificate: mapCertificate(row.certificate),
     };
+  }
+
+  /** Minutes engaged per day over the last 7 days, derived from lessons the
+   * student actually completed (lesson duration counted on its completion
+   * day) — a real signal, not a placeholder. */
+  async weeklyActivity(userId: string): Promise<WeeklyActivityDayDto[]> {
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - 6);
+
+    const rows = await this.prisma.lessonProgress.findMany({
+      where: {
+        completed: true,
+        completedAt: { gte: since },
+        enrollment: { userId },
+      },
+      select: { completedAt: true, lesson: { select: { durationSec: true } } },
+    });
+
+    const minutesByDate = new Map<string, number>();
+    for (const r of rows) {
+      const key = r.completedAt.toISOString().slice(0, 10);
+      minutesByDate.set(
+        key,
+        (minutesByDate.get(key) ?? 0) + Math.round(r.lesson.durationSec / 60),
+      );
+    }
+
+    const days: WeeklyActivityDayDto[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(since);
+      d.setDate(since.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      days.push({ date: key, minutes: minutesByDate.get(key) ?? 0 });
+    }
+    return days;
   }
 
   async myCertificates(userId: string): Promise<CertificateDto[]> {

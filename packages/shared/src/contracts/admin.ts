@@ -18,6 +18,20 @@ export interface AdminOverviewDto {
   paidOrders: number;
 }
 
+export interface AdminAnalyticsDto {
+  /** Last 14 days, oldest first. */
+  revenueTrend: { date: string; revenueCents: number; enrollments: number }[];
+  /** Top regions by revenue (all-time), by order country. */
+  revenueByRegion: { country: string; revenueCents: number }[];
+  /** Real conversion funnel from actual account/enrollment/order data. */
+  funnel: { stage: string; count: number }[];
+  recentActivity: {
+    type: "order" | "enrollment" | "review" | "signup";
+    label: string;
+    at: string;
+  }[];
+}
+
 export interface AdminStudentDto {
   id: string;
   name: string;

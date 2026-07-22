@@ -1,4 +1,5 @@
 import type {
+  AdminAnalyticsDto,
   AdminOverviewDto,
   AdminPricingDto,
   AdminStudentDto,
@@ -38,6 +39,7 @@ import type {
   CheckoutSessionInput,
   CheckoutSessionDto,
   ToggleLessonResultDto,
+  WeeklyActivityDayDto,
 } from "@skillstream/shared";
 import { apiFetch } from "./client";
 
@@ -97,6 +99,8 @@ export const api = {
 
   // enrollment / progress
   myEnrollments: () => apiFetch<EnrollmentDto[]>("/me/enrollments"),
+  myWeeklyActivity: () =>
+    apiFetch<WeeklyActivityDayDto[]>("/me/activity/weekly"),
   progress: (courseId: string) =>
     apiFetch<EnrollmentDto>(`/me/courses/${courseId}/progress`),
   enrollFree: (courseId: string) =>
@@ -166,6 +170,7 @@ export const api = {
 
   // admin overview & management
   adminOverview: () => apiFetch<AdminOverviewDto>("/admin/overview"),
+  adminAnalytics: () => apiFetch<AdminAnalyticsDto>("/admin/analytics"),
   adminStudents: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<AdminStudentDto[]>(`/admin/students${qs(params)}`),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
@@ -429,6 +434,7 @@ export const authoringApi = {
 // Grouped aliases so portal pages can import a namespaced client.
 export const adminApi = {
   overview: () => api.adminOverview(),
+  analytics: () => api.adminAnalytics(),
   students: () => api.adminStudents(),
   orders: () => api.adminOrders(),
   courses: () => api.adminCourses(),

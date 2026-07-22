@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AutomationRule, Coupon, PlatformSettings } from "@prisma/client";
 import type {
+  AdminAnalyticsDto,
   AdminOverviewDto,
   AdminStudentDto,
   AutomationRuleDto,
@@ -15,6 +16,7 @@ import type {
   UpdateUserStatusInput,
 } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { PaymentsService } from "../payments/payments.service";
 import {
   COURSE_SUMMARY_INCLUDE,
   toCourseSummary,
@@ -25,7 +27,10 @@ const SETTINGS_ID = "singleton";
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly payments: PaymentsService,
+  ) {}
 
   async overview(): Promise<AdminOverviewDto> {
     const [
@@ -68,6 +73,137 @@ export class AdminService {
       refundRatePct,
       paidOrders,
     };
+  }
+
+  async analytics(): Promise<AdminAnalyticsDto> {
+    const since14 = new Date();
+    since14.setHours(0, 0, 0, 0);
+    since14.setDate(since14.getDate() - 13);
+
+    const [
+      recentOrders,
+      recentEnrollments,
+      revenueByCountry,
+      totalStudents,
+      enrolledStudentIds,
+      completedStudentIds,
+      paidStudentIds,
+      latestOrders,
+      latestEnrollments,
+      latestReviews,
+      latestSignups,
+    ] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: { status: "PAID", paidAt: { gte: since14 } },
+        select: { totalCents: true, paidAt: true },
+      }),
+      this.prisma.enrollment.findMany({
+        where: { enrolledAt: { gte: since14 } },
+        select: { enrolledAt: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ["country"],
+        where: { status: "PAID" },
+        _sum: { totalCents: true },
+        orderBy: { _sum: { totalCents: "desc" } },
+      }),
+      this.prisma.user.count({ where: { role: "STUDENT" } }),
+      this.prisma.enrollment.findMany({
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      this.prisma.enrollment.findMany({
+        where: { status: "COMPLETED" },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      this.prisma.order.findMany({
+        where: { status: "PAID" },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      this.prisma.order.findMany({
+        where: { status: "PAID" },
+        orderBy: { paidAt: "desc" },
+        take: 5,
+        select: { id: true, totalCents: true, paidAt: true, user: { select: { name: true } } },
+      }),
+      this.prisma.enrollment.findMany({
+        orderBy: { enrolledAt: "desc" },
+        take: 5,
+        select: { enrolledAt: true, user: { select: { name: true } }, course: { select: { title: true } } },
+      }),
+      this.prisma.review.findMany({
+        where: { status: "APPROVED" },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+        select: { createdAt: true, rating: true, user: { select: { name: true } }, course: { select: { title: true } } },
+      }),
+      this.prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 3,
+        select: { createdAt: true, name: true },
+      }),
+    ]);
+
+    // ── revenue/enrollments per day, last 14 days ──
+    const byDate = new Map<string, { revenueCents: number; enrollments: number }>();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(since14);
+      d.setDate(since14.getDate() + i);
+      byDate.set(d.toISOString().slice(0, 10), { revenueCents: 0, enrollments: 0 });
+    }
+    for (const o of recentOrders) {
+      const key = (o.paidAt ?? new Date()).toISOString().slice(0, 10);
+      const row = byDate.get(key);
+      if (row) row.revenueCents += o.totalCents;
+    }
+    for (const e of recentEnrollments) {
+      const key = e.enrolledAt.toISOString().slice(0, 10);
+      const row = byDate.get(key);
+      if (row) row.enrollments += 1;
+    }
+    const revenueTrend = [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
+
+    // ── top regions by revenue ──
+    const revenueByRegion = revenueByCountry
+      .map((r) => ({ country: r.country ?? "Unknown", revenueCents: r._sum?.totalCents ?? 0 }))
+      .sort((a, b) => b.revenueCents - a.revenueCents)
+      .slice(0, 6);
+
+    const funnel = [
+      { stage: "Signed up", count: totalStudents },
+      { stage: "Enrolled", count: enrolledStudentIds.length },
+      { stage: "Purchased", count: paidStudentIds.length },
+      { stage: "Completed a course", count: completedStudentIds.length },
+    ];
+
+    const recentActivity: AdminAnalyticsDto["recentActivity"] = [
+      ...latestOrders.map((o) => ({
+        type: "order" as const,
+        label: `${o.user.name} paid $${(o.totalCents / 100).toFixed(2)}`,
+        at: (o.paidAt ?? new Date()).toISOString(),
+      })),
+      ...latestEnrollments.map((e) => ({
+        type: "enrollment" as const,
+        label: `${e.user.name} enrolled in ${e.course.title}`,
+        at: e.enrolledAt.toISOString(),
+      })),
+      ...latestReviews.map((r) => ({
+        type: "review" as const,
+        label: `${r.user.name} rated ${r.course.title} ${r.rating}★`,
+        at: r.createdAt.toISOString(),
+      })),
+      ...latestSignups.map((u) => ({
+        type: "signup" as const,
+        label: `${u.name} signed up`,
+        at: u.createdAt.toISOString(),
+      })),
+    ]
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .slice(0, 8);
+
+    return { revenueTrend, revenueByRegion, funnel, recentActivity };
   }
 
   async students(): Promise<AdminStudentDto[]> {
@@ -252,6 +388,12 @@ export class AdminService {
       include: { items: true },
     });
     if (!order) throw new NotFoundException("Order not found");
+    if (order.status === "REFUNDED") throw new NotFoundException("Order already refunded");
+
+    // Return the money at the gateway before touching our own ledger — if the
+    // gateway call fails we want to bail out with the order still PAID rather
+    // than mark it refunded without the customer actually getting paid back.
+    await this.payments.refundGatewayPayment(order);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({

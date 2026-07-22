@@ -16,6 +16,12 @@ export class ReviewsController {
   constructor(private readonly reviews: ReviewsService) {}
 
   @Public()
+  @Get("reviews/featured")
+  featured() {
+    return this.reviews.featured(6);
+  }
+
+  @Public()
   @Get("courses/:courseId/reviews")
   list(
     @Param("courseId") courseId: string,

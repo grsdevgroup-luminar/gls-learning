@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAdminSettings, useUpdateSettings } from '@/lib/api/hooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import {
@@ -39,15 +39,18 @@ export default function AdminSettings() {
     defaultLanguage: '',
   });
 
-  useEffect(() => {
-    if (!settings) return;
+  // Seed the draft from the server value whenever it (re)loads — adjusting
+  // state during render instead of syncing in an effect.
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (settings && settings !== prevSettings) {
+    setPrevSettings(settings);
     setGeneral({
       platformName: settings.platformName,
       supportEmail: settings.supportEmail,
       baseCurrency: settings.baseCurrency,
       defaultLanguage: settings.defaultLanguage,
     });
-  }, [settings]);
+  }
 
   function save(input: Parameters<typeof update.mutate>[0], msg: string) {
     update.mutate(input, {

@@ -23,6 +23,12 @@ export interface EnrollmentDto {
   certificate: CertificateDto | null;
 }
 
+export interface WeeklyActivityDayDto {
+  /** ISO date (YYYY-MM-DD), local to the server. */
+  date: string;
+  minutes: number;
+}
+
 export interface ToggleLessonResultDto {
   lessonId: string;
   completed: boolean;

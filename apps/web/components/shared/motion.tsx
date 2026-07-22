@@ -216,11 +216,7 @@ export function Counter({
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    if (!inView) return;
-    if (reduce) {
-      setDisplay(value);
-      return;
-    }
+    if (!inView || reduce) return;
     const controls = animate(0, value, {
       duration,
       ease: EASE,
@@ -229,10 +225,13 @@ export function Counter({
     return () => controls.stop();
   }, [inView, value, duration, reduce]);
 
+  // Reduced motion: skip the animation and show the final value directly.
+  const shown = reduce && inView ? value : display;
+
   return (
     <span ref={ref} className={className}>
       {prefix}
-      {display.toLocaleString(undefined, {
+      {shown.toLocaleString(undefined, {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
       })}

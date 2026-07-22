@@ -11,9 +11,15 @@ import { useFeaturedCoupon } from "@/lib/api/hooks";
 function useCountdown(iso: string) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const tick = () => setNow(Date.now());
+    // First tick is scheduled (not run synchronously) so the effect body
+    // only subscribes to the clock instead of setting state directly.
+    const first = setTimeout(tick, 0);
+    const t = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
   }, []);
   if (now === null) return null;
   const diff = Math.max(0, Date.parse(iso) - now);

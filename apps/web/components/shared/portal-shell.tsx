@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useStore } from "@/lib/context/store";
+import { useLogout } from "@/lib/api/session";
 import { cn } from "@/lib/utils";
 
 export interface NavItem {
@@ -39,12 +39,12 @@ export function PortalShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useStore();
+  const logoutMut = useLogout();
   const [open, setOpen] = useState(false);
 
-  function handleLogout() {
+  async function handleLogout() {
     setOpen(false);
-    logout();
+    await logoutMut.mutateAsync();
     router.push("/");
   }
 

@@ -17,10 +17,11 @@ const PROTECTED_PREFIXES = [
 type Role = "STUDENT" | "INSTRUCTOR" | "ADMIN" | "SALES_AGENT" | "ORG_ADMIN";
 
 // Role-portal prefixes → who may enter. ADMIN is treated as a superuser.
+// /sales-agent is deliberately NOT here: it also hosts the apply form any
+// logged-in user (of any role) submits before becoming a SALES_AGENT.
 const ROLE_PREFIXES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/admin", roles: ["ADMIN"] },
   { prefix: "/instructor", roles: ["INSTRUCTOR", "ADMIN"] },
-  { prefix: "/sales-agent", roles: ["SALES_AGENT", "ADMIN"] },
 ];
 
 const HOME: Record<Role, string> = {

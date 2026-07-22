@@ -76,7 +76,7 @@ export default function AdminMarketing() {
   }
 
   // Derived from the send log rather than stored — the log is the source of truth.
-  const weekAgo = Date.now() - 7 * 86400_000;
+  const [weekAgo] = useState(() => Date.now() - 7 * 86400_000);
   const sent7d = logs.filter((l) => Date.parse(l.createdAt) >= weekAgo).length;
   const opened = logs.filter((l) => l.status === "OPENED" || l.status === "CLICKED").length;
   const clicked = logs.filter((l) => l.status === "CLICKED").length;

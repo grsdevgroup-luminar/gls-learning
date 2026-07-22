@@ -3,15 +3,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api/endpoints";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AreaTrend, BarTrend, Donut } from "@/components/charts/charts";
 import { formatUsd, compactNumber } from "@/lib/format";
 import {
   DollarSign, Users, GraduationCap, Target, ArrowUpRight, BarChart2,
+  ShoppingCart, UserPlus, Star, GraduationCap as EnrollIcon,
 } from "lucide-react";
+
+const ACTIVITY_ICON = {
+  order: ShoppingCart,
+  enrollment: EnrollIcon,
+  review: Star,
+  signup: UserPlus,
+} as const;
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.round(ms / 60_000);
+  if (min < 60) return `${Math.max(min, 0)}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
+}
 
 export default function AdminOverview() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin", "overview"],
     queryFn: adminApi.overview,
+  });
+  const { data: analytics } = useQuery({
+    queryKey: ["admin", "analytics"],
+    queryFn: adminApi.analytics,
   });
 
   if (error) {
@@ -123,22 +145,52 @@ export default function AdminOverview() {
         </div>
       )}
 
-      {/* Charts placeholder */}
+      {/* Analytics */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Revenue &amp; enrollments</CardTitle>
+            <CardTitle className="text-base">Revenue &amp; enrollments (14d)</CardTitle>
           </CardHeader>
-          <CardContent className="flex h-[260px] flex-col items-center justify-center gap-2 text-muted-foreground">
-            <BarChart2 className="size-8 opacity-30" />
-            <p className="text-sm">Analytics charts coming soon</p>
+          <CardContent>
+            {analytics?.revenueTrend.length ? (
+              <AreaTrend
+                data={analytics.revenueTrend.map((d) => ({
+                  date: d.date.slice(5),
+                  revenue: d.revenueCents / 100,
+                }))}
+                xKey="date"
+                yKey="revenue"
+                prefix="$"
+                height={260}
+              />
+            ) : (
+              <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-muted-foreground">
+                <BarChart2 className="size-8 opacity-30" />
+                <p className="text-sm">No orders in the last 14 days</p>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle className="text-base">Revenue by region</CardTitle></CardHeader>
-          <CardContent className="flex h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground">
-            <BarChart2 className="size-6 opacity-30" />
-            <p className="text-sm">Analytics charts coming soon</p>
+          <CardContent>
+            {analytics?.revenueByRegion.length ? (
+              <Donut
+                data={analytics.revenueByRegion.map((r) => ({
+                  country: r.country,
+                  revenue: r.revenueCents / 100,
+                }))}
+                nameKey="country"
+                valueKey="revenue"
+                prefix="$"
+                height={200}
+              />
+            ) : (
+              <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground">
+                <BarChart2 className="size-6 opacity-30" />
+                <p className="text-sm">No revenue yet</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -148,15 +200,44 @@ export default function AdminOverview() {
           <CardHeader>
             <CardTitle className="text-base">Conversion funnel</CardTitle>
           </CardHeader>
-          <CardContent className="flex h-[260px] flex-col items-center justify-center gap-2 text-muted-foreground">
-            <BarChart2 className="size-8 opacity-30" />
-            <p className="text-sm">Analytics charts coming soon</p>
+          <CardContent>
+            {analytics?.funnel.length ? (
+              <BarTrend
+                data={analytics.funnel}
+                xKey="stage"
+                yKey="count"
+                height={260}
+                horizontal
+              />
+            ) : (
+              <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-muted-foreground">
+                <BarChart2 className="size-8 opacity-30" />
+                <p className="text-sm">No data yet</p>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle className="text-base">Recent activity</CardTitle></CardHeader>
-          <CardContent className="flex h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground">
-            <p className="text-sm">Analytics charts coming soon</p>
+          <CardContent className="h-[260px] overflow-y-auto">
+            {analytics?.recentActivity.length ? (
+              <ul className="space-y-3">
+                {analytics.recentActivity.map((a, i) => {
+                  const Icon = ACTIVITY_ICON[a.type];
+                  return (
+                    <li key={i} className="flex items-start gap-2.5 text-sm">
+                      <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">{a.label}</p>
+                        <p className="text-xs text-muted-foreground">{timeAgo(a.at)}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No recent activity</p>
+            )}
           </CardContent>
         </Card>
       </div>
