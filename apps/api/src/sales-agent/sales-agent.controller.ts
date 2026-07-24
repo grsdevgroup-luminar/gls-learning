@@ -68,10 +68,4 @@ export class SalesAgentController {
   ) {
     return this.agents.updateAgent(id, body);
   }
-
-  @Roles("ADMIN")
-  @Post("admin/sales-agents/:id/payout")
-  payout(@Param("id") id: string) {
-    return this.agents.processPayout(id);
-  }
 }

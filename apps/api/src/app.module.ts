@@ -19,6 +19,7 @@ import { CommentsModule } from "./comments/comments.module";
 import { InstructorModule } from "./instructor/instructor.module";
 import { AdminModule } from "./admin/admin.module";
 import { SalesAgentModule } from "./sales-agent/sales-agent.module";
+import { PayoutsModule } from "./payouts/payouts.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { HealthController } from "./health/health.controller";
@@ -59,6 +60,7 @@ import { AuditInterceptor } from "./common/audit.interceptor";
     InstructorModule,
     AdminModule,
     SalesAgentModule,
+    PayoutsModule,
     OrganizationsModule,
     JobsModule,
   ],

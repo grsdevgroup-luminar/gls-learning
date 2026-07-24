@@ -5,7 +5,7 @@ import { useSession } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import {
   LayoutDashboard, BookOpen, Users, ShoppingBag, Ticket, Globe2,
-  Star, Megaphone, Settings, GraduationCap, UserCheck, Building2,
+  Star, Megaphone, Settings, GraduationCap, UserCheck, Building2, Wallet,
 } from "lucide-react";
 
 const items: NavItem[] = [
@@ -13,6 +13,7 @@ const items: NavItem[] = [
   { href: "/admin/courses", label: "Courses", icon: BookOpen },
   { href: "/admin/instructors", label: "Instructors", icon: GraduationCap },
   { href: "/admin/agents", label: "Sales Agents", icon: UserCheck },
+  { href: "/admin/payouts", label: "Payouts", icon: Wallet },
   { href: "/admin/organizations", label: "Organizations", icon: Building2 },
   { href: "/admin/students", label: "Students", icon: Users },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },

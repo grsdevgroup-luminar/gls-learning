@@ -148,6 +148,26 @@ export const OrgMemberRole = {
 } as const;
 export type OrgMemberRole = (typeof OrgMemberRole)[keyof typeof OrgMemberRole];
 
+export const PayeeType = {
+  INSTRUCTOR: "INSTRUCTOR",
+  AGENT: "AGENT",
+} as const;
+export type PayeeType = (typeof PayeeType)[keyof typeof PayeeType];
+
+export const PayoutMethod = {
+  PAYPAL: "PAYPAL",
+  BANK: "BANK",
+} as const;
+export type PayoutMethod = (typeof PayoutMethod)[keyof typeof PayoutMethod];
+
+export const PayoutStatus = {
+  REQUESTED: "REQUESTED",
+  APPROVED: "APPROVED",
+  PAID: "PAID",
+  REJECTED: "REJECTED",
+} as const;
+export type PayoutStatus = (typeof PayoutStatus)[keyof typeof PayoutStatus];
+
 // Display-label maps for enums the frontend renders verbatim.
 export const LEVEL_LABELS: Record<CourseLevel, string> = {
   BEGINNER: "Beginner",

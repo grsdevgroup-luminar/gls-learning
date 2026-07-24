@@ -49,6 +49,23 @@ enum OrgMemberRole {
   MEMBER
 }
 
+enum PayeeType {
+  INSTRUCTOR
+  AGENT
+}
+
+enum PayoutMethod {
+  PAYPAL
+  BANK
+}
+
+enum PayoutStatus {
+  REQUESTED
+  APPROVED
+  PAID
+  REJECTED
+}
+
 enum CourseLevel {
   BEGINNER
   INTERMEDIATE
@@ -158,6 +175,8 @@ model User {
   authoredCourses   Course[]           @relation("InstructorCourses")
   salesAgent        SalesAgent?
   orgMemberships    OrgMember[]
+  payoutAccount     PayoutAccount?
+  payouts           Payout[]
 
   @@index([role])
 }
@@ -726,4 +745,38 @@ model OrgInvitation {
 
   @@index([orgId])
   @@index([token])
+}
+
+// ─── Payouts ──────────────────────────────────────────────────────────────────
+
+/// Where a payee's money goes. One per user, set by the payee. `details` is the
+/// free-form destination (PayPal email or bank details) an admin reads to
+/// execute the transfer manually — this system does not move money itself.
+model PayoutAccount {
+  userId    String       @id
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method    PayoutMethod
+  details   String
+  updatedAt DateTime     @updatedAt
+}
+
+/// A single payout in the request→approve→paid ledger, shared by instructors and
+/// sales agents. `destination` snapshots the account details at request time so
+/// history stays accurate even if the payee later edits their account.
+model Payout {
+  id          String       @id @default(cuid())
+  payeeUserId String
+  payee       User         @relation(fields: [payeeUserId], references: [id], onDelete: Cascade)
+  payeeType   PayeeType
+  amountCents Int
+  status      PayoutStatus @default(REQUESTED)
+  method      PayoutMethod
+  destination String
+  note        String?
+  requestedAt DateTime     @default(now())
+  processedAt DateTime?
+  processedBy String?
+
+  @@index([payeeUserId])
+  @@index([status])
 }

@@ -36,6 +36,10 @@ import type {
   ReviewDto,
   SalesAgentDto,
   SalesAgentReferralDto,
+  PayoutBalanceDto,
+  PayoutDto,
+  PayoutAccountDto,
+  PayoutAccountInput,
   CheckoutQuoteInput,
   CheckoutSessionInput,
   CheckoutSessionDto,
@@ -66,6 +70,9 @@ export type {
   ReviewDto,
   SalesAgentDto,
   SalesAgentReferralDto,
+  PayoutBalanceDto,
+  PayoutDto,
+  PayoutAccountDto,
 } from "@skillstream/shared";
 
 /** `GET /me/certificates` returns certificates enriched with course info
@@ -236,8 +243,22 @@ export const api = {
   adminSalesAgents: () => apiFetch<SalesAgentDto[]>("/admin/sales-agents"),
   updateSalesAgent: (id: string, body: Partial<Pick<SalesAgentDto, "commissionPercent" | "status">>) =>
     apiFetch<SalesAgentDto>(`/admin/sales-agents/${id}`, { method: "PATCH", body }),
-  payoutSalesAgent: (id: string) =>
-    apiFetch<{ ok: true }>(`/admin/sales-agents/${id}/payout`, { method: "POST" }),
+
+  // payouts (instructor + sales agent share one ledger)
+  payoutBalance: () => apiFetch<PayoutBalanceDto>("/me/payouts/balance"),
+  myPayouts: () => apiFetch<PayoutDto[]>("/me/payouts"),
+  payoutAccount: () => apiFetch<PayoutAccountDto | null>("/me/payout-account"),
+  setPayoutAccount: (body: PayoutAccountInput) =>
+    apiFetch<PayoutAccountDto>("/me/payout-account", { method: "POST", body }),
+  requestPayout: () => apiFetch<PayoutDto>("/me/payouts", { method: "POST" }),
+  adminPayouts: (status?: string) =>
+    apiFetch<PayoutDto[]>(`/admin/payouts${status ? `?status=${status}` : ""}`),
+  approvePayout: (id: string) =>
+    apiFetch<PayoutDto>(`/admin/payouts/${id}/approve`, { method: "POST" }),
+  markPayoutPaid: (id: string) =>
+    apiFetch<PayoutDto>(`/admin/payouts/${id}/mark-paid`, { method: "POST" }),
+  rejectPayout: (id: string, note?: string) =>
+    apiFetch<PayoutDto>(`/admin/payouts/${id}/reject`, { method: "POST", body: { note } }),
 
   // instructor
   applyInstructor: (body: {
@@ -453,7 +474,10 @@ export const adminApi = {
   rejectInstructorApplication: api.rejectInstructorApplication,
   salesAgents: api.adminSalesAgents,
   updateSalesAgent: api.updateSalesAgent,
-  payoutSalesAgent: api.payoutSalesAgent,
+  payouts: api.adminPayouts,
+  approvePayout: api.approvePayout,
+  markPayoutPaid: api.markPayoutPaid,
+  rejectPayout: api.rejectPayout,
 };
 
 export const instructorApi = {

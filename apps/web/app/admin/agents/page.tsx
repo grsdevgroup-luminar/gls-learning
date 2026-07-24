@@ -73,11 +73,6 @@ export default function AdminAgents() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sales-agents"] }),
   });
 
-  const payoutMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/admin/sales-agents/${id}/payout`, { method: "POST" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sales-agents"] }),
-  });
-
   const filtered = agents.filter(
     (a) => !q || `${a.name} ${a.email} ${a.referralCode}`.toLowerCase().includes(q.toLowerCase()),
   );
@@ -285,21 +280,10 @@ export default function AdminAgents() {
                           {a.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {a.pendingEarningsCents > 0 && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            disabled={payoutMutation.isPending}
-                            onClick={() => {
-                              payoutMutation.mutate(a.id);
-                              toast.success(`Payout processed for ${a.name}`);
-                            }}
-                          >
-                            Pay out
-                          </Button>
-                        )}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {a.pendingEarningsCents > 0
+                          ? `${formatUsd(a.pendingEarningsCents / 100)} pending`
+                          : "—"}
                       </TableCell>
                     </TableRow>
                   ))

@@ -166,36 +166,6 @@ export class SalesAgentService {
     return this.toDto(a);
   }
 
-  // ── payout ────────────────────────────────────────────────────────────────
-  async processPayout(agentId: string): Promise<SalesAgentDto> {
-    const agent = await this.prisma.salesAgent.findUnique({
-      where: { id: agentId },
-      select: { pendingEarningsCents: true },
-    });
-    if (!agent) throw new NotFoundException("Sales agent not found");
-
-    await this.prisma.$transaction([
-      // Mark all confirmed referrals as paid.
-      this.prisma.salesAgentReferral.updateMany({
-        where: { agentId, status: "confirmed" },
-        data: { status: "paid" },
-      }),
-      this.prisma.salesAgent.update({
-        where: { id: agentId },
-        data: {
-          paidEarningsCents: { increment: agent.pendingEarningsCents },
-          pendingEarningsCents: 0,
-        },
-      }),
-    ]);
-
-    const updated = await this.prisma.salesAgent.findUniqueOrThrow({
-      where: { id: agentId },
-      select: agentSelect,
-    });
-    return this.toDto(updated);
-  }
-
   // ── referral attribution (called from checkout / fulfillment) ───────────
   /** Attaches a pending referral to a freshly-created order. No earnings are
    *  credited until the order is paid (see confirmReferral). */

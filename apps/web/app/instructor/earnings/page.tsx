@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { instructorApi } from "@/lib/api/endpoints";
 import { ApprovalGate } from "@/components/instructor/approval-gate";
+import { PayoutPanel } from "@/components/shared/payout-panel";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Meter } from "@/components/shared/meter";
@@ -28,7 +29,7 @@ export default function InstructorEarnings() {
       <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
         <header>
           <h1 className="font-heading text-2xl font-bold tracking-tight">Earnings</h1>
-          <p className="text-sm text-muted-foreground">Revenue is paid out monthly via your connected account.</p>
+          <p className="text-sm text-muted-foreground">Request a payout of your available balance any time.</p>
         </header>
 
         <StatStrip className="grid-cols-2 lg:grid-cols-4">
@@ -37,6 +38,8 @@ export default function InstructorEarnings() {
           <Stat icon={Users} label="Total students" value={compactNumber(profile?.studentCount ?? 0)} tint="var(--tint-sky)" />
           <Stat icon={Star} label="Avg. rating" value={profile?.ratingAvg ? profile.ratingAvg.toFixed(2) : "—"} tint="var(--tint-amber)" />
         </StatStrip>
+
+        <PayoutPanel />
 
         <Card>
           <CardHeader><CardTitle className="text-base">Earnings by course</CardTitle></CardHeader>
