@@ -194,9 +194,11 @@ Stripe/PayPal collect payment details on their own hosted page.
    files, so a resource is a link the instructor owns). Authors add them in
    the course builder; unparseable rows in the JSON column are dropped on read
    rather than served.
-4. **Notes tab**: per-lesson notes, saved to `localStorage` on that device.
-   There is deliberately no notes table — flagged with a `ponytail:` comment
-   if it ever needs to follow the account.
+4. **Notes tab**: per-lesson notes on the `LessonNote` table
+   (`GET`/`PUT /me/lessons/:lessonId/note`, one row per user+lesson). Writing
+   requires an enrollment — otherwise the table is free storage for anyone with
+   an account — and an empty body deletes the note rather than storing a blank.
+   The UI debounces to one PUT ~800ms after typing stops.
 
 ### 3.3 Quizzes
 1. Fetching quiz questions strips the correct answers from the payload before
@@ -237,10 +239,12 @@ drift from reality.
 changes, no role restriction beyond "it's your own account." There is no image
 hosting on the platform (Cloudflare Stream is video only), so the avatar is a
 URL you already host, saved through the existing `PATCH /auth/me/profile`.
-Notification preferences are server-side: `GET`/`PATCH
-/me/notification-preferences` persist to `StudentProfile.notificationPrefs`,
-keyed by the real `ReminderTrigger` values, and **`NotificationsProcessor`
-checks them before every send** — an opt-out genuinely stops the email.
+`phone` (E.164, validated) is the delivery target for SMS reminders; without
+one those reminders are skipped rather than queued forever. Notification
+preferences are server-side: `GET`/`PATCH /me/notification-preferences` persist
+to `StudentProfile.notificationPrefs`, keyed by the real `ReminderTrigger`
+values, and **`NotificationsProcessor` checks them before every send** — an
+opt-out genuinely stops the message.
 
 ---
 
@@ -478,7 +482,10 @@ Rule-based reminder emails (`AutomationRule`: trigger like idle / low-progress
 template with `{{placeholders}}`). Admins toggle rules on/off and can delete
 a rule; **actual sending happens in a background job**, not from the admin action — an hourly
 sweep evaluates hard-coded per-trigger thresholds against real user activity,
-respects a per-trigger cooldown, and logs every send. The rule's "condition"
+respects a per-trigger cooldown, and logs every send. Email goes through Resend
+and **SMS through Twilio** (`SmsService`, a single form-encoded POST rather than
+the SDK); with no provider credentials either channel logs instead of sending,
+so local and CI runs need no accounts. The rule's "condition"
 field is admin-facing prose only, not a parsed rule language — a known,
 intentional simplification.
 
@@ -563,5 +570,5 @@ immediately recomputes the course's public star rating and review count from
 - **Email is best-effort everywhere** — every `EmailService` call in a
   request path is wrapped so a delivery failure never fails the underlying
   action (signup, invite, password reset all succeed even if the email never
-  arrives). There is still no purchase-receipt *email* — buyers download the
-  receipt PDF themselves from `/dashboard/billing` (§3.1).
+  arrives). Fulfilment emails the buyer their receipt with the PDF attached,
+  and the same PDF stays downloadable from `/dashboard/billing` (§3.1).
