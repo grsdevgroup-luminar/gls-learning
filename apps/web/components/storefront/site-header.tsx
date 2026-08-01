@@ -1,0 +1,207 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Logo } from "@/components/shared/logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { RegionSelect } from "@/components/shared/region-select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useStore } from "@/lib/context/store";
+import { useSession, useLogout } from "@/lib/api/session";
+import { initials } from "@/lib/format";
+import { toast } from "sonner";
+import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
+
+export function SiteHeader() {
+  const { cart, mounted } = useStore();
+  const { user, role, isLoading } = useSession();
+  const logoutMut = useLogout();
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const isAuthed = !!user;
+
+  function search(e: React.FormEvent) {
+    e.preventDefault();
+    router.push(`/courses?q=${encodeURIComponent(q)}`);
+  }
+
+  async function logout() {
+    await logoutMut.mutateAsync();
+    toast.success("Signed out");
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55">
+      {/* aurora hairline under the header */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--aurora-2)_60%,transparent),color-mix(in_oklch,var(--aurora-3)_50%,transparent),transparent)] opacity-60"
+      />
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
+        <Logo />
+        <nav className="hidden items-center gap-1 md:flex">
+          <Button render={<Link href="/courses" />} variant="ghost" size="sm">
+            Courses
+          </Button>
+          <Button render={<Link href={role === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
+            {role === "INSTRUCTOR" ? "Instructor" : "Teach"}
+          </Button>
+        </nav>
+
+        <form onSubmit={search} className="relative ml-2 hidden flex-1 lg:block">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search for courses, topics, skills…"
+            className="pl-9"
+          />
+        </form>
+
+        <div className="ml-auto flex items-center gap-3">
+          <div className="hidden items-center gap-0.5 rounded-full border border-border bg-muted/40 p-1 sm:flex">
+            <RegionSelect
+              compact
+              className="h-7 gap-1 rounded-full border-0 bg-transparent px-2 shadow-none hover:bg-accent"
+            />
+            <span aria-hidden className="h-4 w-px bg-border" />
+            <ThemeToggle size="icon-sm" className="rounded-full" />
+            <span aria-hidden className="h-4 w-px bg-border" />
+            <Button
+              render={<Link href="/cart" />}
+              variant="ghost"
+              size="icon-sm"
+              className="relative rounded-full"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {mounted && cart.length > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                  {cart.length}
+                </Badge>
+              )}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1 sm:hidden">
+            <ThemeToggle />
+            <Button
+              render={<Link href="/cart" />}
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {mounted && cart.length > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                  {cart.length}
+                </Badge>
+              )}
+            </Button>
+          </div>
+
+          {isLoading ? null : isAuthed ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon" className="rounded-full" />}
+              >
+                <Avatar className="h-8 w-8 ring-1 ring-border">
+                  <AvatarFallback className="brand-gradient text-xs text-white">
+                    {role === "ADMIN" ? "AD" : role === "INSTRUCTOR" ? "IN" : role === "SALES_AGENT" ? "SA" : role === "ORG_ADMIN" ? "OA" : initials(user?.name ?? "User")}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    <div className="font-medium">
+                      {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
+                    </div>
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@skillstream.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                {role === "ADMIN" ? (
+                  <DropdownMenuItem render={<Link href="/admin" />}>
+                    <Shield /> Admin panel
+                  </DropdownMenuItem>
+                ) : role === "INSTRUCTOR" ? (
+                  <>
+                    <DropdownMenuItem render={<Link href="/instructor" />}>
+                      <LayoutDashboard /> Instructor dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/instructor/courses" />}>
+                      <PenSquare /> My courses
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                      <GraduationCap /> My Learning
+                    </DropdownMenuItem>
+                  </>
+                ) : role === "SALES_AGENT" ? (
+                  <>
+                    <DropdownMenuItem render={<Link href="/sales-agent" />}>
+                      <LayoutDashboard /> Agent dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/sales-agent/referrals" />}>
+                      <Link2 /> My referrals
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/sales-agent/earnings" />}>
+                      <Shield /> Earnings
+                    </DropdownMenuItem>
+                  </>
+                ) : role === "ORG_ADMIN" ? (
+                  <DropdownMenuItem render={<Link href="/admin/organizations" />}>
+                    <Building2 /> Organization portal
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                      <LayoutDashboard /> Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                      <GraduationCap /> My Learning
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/account" />}>
+                      <User /> Account
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Button render={<Link href="/login" />} variant="ghost" size="sm">
+                Log in
+              </Button>
+              <Button render={<Link href="/signup" />} size="sm">
+                Sign up
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}

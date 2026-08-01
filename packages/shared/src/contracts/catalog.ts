@@ -1,0 +1,95 @@
+import { z } from "zod";
+import type { CourseLevel, CourseStatus, LessonType } from "../enums.js";
+
+export const courseSortSchema = z
+  .enum(["popular", "newest", "rating", "price_asc", "price_desc"])
+  .default("popular");
+export type CourseSort = z.infer<typeof courseSortSchema>;
+
+/** Largest page the catalog will serve. Callers that want "the whole catalog"
+ *  must use this — asking for more is a 400. */
+export const MAX_PAGE_SIZE = 48;
+
+export const courseListQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  category: z.string().optional(),
+  level: z
+    .enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ALL_LEVELS"])
+    .optional(),
+  sort: courseSortSchema,
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),
+});
+export type CourseListQuery = z.infer<typeof courseListQuerySchema>;
+
+export interface InstructorSummaryDto {
+  id: string;
+  name: string;
+  title: string;
+  avatar: string | null;
+  bio?: string;
+  ratingAvg?: number;
+  studentCount?: number;
+  courseCount?: number;
+}
+
+/** A downloadable attachment on a lesson (slides, starter repo, cheat sheet). */
+export interface LessonResourceDto {
+  name: string;
+  /** Absolute URL the learner downloads from. */
+  url: string;
+  /** Optional human-readable size, e.g. "2.4 MB" — display only. */
+  sizeLabel?: string;
+}
+
+export interface LessonPublicDto {
+  id: string;
+  title: string;
+  durationSec: number;
+  type: LessonType;
+  preview: boolean;
+  order: number;
+  hasQuiz: boolean;
+  /** Whether a Cloudflare Stream video is attached (course builder upload status). */
+  hasVideo: boolean;
+  resources: LessonResourceDto[];
+  /** Owner/admin only (course builder) — omitted from the public catalog so
+   *  paid article content can't be read without enrolling. */
+  articleContent?: string | null;
+}
+
+export interface SectionDto {
+  id: string;
+  title: string;
+  order: number;
+  lessons: LessonPublicDto[];
+}
+
+export interface CourseSummaryDto {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  level: CourseLevel;
+  thumbnail: string;
+  status: CourseStatus;
+  bestseller: boolean;
+  language: string;
+  basePriceCents: number;
+  originalPriceCents: number | null;
+  ratingAvg: number;
+  reviewCount: number;
+  studentCount: number;
+  durationSec: number;
+  lessonCount: number;
+  instructor: InstructorSummaryDto;
+}
+
+export interface CourseDetailDto extends CourseSummaryDto {
+  description: string;
+  whatYouLearn: string[];
+  requirements: string[];
+  updatedAt: string;
+  sections: SectionDto[];
+}
