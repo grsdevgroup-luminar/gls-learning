@@ -14,6 +14,7 @@ import {
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
+import { PayoutsRepository } from "./payouts.repository";
 
 // Payouts that still "hold" part of the balance — a REJECTED one releases it.
 const OUTSTANDING = ["REQUESTED", "APPROVED", "PAID"] as const;
@@ -44,7 +45,10 @@ export function computeBalance(input: {
 
 @Injectable()
 export class PayoutsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly repo: PayoutsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /** Maps a user's role to which earnings pool their payouts draw from.
    *  Instructors and sales agents each have exactly one; anyone else can't
@@ -52,10 +56,7 @@ export class PayoutsService {
   private async payeeContext(
     userId: string,
   ): Promise<{ payeeType: PayeeType; lifetimeEarnedCents: number }> {
-    const [instructor, agent] = await Promise.all([
-      this.prisma.instructorProfile.findUnique({ where: { userId } }),
-      this.prisma.salesAgent.findUnique({ where: { userId } }),
-    ]);
+    const [instructor, agent] = await this.repo.findPayeeContext(userId);
     if (agent)
       return { payeeType: "AGENT", lifetimeEarnedCents: agent.totalEarningsCents };
     if (instructor)
@@ -66,19 +67,9 @@ export class PayoutsService {
     throw new ForbiddenException("Only instructors and sales agents have payouts");
   }
 
-  private async outstandingCents(userId: string): Promise<number> {
-    const agg = await this.prisma.payout.aggregate({
-      where: { payeeUserId: userId, status: { in: [...OUTSTANDING] } },
-      _sum: { amountCents: true },
-    });
-    return agg._sum.amountCents ?? 0;
-  }
-
   // ── payout account ─────────────────────────────────────────────────────────
   async myAccount(user: RequestUser): Promise<PayoutAccountDto | null> {
-    const a = await this.prisma.payoutAccount.findUnique({
-      where: { userId: user.id },
-    });
+    const a = await this.repo.findPayoutAccount(user.id);
     return a
       ? { method: a.method, details: a.details, updatedAt: a.updatedAt.toISOString() }
       : null;
@@ -89,27 +80,15 @@ export class PayoutsService {
     input: PayoutAccountInput,
   ): Promise<PayoutAccountDto> {
     await this.payeeContext(user.id); // reject non-payees before storing anything
-    const a = await this.prisma.payoutAccount.upsert({
-      where: { userId: user.id },
-      update: input,
-      create: { userId: user.id, ...input },
-    });
+    const a = await this.repo.upsertPayoutAccount(user.id, input);
     return { method: a.method, details: a.details, updatedAt: a.updatedAt.toISOString() };
   }
 
   // ── balance / requesting ─────────────────────────────────────────────────
   async myBalance(user: RequestUser): Promise<PayoutBalanceDto> {
     const { payeeType, lifetimeEarnedCents } = await this.payeeContext(user.id);
-    const [account, paid, inFlight] = await Promise.all([
-      this.prisma.payoutAccount.findUnique({ where: { userId: user.id } }),
-      this.prisma.payout.aggregate({
-        where: { payeeUserId: user.id, status: "PAID" },
-        _sum: { amountCents: true },
-      }),
-      this.prisma.payout.aggregate({
-        where: { payeeUserId: user.id, status: { in: [...OPEN] } },
-        _sum: { amountCents: true },
-      }),
+    const [account, paid, inFlight] = await this.repo.findBalanceInputs(user.id, [
+      ...OPEN,
     ]);
     const paidOutCents = paid._sum.amountCents ?? 0;
     const inFlightCents = inFlight._sum.amountCents ?? 0;
@@ -136,9 +115,7 @@ export class PayoutsService {
   /** Requests a payout for the full available balance. Guards against missing
    *  account, an already-open request, and below-threshold balances. */
   async request(user: RequestUser): Promise<PayoutDto> {
-    const account = await this.prisma.payoutAccount.findUnique({
-      where: { userId: user.id },
-    });
+    const account = await this.repo.findPayoutAccount(user.id);
     if (!account)
       throw new BadRequestException("Add a payout account before requesting");
 
@@ -150,44 +127,33 @@ export class PayoutsService {
         `Minimum payout is $${(MIN_PAYOUT_CENTS / 100).toFixed(0)}`,
       );
 
-    const payout = await this.prisma.payout.create({
-      data: {
-        payeeUserId: user.id,
-        payeeType: balance.payeeType,
-        amountCents: balance.availableCents,
-        method: account.method,
-        destination: account.details,
-        status: "REQUESTED",
-      },
+    const payout = await this.repo.createPayout({
+      payeeUserId: user.id,
+      payeeType: balance.payeeType,
+      amountCents: balance.availableCents,
+      method: account.method,
+      destination: account.details,
+      status: "REQUESTED",
     });
     return this.toDto(payout, { name: "", email: "" });
   }
 
   async myPayouts(user: RequestUser): Promise<PayoutDto[]> {
-    const rows = await this.prisma.payout.findMany({
-      where: { payeeUserId: user.id },
-      orderBy: { requestedAt: "desc" },
-      include: { payee: { select: { name: true, email: true } } },
-    });
+    const rows = await this.repo.findMyPayouts(user.id);
     return rows.map((r) => this.toDto(r, r.payee));
   }
 
   // ── admin ──────────────────────────────────────────────────────────────────
   async listAll(status?: Payout["status"]): Promise<PayoutDto[]> {
-    const rows = await this.prisma.payout.findMany({
-      where: status ? { status } : undefined,
-      orderBy: [{ status: "asc" }, { requestedAt: "desc" }],
-      include: { payee: { select: { name: true, email: true } } },
-    });
+    const rows = await this.repo.findAll(status);
     return rows.map((r) => this.toDto(r, r.payee));
   }
 
   async approve(admin: RequestUser, id: string): Promise<PayoutDto> {
-    const payout = await this.getInStatus(id, "REQUESTED");
-    const updated = await this.prisma.payout.update({
-      where: { id },
-      data: { status: "APPROVED", processedBy: admin.id },
-      include: { payee: { select: { name: true, email: true } } },
+    await this.getInStatus(id, "REQUESTED");
+    const updated = await this.repo.updatePayoutWithPayee(id, {
+      status: "APPROVED",
+      processedBy: admin.id,
     });
     return this.toDto(updated, updated.payee);
   }
@@ -195,36 +161,28 @@ export class PayoutsService {
   /** Confirms the transfer has been sent. Keeps the sales-agent display counters
    *  (pending/paid) in sync so both the agent UI and this ledger agree. */
   async markPaid(admin: RequestUser, id: string): Promise<PayoutDto> {
-    const payout = await this.prisma.payout.findUnique({ where: { id } });
+    const payout = await this.repo.findPayoutById(id);
     if (!payout) throw new NotFoundException("Payout not found");
     if (payout.status !== "REQUESTED" && payout.status !== "APPROVED")
       throw new BadRequestException("Only open payouts can be marked paid");
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (payout.payeeType === "AGENT") {
-        const agent = await tx.salesAgent.findUnique({
-          where: { userId: payout.payeeUserId },
-          select: { id: true },
-        });
+        const agent = await this.repo.findSalesAgentIdByUser(payout.payeeUserId, tx);
         if (agent) {
-          await tx.salesAgent.update({
-            where: { id: agent.id },
-            data: {
-              pendingEarningsCents: { decrement: payout.amountCents },
-              paidEarningsCents: { increment: payout.amountCents },
-            },
-          });
-          await tx.salesAgentReferral.updateMany({
-            where: { agentId: agent.id, status: "confirmed" },
-            data: { status: "paid" },
-          });
+          await this.repo.applyAgentPayoutSettlement(
+            agent.id,
+            payout.amountCents,
+            tx,
+          );
+          await this.repo.markAgentReferralsPaid(agent.id, tx);
         }
       }
-      return tx.payout.update({
-        where: { id },
-        data: { status: "PAID", processedAt: new Date(), processedBy: admin.id },
-        include: { payee: { select: { name: true, email: true } } },
-      });
+      return this.repo.updatePayoutWithPayee(
+        id,
+        { status: "PAID", processedAt: new Date(), processedBy: admin.id },
+        tx,
+      );
     });
     return this.toDto(updated, updated.payee);
   }
@@ -234,20 +192,21 @@ export class PayoutsService {
     id: string,
     note?: string,
   ): Promise<PayoutDto> {
-    const payout = await this.prisma.payout.findUnique({ where: { id } });
+    const payout = await this.repo.findPayoutById(id);
     if (!payout) throw new NotFoundException("Payout not found");
     if (payout.status === "PAID")
       throw new BadRequestException("Paid payouts cannot be rejected");
-    const updated = await this.prisma.payout.update({
-      where: { id },
-      data: { status: "REJECTED", note, processedAt: new Date(), processedBy: admin.id },
-      include: { payee: { select: { name: true, email: true } } },
+    const updated = await this.repo.updatePayoutWithPayee(id, {
+      status: "REJECTED",
+      note,
+      processedAt: new Date(),
+      processedBy: admin.id,
     });
     return this.toDto(updated, updated.payee);
   }
 
   private async getInStatus(id: string, status: Payout["status"]) {
-    const payout = await this.prisma.payout.findUnique({ where: { id } });
+    const payout = await this.repo.findPayoutById(id);
     if (!payout) throw new NotFoundException("Payout not found");
     if (payout.status !== status)
       throw new BadRequestException(`Payout is not ${status.toLowerCase()}`);

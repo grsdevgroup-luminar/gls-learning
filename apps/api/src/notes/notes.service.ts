@@ -1,10 +1,10 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { LessonNoteDto } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
+import { NotesRepository } from "./notes.repository";
 
 @Injectable()
 export class NotesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: NotesRepository) {}
 
   /**
    * Notes are private study material for a course the learner has access to,
@@ -12,23 +12,16 @@ export class NotesService {
    * free storage for anyone with an account.
    */
   private async assertEnrolled(userId: string, lessonId: string): Promise<void> {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: { section: { select: { courseId: true } } },
-    });
+    const lesson = await this.repo.findLessonCourseId(lessonId);
     if (!lesson) throw new NotFoundException("Lesson not found");
 
-    const enrolled = await this.prisma.enrollment.count({
-      where: { userId, courseId: lesson.section.courseId },
-    });
+    const enrolled = await this.repo.countEnrollment(userId, lesson.section.courseId);
     if (enrolled === 0)
       throw new ForbiddenException("Enroll in this course to take notes");
   }
 
   async get(userId: string, lessonId: string): Promise<LessonNoteDto | null> {
-    const note = await this.prisma.lessonNote.findUnique({
-      where: { userId_lessonId: { userId, lessonId } },
-    });
+    const note = await this.repo.findNote(userId, lessonId);
     return note
       ? {
           lessonId: note.lessonId,
@@ -47,17 +40,11 @@ export class NotesService {
     await this.assertEnrolled(userId, lessonId);
 
     if (body.trim() === "") {
-      await this.prisma.lessonNote
-        .delete({ where: { userId_lessonId: { userId, lessonId } } })
-        .catch(() => undefined);
+      await this.repo.deleteNote(userId, lessonId).catch(() => undefined);
       return null;
     }
 
-    const note = await this.prisma.lessonNote.upsert({
-      where: { userId_lessonId: { userId, lessonId } },
-      update: { body },
-      create: { userId, lessonId, body },
-    });
+    const note = await this.repo.upsertNote(userId, lessonId, body);
     return {
       lessonId: note.lessonId,
       body: note.body,

@@ -3,10 +3,10 @@ import { Logger } from "@nestjs/common";
 import { ReminderChannel, ReminderTrigger } from "@prisma/client";
 import { Job } from "bullmq";
 import { resolveNotificationPrefs } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
 import { SmsService } from "../email/sms.service";
 import { NOTIFICATIONS_QUEUE } from "./jobs.constants";
+import { NotificationsRepository } from "./notifications.repository";
 
 export interface ReminderJobData {
   userId: string;
@@ -27,7 +27,7 @@ export class NotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationsProcessor.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: NotificationsRepository,
     private readonly email: EmailService,
     private readonly sms: SmsService,
   ) {
@@ -38,15 +38,7 @@ export class NotificationsProcessor extends WorkerHost {
     if (job.name !== "reminder") return undefined;
     const { userId, channel, trigger, subject, ruleId } = job.data;
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        email: true,
-        name: true,
-        phone: true,
-        studentProfile: { select: { notificationPrefs: true } },
-      },
-    });
+    const user = await this.repo.findUserForReminder(userId);
     if (!user) return { ok: false, reason: "user gone" };
 
     // Opt-outs are enforced here rather than in the producer: every reminder,
@@ -67,9 +59,7 @@ export class NotificationsProcessor extends WorkerHost {
       if (!sent) return { ok: false, reason: "no phone number" };
     }
 
-    await this.prisma.reminderLog.create({
-      data: { userId, channel, trigger, subject, ruleId, status: "SENT" },
-    });
+    await this.repo.createReminderLog({ userId, channel, trigger, subject, ruleId });
     this.logger.log(`reminder sent (${channel}/${trigger}) to ${userId}`);
     return { ok: true };
   }

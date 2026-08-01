@@ -3,16 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, PaymentGateway } from "@prisma/client";
+import { PaymentGateway } from "@prisma/client";
 import type { OrderDto } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { receiptPdf } from "../common/pdf";
 import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
-
-const orderInclude = { items: true } satisfies Prisma.OrderInclude;
-type OrderRow = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+import { OrdersRepository, type OrderRow } from "./orders.repository";
 
 export interface CreateOrderInput {
   userId: string;
@@ -30,6 +28,7 @@ export interface CreateOrderInput {
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly repo: OrdersRepository,
     private readonly enrollment: EnrollmentService,
     private readonly salesAgents: SalesAgentService,
     private readonly email: EmailService,
@@ -56,34 +55,28 @@ export class OrdersService {
   }
 
   async createPending(input: CreateOrderInput): Promise<OrderRow> {
-    return this.prisma.order.create({
-      include: orderInclude,
-      data: {
-        userId: input.userId,
-        country: input.country,
-        gateway: input.gateway,
-        couponCode: input.couponCode,
-        subtotalCents: input.subtotalCents,
-        discountCents: input.discountCents,
-        totalCents: input.totalCents,
-        currency: input.currency,
-        status: "PENDING",
-        items: {
-          create: input.items.map((i) => ({
-            courseId: i.courseId,
-            titleSnapshot: i.title,
-            priceCents: i.priceCents,
-          })),
-        },
+    return this.repo.createOrder({
+      userId: input.userId,
+      country: input.country,
+      gateway: input.gateway,
+      couponCode: input.couponCode,
+      subtotalCents: input.subtotalCents,
+      discountCents: input.discountCents,
+      totalCents: input.totalCents,
+      currency: input.currency,
+      status: "PENDING",
+      items: {
+        create: input.items.map((i) => ({
+          courseId: i.courseId,
+          titleSnapshot: i.title,
+          priceCents: i.priceCents,
+        })),
       },
     });
   }
 
   async findById(orderId: string): Promise<OrderRow | null> {
-    return this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: orderInclude,
-    });
+    return this.repo.findById(orderId);
   }
 
   /**
@@ -92,10 +85,7 @@ export class OrdersService {
    * only settled orders get one (a PENDING order was never charged).
    */
   async receiptPdf(userId: string, orderId: string): Promise<Buffer> {
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
-      include: { ...orderInclude, user: { select: { name: true, email: true } } },
-    });
+    const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
     if (!order) throw new NotFoundException("Order not found");
     if (order.status !== "PAID" && order.status !== "REFUNDED")
       throw new BadRequestException("No receipt for an unpaid order");
@@ -121,11 +111,7 @@ export class OrdersService {
   }
 
   async myOrders(userId: string): Promise<OrderDto[]> {
-    const rows = await this.prisma.order.findMany({
-      where: { userId },
-      include: orderInclude,
-      orderBy: { createdAt: "desc" },
-    });
+    const rows = await this.repo.findManyByUser(userId);
     return rows.map((r) => this.toDto(r));
   }
 
@@ -141,14 +127,15 @@ export class OrdersService {
     if (order.status === "PAID") return this.toDto(order);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
+      await this.repo.updateOrder(
+        orderId,
+        {
           status: "PAID",
           paidAt: new Date(),
           providerPaymentId: providerPaymentId ?? order.providerPaymentId,
         },
-      });
+        tx,
+      );
 
       await this.enrollment.enrollMany(
         tx,
@@ -157,34 +144,34 @@ export class OrdersService {
       );
 
       for (const item of order.items) {
-        const course = await tx.course.update({
-          where: { id: item.courseId },
-          data: { revenueCents: { increment: item.priceCents } },
-          select: { instructorId: true },
-        });
-        await tx.instructorProfile.updateMany({
-          where: { userId: course.instructorId },
-          data: { earningsCents: { increment: item.priceCents } },
-        });
+        const course = await this.repo.incrementCourseRevenue(
+          item.courseId,
+          item.priceCents,
+          tx,
+        );
+        await this.repo.incrementInstructorEarnings(
+          course.instructorId,
+          item.priceCents,
+          tx,
+        );
       }
 
-      await tx.studentProfile.updateMany({
-        where: { userId: order.userId },
-        data: { totalSpentCents: { increment: order.totalCents } },
-      });
+      await this.repo.incrementStudentTotalSpent(
+        order.userId,
+        order.totalCents,
+        tx,
+      );
 
       if (order.couponCode) {
-        await tx.coupon.update({
-          where: { code: order.couponCode },
-          data: { used: { increment: 1 } },
-        });
-        await tx.couponRedemption.create({
-          data: {
+        await this.repo.incrementCouponUsed(order.couponCode, tx);
+        await this.repo.createCouponRedemption(
+          {
             couponCode: order.couponCode,
             orderId: order.id,
             userId: order.userId,
           },
-        });
+          tx,
+        );
       }
     });
 
@@ -201,10 +188,7 @@ export class OrdersService {
   }
 
   private async emailReceipt(orderId: string): Promise<void> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { ...orderInclude, user: { select: { name: true, email: true } } },
-    });
+    const order = await this.repo.findByIdWithUser(orderId);
     if (!order || order.status !== "PAID") return;
     const pdf = await this.receiptPdf(order.userId, orderId);
     await this.email.sendReceipt(

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Env } from "../config/env";
-import { PrismaService } from "../prisma/prisma.service";
+import { FxRepository } from "./fx.repository";
 
 /**
  * Refreshes `Region.fxRate` (USD -> local) from a public rates feed.
@@ -17,7 +17,7 @@ export class FxService {
   private readonly logger = new Logger(FxService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: FxRepository,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -45,9 +45,7 @@ export class FxService {
       return { error };
     }
 
-    const regions = await this.prisma.region.findMany({
-      select: { code: true, currency: true, fxRate: true },
-    });
+    const regions = await this.repo.findAllRegions();
 
     let updated = 0;
     const skipped: string[] = [];
@@ -60,10 +58,7 @@ export class FxService {
       }
       // Sub-0.01% moves aren't visible in a rounded display hint; skip the write.
       if (Math.abs(rate - region.fxRate) / region.fxRate < 0.0001) continue;
-      await this.prisma.region.update({
-        where: { code: region.code },
-        data: { fxRate: rate, fxUpdatedAt: new Date() },
-      });
+      await this.repo.updateRegionRate(region.code, rate, new Date());
       updated += 1;
     }
 

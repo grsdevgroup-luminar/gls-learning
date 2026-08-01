@@ -4,6 +4,7 @@ import { JwtService } from "@nestjs/jwt";
 import { UserRole } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuthRepository } from "./auth.repository";
 import type { Env } from "../config/env";
 
 export interface JwtPayload {
@@ -18,6 +19,7 @@ export class TokenService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
     private readonly prisma: PrismaService,
+    private readonly repo: AuthRepository,
   ) {}
 
   get accessTtl(): string {
@@ -55,14 +57,12 @@ export class TokenService {
     const raw = randomBytes(48).toString("base64url");
     const days = this.config.get("JWT_REFRESH_TTL_DAYS", { infer: true });
     const expiresAt = new Date(Date.now() + days * 86_400_000);
-    await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        tokenHash: this.hash(raw),
-        userAgent: meta.userAgent,
-        ip: meta.ip,
-        expiresAt,
-      },
+    await this.repo.createRefreshToken({
+      userId,
+      tokenHash: this.hash(raw),
+      userAgent: meta.userAgent,
+      ip: meta.ip,
+      expiresAt,
     });
     return raw;
   }
@@ -85,9 +85,7 @@ export class TokenService {
     meta: { userAgent?: string; ip?: string },
   ): Promise<{ userId: string; newToken: string } | null> {
     const tokenHash = this.hash(raw);
-    const existing = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash },
-    });
+    const existing = await this.repo.findRefreshTokenByHash(tokenHash);
     if (!existing) return null;
 
     if (existing.revokedAt) {
@@ -95,10 +93,10 @@ export class TokenService {
       if (age > this.REUSE_GRACE_MS) {
         // Reuse detected: a token we already rotated away is back. Revoke the
         // whole family (every live session for the user).
-        await this.prisma.refreshToken.updateMany({
-          where: { userId: existing.userId, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
+        await this.repo.revokeActiveRefreshTokensForUser(
+          existing.userId,
+          new Date(),
+        );
       }
       return null;
     }
@@ -110,18 +108,13 @@ export class TokenService {
     const newRaw = randomBytes(48).toString("base64url");
     const days = this.config.get("JWT_REFRESH_TTL_DAYS", { infer: true });
     await this.prisma.$transaction([
-      this.prisma.refreshToken.update({
-        where: { tokenHash },
-        data: { revokedAt: new Date() },
-      }),
-      this.prisma.refreshToken.create({
-        data: {
-          userId: existing.userId,
-          tokenHash: this.hash(newRaw),
-          userAgent: meta.userAgent,
-          ip: meta.ip,
-          expiresAt: new Date(Date.now() + days * 86_400_000),
-        },
+      this.repo.revokeRefreshTokenByHash(tokenHash, new Date()),
+      this.repo.createRefreshToken({
+        userId: existing.userId,
+        tokenHash: this.hash(newRaw),
+        userAgent: meta.userAgent,
+        ip: meta.ip,
+        expiresAt: new Date(Date.now() + days * 86_400_000),
       }),
     ]);
     return { userId: existing.userId, newToken: newRaw };
@@ -129,19 +122,17 @@ export class TokenService {
 
   async revokeRefreshToken(raw: string): Promise<void> {
     const tokenHash = this.hash(raw);
-    await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
+    await this.repo.deleteRefreshTokensByHash(tokenHash);
   }
 
   /** Issues an opaque, single-use password-reset token (1h TTL). Only its hash
    *  is persisted, matching the refresh-token pattern. */
   async issuePasswordResetToken(userId: string): Promise<string> {
     const raw = randomBytes(32).toString("base64url");
-    await this.prisma.passwordResetToken.create({
-      data: {
-        userId,
-        tokenHash: this.hash(raw),
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      },
+    await this.repo.createPasswordResetToken({
+      userId,
+      tokenHash: this.hash(raw),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     });
     return raw;
   }
@@ -154,12 +145,12 @@ export class TokenService {
     const tokenHash = this.hash(raw);
     // Atomic claim: the usedAt: null condition means a concurrent replay of
     // the same raw token can never both succeed (no TOCTOU window).
-    const { count } = await this.prisma.passwordResetToken.updateMany({
-      where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
-      data: { usedAt: new Date() },
-    });
+    const { count } = await this.repo.claimPasswordResetToken(
+      tokenHash,
+      new Date(),
+    );
     if (count === 0) return null;
-    const record = await this.prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+    const record = await this.repo.findPasswordResetTokenByHash(tokenHash);
     return record?.userId ?? null;
   }
 }

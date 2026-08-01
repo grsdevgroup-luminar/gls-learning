@@ -3,9 +3,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AutomationRule, ReminderTrigger } from "@prisma/client";
 import { Queue } from "bullmq";
 import { completionPct } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { NOTIFICATIONS_QUEUE } from "./jobs.constants";
 import type { ReminderJobData } from "./notifications.processor";
+import { AutomationRepository } from "./automation.repository";
 
 // ponytail: thresholds are per-trigger constants, not per-rule config. The
 // AutomationRule.condition column is admin-facing prose ("No activity for 7
@@ -56,14 +56,12 @@ export class AutomationService {
   private readonly logger = new Logger(AutomationService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: AutomationRepository,
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
   ) {}
 
   async sweep(now: Date = new Date()): Promise<{ enqueued: number }> {
-    const rules = await this.prisma.automationRule.findMany({
-      where: { active: true },
-    });
+    const rules = await this.repo.findActiveRules();
 
     let enqueued = 0;
     for (const rule of rules) {
@@ -92,10 +90,7 @@ export class AutomationService {
       }
 
       if (sentForRule > 0)
-        await this.prisma.automationRule.update({
-          where: { id: rule.id },
-          data: { sentCount: { increment: sentForRule } },
-        });
+        await this.repo.incrementRuleSentCount(rule.id, sentForRule);
     }
 
     this.logger.log(`automation sweep: ${enqueued} reminder(s) enqueued`);
@@ -112,10 +107,7 @@ export class AutomationService {
     now: Date,
   ): Promise<boolean> {
     const since = hoursAgo(now, COOLDOWN_HOURS[rule.trigger]);
-    const recent = await this.prisma.reminderLog.findFirst({
-      where: { userId, ruleId: rule.id, createdAt: { gte: since } },
-      select: { id: true },
-    });
+    const recent = await this.repo.findRecentReminder(userId, rule.id, since);
     return recent !== null;
   }
 
@@ -158,16 +150,9 @@ export class AutomationService {
   /** No Cart table exists — a checkout that never completed is an Order left in
    *  PENDING, which is the only server-side signal of an abandoned cart. */
   private async abandonedCarts(now: Date): Promise<Target[]> {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        status: "PENDING",
-        createdAt: { lt: hoursAgo(now, ABANDONED_CART_HOURS) },
-      },
-      include: {
-        user: { select: { name: true } },
-        items: { include: { course: { select: { title: true } } }, take: 1 },
-      },
-    });
+    const orders = await this.repo.findPendingOrders(
+      hoursAgo(now, ABANDONED_CART_HOURS),
+    );
     return orders.map((o) => ({
       userId: o.userId,
       vars: {
@@ -193,22 +178,13 @@ export class AutomationService {
   /** Loads IN_PROGRESS enrollments matching `where`, with completion percent
    *  computed via the same shared helper the UI and API use. */
   private async enrollmentsInProgress(where: object) {
-    const enrollments = await this.prisma.enrollment.findMany({
-      where: { status: "IN_PROGRESS", ...where },
-      include: {
-        user: { select: { name: true } },
-        course: { select: { title: true, updatedAt: true } },
-        _count: { select: { lessonProgress: { where: { completed: true } } } },
-      },
-    });
+    const enrollments = await this.repo.findInProgressEnrollments(where);
 
     const lessonTotals = new Map<string, number>();
     const totalFor = async (courseId: string) => {
       const cached = lessonTotals.get(courseId);
       if (cached !== undefined) return cached;
-      const total = await this.prisma.lesson.count({
-        where: { section: { courseId } },
-      });
+      const total = await this.repo.countLessonsByCourse(courseId);
       lessonTotals.set(courseId, total);
       return total;
     };

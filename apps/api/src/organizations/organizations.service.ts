@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type {
   AssignOrgCourseInput,
@@ -16,21 +15,17 @@ import type {
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import { toCourseSummary } from "../courses/course.mapper";
 import {
-  COURSE_SUMMARY_INCLUDE,
-  toCourseSummary,
-} from "../courses/course.mapper";
-
-const orgInclude = {
-  members: { orderBy: { joinedAt: "asc" } },
-  _count: { select: { courses: true } },
-} satisfies Prisma.OrganizationInclude;
-type OrgRow = Prisma.OrganizationGetPayload<{ include: typeof orgInclude }>;
+  OrganizationsRepository,
+  type OrgRow,
+} from "./organizations.repository";
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly repo: OrganizationsRepository,
     private readonly email: EmailService,
   ) {}
 
@@ -70,50 +65,35 @@ export class OrganizationsService {
   private async assertOrgAdmin(user: RequestUser, idOrSlug: string): Promise<string> {
     const orgId = await this.resolveOrgId(idOrSlug);
     if (user.role === "ADMIN") return orgId;
-    const member = await this.prisma.orgMember.findFirst({
-      where: { orgId, userId: user.id, role: "ADMIN" },
-    });
+    const member = await this.repo.findAdminMembership(orgId, user.id);
     if (!member) throw new ForbiddenException("Not an admin of this organization");
     return orgId;
   }
 
   /** Accepts either the org id or its slug (the web app routes by slug). */
   private getRow(idOrSlug: string) {
-    return this.prisma.organization
-      .findFirstOrThrow({
-        where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-        include: orgInclude,
-      })
-      .catch(() => {
-        throw new NotFoundException("Organization not found");
-      });
+    return this.repo.findOrgBySlugOrId(idOrSlug).catch(() => {
+      throw new NotFoundException("Organization not found");
+    });
   }
 
   // ── platform admin ───────────────────────────────────────────────────────
   async create(input: CreateOrganizationInput): Promise<OrganizationDto> {
-    const exists = await this.prisma.organization.findUnique({
-      where: { slug: input.slug },
-    });
+    const exists = await this.repo.findOrgBySlug(input.slug);
     if (exists) throw new BadRequestException("Slug already in use");
-    const org = await this.prisma.organization.create({
-      data: {
-        name: input.name,
-        slug: input.slug,
-        domain: input.domain,
-        adminEmail: input.adminEmail,
-        seatCount: input.seatCount,
-        status: "TRIAL",
-      },
-      include: orgInclude,
+    const org = await this.repo.createOrganization({
+      name: input.name,
+      slug: input.slug,
+      domain: input.domain,
+      adminEmail: input.adminEmail,
+      seatCount: input.seatCount,
+      status: "TRIAL",
     });
     return this.toDto(org);
   }
 
   async list(): Promise<OrganizationDto[]> {
-    const rows = await this.prisma.organization.findMany({
-      include: orgInclude,
-      orderBy: { createdAt: "desc" },
-    });
+    const rows = await this.repo.findManyOrganizations();
     return rows.map((o) => this.toDto(o));
   }
 
@@ -139,7 +119,7 @@ export class OrganizationsService {
       throw new ForbiddenException(
         "Seat count and status are managed by SkillStream — contact support",
       );
-    await this.prisma.organization.update({ where: { id: orgId }, data: input });
+    await this.repo.updateOrganization(orgId, input);
     return this.toDto(await this.getRow(orgId));
   }
 
@@ -150,14 +130,12 @@ export class OrganizationsService {
     if (org.usedSeats >= org.seatCount)
       throw new BadRequestException("No seats remaining");
     const token = randomUUID();
-    const invitation = await this.prisma.orgInvitation.create({
-      data: {
-        orgId,
-        email: input.email.toLowerCase(),
-        role: input.role,
-        token,
-        expiresAt: new Date(Date.now() + 7 * 86_400_000),
-      },
+    const invitation = await this.repo.createInvitation({
+      orgId,
+      email: input.email.toLowerCase(),
+      role: input.role,
+      token,
+      expiresAt: new Date(Date.now() + 7 * 86_400_000),
     });
     // Deliver the join link. Non-blocking: the admin still gets the invitation
     // (with token) back so the link can be copied if email delivery fails.
@@ -170,10 +148,7 @@ export class OrganizationsService {
   /** Public: minimal invitation info for the join page (prefill + validity).
    *  The token is an unguessable secret, so returning the invited email is safe. */
   async invitationInfo(token: string) {
-    const invite = await this.prisma.orgInvitation.findUnique({
-      where: { token },
-      include: { org: { select: { name: true, slug: true } } },
-    });
+    const invite = await this.repo.findInvitationByToken(token);
     const valid =
       !!invite && !invite.claimedAt && invite.expiresAt > new Date();
     return {
@@ -187,45 +162,29 @@ export class OrganizationsService {
 
   /** A logged-in user claims an invitation, becoming an org member + consuming a seat. */
   async claimInvitation(user: RequestUser, token: string): Promise<OrganizationDto> {
-    const invite = await this.prisma.orgInvitation.findUnique({ where: { token } });
+    const invite = await this.repo.findInvitationByTokenPlain(token);
     if (!invite || invite.claimedAt || invite.expiresAt < new Date())
       throw new BadRequestException("Invalid or expired invitation");
 
-    const dbUser = await this.prisma.user.findUniqueOrThrow({
-      where: { id: user.id },
-    });
+    const dbUser = await this.repo.findUserByIdOrThrow(user.id);
 
     await this.prisma.$transaction(async (tx) => {
-      const org = await tx.organization.findUniqueOrThrow({
-        where: { id: invite.orgId },
-      });
+      const org = await this.repo.findOrgByIdOrThrow(invite.orgId, tx);
       if (org.usedSeats >= org.seatCount)
         throw new BadRequestException("Organization is full");
 
-      await tx.orgMember.upsert({
-        where: { orgId_email: { orgId: invite.orgId, email: dbUser.email } },
-        update: { userId: user.id, role: invite.role },
-        create: {
-          orgId: invite.orgId,
-          userId: user.id,
-          name: dbUser.name,
-          email: dbUser.email,
-          role: invite.role,
-        },
-      });
-      await tx.organization.update({
-        where: { id: invite.orgId },
-        data: { usedSeats: { increment: 1 } },
-      });
-      await tx.orgInvitation.update({
-        where: { token },
-        data: { claimedAt: new Date() },
-      });
+      await this.repo.upsertOrgMember(
+        invite.orgId,
+        user.id,
+        dbUser.email,
+        dbUser.name,
+        invite.role,
+        tx,
+      );
+      await this.repo.incrementUsedSeats(invite.orgId, tx);
+      await this.repo.markInvitationClaimed(token, tx);
       if (invite.role === "ADMIN")
-        await tx.user.update({
-          where: { id: user.id },
-          data: { role: "ORG_ADMIN" },
-        });
+        await this.repo.updateUserRole(user.id, "ORG_ADMIN", tx);
     });
 
     return this.toDto(await this.getRow(invite.orgId));
@@ -233,22 +192,15 @@ export class OrganizationsService {
 
   async removeMember(user: RequestUser, idOrSlug: string, memberId: string) {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    const member = await this.prisma.orgMember.findFirst({
-      where: { id: memberId, orgId },
-    });
+    const member = await this.repo.findMember(memberId, orgId);
     if (!member) throw new NotFoundException("Member not found");
     if (member.role === "ADMIN") {
-      const admins = await this.prisma.orgMember.count({
-        where: { orgId, role: "ADMIN" },
-      });
+      const admins = await this.repo.countAdmins(orgId);
       if (admins <= 1)
         throw new BadRequestException("An organization must keep one admin");
     }
-    await this.prisma.orgMember.delete({ where: { id: memberId } });
-    await this.prisma.organization.update({
-      where: { id: orgId },
-      data: { usedSeats: { decrement: 1 } },
-    });
+    await this.repo.deleteMember(memberId);
+    await this.repo.decrementUsedSeats(orgId);
     return this.toDto(await this.getRow(orgId));
   }
 
@@ -259,10 +211,7 @@ export class OrganizationsService {
     input: AssignOrgCourseInput,
   ): Promise<OrganizationDto> {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    await this.prisma.course.update({
-      where: { id: input.courseId },
-      data: { orgId, visibility: "PRIVATE" },
-    });
+    await this.repo.assignCourseToOrg(input.courseId, orgId);
     return this.toDto(await this.getRow(orgId));
   }
 
@@ -273,34 +222,24 @@ export class OrganizationsService {
     courseId: string,
   ): Promise<OrganizationDto> {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    const course = await this.prisma.course.findFirst({
-      where: { id: courseId, orgId },
-    });
+    const course = await this.repo.findCourseInOrg(courseId, orgId);
     if (!course) throw new NotFoundException("Course is not assigned to this organization");
-    await this.prisma.course.update({
-      where: { id: courseId },
-      data: { orgId: null, visibility: "PUBLIC" },
-    });
+    await this.repo.unassignCourseFromOrg(courseId);
     return this.toDto(await this.getRow(orgId));
   }
 
   // ── invitation management ─────────────────────────────────────────────────
   async listInvitations(user: RequestUser, idOrSlug: string) {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    return this.prisma.orgInvitation.findMany({
-      where: { orgId, claimedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
-    });
+    return this.repo.findActiveInvitations(orgId);
   }
 
   async revokeInvitation(user: RequestUser, idOrSlug: string, inviteId: string) {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    const invite = await this.prisma.orgInvitation.findUnique({
-      where: { id: inviteId },
-    });
+    const invite = await this.repo.findInvitationById(inviteId);
     if (!invite || invite.orgId !== orgId)
       throw new NotFoundException("Invitation not found");
-    await this.prisma.orgInvitation.delete({ where: { id: inviteId } });
+    await this.repo.deleteInvitation(inviteId);
     return { ok: true as const };
   }
 
@@ -309,30 +248,20 @@ export class OrganizationsService {
   async listCourses(user: RequestUser, idOrSlug: string) {
     const orgId = await this.resolveOrgId(idOrSlug);
     if (user.role !== "ADMIN") {
-      const member = await this.prisma.orgMember.findFirst({
-        where: { orgId, userId: user.id },
-      });
+      const member = await this.repo.findOrgMembership(orgId, user.id);
       if (!member) throw new ForbiddenException("Not a member of this organization");
     }
-    const rows = await this.prisma.course.findMany({
-      where: { orgId },
-      include: COURSE_SUMMARY_INCLUDE,
-      orderBy: { updatedAt: "desc" },
-    });
+    const rows = await this.repo.findOrgCourses(orgId);
     return rows.map(toCourseSummary);
   }
 
   /** Orgs the current user belongs to (for the member/org-admin portal). */
   async myOrganizations(user: RequestUser): Promise<OrganizationDto[]> {
-    const memberships = await this.prisma.orgMember.findMany({
-      where: { userId: user.id },
-      select: { orgId: true },
-    });
+    const memberships = await this.repo.findUserMemberships(user.id);
     if (!memberships.length) return [];
-    const rows = await this.prisma.organization.findMany({
-      where: { id: { in: memberships.map((m) => m.orgId) } },
-      include: orgInclude,
-    });
+    const rows = await this.repo.findOrganizationsByIds(
+      memberships.map((m) => m.orgId),
+    );
     return rows.map((o) => this.toDto(o));
   }
 }

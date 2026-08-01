@@ -5,12 +5,12 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PaymentGateway, Prisma } from "@prisma/client";
+import { PaymentGateway } from "@prisma/client";
 import Stripe from "stripe";
 import type { CheckoutSessionDto } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { OrdersService } from "../commerce/orders.service";
 import type { Env } from "../config/env";
+import { PaymentsRepository } from "./payments.repository";
 
 type OrderRow = NonNullable<Awaited<ReturnType<OrdersService["findById"]>>>;
 
@@ -21,7 +21,7 @@ export class PaymentsService {
 
   constructor(
     private readonly config: ConfigService<Env, true>,
-    private readonly prisma: PrismaService,
+    private readonly repo: PaymentsRepository,
     private readonly orders: OrdersService,
   ) {
     const key = this.config.get("STRIPE_SECRET_KEY", { infer: true });
@@ -67,10 +67,7 @@ export class PaymentsService {
           },
         })),
       });
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: { providerRef: session.id },
-      });
+      await this.repo.updateOrderProviderRef(order.id, session.id);
       return {
         orderId: order.id,
         gateway,
@@ -189,10 +186,7 @@ export class PaymentsService {
       id: string;
       links?: { rel: string; href: string }[];
     };
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: { providerRef: json.id },
-    });
+    await this.repo.updateOrderProviderRef(order.id, json.id);
     return {
       id: json.id,
       approveUrl: json.links?.find((l) => l.rel === "approve")?.href,
@@ -262,9 +256,7 @@ export class PaymentsService {
   /** Returns true if this event should be processed (first time seen). */
   private async recordOnce(provider: string, eventId: string): Promise<boolean> {
     try {
-      await this.prisma.webhookEvent.create({
-        data: { provider, eventId, payload: {} as Prisma.InputJsonValue },
-      });
+      await this.repo.createWebhookEvent(provider, eventId);
       return true;
     } catch {
       return false; // unique(provider,eventId) violated -> already seen
@@ -272,9 +264,6 @@ export class PaymentsService {
   }
 
   private async markProcessed(provider: string, eventId: string): Promise<void> {
-    await this.prisma.webhookEvent.updateMany({
-      where: { provider, eventId },
-      data: { processedAt: new Date() },
-    });
+    await this.repo.markWebhookProcessed(provider, eventId);
   }
 }

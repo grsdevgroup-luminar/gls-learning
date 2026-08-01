@@ -1,11 +1,11 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
-import { PrismaService } from "../prisma/prisma.service";
 import { AutomationService } from "./automation.service";
 import { FxService } from "./fx.service";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { MAINTENANCE_QUEUE } from "./jobs.constants";
+import { MaintenanceRepository } from "./maintenance.repository";
 
 /**
  * Periodic consistency / analytics rollup. Recomputes enrollment completion
@@ -17,7 +17,7 @@ export class MaintenanceProcessor extends WorkerHost {
   private readonly logger = new Logger(MaintenanceProcessor.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: MaintenanceRepository,
     private readonly automation: AutomationService,
     private readonly fx: FxService,
     private readonly alerts: AdminAlertsService,
@@ -37,40 +37,24 @@ export class MaintenanceProcessor extends WorkerHost {
     if (job.name !== "rollup") return undefined;
 
     // Reconcile enrollment completion: mark COMPLETED when every lesson is done.
-    const enrollments = await this.prisma.enrollment.findMany({
-      where: { status: { not: "COMPLETED" } },
-      select: {
-        id: true,
-        courseId: true,
-        _count: { select: { lessonProgress: { where: { completed: true } } } },
-      },
-    });
+    const enrollments = await this.repo.findIncompleteEnrollments();
 
     let fixed = 0;
     for (const e of enrollments) {
-      const total = await this.prisma.lesson.count({
-        where: { section: { courseId: e.courseId } },
-      });
+      const total = await this.repo.countLessonsByCourse(e.courseId);
       if (total > 0 && e._count.lessonProgress >= total) {
-        await this.prisma.enrollment.update({
-          where: { id: e.id },
-          data: { status: "COMPLETED", completedAt: new Date() },
-        });
+        await this.repo.markEnrollmentCompleted(e.id, new Date());
         fixed += 1;
       }
     }
 
     // Prune refresh tokens past expiry. Rotation now keeps revoked rows (for
     // reuse detection), so they must be swept once expired or they accumulate.
-    const { count: prunedTokens } = await this.prisma.refreshToken.deleteMany({
-      where: { expiresAt: { lt: new Date() } },
-    });
+    const { count: prunedTokens } = await this.repo.deleteExpiredRefreshTokens(
+      new Date(),
+    );
 
-    const [users, courses, paid] = await this.prisma.$transaction([
-      this.prisma.user.count(),
-      this.prisma.course.count({ where: { status: "PUBLISHED" } }),
-      this.prisma.order.count({ where: { status: "PAID" } }),
-    ]);
+    const [users, courses, paid] = await this.repo.metricsSnapshot();
 
     const snapshot = { fixedCompletions: fixed, prunedTokens, users, courses, paidOrders: paid };
     this.logger.log(`maintenance rollup: ${JSON.stringify(snapshot)}`);

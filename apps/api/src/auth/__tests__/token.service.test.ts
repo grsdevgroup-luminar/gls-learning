@@ -1,34 +1,34 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TokenService } from "../token.service";
 
-/** In-memory stand-in for the one Prisma table this security-critical path
- *  touches — enough to prove the single-use claim can't be replayed, without
- *  needing a live Postgres connection. */
-function fakePrisma() {
+/** In-memory stand-in for the AuthRepository ops touched by password reset —
+ *  enough to prove the single-use claim can't be replayed, without needing a
+ *  live Postgres connection. */
+function fakeResetRepo() {
   const rows = new Map<string, { userId: string; expiresAt: Date; usedAt: Date | null }>();
   return {
-    passwordResetToken: {
-      async create({ data }: { data: { userId: string; tokenHash: string; expiresAt: Date } }) {
-        rows.set(data.tokenHash, { userId: data.userId, expiresAt: data.expiresAt, usedAt: null });
-      },
-      async updateMany({
-        where,
-        data,
-      }: {
-        where: { tokenHash: string; usedAt: null; expiresAt: { gt: Date } };
-        data: { usedAt: Date };
-      }) {
-        const row = rows.get(where.tokenHash);
-        if (!row || row.usedAt !== null || row.expiresAt <= where.expiresAt.gt) {
-          return { count: 0 };
-        }
-        row.usedAt = data.usedAt;
-        return { count: 1 };
-      },
-      async findUnique({ where }: { where: { tokenHash: string } }) {
-        const row = rows.get(where.tokenHash);
-        return row ? { userId: row.userId } : null;
-      },
+    async createPasswordResetToken(data: {
+      userId: string;
+      tokenHash: string;
+      expiresAt: Date;
+    }) {
+      rows.set(data.tokenHash, {
+        userId: data.userId,
+        expiresAt: data.expiresAt,
+        usedAt: null,
+      });
+    },
+    async claimPasswordResetToken(tokenHash: string, now: Date) {
+      const row = rows.get(tokenHash);
+      if (!row || row.usedAt !== null || row.expiresAt <= now) {
+        return { count: 0 };
+      }
+      row.usedAt = now;
+      return { count: 1 };
+    },
+    async findPasswordResetTokenByHash(tokenHash: string) {
+      const row = rows.get(tokenHash);
+      return row ? { userId: row.userId } : null;
     },
   };
 }
@@ -39,67 +39,70 @@ interface RefreshRow {
   revokedAt: Date | null;
 }
 
-/** In-memory RefreshToken table covering the ops rotateRefreshToken touches. */
-function fakeRefreshPrisma() {
+/** In-memory AuthRepository covering the RefreshToken ops rotateRefreshToken
+ *  touches. */
+function fakeRefreshRepo() {
   const rows = new Map<string, RefreshRow>();
   const api = {
     __rows: rows,
-    refreshToken: {
-      async create({
-        data,
-      }: {
-        data: { userId: string; tokenHash: string; expiresAt: Date };
-      }) {
-        rows.set(data.tokenHash, {
-          userId: data.userId,
-          expiresAt: data.expiresAt,
-          revokedAt: null,
-        });
-      },
-      async findUnique({ where }: { where: { tokenHash: string } }) {
-        const r = rows.get(where.tokenHash);
-        return r ? { ...r, tokenHash: where.tokenHash } : null;
-      },
-      async update({
-        where,
-        data,
-      }: {
-        where: { tokenHash: string };
-        data: { revokedAt: Date };
-      }) {
-        const r = rows.get(where.tokenHash);
-        if (r) r.revokedAt = data.revokedAt;
-      },
-      async updateMany({
-        where,
-        data,
-      }: {
-        where: { userId: string; revokedAt: null };
-        data: { revokedAt: Date };
-      }) {
-        let count = 0;
-        for (const r of rows.values()) {
-          if (r.userId === where.userId && r.revokedAt === null) {
-            r.revokedAt = data.revokedAt;
-            count += 1;
-          }
-        }
-        return { count };
-      },
+    async createRefreshToken(data: {
+      userId: string;
+      tokenHash: string;
+      expiresAt: Date;
+      userAgent?: string;
+      ip?: string;
+    }) {
+      rows.set(data.tokenHash, {
+        userId: data.userId,
+        expiresAt: data.expiresAt,
+        revokedAt: null,
+      });
     },
-    async $transaction(ops: Promise<unknown>[]) {
-      return Promise.all(ops);
+    async findRefreshTokenByHash(tokenHash: string) {
+      const r = rows.get(tokenHash);
+      return r ? { ...r, tokenHash } : null;
+    },
+    async revokeRefreshTokenByHash(tokenHash: string, at: Date) {
+      const r = rows.get(tokenHash);
+      if (r) r.revokedAt = at;
+    },
+    async revokeActiveRefreshTokensForUser(userId: string, at: Date) {
+      let count = 0;
+      for (const r of rows.values()) {
+        if (r.userId === userId && r.revokedAt === null) {
+          r.revokedAt = at;
+          count += 1;
+        }
+      }
+      return { count };
+    },
+    async deleteRefreshTokensByHash(tokenHash: string) {
+      rows.delete(tokenHash);
     },
   };
   return api;
 }
 
+/** Prisma stand-in whose only job is to be the `$transaction` executor. The
+ *  fake repo ops are plain promises, so `Promise.all` gives the same atomic
+ *  semantics for test purposes. */
+const fakePrisma = {
+  async $transaction(ops: Promise<unknown>[]) {
+    return Promise.all(ops);
+  },
+};
+
 const fakeConfig = { get: () => 7 };
 
 describe("TokenService refresh-token rotation & reuse detection", () => {
   it("rotates a valid token and rejects the old one", async () => {
-    const db = fakeRefreshPrisma();
-    const tokens = new TokenService(undefined as never, fakeConfig as never, db as never);
+    const repo = fakeRefreshRepo();
+    const tokens = new TokenService(
+      undefined as never,
+      fakeConfig as never,
+      fakePrisma as never,
+      repo as never,
+    );
     const raw = await tokens.issueRefreshToken("user_1", {});
     const rotated = await tokens.rotateRefreshToken(raw, {});
     expect(rotated?.userId).toBe("user_1");
@@ -109,12 +112,17 @@ describe("TokenService refresh-token rotation & reuse detection", () => {
   });
 
   it("revokes every session when a rotated token is reused past the grace window", async () => {
-    const db = fakeRefreshPrisma();
-    const tokens = new TokenService(undefined as never, fakeConfig as never, db as never);
+    const repo = fakeRefreshRepo();
+    const tokens = new TokenService(
+      undefined as never,
+      fakeConfig as never,
+      fakePrisma as never,
+      repo as never,
+    );
     const raw = await tokens.issueRefreshToken("user_1", {});
     const rotated = await tokens.rotateRefreshToken(raw, {});
     // Age the old token's revocation past the grace window.
-    for (const r of db.__rows.values()) {
+    for (const r of repo.__rows.values()) {
       if (r.revokedAt) r.revokedAt = new Date(Date.now() - 5 * 60_000);
     }
     await expect(tokens.rotateRefreshToken(raw, {})).resolves.toBeNull();
@@ -123,8 +131,13 @@ describe("TokenService refresh-token rotation & reuse detection", () => {
   });
 
   it("rejects an unknown refresh token", async () => {
-    const db = fakeRefreshPrisma();
-    const tokens = new TokenService(undefined as never, fakeConfig as never, db as never);
+    const repo = fakeRefreshRepo();
+    const tokens = new TokenService(
+      undefined as never,
+      fakeConfig as never,
+      fakePrisma as never,
+      repo as never,
+    );
     await expect(tokens.rotateRefreshToken("nope", {})).resolves.toBeNull();
   });
 });
@@ -136,7 +149,8 @@ describe("TokenService password reset tokens", () => {
     tokens = new TokenService(
       undefined as never,
       undefined as never,
-      fakePrisma() as never,
+      fakePrisma as never,
+      fakeResetRepo() as never,
     );
   });
 

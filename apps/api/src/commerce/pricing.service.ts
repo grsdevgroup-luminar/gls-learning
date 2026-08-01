@@ -1,20 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { DEFAULT_REGION, regionalPriceCents, type RegionRow } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
+import { PricingRepository } from "./pricing.repository";
 
 @Injectable()
 export class PricingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: PricingRepository) {}
 
   getRegions() {
-    return this.prisma.region.findMany({ orderBy: { country: "asc" } });
+    return this.repo.findAllRegions();
   }
 
   async resolveRegion(code?: string): Promise<RegionRow> {
     const region =
       (code &&
-        (await this.prisma.region.findUnique({ where: { code } }))) ||
-      (await this.prisma.region.findUnique({ where: { code: DEFAULT_REGION } }));
+        (await this.repo.findRegionByCode(code))) ||
+      (await this.repo.findRegionByCode(DEFAULT_REGION));
     if (!region) {
       // Fallback when regions aren't seeded — full price, USD.
       return {

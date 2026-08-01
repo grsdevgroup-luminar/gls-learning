@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { AdminAlertsRepository } from "./admin-alerts.repository";
 import { EmailService } from "./email.service";
 
 /** Keys of the admin notification toggles in PlatformSettings.notifications. */
@@ -21,16 +21,13 @@ export class AdminAlertsService {
   private readonly logger = new Logger(AdminAlertsService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: AdminAlertsRepository,
     private readonly email: EmailService,
   ) {}
 
   /** The support inbox, but only when this particular toggle is on. */
   private async recipient(key: AdminAlertKey): Promise<string | null> {
-    const settings = await this.prisma.platformSettings.findUnique({
-      where: { id: "singleton" },
-      select: { supportEmail: true, notifications: true },
-    });
+    const settings = await this.repo.findPlatformSettings();
     if (!settings) return null;
     const toggles = (settings.notifications ?? {}) as Record<string, boolean>;
     return toggles[key] ? settings.supportEmail : null;
@@ -76,17 +73,10 @@ export class AdminAlertsService {
     end.setUTCHours(0, 0, 0, 0);
     const start = new Date(end.getTime() - 24 * 3600_000);
 
-    const orders = await this.prisma.order.findMany({
-      where: { status: "PAID", paidAt: { gte: start, lt: end } },
-      select: { totalCents: true, currency: true },
-    });
+    const orders = await this.repo.findPaidOrdersBetween(start, end);
     const gross = orders.reduce((sum, o) => sum + o.totalCents, 0);
-    const enrollments = await this.prisma.enrollment.count({
-      where: { enrolledAt: { gte: start, lt: end } },
-    });
-    const signups = await this.prisma.user.count({
-      where: { createdAt: { gte: start, lt: end } },
-    });
+    const enrollments = await this.repo.countEnrollmentsBetween(start, end);
+    const signups = await this.repo.countSignupsBetween(start, end);
 
     await this.send(
       "dailyRevenue",
@@ -105,11 +95,7 @@ export class AdminAlertsService {
     const to = await this.recipient("atRiskDigest");
     if (!to) return;
 
-    const students = await this.prisma.studentProfile.findMany({
-      where: { status: "AT_RISK" },
-      select: { user: { select: { name: true, email: true } } },
-      take: 25,
-    });
+    const students = await this.repo.findAtRiskStudents();
     if (students.length === 0) return; // nothing to report — stay quiet
 
     await this.send("atRiskDigest", `${students.length} student(s) at risk`, [

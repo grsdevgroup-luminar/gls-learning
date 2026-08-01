@@ -6,17 +6,17 @@ import type {
   QuoteDto,
   QuoteLineDto,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { PricingService } from "./pricing.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
+import { OrdersRepository } from "./orders.repository";
 import { PaymentsService } from "../payments/payments.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
 
 @Injectable()
 export class CheckoutService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: OrdersRepository,
     private readonly pricing: PricingService,
     private readonly coupons: CouponsService,
     private readonly orders: OrdersService,
@@ -29,10 +29,7 @@ export class CheckoutService {
     regionCode?: string,
   ): Promise<{ lines: QuoteLineDto[]; region: Awaited<ReturnType<PricingService["resolveRegion"]>> }> {
     const region = await this.pricing.resolveRegion(regionCode);
-    const courses = await this.prisma.course.findMany({
-      where: { id: { in: courseIds }, status: "PUBLISHED" },
-      select: { id: true, title: true, basePriceCents: true },
-    });
+    const courses = await this.repo.findPublishedCoursesByIds(courseIds);
     const lines = courses.map((c) => ({
       courseId: c.id,
       title: c.title,
@@ -80,9 +77,7 @@ export class CheckoutService {
   /** Admin gateway kill-switch (PlatformSettings). Enforced here, server-side —
    *  the storefront hiding a button is not a control. */
   private async assertGatewayEnabled(gateway: "STRIPE" | "PAYPAL") {
-    const settings = await this.prisma.platformSettings.findUnique({
-      where: { id: "singleton" },
-    });
+    const settings = await this.repo.findPlatformSettings();
     if (!settings) return; // never configured — nothing disabled yet
     const enabled =
       gateway === "STRIPE" ? settings.stripeEnabled : settings.paypalEnabled;
@@ -99,10 +94,7 @@ export class CheckoutService {
     await this.assertGatewayEnabled(input.gateway);
 
     // Never sell a course the user already owns.
-    const owned = await this.prisma.enrollment.findMany({
-      where: { userId, courseId: { in: input.courseIds } },
-      select: { courseId: true },
-    });
+    const owned = await this.repo.findOwnedEnrollments(userId, input.courseIds);
     const ownedSet = new Set(owned.map((o) => o.courseId));
     const courseIds = input.courseIds.filter((id) => !ownedSet.has(id));
     if (courseIds.length === 0)

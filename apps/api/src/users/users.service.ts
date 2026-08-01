@@ -5,36 +5,30 @@ import {
   type NotificationPreferencesDto,
   type UpdateNotificationPreferencesInput,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
+import { UsersRepository } from "./users.repository";
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: UsersRepository) {}
 
   findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    return this.repo.findByEmail(email);
   }
 
   findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.repo.findById(id);
   }
 
   /** Full user with the role-specific profile needed for /auth/me. */
   findWithProfiles(id: string) {
-    return this.prisma.user.findUnique({
-      where: { id },
-      include: { studentProfile: true, instructorProfile: true },
-    });
+    return this.repo.findWithProfiles(id);
   }
 
   /** Reminder opt-ins, stored as JSON on the student profile. Missing profile
    *  or missing keys fall back to the shared defaults, so every caller sees a
    *  complete object. */
   async notificationPrefs(userId: string): Promise<NotificationPreferencesDto> {
-    const profile = await this.prisma.studentProfile.findUnique({
-      where: { userId },
-      select: { notificationPrefs: true },
-    });
+    const profile = await this.repo.findStudentNotificationPrefs(userId);
     return resolveNotificationPrefs(profile?.notificationPrefs);
   }
 
@@ -50,15 +44,11 @@ export class UsersService {
       const key = trigger as keyof NotificationPreferencesDto;
       next[key] = { ...next[key], ...channels };
     }
-    await this.prisma.studentProfile.upsert({
-      where: { userId },
-      update: { notificationPrefs: next },
-      create: { userId, notificationPrefs: next },
-    });
+    await this.repo.upsertStudentNotificationPrefs(userId, next);
     return next;
   }
 
   create(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({ data });
+    return this.repo.create(data);
   }
 }

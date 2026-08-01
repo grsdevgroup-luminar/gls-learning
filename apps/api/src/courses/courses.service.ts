@@ -6,17 +6,12 @@ import type {
   CourseSummaryDto,
   Paginated,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
-import {
-  COURSE_DETAIL_INCLUDE,
-  COURSE_SUMMARY_INCLUDE,
-  toCourseDetail,
-  toCourseSummary,
-} from "./course.mapper";
+import { toCourseDetail, toCourseSummary } from "./course.mapper";
+import { CoursesRepository } from "./courses.repository";
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: CoursesRepository) {}
 
   private orderBy(
     sort: CourseListQuery["sort"],
@@ -52,16 +47,12 @@ export class CoursesService {
       ];
     }
 
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.course.findMany({
-        where,
-        include: COURSE_SUMMARY_INCLUDE,
-        orderBy: this.orderBy(query.sort),
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-      }),
-      this.prisma.course.count({ where }),
-    ]);
+    const [rows, total] = await this.repo.listAndCount(
+      where,
+      this.orderBy(query.sort),
+      (query.page - 1) * query.pageSize,
+      query.pageSize,
+    );
 
     return {
       items: rows.map(toCourseSummary),
@@ -73,20 +64,12 @@ export class CoursesService {
   }
 
   async categories(): Promise<string[]> {
-    const rows = await this.prisma.course.findMany({
-      where: { status: "PUBLISHED" },
-      distinct: ["category"],
-      select: { category: true },
-      orderBy: { category: "asc" },
-    });
+    const rows = await this.repo.findDistinctCategories();
     return rows.map((r) => r.category);
   }
 
   async bySlug(slug: string): Promise<CourseDetailDto> {
-    const row = await this.prisma.course.findUnique({
-      where: { slug },
-      include: COURSE_DETAIL_INCLUDE,
-    });
+    const row = await this.repo.findBySlug(slug);
     if (!row) throw new NotFoundException("Course not found");
     return toCourseDetail(row);
   }

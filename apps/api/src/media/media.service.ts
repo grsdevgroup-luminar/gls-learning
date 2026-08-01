@@ -7,8 +7,8 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { DirectUploadDto, PlaybackDto } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import { MediaRepository } from "./media.repository";
 import type { Env } from "../config/env";
 
 /** How long a signed playback token stays valid. Long enough to watch and
@@ -53,7 +53,7 @@ export function signStreamToken(
 export class MediaService {
   constructor(
     private readonly config: ConfigService<Env, true>,
-    private readonly prisma: PrismaService,
+    private readonly repo: MediaRepository,
     private readonly enrollment: EnrollmentService,
   ) {}
 
@@ -94,17 +94,7 @@ export class MediaService {
     userId: string | undefined,
     lessonId: string,
   ): Promise<PlaybackDto> {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: {
-        id: true,
-        type: true,
-        preview: true,
-        articleContent: true,
-        cfVideoUid: true,
-        section: { select: { courseId: true } },
-      },
-    });
+    const lesson = await this.repo.findLessonForPlayback(lessonId);
     if (!lesson) throw new NotFoundException("Lesson not found");
 
     if (!lesson.preview) {

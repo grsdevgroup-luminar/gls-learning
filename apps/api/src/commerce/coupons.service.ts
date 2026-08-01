@@ -8,16 +8,14 @@ import {
   type CouponResult,
   type FeaturedCouponDto,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
+import { CouponsRepository } from "./coupons.repository";
 
 @Injectable()
 export class CouponsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: CouponsRepository) {}
 
   findByCode(code: string): Promise<Coupon | null> {
-    return this.prisma.coupon.findUnique({
-      where: { code: code.trim().toUpperCase() },
-    });
+    return this.repo.findByCode(code);
   }
 
   private toCouponLike(c: Coupon): CouponLike {
@@ -39,7 +37,7 @@ export class CouponsService {
   /** The single promoted coupon for the storefront banner, or null when none is
    *  featured or the featured one is no longer usable (disabled/expired/capped). */
   async featured(): Promise<FeaturedCouponDto | null> {
-    const c = await this.prisma.coupon.findFirst({ where: { featured: true } });
+    const c = await this.repo.findFeatured();
     if (!c || couponStatus(this.toCouponLike(c)) !== "active") return null;
     return {
       code: c.code,

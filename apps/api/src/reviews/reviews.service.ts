@@ -1,5 +1,4 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import type {
   CreateReviewInput,
   Paginated,
@@ -7,20 +6,14 @@ import type {
   ReviewDto,
   ReviewStatusInput,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
-
-const reviewInclude = {
-  user: { select: { name: true, avatar: true } },
-  course: { select: { title: true } },
-} satisfies Prisma.ReviewInclude;
-type ReviewRow = Prisma.ReviewGetPayload<{ include: typeof reviewInclude }>;
+import { ReviewsRepository, type ReviewRow } from "./reviews.repository";
 
 @Injectable()
 export class ReviewsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: ReviewsRepository,
     private readonly enrollment: EnrollmentService,
     private readonly alerts: AdminAlertsService,
   ) {}
@@ -45,17 +38,7 @@ export class ReviewsService {
     courseId: string,
     page: PaginationQuery,
   ): Promise<Paginated<ReviewDto>> {
-    const where: Prisma.ReviewWhereInput = { courseId, status: "APPROVED" };
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.review.findMany({
-        where,
-        include: reviewInclude,
-        orderBy: { createdAt: "desc" },
-        skip: (page.page - 1) * page.pageSize,
-        take: page.pageSize,
-      }),
-      this.prisma.review.count({ where }),
-    ]);
+    const [rows, total] = await this.repo.findManyAndCountForCourse(courseId, page);
     return {
       items: rows.map((r) => this.toDto(r)),
       page: page.page,
@@ -68,20 +51,12 @@ export class ReviewsService {
   /** Platform-wide highlights for marketing surfaces (landing page, etc.):
    * highly-rated, approved reviews with an actual write-up. */
   async featured(limit: number): Promise<ReviewDto[]> {
-    const rows = await this.prisma.review.findMany({
-      where: { status: "APPROVED", rating: { gte: 4 }, body: { not: "" } },
-      include: reviewInclude,
-      orderBy: [{ helpful: "desc" }, { createdAt: "desc" }],
-      take: limit,
-    });
+    const rows = await this.repo.findFeatured(limit);
     return rows.map((r) => this.toDto(r));
   }
 
   async myReview(userId: string, courseId: string): Promise<ReviewDto | null> {
-    const r = await this.prisma.review.findUnique({
-      where: { courseId_userId: { courseId, userId } },
-      include: reviewInclude,
-    });
+    const r = await this.repo.findByCourseAndUser(userId, courseId);
     return r ? this.toDto(r) : null;
   }
 
@@ -94,18 +69,10 @@ export class ReviewsService {
     if (!enrolled)
       throw new ForbiddenException("Only enrolled students can review");
 
-    const review = await this.prisma.review.upsert({
-      where: { courseId_userId: { courseId, userId } },
-      update: { ...input, status: "PENDING" },
-      create: { courseId, userId, ...input, status: "PENDING" },
-      include: reviewInclude,
-    });
+    const review = await this.repo.upsertReview(userId, courseId, input);
     await this.recompute(courseId);
     // Best-effort admin alert; never blocks the learner's review.
-    const course = await this.prisma.course.findUnique({
-      where: { id: courseId },
-      select: { title: true },
-    });
+    const course = await this.repo.findCourseTitle(courseId);
     void this.alerts.newReview(
       course?.title ?? "a course",
       review.rating,
@@ -116,12 +83,7 @@ export class ReviewsService {
 
   // ── admin moderation ─────────────────────────────────────────────────────
   async adminList(status?: ReviewStatusInput["status"]): Promise<ReviewDto[]> {
-    const rows = await this.prisma.review.findMany({
-      where: status ? { status } : undefined,
-      include: reviewInclude,
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    });
+    const rows = await this.repo.findManyForAdmin(status);
     return rows.map((r) => this.toDto(r));
   }
 
@@ -129,28 +91,18 @@ export class ReviewsService {
     reviewId: string,
     input: ReviewStatusInput,
   ): Promise<ReviewDto> {
-    const review = await this.prisma.review.update({
-      where: { id: reviewId },
-      data: { status: input.status },
-      include: reviewInclude,
-    });
+    const review = await this.repo.updateStatus(reviewId, input.status);
     await this.recompute(review.courseId);
     return this.toDto(review);
   }
 
   /** Recompute denormalized course rating from APPROVED reviews. */
   private async recompute(courseId: string): Promise<void> {
-    const agg = await this.prisma.review.aggregate({
-      where: { courseId, status: "APPROVED" },
-      _avg: { rating: true },
-      _count: true,
-    });
-    await this.prisma.course.update({
-      where: { id: courseId },
-      data: {
-        ratingAvg: agg._avg.rating ?? 0,
-        reviewCount: agg._count,
-      },
-    });
+    const agg = await this.repo.aggregateApprovedForCourse(courseId);
+    await this.repo.updateCourseRating(
+      courseId,
+      agg._avg.rating ?? 0,
+      agg._count,
+    );
   }
 }

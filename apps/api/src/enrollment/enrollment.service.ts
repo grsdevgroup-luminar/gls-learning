@@ -19,20 +19,11 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { apiBaseUrl, certificatePdfUrl } from "../common/urls";
 import type { Env } from "../config/env";
+import { toCourseSummary } from "../courses/course.mapper";
 import {
-  COURSE_SUMMARY_INCLUDE,
-  toCourseSummary,
-} from "../courses/course.mapper";
-
-const enrollmentInclude = {
-  course: { include: COURSE_SUMMARY_INCLUDE },
-  lessonProgress: { where: { completed: true }, select: { lessonId: true } },
-  certificate: true,
-} satisfies Prisma.EnrollmentInclude;
-
-type EnrollmentRow = Prisma.EnrollmentGetPayload<{
-  include: typeof enrollmentInclude;
-}>;
+  EnrollmentRepository,
+  type EnrollmentRow,
+} from "./enrollment.repository";
 
 function countLessons(course: EnrollmentRow["course"]): number {
   return course.sections.reduce((n, s) => n + s.lessons.length, 0);
@@ -55,7 +46,7 @@ function mapCertificate(
 @Injectable()
 export class EnrollmentService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: EnrollmentRepository,
     private readonly config: ConfigService<Env, true>,
     private readonly alerts: AdminAlertsService,
   ) {}
@@ -93,14 +84,7 @@ export class EnrollmentService {
     since.setHours(0, 0, 0, 0);
     since.setDate(since.getDate() - 6);
 
-    const rows = await this.prisma.lessonProgress.findMany({
-      where: {
-        completed: true,
-        completedAt: { gte: since },
-        enrollment: { userId },
-      },
-      select: { completedAt: true, lesson: { select: { durationSec: true } } },
-    });
+    const rows = await this.repo.findWeeklyLessonProgress(userId, since);
 
     const minutesByDate = new Map<string, number>();
     for (const r of rows) {
@@ -122,11 +106,7 @@ export class EnrollmentService {
   }
 
   async myCertificates(userId: string): Promise<CertificateDto[]> {
-    const certs = await this.prisma.certificate.findMany({
-      where: { enrollment: { userId } },
-      include: { enrollment: { select: { courseId: true, course: { select: { title: true, slug: true } } } } },
-      orderBy: { issuedAt: "desc" },
-    });
+    const certs = await this.repo.findCertificatesByUser(userId);
     return certs.map((c) => ({
       serial: c.serial,
       pdfUrl: c.pdfUrl ?? certificatePdfUrl(this.apiBase, c.serial),
@@ -138,27 +118,19 @@ export class EnrollmentService {
   }
 
   async myEnrollments(userId: string): Promise<EnrollmentDto[]> {
-    const rows = await this.prisma.enrollment.findMany({
-      where: { userId },
-      include: enrollmentInclude,
-      orderBy: { lastActivityAt: "desc" },
-    });
+    const rows = await this.repo.findManyByUser(userId);
     return rows.map((r) => this.toDto(r));
   }
 
   async getOne(userId: string, courseId: string): Promise<EnrollmentDto> {
-    const row = await this.prisma.enrollment.findUnique({
-      where: { userId_courseId: { userId, courseId } },
-      include: enrollmentInclude,
-    });
+    const row = await this.repo.findByUserAndCourse(userId, courseId);
     if (!row) throw new NotFoundException("Not enrolled in this course");
     return this.toDto(row);
   }
 
-  isEnrolled(userId: string, courseId: string): Promise<boolean> {
-    return this.prisma.enrollment
-      .count({ where: { userId, courseId } })
-      .then((n) => n > 0);
+  async isEnrolled(userId: string, courseId: string): Promise<boolean> {
+    const n = await this.repo.countByUserAndCourse(userId, courseId);
+    return n > 0;
   }
 
   /**
@@ -167,24 +139,14 @@ export class EnrollmentService {
    * checkout.
    */
   async enrollFree(userId: string, courseId: string): Promise<EnrollmentDto> {
-    const course = await this.prisma.course.findUnique({
-      where: { id: courseId },
-      select: {
-        basePriceCents: true,
-        status: true,
-        visibility: true,
-        orgId: true,
-      },
-    });
+    const course = await this.repo.findCourseAccess(courseId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
 
     if (course.visibility === "PRIVATE") {
       // Org-private course: membership in the owning org grants seat-based access.
       const member = course.orgId
-        ? await this.prisma.orgMember.findFirst({
-            where: { orgId: course.orgId, userId },
-          })
+        ? await this.repo.findOrgMembership(course.orgId, userId)
         : null;
       if (!member)
         throw new ForbiddenException("This course is restricted to its organization");
@@ -192,7 +154,7 @@ export class EnrollmentService {
       throw new ForbiddenException("This course requires purchase");
     }
 
-    await this.enrollMany(this.prisma, userId, [courseId]);
+    await this.enrollMany(undefined, userId, [courseId]);
     return this.getOne(userId, courseId);
   }
 
@@ -202,36 +164,26 @@ export class EnrollmentService {
    * transaction (pass `tx`).
    */
   async enrollMany(
-    tx: Prisma.TransactionClient | PrismaService,
+    tx: Prisma.TransactionClient | PrismaService | undefined,
     userId: string,
     courseIds: string[],
   ): Promise<void> {
     for (const courseId of courseIds) {
-      const existing = await tx.enrollment.findUnique({
-        where: { userId_courseId: { userId, courseId } },
-        select: { id: true },
-      });
-      await tx.enrollment.upsert({
-        where: { userId_courseId: { userId, courseId } },
-        update: {},
-        create: { userId, courseId },
-      });
+      const existing = await this.repo.findIdByUserAndCourse(
+        userId,
+        courseId,
+        tx,
+      );
+      await this.repo.upsertEnrollment(userId, courseId, tx);
       // Only increment counters for genuinely new enrollments.
       if (!existing) {
-        const course = await tx.course.update({
-          where: { id: courseId },
-          data: { studentCount: { increment: 1 } },
-          select: { instructorId: true, title: true },
-        });
-        await tx.instructorProfile.updateMany({
-          where: { userId: course.instructorId },
-          data: { studentCount: { increment: 1 } },
-        });
+        const course = await this.repo.incrementCourseStudentCount(courseId, tx);
+        await this.repo.incrementInstructorStudentCount(course.instructorId, tx);
         // Fire-and-forget: an alert must never roll back the enrollment. Read
         // the learner name outside `tx` — the caller's transaction may still be
         // open, and this is not part of it.
-        void this.prisma.user
-          .findUnique({ where: { id: userId }, select: { name: true } })
+        void this.repo
+          .findUserName(userId)
           .then((u) => this.alerts.newEnrollment(u?.name ?? "A learner", course.title))
           .catch(() => undefined);
       }
@@ -243,38 +195,26 @@ export class EnrollmentService {
     courseId: string,
     lessonId: string,
   ): Promise<ToggleLessonResultDto> {
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { userId_courseId: { userId, courseId } },
-      select: { id: true },
-    });
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
 
     // Lesson must belong to this course.
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: { section: { select: { courseId: true } } },
-    });
+    const lesson = await this.repo.findLessonCourseId(lessonId);
     if (!lesson || lesson.section.courseId !== courseId)
       throw new BadRequestException("Lesson does not belong to this course");
 
-    const existing = await this.prisma.lessonProgress.findUnique({
-      where: {
-        enrollmentId_lessonId: { enrollmentId: enrollment.id, lessonId },
-      },
-    });
+    const existing = await this.repo.findLessonProgress(enrollment.id, lessonId);
 
     let completed: boolean;
     if (existing) {
-      await this.prisma.lessonProgress.delete({ where: { id: existing.id } });
+      await this.repo.deleteLessonProgressById(existing.id);
       completed = false;
     } else {
-      await this.prisma.lessonProgress.create({
-        data: { enrollmentId: enrollment.id, lessonId, completed: true },
-      });
+      await this.repo.createLessonProgress(enrollment.id, lessonId);
       completed = true;
     }
 
-    return this.recompute(userId, courseId, enrollment.id, lessonId, completed);
+    return this.recompute(courseId, enrollment.id, lessonId, completed);
   }
 
   /** Mark a lesson complete (used when a quiz is passed). Idempotent. */
@@ -283,34 +223,20 @@ export class EnrollmentService {
     courseId: string,
     lessonId: string,
   ): Promise<void> {
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { userId_courseId: { userId, courseId } },
-      select: { id: true },
-    });
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
     if (!enrollment) return;
-    await this.prisma.lessonProgress.upsert({
-      where: {
-        enrollmentId_lessonId: { enrollmentId: enrollment.id, lessonId },
-      },
-      update: { completed: true },
-      create: { enrollmentId: enrollment.id, lessonId, completed: true },
-    });
-    await this.recompute(userId, courseId, enrollment.id, lessonId, true);
+    await this.repo.upsertLessonProgress(enrollment.id, lessonId);
+    await this.recompute(courseId, enrollment.id, lessonId, true);
   }
 
   private async recompute(
-    _userId: string,
     courseId: string,
     enrollmentId: string,
     lessonId: string,
     completed: boolean,
   ): Promise<ToggleLessonResultDto> {
-    const [lessonCount, completedCount] = await this.prisma.$transaction([
-      this.prisma.lesson.count({ where: { section: { courseId } } }),
-      this.prisma.lessonProgress.count({
-        where: { enrollmentId, completed: true },
-      }),
-    ]);
+    const [lessonCount, completedCount] =
+      await this.repo.countLessonsAndCompleted(courseId, enrollmentId);
 
     const done = isCourseComplete(completedCount, lessonCount);
     const data: Prisma.EnrollmentUpdateInput = {
@@ -318,25 +244,21 @@ export class EnrollmentService {
       status: done ? "COMPLETED" : "IN_PROGRESS",
       completedAt: done ? new Date() : null,
     };
-    await this.prisma.enrollment.update({ where: { id: enrollmentId }, data });
+    await this.repo.updateEnrollment(enrollmentId, data);
 
     let certificate: CertificateDto | null = null;
     if (done) {
-      const cert = await this.prisma.certificate.upsert({
-        where: { enrollmentId },
-        update: {},
-        create: {
-          enrollmentId,
-          // 48 bits of randomness: the serial is the only credential the public
-          // verification endpoint takes, so it must not be guessable (and must
-          // not collide — `serial` is unique).
-          serial: `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
-        },
-      });
+      const cert = await this.repo.upsertCertificate(
+        enrollmentId,
+        // 48 bits of randomness: the serial is the only credential the public
+        // verification endpoint takes, so it must not be guessable (and must
+        // not collide — `serial` is unique).
+        `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
+      );
       certificate = mapCertificate(cert, this.apiBase);
     } else {
-      await this.prisma.certificate
-        .delete({ where: { enrollmentId } })
+      await this.repo
+        .deleteCertificateByEnrollment(enrollmentId)
         .catch(() => undefined);
     }
 

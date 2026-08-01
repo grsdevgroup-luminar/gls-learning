@@ -1,21 +1,15 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import type {
   CommentDto,
   CreateCommentInput,
   Paginated,
   PaginationQuery,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
-
-const commentInclude = {
-  user: { select: { name: true, avatar: true } },
-} satisfies Prisma.CommentInclude;
-type CommentRow = Prisma.CommentGetPayload<{ include: typeof commentInclude }>;
+import { CommentsRepository, type CommentRow } from "./comments.repository";
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: CommentsRepository) {}
 
   private toDto(c: CommentRow): CommentDto {
     return {
@@ -31,10 +25,7 @@ export class CommentsService {
   /** 404s on an unknown course rather than letting a foreign-key violation
    *  surface as a 500, and keeps an empty list distinguishable from a typo. */
   private async assertCourseExists(courseId: string): Promise<void> {
-    const course = await this.prisma.course.findUnique({
-      where: { id: courseId },
-      select: { id: true },
-    });
+    const course = await this.repo.findCourseId(courseId);
     if (!course) throw new NotFoundException("Course not found");
   }
 
@@ -43,17 +34,11 @@ export class CommentsService {
     page: PaginationQuery,
   ): Promise<Paginated<CommentDto>> {
     await this.assertCourseExists(courseId);
-    const where: Prisma.CommentWhereInput = { courseId };
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.comment.findMany({
-        where,
-        include: commentInclude,
-        orderBy: { createdAt: "desc" },
-        skip: (page.page - 1) * page.pageSize,
-        take: page.pageSize,
-      }),
-      this.prisma.comment.count({ where }),
-    ]);
+    const [rows, total] = await this.repo.listAndCountByCourse(
+      courseId,
+      (page.page - 1) * page.pageSize,
+      page.pageSize,
+    );
     return {
       items: rows.map((c) => this.toDto(c)),
       page: page.page,
@@ -69,10 +54,7 @@ export class CommentsService {
     input: CreateCommentInput,
   ): Promise<CommentDto> {
     await this.assertCourseExists(courseId);
-    const comment = await this.prisma.comment.create({
-      data: { courseId, userId, body: input.body },
-      include: commentInclude,
-    });
+    const comment = await this.repo.createComment(userId, courseId, input.body);
     return this.toDto(comment);
   }
 }

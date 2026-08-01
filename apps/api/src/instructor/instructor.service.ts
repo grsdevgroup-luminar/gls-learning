@@ -14,11 +14,13 @@ import type {
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import { InstructorRepository } from "./instructor.repository";
 
 @Injectable()
 export class InstructorService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly repo: InstructorRepository,
     private readonly email: EmailService,
   ) {}
 
@@ -54,36 +56,26 @@ export class InstructorService {
     user: RequestUser,
     input: ApplyInstructorInput,
   ): Promise<InstructorApplicationDto> {
-    const dbUser = await this.prisma.user.findUniqueOrThrow({
-      where: { id: user.id },
-    });
-    const pending = await this.prisma.instructorApplication.findFirst({
-      where: { userId: user.id, status: "PENDING" },
-    });
+    const dbUser = await this.repo.findUserByIdOrThrow(user.id);
+    const pending = await this.repo.findPendingApplication(user.id);
     if (pending) throw new BadRequestException("You already have a pending application");
 
-    const app = await this.prisma.instructorApplication.create({
-      data: {
-        userId: user.id,
-        name: dbUser.name,
-        email: dbUser.email,
-        expertise: input.expertise,
-        headline: input.headline,
-        bio: input.bio,
-        sampleUrl: input.sampleUrl,
-        status: "PENDING",
-      },
+    const app = await this.repo.createApplication({
+      userId: user.id,
+      name: dbUser.name,
+      email: dbUser.email,
+      expertise: input.expertise,
+      headline: input.headline,
+      bio: input.bio,
+      sampleUrl: input.sampleUrl,
+      status: "PENDING",
     });
     return this.toAppDto(app);
   }
 
   /** Approved instructors, best-rated first — powers the public roster. */
   async roster(): Promise<InstructorRosterDto[]> {
-    const rows = await this.prisma.user.findMany({
-      where: { instructorProfile: { status: InstructorStatus.APPROVED } },
-      include: { instructorProfile: true },
-      orderBy: { instructorProfile: { ratingAvg: "desc" } },
-    });
+    const rows = await this.repo.findApprovedInstructorsRoster();
     return rows.map((u) => ({
       id: u.id,
       name: u.name,
@@ -97,10 +89,7 @@ export class InstructorService {
   }
 
   async myProfile(user: RequestUser): Promise<InstructorProfileDto | null> {
-    const u = await this.prisma.user.findUnique({
-      where: { id: user.id },
-      include: { instructorProfile: true },
-    });
+    const u = await this.repo.findUserWithProfile(user.id);
     if (!u || !u.instructorProfile) return null;
     const p = u.instructorProfile;
     return {
@@ -124,13 +113,11 @@ export class InstructorService {
     input: UpdateInstructorProfileInput,
   ): Promise<InstructorProfileDto> {
     if (input.avatar !== undefined)
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { avatar: input.avatar },
-      });
-    await this.prisma.instructorProfile.update({
-      where: { userId: user.id },
-      data: { title: input.title, bio: input.bio, expertise: input.expertise },
+      await this.repo.updateUserAvatar(user.id, input.avatar);
+    await this.repo.updateInstructorProfile(user.id, {
+      title: input.title,
+      bio: input.bio,
+      expertise: input.expertise,
     });
     const profile = await this.myProfile(user);
     if (!profile) throw new NotFoundException("Instructor profile not found");
@@ -141,40 +128,34 @@ export class InstructorService {
   async listApplications(
     status?: InstructorStatus,
   ): Promise<InstructorApplicationDto[]> {
-    const rows = await this.prisma.instructorApplication.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { appliedAt: "desc" },
-    });
+    const rows = await this.repo.findManyApplications(status);
     return rows.map((a) => this.toAppDto(a));
   }
 
   async approve(appId: string, note?: string): Promise<InstructorApplicationDto> {
-    const app = await this.prisma.instructorApplication.findUnique({
-      where: { id: appId },
-    });
+    const app = await this.repo.findApplicationById(appId);
     if (!app) throw new NotFoundException("Application not found");
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const a = await tx.instructorApplication.update({
-        where: { id: appId },
-        data: { status: "APPROVED", reviewedAt: new Date(), note },
-      });
+      const a = await this.repo.updateApplication(
+        appId,
+        { status: "APPROVED", reviewedAt: new Date(), note },
+        tx,
+      );
       if (app.userId) {
-        await tx.user.update({
-          where: { id: app.userId },
-          data: { role: "INSTRUCTOR" },
-        });
-        await tx.instructorProfile.upsert({
-          where: { userId: app.userId },
-          update: { status: "APPROVED", title: app.headline, bio: app.bio, expertise: app.expertise },
-          create: {
+        await this.repo.updateUserRole(app.userId, "INSTRUCTOR", tx);
+        await this.repo.upsertInstructorProfile(
+          app.userId,
+          { status: "APPROVED", title: app.headline, bio: app.bio, expertise: app.expertise },
+          {
             userId: app.userId,
             status: "APPROVED",
             title: app.headline,
             bio: app.bio,
             expertise: app.expertise,
           },
-        });
+          tx,
+        );
       }
       return a;
     });
@@ -183,9 +164,10 @@ export class InstructorService {
   }
 
   async reject(appId: string, note?: string): Promise<InstructorApplicationDto> {
-    const app = await this.prisma.instructorApplication.update({
-      where: { id: appId },
-      data: { status: "REJECTED", reviewedAt: new Date(), note },
+    const app = await this.repo.updateApplication(appId, {
+      status: "REJECTED",
+      reviewedAt: new Date(),
+      note,
     });
     this.notifyDecision(app, false, note);
     return this.toAppDto(app);

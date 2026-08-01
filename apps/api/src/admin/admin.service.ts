@@ -18,12 +18,9 @@ import type {
   UpsertCouponInput,
   UpdateUserStatusInput,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "../payments/payments.service";
-import {
-  COURSE_SUMMARY_INCLUDE,
-  toCourseSummary,
-} from "../courses/course.mapper";
+import { toCourseSummary } from "../courses/course.mapper";
+import { AdminRepository } from "./admin.repository";
 
 /** Settings are a single pinned row (see the PlatformSettings model). */
 const SETTINGS_ID = "singleton";
@@ -31,7 +28,7 @@ const SETTINGS_ID = "singleton";
 @Injectable()
 export class AdminService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: AdminRepository,
     private readonly payments: PaymentsService,
   ) {}
 
@@ -45,19 +42,7 @@ export class AdminService {
       publishedCourses,
       paidOrders,
       refundedOrders,
-    ] = await this.prisma.$transaction([
-      this.prisma.order.aggregate({
-        where: { status: "PAID" },
-        _sum: { totalCents: true },
-      }),
-      this.prisma.enrollment.count(),
-      this.prisma.enrollment.count({ where: { status: "COMPLETED" } }),
-      this.prisma.user.count({ where: { role: "STUDENT" } }),
-      this.prisma.user.count({ where: { role: "INSTRUCTOR" } }),
-      this.prisma.course.count({ where: { status: "PUBLISHED" } }),
-      this.prisma.order.count({ where: { status: "PAID" } }),
-      this.prisma.order.count({ where: { status: "REFUNDED" } }),
-    ]);
+    ] = await this.repo.overviewCounts();
 
     const completionRatePct = enrollments
       ? Math.round((completedEnrollments / enrollments) * 100)
@@ -95,59 +80,7 @@ export class AdminService {
       latestEnrollments,
       latestReviews,
       latestSignups,
-    ] = await this.prisma.$transaction([
-      this.prisma.order.findMany({
-        where: { status: "PAID", paidAt: { gte: since14 } },
-        select: { totalCents: true, paidAt: true },
-      }),
-      this.prisma.enrollment.findMany({
-        where: { enrolledAt: { gte: since14 } },
-        select: { enrolledAt: true },
-      }),
-      this.prisma.order.groupBy({
-        by: ["country"],
-        where: { status: "PAID" },
-        _sum: { totalCents: true },
-        orderBy: { _sum: { totalCents: "desc" } },
-      }),
-      this.prisma.user.count({ where: { role: "STUDENT" } }),
-      this.prisma.enrollment.findMany({
-        distinct: ["userId"],
-        select: { userId: true },
-      }),
-      this.prisma.enrollment.findMany({
-        where: { status: "COMPLETED" },
-        distinct: ["userId"],
-        select: { userId: true },
-      }),
-      this.prisma.order.findMany({
-        where: { status: "PAID" },
-        distinct: ["userId"],
-        select: { userId: true },
-      }),
-      this.prisma.order.findMany({
-        where: { status: "PAID" },
-        orderBy: { paidAt: "desc" },
-        take: 5,
-        select: { id: true, totalCents: true, paidAt: true, user: { select: { name: true } } },
-      }),
-      this.prisma.enrollment.findMany({
-        orderBy: { enrolledAt: "desc" },
-        take: 5,
-        select: { enrolledAt: true, user: { select: { name: true } }, course: { select: { title: true } } },
-      }),
-      this.prisma.review.findMany({
-        where: { status: "APPROVED" },
-        orderBy: { createdAt: "desc" },
-        take: 3,
-        select: { createdAt: true, rating: true, user: { select: { name: true } }, course: { select: { title: true } } },
-      }),
-      this.prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 3,
-        select: { createdAt: true, name: true },
-      }),
-    ]);
+    ] = await this.repo.analyticsBatch(since14);
 
     // ── revenue/enrollments per day, last 14 days ──
     const byDate = new Map<string, { revenueCents: number; enrollments: number }>();
@@ -221,19 +154,11 @@ export class AdminService {
           }
         : {}),
     };
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.user.findMany({
-        where,
-        include: {
-          studentProfile: true,
-          _count: { select: { enrollments: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-      }),
-      this.prisma.user.count({ where }),
-    ]);
+    const [rows, total] = await this.repo.findStudentsPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
     return {
       items: rows.map((u) => ({
         id: u.id,
@@ -254,30 +179,18 @@ export class AdminService {
 
   /** Global counts, independent of the students search/pagination above. */
   async studentStats(): Promise<AdminStudentStatsDto> {
-    const [total, active] = await this.prisma.$transaction([
-      this.prisma.user.count({ where: { role: "STUDENT" } }),
-      this.prisma.user.count({
-        where: { role: "STUDENT", studentProfile: { status: "ACTIVE" } },
-      }),
-    ]);
+    const [total, active] = await this.repo.studentStatsCounts();
     return { total, active, atRisk: total - active };
   }
 
   async courses() {
-    const rows = await this.prisma.course.findMany({
-      include: COURSE_SUMMARY_INCLUDE,
-      orderBy: { updatedAt: "desc" },
-    });
+    const rows = await this.repo.findAllCourses();
     // Admin view also exposes revenue (not part of the public summary).
     return rows.map((r) => ({ ...toCourseSummary(r), revenueCents: r.revenueCents }));
   }
 
   async orders(): Promise<OrderDto[]> {
-    const rows = await this.prisma.order.findMany({
-      include: { items: true },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
+    const rows = await this.repo.findAllOrders();
     return rows.map((row) => ({
       id: row.id,
       status: row.status,
@@ -316,9 +229,7 @@ export class AdminService {
   }
 
   async listCoupons(): Promise<CouponDto[]> {
-    const rows = await this.prisma.coupon.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const rows = await this.repo.findAllCoupons();
     return rows.map((c) => this.toCouponDto(c));
   }
 
@@ -334,32 +245,25 @@ export class AdminService {
       usageLimit: input.usageLimit,
       active: input.active,
     };
-    const c = await this.prisma.coupon.upsert({
-      where: { code: input.code },
-      update: data,
-      create: { code: input.code, ...data },
-    });
+    const c = await this.repo.upsertCoupon(input.code, { code: input.code, ...data }, data);
     return this.toCouponDto(c);
   }
 
   /** Enable/disable and promote/unpromote. Promoting demotes the incumbent in the
    *  same transaction, so the "only one featured" index is never violated. */
   async patchCoupon(code: string, input: PatchCouponInput): Promise<CouponDto> {
-    const c = await this.prisma.$transaction(async (tx) => {
-      if (!(await tx.coupon.findUnique({ where: { code } })))
+    const c = await this.repo.runTransaction(async (tx) => {
+      if (!(await this.repo.findCouponByCode(code, tx)))
         throw new NotFoundException("Coupon not found");
       if (input.featured === true)
-        await tx.coupon.updateMany({
-          where: { featured: true, code: { not: code } },
-          data: { featured: false },
-        });
-      return tx.coupon.update({ where: { code }, data: input });
+        await this.repo.demoteOtherFeaturedCoupons(code, tx);
+      return this.repo.updateCoupon(code, input, tx);
     });
     return this.toCouponDto(c);
   }
 
   async deleteCoupon(code: string): Promise<{ ok: true }> {
-    await this.prisma.coupon.delete({ where: { code } });
+    await this.repo.deleteCoupon(code);
     return { ok: true };
   }
 
@@ -379,33 +283,22 @@ export class AdminService {
 
   /** The one settings row, created with schema defaults on first read. */
   async settings(): Promise<PlatformSettingsDto> {
-    const s = await this.prisma.platformSettings.upsert({
-      where: { id: SETTINGS_ID },
-      update: {},
-      create: { id: SETTINGS_ID },
-    });
+    const s = await this.repo.upsertSettings(SETTINGS_ID, {}, { id: SETTINGS_ID });
     return this.toSettingsDto(s);
   }
 
   async updateSettings(
     input: UpdatePlatformSettingsInput,
   ): Promise<PlatformSettingsDto> {
-    const s = await this.prisma.platformSettings.upsert({
-      where: { id: SETTINGS_ID },
-      update: input,
-      create: { id: SETTINGS_ID, ...input },
-    });
+    const s = await this.repo.upsertSettings(SETTINGS_ID, input, { id: SETTINGS_ID, ...input });
     return this.toSettingsDto(s);
   }
 
   // ── user management ────────────────────────────────────────────────────────
   async updateUserStatus(userId: string, input: UpdateUserStatusInput) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.repo.findUser(userId);
     if (!user) throw new NotFoundException("User not found");
-    await this.prisma.studentProfile.updateMany({
-      where: { userId },
-      data: { status: input.status },
-    });
+    await this.repo.updateStudentProfileStatus(userId, { status: input.status });
     return { ok: true as const };
   }
 
@@ -416,35 +309,28 @@ export class AdminService {
    * accounts get suspended instead.
    */
   async deleteUser(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.repo.findUser(userId);
     if (!user) throw new NotFoundException("User not found");
-    const orders = await this.prisma.order.count({ where: { userId } });
+    const orders = await this.repo.countOrdersByUser(userId);
     if (orders > 0)
       throw new BadRequestException(
         `Cannot delete an account with ${orders} order(s) — suspend it instead`,
       );
     // An instructor's courses carry enrollments and order history of their own.
-    const authored = await this.prisma.course.count({ where: { instructorId: userId } });
+    const authored = await this.repo.countCoursesByInstructor(userId);
     if (authored > 0)
       throw new BadRequestException(
         `Cannot delete an instructor who still owns ${authored} course(s) — reassign or delete them first`,
       );
     // Reviews and comments are the user's own content and carry no accounting
     // value, so they go with the account.
-    await this.prisma.$transaction([
-      this.prisma.review.deleteMany({ where: { userId } }),
-      this.prisma.comment.deleteMany({ where: { userId } }),
-      this.prisma.user.delete({ where: { id: userId } }),
-    ]);
+    await this.repo.deleteUserCascade(userId);
     return { ok: true as const };
   }
 
   // ── order refunds ──────────────────────────────────────────────────────────
   async refundOrder(orderId: string): Promise<OrderDto> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
+    const order = await this.repo.findOrderWithItems(orderId);
     if (!order) throw new NotFoundException("Order not found");
     if (order.status === "REFUNDED") throw new NotFoundException("Order already refunded");
 
@@ -453,44 +339,29 @@ export class AdminService {
     // than mark it refunded without the customer actually getting paid back.
     await this.payments.refundGatewayPayment(order);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: "REFUNDED" },
-      });
+    await this.repo.runTransaction(async (tx) => {
+      await this.repo.updateOrderStatusRefunded(orderId, tx);
       for (const item of order.items) {
-        const course = await tx.course.update({
-          where: { id: item.courseId },
-          data: {
-            revenueCents: { decrement: item.priceCents },
-            studentCount: { decrement: 1 },
-          },
-          select: { instructorId: true },
-        });
-        await tx.instructorProfile.updateMany({
-          where: { userId: course.instructorId },
-          data: {
-            earningsCents: { decrement: item.priceCents },
-            studentCount: { decrement: 1 },
-          },
-        });
+        const course = await this.repo.decrementCourseRevenueAndStudents(
+          item.courseId,
+          item.priceCents,
+          tx,
+        );
+        await this.repo.decrementInstructorEarningsAndStudents(
+          course.instructorId,
+          item.priceCents,
+          tx,
+        );
       }
-      await tx.studentProfile.updateMany({
-        where: { userId: order.userId },
-        data: { totalSpentCents: { decrement: order.totalCents } },
-      });
-      await tx.enrollment.deleteMany({
-        where: {
-          userId: order.userId,
-          courseId: { in: order.items.map((i) => i.courseId) },
-        },
-      });
+      await this.repo.decrementStudentTotalSpent(order.userId, order.totalCents, tx);
+      await this.repo.deleteEnrollmentsForRefund(
+        order.userId,
+        order.items.map((i) => i.courseId),
+        tx,
+      );
     });
 
-    const updated = await this.prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: { items: true },
-    });
+    const updated = await this.repo.findOrderWithItemsOrThrow(orderId);
     return {
       id: updated.id,
       status: updated.status,
@@ -525,9 +396,7 @@ export class AdminService {
   }
 
   async listAutomationRules(): Promise<AutomationRuleDto[]> {
-    const rows = await this.prisma.automationRule.findMany({
-      orderBy: { createdAt: "asc" },
-    });
+    const rows = await this.repo.findAllAutomationRules();
     return rows.map((r) => this.toAutomationRuleDto(r));
   }
 
@@ -536,32 +405,28 @@ export class AdminService {
     input: UpsertAutomationRuleInput,
   ): Promise<AutomationRuleDto> {
     if (id) {
-      const existing = await this.prisma.automationRule.findUnique({ where: { id } });
+      const existing = await this.repo.findAutomationRule(id);
       if (!existing) throw new NotFoundException("Automation rule not found");
       return this.toAutomationRuleDto(
-        await this.prisma.automationRule.update({ where: { id }, data: input }),
+        await this.repo.updateAutomationRule(id, input),
       );
     }
     return this.toAutomationRuleDto(
-      await this.prisma.automationRule.create({ data: input }),
+      await this.repo.createAutomationRule(input),
     );
   }
 
   async deleteAutomationRule(id: string) {
-    const existing = await this.prisma.automationRule.findUnique({ where: { id } });
+    const existing = await this.repo.findAutomationRule(id);
     if (!existing) throw new NotFoundException("Automation rule not found");
-    await this.prisma.automationRule.delete({ where: { id } });
+    await this.repo.deleteAutomationRule(id);
     return { ok: true as const };
   }
 
   /** Recent sends, newest first. Joined with the recipient's name so the admin
    *  table doesn't need a second lookup per row. */
   async listReminderLogs(): Promise<ReminderLogDto[]> {
-    const rows = await this.prisma.reminderLog.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      include: { user: { select: { name: true } } },
-    });
+    const rows = await this.repo.findReminderLogs();
     return rows.map((l) => ({
       id: l.id,
       userId: l.userId,

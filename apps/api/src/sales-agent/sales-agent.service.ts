@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, SalesAgentStatus } from "@prisma/client";
+import { SalesAgentStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type {
   ApplySalesAgentInput,
@@ -13,32 +13,20 @@ import type {
   UpdateAgentInput,
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
-import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
-
-const agentSelect = {
-  id: true,
-  userId: true,
-  referralCode: true,
-  commissionPercent: true,
-  region: true,
-  status: true,
-  totalEarningsCents: true,
-  pendingEarningsCents: true,
-  paidEarningsCents: true,
-  referralCount: true,
-  createdAt: true,
-  user: { select: { name: true, email: true } },
-} satisfies Prisma.SalesAgentSelect;
+import {
+  SalesAgentRepository,
+  type SalesAgentRow,
+} from "./sales-agent.repository";
 
 @Injectable()
 export class SalesAgentService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: SalesAgentRepository,
     private readonly email: EmailService,
   ) {}
 
-  private toDto(a: Prisma.SalesAgentGetPayload<{ select: typeof agentSelect }>): SalesAgentDto {
+  private toDto(a: SalesAgentRow): SalesAgentDto {
     return {
       id: a.id,
       userId: a.userId,
@@ -58,50 +46,39 @@ export class SalesAgentService {
 
   // ── application ──────────────────────────────────────────────────────────
   async apply(user: RequestUser, input: ApplySalesAgentInput) {
-    const existing = await this.prisma.salesAgentApplication.findFirst({
-      where: { userId: user.id, status: "PENDING" },
-    });
+    const existing = await this.repo.findPendingApplicationByUser(user.id);
     if (existing) throw new BadRequestException("You already have a pending application");
-    const app = await this.prisma.salesAgentApplication.create({
-      data: { userId: user.id, ...input, status: "PENDING" },
+    const app = await this.repo.createApplication({
+      userId: user.id,
+      ...input,
+      status: "PENDING",
     });
     return app;
   }
 
   listApplications(status?: SalesAgentStatus) {
-    return this.prisma.salesAgentApplication.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { appliedAt: "desc" },
-    });
+    return this.repo.findManyApplications(status);
   }
 
   async reviewApplication(appId: string, input: ReviewAgentApplicationInput) {
-    const app = await this.prisma.salesAgentApplication.findUnique({
-      where: { id: appId },
-    });
+    const app = await this.repo.findApplicationById(appId);
     if (!app) throw new NotFoundException("Application not found");
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.salesAgentApplication.update({
-        where: { id: appId },
-        data: { status: input.status, reviewedAt: new Date(), note: input.note },
-      });
+    const result = await this.repo.runTransaction(async (tx) => {
+      const updated = await this.repo.updateApplication(
+        appId,
+        { status: input.status, reviewedAt: new Date(), note: input.note },
+        tx,
+      );
       if (input.status === "APPROVED" && app.userId) {
-        await tx.user.update({
-          where: { id: app.userId },
-          data: { role: "SALES_AGENT" },
-        });
-        await tx.salesAgent.upsert({
-          where: { userId: app.userId },
-          update: { status: "APPROVED" },
-          create: {
-            userId: app.userId,
-            referralCode: this.generateCode(),
-            region: app.region,
-            status: "APPROVED",
-            commissionPercent: input.commissionPercent ?? 10,
-          },
-        });
+        await this.repo.updateUserRole(app.userId, "SALES_AGENT", tx);
+        await this.repo.upsertSalesAgent(
+          app.userId,
+          this.generateCode(),
+          app.region,
+          input.commissionPercent ?? 10,
+          tx,
+        );
       }
       return updated;
     });
@@ -125,32 +102,18 @@ export class SalesAgentService {
 
   // ── agent self ───────────────────────────────────────────────────────────
   async me(user: RequestUser): Promise<SalesAgentDto | null> {
-    const a = await this.prisma.salesAgent.findUnique({
-      where: { userId: user.id },
-      select: agentSelect,
-    });
+    const a = await this.repo.findAgentByUserId(user.id);
     return a ? this.toDto(a) : null;
   }
 
   async myReferrals(user: RequestUser): Promise<SalesAgentReferralDto[]> {
-    const agent = await this.prisma.salesAgent.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
+    const agent = await this.repo.findAgentIdByUserId(user.id);
     if (!agent) return [];
     return this.referralsForAgent(agent.id);
   }
 
   private async referralsForAgent(agentId: string): Promise<SalesAgentReferralDto[]> {
-    const rows = await this.prisma.salesAgentReferral.findMany({
-      where: { agentId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        order: {
-          include: { user: { select: { name: true } }, items: true },
-        },
-      },
-    });
+    const rows = await this.repo.findReferralsByAgent(agentId);
     return rows.map((r) => ({
       id: r.id,
       orderId: r.orderId,
@@ -166,18 +129,14 @@ export class SalesAgentService {
 
   // ── admin ──────────────────────────────────────────────────────────────
   async listAgents(): Promise<SalesAgentDto[]> {
-    const rows = await this.prisma.salesAgent.findMany({
-      select: agentSelect,
-      orderBy: { createdAt: "desc" },
-    });
+    const rows = await this.repo.findManyAgents();
     return rows.map((a) => this.toDto(a));
   }
 
   async updateAgent(agentId: string, input: UpdateAgentInput): Promise<SalesAgentDto> {
-    const a = await this.prisma.salesAgent.update({
-      where: { id: agentId },
-      data: { commissionPercent: input.commissionPercent, status: input.status },
-      select: agentSelect,
+    const a = await this.repo.updateAgent(agentId, {
+      commissionPercent: input.commissionPercent,
+      status: input.status,
     });
     return this.toDto(a);
   }
@@ -189,60 +148,35 @@ export class SalesAgentService {
     orderId: string,
     referralCode: string,
   ): Promise<void> {
-    const agent = await this.prisma.salesAgent.findUnique({
-      where: { referralCode },
-    });
+    const agent = await this.repo.findAgentByReferralCode(referralCode);
     if (!agent || agent.status !== "APPROVED") return;
 
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { totalCents: true },
-    });
+    const order = await this.repo.findOrderTotalById(orderId);
     if (!order) return;
 
-    const exists = await this.prisma.salesAgentReferral.findUnique({
-      where: { orderId },
-    });
+    const exists = await this.repo.findReferralByOrderId(orderId);
     if (exists) return;
 
     const commissionCents = Math.round(
       order.totalCents * (agent.commissionPercent / 100),
     );
-    await this.prisma.$transaction([
-      this.prisma.salesAgentReferral.create({
-        data: { agentId: agent.id, orderId, commissionCents, status: "pending" },
-      }),
-      this.prisma.salesAgent.update({
-        where: { id: agent.id },
-        data: { referralCount: { increment: 1 } },
-      }),
-      // Stamp the order so reporting can join on agentId without going through the referral table.
-      this.prisma.order.update({
-        where: { id: orderId },
-        data: { agentId: agent.id, agentReferralCode: referralCode },
-      }),
-    ]);
+    await this.repo.createPendingReferralTx(
+      agent.id,
+      orderId,
+      commissionCents,
+      referralCode,
+    );
   }
 
   /** Confirms a referral once its order is paid, crediting the agent's
    *  pending/total earnings. Idempotent. */
   async confirmReferral(orderId: string): Promise<void> {
-    const referral = await this.prisma.salesAgentReferral.findUnique({
-      where: { orderId },
-    });
+    const referral = await this.repo.findReferralByOrderId(orderId);
     if (!referral || referral.status !== "pending") return;
-    await this.prisma.$transaction([
-      this.prisma.salesAgentReferral.update({
-        where: { orderId },
-        data: { status: "confirmed" },
-      }),
-      this.prisma.salesAgent.update({
-        where: { id: referral.agentId },
-        data: {
-          pendingEarningsCents: { increment: referral.commissionCents },
-          totalEarningsCents: { increment: referral.commissionCents },
-        },
-      }),
-    ]);
+    await this.repo.confirmReferralTx(
+      orderId,
+      referral.agentId,
+      referral.commissionCents,
+    );
   }
 }

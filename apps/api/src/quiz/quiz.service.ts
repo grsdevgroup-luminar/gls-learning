@@ -10,38 +10,19 @@ import {
   type QuizPlayDto,
   type QuizResultDto,
 } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import { QuizRepository } from "./quiz.repository";
 
 @Injectable()
 export class QuizService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: QuizRepository,
     private readonly enrollment: EnrollmentService,
   ) {}
 
-  private lessonContext(lessonId: string) {
-    return this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: {
-        id: true,
-        preview: true,
-        section: { select: { courseId: true } },
-        quiz: {
-          include: {
-            questions: {
-              orderBy: { order: "asc" },
-              include: { options: { orderBy: { order: "asc" } } },
-            },
-          },
-        },
-      },
-    });
-  }
-
   /** Quiz questions for the player — correctness is intentionally stripped. */
   async getForPlay(userId: string, lessonId: string): Promise<QuizPlayDto> {
-    const lesson = await this.lessonContext(lessonId);
+    const lesson = await this.repo.findLessonContext(lessonId);
     if (!lesson || !lesson.quiz)
       throw new NotFoundException("No quiz for this lesson");
 
@@ -69,7 +50,7 @@ export class QuizService {
     lessonId: string,
     input: QuizAttemptInput,
   ): Promise<QuizAttemptResultDto> {
-    const lesson = await this.lessonContext(lessonId);
+    const lesson = await this.repo.findLessonContext(lessonId);
     if (!lesson || !lesson.quiz)
       throw new NotFoundException("No quiz for this lesson");
 
@@ -97,35 +78,19 @@ export class QuizService {
     const score = Math.round((correctCount / results.length) * 100);
     const passed = quizPassed(score, lesson.quiz.passScore);
 
-    const prev = await this.prisma.quizResult.findUnique({
-      where: { userId_lessonId: { userId, lessonId } },
-    });
+    const prev = await this.repo.findQuizResult(userId, lessonId);
     const bestScore = Math.max(prev?.bestScore ?? 0, score);
     const attempts = (prev?.attempts ?? 0) + 1;
 
-    await this.prisma.$transaction([
-      this.prisma.quizResult.upsert({
-        where: { userId_lessonId: { userId, lessonId } },
-        update: {
-          lastScore: score,
-          bestScore,
-          attempts,
-          passed: passed || (prev?.passed ?? false),
-          lastAttemptAt: new Date(),
-        },
-        create: {
-          userId,
-          lessonId,
-          lastScore: score,
-          bestScore,
-          attempts: 1,
-          passed,
-        },
-      }),
-      this.prisma.quizAttempt.create({
-        data: { userId, lessonId, score, passed },
-      }),
-    ]);
+    await this.repo.saveAttempt(
+      userId,
+      lessonId,
+      score,
+      passed,
+      bestScore,
+      attempts,
+      prev?.passed ?? false,
+    );
 
     let progressPct: number | undefined;
     if (passed) {
@@ -149,9 +114,7 @@ export class QuizService {
     userId: string,
     lessonId: string,
   ): Promise<QuizResultDto | null> {
-    const r = await this.prisma.quizResult.findUnique({
-      where: { userId_lessonId: { userId, lessonId } },
-    });
+    const r = await this.repo.findQuizResult(userId, lessonId);
     if (!r) return null;
     return {
       lessonId,

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { CertificateVerificationDto } from "@skillstream/shared";
-import { PrismaService } from "../prisma/prisma.service";
+import { CertificatesRepository } from "./certificates.repository";
 import { certificatePdf } from "../common/pdf";
 import { apiBaseUrl, certificateVerifyUrl } from "../common/urls";
 import type { Env } from "../config/env";
@@ -9,7 +9,7 @@ import type { Env } from "../config/env";
 @Injectable()
 export class CertificatesService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: CertificatesRepository,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -20,19 +20,7 @@ export class CertificatesService {
    * account (email, id, other enrolments) is ever returned.
    */
   private async findBySerial(serial: string) {
-    const cert = await this.prisma.certificate.findUnique({
-      where: { serial },
-      select: {
-        serial: true,
-        issuedAt: true,
-        enrollment: {
-          select: {
-            user: { select: { name: true } },
-            course: { select: { title: true, slug: true } },
-          },
-        },
-      },
-    });
+    const cert = await this.repo.findBySerial(serial);
     if (!cert) throw new NotFoundException("Certificate not found");
     return cert;
   }

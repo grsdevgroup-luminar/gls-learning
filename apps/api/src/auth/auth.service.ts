@@ -17,7 +17,7 @@ import type {
 } from "@skillstream/shared";
 import { UsersService } from "../users/users.service";
 import { TokenService } from "./token.service";
-import { PrismaService } from "../prisma/prisma.service";
+import { AuthRepository } from "./auth.repository";
 import { EmailService } from "../email/email.service";
 
 export interface SessionMeta {
@@ -37,7 +37,7 @@ export class AuthService {
   constructor(
     private readonly users: UsersService,
     private readonly tokens: TokenService,
-    private readonly prisma: PrismaService,
+    private readonly repo: AuthRepository,
     private readonly email: EmailService,
   ) {}
 
@@ -123,26 +123,20 @@ export class AuthService {
     if (!userId) throw new BadRequestException("Invalid or expired reset token");
 
     const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash },
-    });
+    await this.repo.updateUserPassword(userId, passwordHash);
     // Revoke all existing sessions so old sessions can't be reused.
-    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.repo.deleteRefreshTokensByUser(userId);
     return { ok: true };
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUserDto> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      // `?? undefined` would swallow an explicit null, leaving no way to clear
-      // a field the schema declares nullable — only an absent key means "leave".
-      data: {
-        name: input.name,
-        ...(input.avatar !== undefined ? { avatar: input.avatar } : {}),
-        ...(input.country !== undefined ? { country: input.country } : {}),
-        ...(input.phone !== undefined ? { phone: input.phone } : {}),
-      },
+    // `?? undefined` would swallow an explicit null, leaving no way to clear
+    // a field the schema declares nullable — only an absent key means "leave".
+    await this.repo.updateUserProfile(userId, {
+      name: input.name,
+      ...(input.avatar !== undefined ? { avatar: input.avatar } : {}),
+      ...(input.country !== undefined ? { country: input.country } : {}),
+      ...(input.phone !== undefined ? { phone: input.phone } : {}),
     });
     return this.me(userId);
   }
@@ -153,7 +147,7 @@ export class AuthService {
     const valid = await argon2.verify(user.passwordHash, input.currentPassword);
     if (!valid) throw new BadRequestException("Current password is incorrect");
     const passwordHash = await argon2.hash(input.newPassword, { type: argon2.argon2id });
-    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    await this.repo.updateUserPassword(userId, passwordHash);
     return { ok: true };
   }
 

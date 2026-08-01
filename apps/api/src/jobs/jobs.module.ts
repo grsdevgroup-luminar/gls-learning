@@ -7,6 +7,10 @@ import { FxService } from "./fx.service";
 import { MaintenanceProcessor } from "./maintenance.processor";
 import { MaintenanceScheduler } from "./maintenance.scheduler";
 import { NotificationsProcessor } from "./notifications.processor";
+import { AutomationRepository } from "./automation.repository";
+import { FxRepository } from "./fx.repository";
+import { MaintenanceRepository } from "./maintenance.repository";
+import { NotificationsRepository } from "./notifications.repository";
 import { MAINTENANCE_QUEUE, NOTIFICATIONS_QUEUE } from "./jobs.constants";
 
 function parseRedis(url: string | undefined) {
@@ -46,6 +50,10 @@ function parseRedis(url: string | undefined) {
     MaintenanceProcessor,
     MaintenanceScheduler,
     NotificationsProcessor,
+    AutomationRepository,
+    FxRepository,
+    MaintenanceRepository,
+    NotificationsRepository,
   ],
 })
 export class JobsModule {}
