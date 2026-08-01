@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { parseLessonResources } from "@skillstream/shared";
 import type {
   CourseDetailDto,
   CourseSummaryDto,
@@ -109,6 +110,7 @@ export function toCourseDetail(
         order: l.order,
         hasQuiz: l.quiz !== null,
         hasVideo: l.cfVideoUid !== null,
+        resources: parseLessonResources(l.resources),
         ...(opts?.includeArticleContent
           ? { articleContent: l.articleContent }
           : {}),

@@ -60,7 +60,7 @@ export interface Lesson {
   durationSec: number;
   type: 'video' | 'quiz' | 'article';
   preview?: boolean; // free preview on the storefront
-  resources?: { name: string; size: string }[];
+  resources?: { name: string; url: string; sizeLabel?: string }[];
   quiz?: Quiz;
 }
 

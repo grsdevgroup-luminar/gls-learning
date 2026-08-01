@@ -1,5 +1,19 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import {
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Res,
+  StreamableFile,
+} from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from "@nestjs/swagger";
+import type { Response } from "express";
 import {
   checkoutQuoteSchema,
   checkoutSessionSchema,
@@ -48,5 +62,26 @@ export class CheckoutController {
   @Get("me/orders")
   myOrders(@CurrentUser() user: RequestUser) {
     return this.orders.myOrders(user.id);
+  }
+
+  /** Receipt for one of the caller's own paid orders. */
+  @Get("me/orders/:id/receipt")
+  @Header("Content-Type", "application/pdf")
+  @ApiProduces("application/pdf")
+  @ApiOperation({
+    summary: "Download a receipt PDF for one of your orders",
+    description: "404 for orders belonging to another account; 400 for unpaid orders.",
+  })
+  async receipt(
+    @CurrentUser() user: RequestUser,
+    @Param("id") orderId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const pdf = await this.orders.receiptPdf(user.id, orderId);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="skillstream-receipt-${orderId}.pdf"`,
+    );
+    return new StreamableFile(pdf);
   }
 }

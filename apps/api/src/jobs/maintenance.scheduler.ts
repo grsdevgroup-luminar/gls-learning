@@ -48,6 +48,18 @@ export class MaintenanceScheduler implements OnModuleInit {
           removeOnFail: 50,
         },
       );
+      // Admin digests (revenue summary + at-risk students). Daily, and only
+      // actually emailed when the matching toggle is on in platform settings.
+      await this.queue.add(
+        "admin-digest",
+        {},
+        {
+          repeat: { every: 24 * 60 * 60 * 1000 },
+          jobId: "admin-digest",
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
       // Kick one off immediately so fresh deploys reconcile right away.
       await this.queue.add("rollup", {}, { removeOnComplete: true });
       // Ditto for FX: a repeatable's first run is one interval away, which would

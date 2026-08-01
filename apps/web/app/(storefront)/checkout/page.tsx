@@ -17,8 +17,6 @@ import { RegionSelect } from "@/components/shared/region-select";
 import { CourseArt } from "@/components/shared/course-art";
 import { Reveal, Stagger, StaggerItem, Magnetic } from "@/components/shared/motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -148,19 +146,18 @@ export default function CheckoutPage() {
                       <Globe2 className="size-4" />
                     </span>
                     <div>
-                      <h2 className="font-semibold leading-tight">Billing details</h2>
+                      <h2 className="font-semibold leading-tight">Billing region</h2>
                       <p className="text-xs text-muted-foreground">{region.country} · {region.currency}</p>
                     </div>
                   </div>
                   <RegionSelect className="w-40 shrink-0" />
                 </div>
                 <Separator />
-                <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>
-                  <Field label="Full name" placeholder="Alex Morgan" />
-                  <Field label="Email" placeholder="you@example.com" type="email" />
-                  <Field label="Country" value={region.country} readOnly />
-                  <Field label="ZIP / Postal code" placeholder="10001" />
-                </Stagger>
+                <p className="text-sm text-muted-foreground">
+                  Pricing is adjusted for your region. Your name, email and billing
+                  address are collected securely by the payment provider on the next
+                  step — we never see or store them.
+                </p>
               </CardContent>
             </Card>
           </Reveal>
@@ -208,23 +205,14 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                {method === "stripe" ? (
-                  <Stagger className="grid gap-4 rounded-xl border border-border bg-muted/30 p-4" gap={0.05}>
-                    <Field label="Card number" placeholder="4242 4242 4242 4242" icon={<CreditCard className="h-4 w-4" />} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="Expiry" placeholder="MM / YY" />
-                      <Field label="CVC" placeholder="123" />
-                    </div>
-                    <Field label="Name on card" placeholder="Alex Morgan" />
-                  </Stagger>
-                ) : (
-                  <div className="animate-in rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground fade-in zoom-in-95 duration-200">
-                    You&apos;ll be redirected to PayPal to complete your purchase. (Simulated)
-                  </div>
-                )}
+                <div className="animate-in rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground fade-in zoom-in-95 duration-200">
+                  {method === "stripe"
+                    ? "You'll be redirected to Stripe's secure checkout to enter your card."
+                    : "You'll be redirected to PayPal to complete your purchase."}
+                </div>
 
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Lock className="h-3.5 w-3.5 shrink-0" /> Payments are encrypted with 256-bit SSL. This is a demo — no card is ever charged.
+                  <Lock className="h-3.5 w-3.5 shrink-0" /> Card details are entered on the provider&apos;s PCI-compliant page — never on SkillStream.
                 </p>
               </CardContent>
             </Card>
@@ -324,16 +312,3 @@ function Steps() {
   );
 }
 
-function Field({
-  label, placeholder, type = "text", value, readOnly, icon,
-}: { label: string; placeholder?: string; type?: string; value?: string; readOnly?: boolean; icon?: React.ReactNode }) {
-  return (
-    <StaggerItem y={10} className="field-glow space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      <div className="relative">
-        {icon && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
-        <Input placeholder={placeholder} type={type} defaultValue={value} readOnly={readOnly} className={icon ? "pl-8" : ""} />
-      </div>
-    </StaggerItem>
-  );
-}

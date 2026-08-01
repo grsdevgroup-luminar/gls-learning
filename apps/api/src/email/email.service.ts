@@ -108,6 +108,145 @@ export class EmailService {
     });
   }
 
+  /**
+   * Tells an applicant what an admin decided. The apply forms promise "we'll
+   * email you our decision", so this closes that loop for both the instructor
+   * and sales-agent flows.
+   */
+  async sendApplicationDecision(
+    to: string,
+    name: string,
+    programme: "instructor" | "sales agent",
+    approved: boolean,
+    note?: string | null,
+  ): Promise<void> {
+    const subject = approved
+      ? `You're approved as a SkillStream ${programme} 🎉`
+      : `Your SkillStream ${programme} application`;
+    const lines = approved
+      ? [
+          `Good news — your ${programme} application has been approved.`,
+          ...(note ? [note] : []),
+          "Sign in and your new portal will be waiting for you.",
+        ]
+      : [
+          `Thanks for applying to be a SkillStream ${programme}. We're not able to approve your application at this time.`,
+          ...(note ? [note] : []),
+          "You're welcome to apply again once you have more to show us.",
+        ];
+
+    if (!this.resend) {
+      this.logger.log(`[DEV] ${programme} decision (${approved ? "approved" : "rejected"}) for ${to}`);
+      return;
+    }
+
+    const { error } = await this.resend.emails.send({
+      from: `SkillStream <${this.from}>`,
+      to,
+      subject,
+      html: this.reminderHtml(name, lines.join(" ")),
+      text: `Hi ${name},\n\n${lines.join("\n\n")}\n\n— The SkillStream team`,
+    });
+    if (error) {
+      this.logger.error("Failed to send application decision email", error);
+      throw new Error("Email delivery failed");
+    }
+  }
+
+  /**
+   * Purchase receipt, with the same PDF the buyer can download from
+   * /dashboard/billing attached. Best-effort like every other email in a
+   * request path — fulfilment must not depend on delivery.
+   */
+  async sendReceipt(
+    to: string,
+    name: string,
+    order: { id: string; totalCents: number; currency: string; items: { title: string }[] },
+    pdf: Buffer,
+  ): Promise<void> {
+    const total = `${order.currency} ${(order.totalCents / 100).toFixed(2)}`;
+    const titles = order.items.map((i) => i.title).join(", ");
+    const subject = `Your SkillStream receipt — ${total}`;
+    const lines = [
+      `Thanks for your purchase, ${name}.`,
+      `Order ${order.id}: ${titles}`,
+      `Total paid: ${total}`,
+      "Your receipt is attached, and your courses are ready in your dashboard.",
+    ];
+
+    if (!this.resend) {
+      this.logger.log(`[DEV] Receipt for order ${order.id} would be emailed to ${to}`);
+      return;
+    }
+
+    const { error } = await this.resend.emails.send({
+      from: `SkillStream <${this.from}>`,
+      to,
+      subject,
+      html: this.adminAlertHtml(subject, lines),
+      text: `${lines.join("\n\n")}\n\n${this.frontendUrl}/dashboard`,
+      attachments: [
+        { filename: `skillstream-receipt-${order.id}.pdf`, content: pdf.toString("base64") },
+      ],
+    });
+    if (error) {
+      this.logger.error("Failed to send receipt email", error);
+      throw new Error("Email delivery failed");
+    }
+  }
+
+  /** Operational alert to the platform's own support inbox (admin toggles). */
+  async sendAdminAlert(to: string, subject: string, lines: string[]): Promise<void> {
+    const text = `${lines.join("\n")}\n\n${this.frontendUrl}/admin`;
+    if (!this.resend) {
+      this.logger.log(`[DEV] Admin alert to ${to}: ${subject}`);
+      return;
+    }
+
+    const { error } = await this.resend.emails.send({
+      from: `SkillStream <${this.from}>`,
+      to,
+      subject,
+      html: this.adminAlertHtml(subject, lines),
+      text,
+    });
+    if (error) {
+      this.logger.error("Failed to send admin alert", error);
+      throw new Error("Email delivery failed");
+    }
+  }
+
+  private adminAlertHtml(subject: string, lines: string[]): string {
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const body = lines
+      .map(
+        (l) =>
+          `<p style="margin:0 0 12px;color:#374151;font-size:15px">${escape(l)}</p>`,
+      )
+      .join("");
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(subject)}</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;margin:0;padding:0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 20px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:#111827;padding:24px 40px">
+          <span style="color:#fff;font-size:18px;font-weight:700">SkillStream admin</span>
+        </td></tr>
+        <tr><td style="padding:32px 40px">
+          <h1 style="margin:0 0 16px;color:#111827;font-size:18px">${escape(subject)}</h1>
+          ${body}
+          <a href="${this.frontendUrl}/admin" style="display:inline-block;margin-top:12px;background:#111827;color:#fff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Open the admin panel</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
+
   private passwordResetHtml(name: string, link: string): string {
     return `<!DOCTYPE html>
 <html lang="en">

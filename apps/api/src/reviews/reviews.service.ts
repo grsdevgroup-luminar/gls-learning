@@ -8,6 +8,7 @@ import type {
   ReviewStatusInput,
 } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { AdminAlertsService } from "../email/admin-alerts.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 
 const reviewInclude = {
@@ -21,6 +22,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly enrollment: EnrollmentService,
+    private readonly alerts: AdminAlertsService,
   ) {}
 
   private toDto(r: ReviewRow): ReviewDto {
@@ -99,6 +101,16 @@ export class ReviewsService {
       include: reviewInclude,
     });
     await this.recompute(courseId);
+    // Best-effort admin alert; never blocks the learner's review.
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { title: true },
+    });
+    void this.alerts.newReview(
+      course?.title ?? "a course",
+      review.rating,
+      review.user.name,
+    );
     return this.toDto(review);
   }
 

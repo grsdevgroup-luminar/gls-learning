@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { EnrollmentStatus } from "../enums.js";
 import type { CourseSummaryDto } from "./catalog.js";
 
@@ -38,3 +39,26 @@ export interface ToggleLessonResultDto {
   courseCompleted: boolean;
   certificate: CertificateDto | null;
 }
+
+/** Result of `GET /certificates/:serial` — the public verification lookup. */
+export interface CertificateVerificationDto {
+  valid: true;
+  serial: string;
+  learnerName: string;
+  courseTitle: string;
+  courseSlug: string;
+  issuedAt: string;
+}
+
+/** A learner's private note on one lesson (`/me/lessons/:lessonId/note`). */
+export interface LessonNoteDto {
+  lessonId: string;
+  body: string;
+  updatedAt: string;
+}
+
+export const saveLessonNoteSchema = z.object({
+  /** Empty deletes the note. Capped so a note stays a note. */
+  body: z.string().max(20_000),
+});
+export type SaveLessonNoteInput = z.infer<typeof saveLessonNoteSchema>;

@@ -18,8 +18,10 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { DEFAULT_REGION, FALLBACK_REGION, type RegionRow } from "@/lib/pricing";
+import { toast } from "sonner";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import {
   enrollmentsToProgress,
   toLegacyCourse,
@@ -35,14 +37,6 @@ export type Role =
   | "admin"
   | "sales_agent"
   | "org_admin";
-
-export interface QuizResult {
-  bestScore: number;
-  lastScore: number;
-  attempts: number;
-  passed: boolean;
-  lastAttemptAt: string;
-}
 
 export interface MyReview {
   rating: number;
@@ -61,10 +55,6 @@ const ROLE_FROM_SESSION: Record<string, Role> = {
   SALES_AGENT: "sales_agent",
   ORG_ADMIN: "org_admin",
 };
-
-function quizKey(courseId: string, lessonId: string) {
-  return `${courseId}:${lessonId}`;
-}
 
 interface StoreContextValue {
   mounted: boolean;
@@ -86,18 +76,9 @@ interface StoreContextValue {
   // enrollment + progress
   enrolled: string[];
   isEnrolled: (courseId: string) => boolean;
-  enroll: (courseIds: string[]) => void;
   toggleLesson: (courseId: string, lessonId: string) => void;
   isLessonDone: (courseId: string, lessonId: string) => boolean;
   completedCount: (courseId: string) => number;
-  // quizzes (client cache; server grading happens in the quiz API)
-  getQuizResult: (courseId: string, lessonId: string) => QuizResult | undefined;
-  submitQuizAttempt: (
-    courseId: string,
-    lessonId: string,
-    scorePercent: number,
-    passScore: number,
-  ) => QuizResult;
   // reviews
   getMyReview: (courseId: string) => MyReview | undefined;
   submitReview: (
@@ -124,7 +105,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [regionCode, setRegionCodeState] = useState<string>(DEFAULT_REGION);
 
   // ── client caches (quiz results / my reviews) ──
-  const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
   const [myReviews, setMyReviews] = useState<Record<string, MyReview>>({});
   const [detailsById, setDetailsById] = useState<Record<string, Course>>({});
 
@@ -257,34 +237,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // enrollment + progress
     enrolled,
     isEnrolled: (id) => enrolled.includes(id),
-    enroll: (ids) => {
-      void Promise.allSettled(ids.map((id) => api.enrollFree(id))).then(
-        refetchEnrollments,
-      );
-    },
     toggleLesson: (courseId, lessonId) => {
       void api.toggleLesson(courseId, lessonId).then(refetchEnrollments);
     },
     isLessonDone: (courseId, lessonId) =>
       (progress[courseId] ?? []).includes(lessonId),
     completedCount: (courseId) => (progress[courseId] ?? []).length,
-    // quizzes
-    getQuizResult: (courseId, lessonId) =>
-      quizResults[quizKey(courseId, lessonId)],
-    submitQuizAttempt: (courseId, lessonId, scorePercent, passScore) => {
-      const key = quizKey(courseId, lessonId);
-      const prev = quizResults[key];
-      const passed = scorePercent >= passScore;
-      const result: QuizResult = {
-        bestScore: Math.max(prev?.bestScore ?? 0, scorePercent),
-        lastScore: scorePercent,
-        attempts: (prev?.attempts ?? 0) + 1,
-        passed: passed || !!prev?.passed,
-        lastAttemptAt: new Date().toISOString(),
-      };
-      setQuizResults((m) => ({ ...m, [key]: result }));
-      return result;
-    },
     // reviews
     getMyReview: (courseId) => myReviews[courseId],
     submitReview: (courseId, rating, title, body) => {
@@ -292,7 +250,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...m,
         [courseId]: { rating, title, body, date: new Date().toISOString().slice(0, 10) },
       }));
-      void api.submitReview(courseId, { rating, title, body }).catch(() => undefined);
+      void api.submitReview(courseId, { rating, title, body }).catch((err) => {
+        // Roll the optimistic copy back so the UI doesn't claim a review landed.
+        setMyReviews((m) => {
+          const rest = { ...m };
+          delete rest[courseId];
+          return rest;
+        });
+        toast.error(getApiErrorMessage(err));
+      });
     },
     // courses
     courses,

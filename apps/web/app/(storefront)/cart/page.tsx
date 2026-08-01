@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
+import { useFeaturedCoupon } from "@/lib/api/hooks";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatLocal } from "@/lib/pricing";
@@ -39,6 +40,8 @@ export default function CartPage() {
         .filter(Boolean) as NonNullable<typeof catalog>["items"],
     [cart, catalog],
   );
+
+  const { data: featured } = useFeaturedCoupon();
 
   // Server-authoritative pricing: regional adjustment + coupon validation.
   const { data: quote } = useQuery({
@@ -193,7 +196,19 @@ export default function CartPage() {
                   </Button>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Try <button onClick={() => setCode("LAUNCH40")} className="font-mono font-medium text-primary">LAUNCH40</button> or <button onClick={() => setCode("WELCOME10")} className="font-mono font-medium text-primary">WELCOME10</button></p>
+              {/* The suggestion is whatever the admin has featured right now —
+                  it used to be two hardcoded codes that may not exist. */}
+              {featured && !coupon && (
+                <p className="text-xs text-muted-foreground">
+                  Try{" "}
+                  <button
+                    onClick={() => setCode(featured.code)}
+                    className="font-mono font-medium text-primary"
+                  >
+                    {featured.code}
+                  </button>
+                </p>
+              )}
 
               <Separator />
 

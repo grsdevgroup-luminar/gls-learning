@@ -14,6 +14,7 @@ import type {
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
+import { EmailService } from "../email/email.service";
 
 const agentSelect = {
   id: true,
@@ -32,7 +33,10 @@ const agentSelect = {
 
 @Injectable()
 export class SalesAgentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+  ) {}
 
   private toDto(a: Prisma.SalesAgentGetPayload<{ select: typeof agentSelect }>): SalesAgentDto {
     return {
@@ -77,7 +81,7 @@ export class SalesAgentService {
     });
     if (!app) throw new NotFoundException("Application not found");
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.salesAgentApplication.update({
         where: { id: appId },
         data: { status: input.status, reviewedAt: new Date(), note: input.note },
@@ -101,6 +105,18 @@ export class SalesAgentService {
       }
       return updated;
     });
+
+    // Same promise as the instructor flow: the applicant hears back by email.
+    void this.email
+      .sendApplicationDecision(
+        result.email,
+        result.name,
+        "sales agent",
+        result.status === "APPROVED",
+        result.note,
+      )
+      .catch(() => undefined);
+    return result;
   }
 
   private generateCode(): string {

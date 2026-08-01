@@ -95,6 +95,7 @@ export function toLegacyCourseDetail(dto: CourseDetailDto): Course {
       durationSec: l.durationSec,
       type: LESSON_TYPE_TO_LEGACY[l.type],
       preview: l.preview,
+      resources: l.resources,
     })),
   }));
   return {

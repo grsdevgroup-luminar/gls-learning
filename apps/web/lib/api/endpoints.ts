@@ -43,6 +43,9 @@ import type {
   CheckoutQuoteInput,
   CheckoutSessionInput,
   CheckoutSessionDto,
+  LessonNoteDto,
+  NotificationPreferencesDto,
+  UpdateNotificationPreferencesInput,
   ToggleLessonResultDto,
   WeeklyActivityDayDto,
 } from "@skillstream/shared";
@@ -175,6 +178,23 @@ export const api = {
 
   // certificates
   myCertificates: () => apiFetch<CertificateDto[]>("/me/certificates"),
+  // lesson notes (private per learner; enrollment required to write)
+  lessonNote: (lessonId: string) =>
+    apiFetch<LessonNoteDto | null>(`/me/lessons/${lessonId}/note`),
+  saveLessonNote: (lessonId: string, body: string) =>
+    apiFetch<LessonNoteDto | null>(`/me/lessons/${lessonId}/note`, {
+      method: "PUT",
+      body: { body },
+    }),
+
+  // notification preferences (gate real reminder delivery)
+  notificationPrefs: () =>
+    apiFetch<NotificationPreferencesDto>("/me/notification-preferences"),
+  updateNotificationPrefs: (input: UpdateNotificationPreferencesInput) =>
+    apiFetch<NotificationPreferencesDto>("/me/notification-preferences", {
+      method: "PATCH",
+      body: input,
+    }),
 
   // admin overview & management
   adminOverview: () => apiFetch<AdminOverviewDto>("/admin/overview"),
@@ -292,9 +312,17 @@ export const orgApi = {
   bySlug: (idOrSlug: string) =>
     apiFetch<OrganizationDto>(`/organizations/${idOrSlug}`),
   mine: () => apiFetch<OrganizationDto[]>("/me/organizations"),
+  /** `seatCount` and `status` are platform-admin only — the API rejects them
+   *  from an org admin. */
   update: (
     orgId: string,
-    body: Partial<{ name: string; domain: string; logoUrl: string; seatCount: number }>,
+    body: Partial<{
+      name: string;
+      domain: string;
+      logoUrl: string;
+      seatCount: number;
+      status: OrganizationDto["status"];
+    }>,
   ) => apiFetch<OrganizationDto>(`/organizations/${orgId}`, { method: "PATCH", body }),
   invite: (orgId: string, email: string, role: "ADMIN" | "MEMBER") =>
     apiFetch<{ id: string; token: string; email: string }>(

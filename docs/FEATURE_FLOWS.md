@@ -174,7 +174,10 @@ See §5 for the full agent-commission flow.
 
 ### 3.1 Dashboard & billing
 `/dashboard` shows purchased courses and progress; `/dashboard/billing` lists
-orders (`GET /me/orders`) with status badges (`PAID`/`REFUNDED`/`FAILED`/`PENDING`).
+orders (`GET /me/orders`) with status badges (`PAID`/`REFUNDED`/`FAILED`/`PENDING`)
+and a per-order **receipt PDF** (`GET /me/orders/:id/receipt` — own orders only,
+settled orders only, rendered on the fly). The page holds no card on file:
+Stripe/PayPal collect payment details on their own hosted page.
 
 ### 3.2 Learning a course (`/learn/[slug]`)
 1. Loads full course detail (sections + lessons — unlike the lightweight
@@ -186,6 +189,14 @@ orders (`GET /me/orders`) with status badges (`PAID`/`REFUNDED`/`FAILED`/`PENDIN
    automatically issues a `Certificate`** with a generated serial — no
    separate "request certificate" step. If progress later drops below 100%
    (a lesson is un-toggled), the certificate is deleted again.
+3. **Resources tab**: each lesson can carry attachments (`Lesson.resources`,
+   validated `{name, url, sizeLabel?}` — the platform hosts video but no
+   files, so a resource is a link the instructor owns). Authors add them in
+   the course builder; unparseable rows in the JSON column are dropped on read
+   rather than served.
+4. **Notes tab**: per-lesson notes, saved to `localStorage` on that device.
+   There is deliberately no notes table — flagged with a `ponytail:` comment
+   if it ever needs to follow the account.
 
 ### 3.3 Quizzes
 1. Fetching quiz questions strips the correct answers from the payload before
@@ -198,6 +209,13 @@ orders (`GET /me/orders`) with status badges (`PAID`/`REFUNDED`/`FAILED`/`PENDIN
 ### 3.4 Certificates
 `/dashboard/certificates` simply lists whatever `Certificate` rows already
 exist for the student (issued automatically per §3.2, never requested).
+`CertificateDto.pdfUrl` points at `GET /certificates/:serial/pdf`, which
+renders the certificate on demand (no file is stored). The serial is 48 bits of
+randomness and doubles as the credential for two **public** endpoints:
+`GET /certificates/:serial` (verification: learner name, course, issue date —
+nothing else about the account) and the PDF itself, both rate-limited to 20/min
+so serials can't be enumerated. `/verify/[serial]` is the public page behind
+them, and Share now links there instead of the private dashboard.
 
 ### 3.5 Progress
 `/dashboard/progress` is driven by real `LessonProgress` completions from the
@@ -215,8 +233,14 @@ drift from reality.
   worth flagging since it's easy to assume otherwise.
 
 ### 3.7 Account settings
-`/account` — profile (name/avatar/country) and password changes, no role
-restriction beyond "it's your own account."
+`/account` — profile (name, ISO-3166 country code, avatar URL) and password
+changes, no role restriction beyond "it's your own account." There is no image
+hosting on the platform (Cloudflare Stream is video only), so the avatar is a
+URL you already host, saved through the existing `PATCH /auth/me/profile`.
+Notification preferences are server-side: `GET`/`PATCH
+/me/notification-preferences` persist to `StudentProfile.notificationPrefs`,
+keyed by the real `ReminderTrigger` values, and **`NotificationsProcessor`
+checks them before every send** — an opt-out genuinely stops the email.
 
 ---
 
@@ -236,7 +260,9 @@ restriction beyond "it's your own account."
    ("not an instructor yet" / "under review" / "not approved, re-apply") —
    but the *real* enforcement is server-side: authoring endpoints require
    `@Roles("INSTRUCTOR","ADMIN")`, which only lets in users whose role was
-   actually flipped by an admin approval.
+   actually flipped by an admin approval. Approving or rejecting an application
+   emails the applicant (`EmailService.sendApplicationDecision`, fire-and-forget
+   so a delivery failure can't undo the decision). Same for sales agents (§5.1).
 
 ### 4.2 Authoring a course
 Every authoring endpoint additionally checks course ownership
@@ -246,6 +272,8 @@ only ever touch their own courses.
 1. **Create/edit metadata**: title, subtitle, category, level, description,
    price, thumbnail (downsized client-side), sections and lessons — all
    through the same course-builder UI used for both "new" and "edit."
+   Sections reorder by dragging their grip handle; the new order is written as
+   each section's `order` on save.
 2. **Lesson types** (`LessonType`): `VIDEO`, `ARTICLE`, `QUIZ`.
    - **Video**: the builder requests a direct-upload URL from Cloudflare
      Stream via the API, then the browser uploads the raw file **straight to
@@ -253,6 +281,7 @@ only ever touch their own courses.
      entirely. Playback later signs a short-lived (2hr) HLS/iframe URL, and
      checks enrollment first unless the lesson is flagged as a free preview.
    - **Article**: plain/rich text stored directly on the lesson row.
+   - **Resources**: any lesson type can carry downloadable links (see §3.2).
    - **Quiz**: a 1:1 `Quiz` with nested `QuizQuestion`/`QuizOption` rows;
      editing a question's options **replaces all of them**, it doesn't diff.
 3. **Publishing** (`DRAFT → REVIEW → PUBLISHED`): the shipped instructor UI
@@ -394,20 +423,28 @@ counts, refund rate, a 14-day trend, and a recent-activity feed. Pure
 reporting, no writes.
 
 ### 7.2 Organizations
-Create + list + status for orgs (see §6.1); day-to-day org management (invites,
-member removal, course assignment) is self-served by org admins, not this page.
+Create + list orgs (see §6.1), plus a **Plan** dialog for the two fields only
+SkillStream may change — `seatCount` and `status`. `OrganizationsService.update`
+enforces that split server-side: an org admin editing their own org can change
+name/domain/logo (wired on `/org/[slug]/account`) but gets a 403 for seats or
+status, so a customer can't grant themselves seats or lift a suspension.
+Day-to-day org management (invites, member removal, course assignment) is
+self-served by org admins.
 
 ### 7.3 Settings
 A single `PlatformSettings` row (upserted, so it always exists): platform
 name, support email, base currency, default language, and **gateway
 kill-switches** — `stripeEnabled`/`paypalEnabled` genuinely block that gateway
-at checkout server-side, not just hide a button. Notification toggles here are
-currently display-only.
+at checkout server-side, not just hide a button. The four admin notification
+toggles are live too: `newEnrollment` / `newReview` fire as they happen from
+`AdminAlertsService`, and `dailyRevenue` / `atRiskDigest` go out from a daily
+`admin-digest` job. All of them email the `supportEmail` on this page, and a
+toggle that's off sends nothing.
 
 ### 7.4 Sales agents
 Review pending applications (approve with commission% + optional note, or
-reject), then manage the approved roster (edit commission%, change status —
-e.g. suspend). See §5.1.
+reject), then manage the approved roster: edit commission%, and suspend or
+reinstate an agent (both wired to `PATCH /admin/sales-agents/:id`). See §5.1.
 
 ### 7.5 Instructors
 Review pending applications (approve/reject), browse the approved roster. See
@@ -416,14 +453,17 @@ Review pending applications (approve/reject), browse the approved roster. See
 ### 7.6 Students
 Search (debounced, name/email) + paginate the student roster, a stats strip
 (total / active / "at risk" — the latter is just `total − active`, not a
-separately-tracked state), and a "flag at risk" action that updates the
-student's profile status only (doesn't touch login/session).
+separately-tracked state), and a **"Flag at risk"** action that sets the
+student's profile status only — it does not touch login or purchasing, and the
+button is now labelled for what it does. `DELETE /admin/users/:id` exists but
+has no UI: it refuses accounts with orders (accounting records) or authored
+courses, and says so, rather than failing on a raw foreign key.
 
 ### 7.7 Coupons
 `CouponType`: `PERCENT | FIXED | FREE`. `CouponScope`: `GLOBAL | COURSE`.
-Create/update by code (upsert), toggle active/featured. Only one coupon can
-ever be `featured` at a time — enforced by a database-level partial unique
-index, not just application logic, so it can't race.
+Create/update by code (upsert), toggle active/featured, delete. Only one
+coupon can ever be `featured` at a time — enforced by a database-level
+partial unique index, not just application logic, so it can't race.
 
 ### 7.8 Courses
 Admin can create/edit/publish/delete **any** course using the same builder
@@ -435,8 +475,8 @@ in §4.2.
 ### 7.9 Marketing / automation
 Rule-based reminder emails (`AutomationRule`: trigger like idle / low-progress
 / abandoned-cart / almost-done / new-content, channels email/SMS, a text
-template with `{{placeholders}}`). Admins toggle rules on/off; **actual
-sending happens in a background job**, not from the admin action — an hourly
+template with `{{placeholders}}`). Admins toggle rules on/off and can delete
+a rule; **actual sending happens in a background job**, not from the admin action — an hourly
 sweep evaluates hard-coded per-trigger thresholds against real user activity,
 respects a per-trigger cooldown, and logs every send. The rule's "condition"
 field is admin-facing prose only, not a parsed rule language — a known,
@@ -516,11 +556,12 @@ immediately recomputes the course's public star rating and review count from
 - **Snapshots protect historical records** — order line items snapshot the
   price/title at purchase time; payouts snapshot the destination at request
   time. Neither retroactively changes if the live data changes later.
-- **Background jobs (BullMQ/Redis)**: the marketing-automation sweep (hourly)
-  and the FX-rate refresh (daily) are the only two jobs identified in this
-  codebase; both are designed to fail safe (skip a user, keep the last rate)
-  rather than send bad data or crash.
+- **Background jobs (BullMQ/Redis)**: the consistency rollup (hourly), the
+  marketing-automation sweep (hourly), the FX-rate refresh (daily) and the
+  admin digest (daily). All are designed to fail safe (skip a user, keep the
+  last rate) rather than send bad data or crash.
 - **Email is best-effort everywhere** — every `EmailService` call in a
   request path is wrapped so a delivery failure never fails the underlying
   action (signup, invite, password reset all succeed even if the email never
-  arrives). There is currently no purchase-receipt email at all.
+  arrives). There is still no purchase-receipt *email* — buyers download the
+  receipt PDF themselves from `/dashboard/billing` (§3.1).

@@ -39,6 +39,8 @@ export interface AuthUserDto {
   name: string;
   avatar: string | null;
   country: string | null;
+  /** E.164; null until the learner adds one. Required for SMS reminders. */
+  phone: string | null;
   role: UserRole;
   emailVerified: boolean;
   instructorStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;

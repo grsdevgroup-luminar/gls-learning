@@ -1,10 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { orgApi } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/shared/form-field";
 import { Building2, Mail, Globe, Calendar, Shield } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -15,6 +21,8 @@ const statusColors: Record<string, string> = {
 
 export default function OrgAccount() {
   const params = useParams<{ slug: string }>();
+  const qc = useQueryClient();
+  const [edit, setEdit] = useState<{ name: string; domain: string; logoUrl: string } | null>(null);
   const { data: org } = useQuery({
     queryKey: ["org", params.slug],
     queryFn: () => orgApi.bySlug(params.slug),
@@ -24,6 +32,22 @@ export default function OrgAccount() {
     queryKey: ["org", org?.id, "courses"],
     queryFn: () => orgApi.courses(org!.id),
     enabled: !!org?.id,
+  });
+
+  const save = useMutation({
+    mutationFn: () =>
+      orgApi.update(org!.id, {
+        name: edit!.name.trim(),
+        // Empty strings would fail validation — omit instead of sending blanks.
+        ...(edit!.domain.trim() ? { domain: edit!.domain.trim() } : {}),
+        ...(edit!.logoUrl.trim() ? { logoUrl: edit!.logoUrl.trim() } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["org"] });
+      setEdit(null);
+      toast.success("Organization updated");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
   if (!org) return null;
@@ -54,21 +78,75 @@ export default function OrgAccount() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-base">
             <span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Organization info</span>
-            <Badge variant="outline" className={statusColors[org.status]}>
-              {org.status.charAt(0) + org.status.slice(1).toLowerCase()}
-            </Badge>
+            <span className="flex items-center gap-2">
+              <Badge variant="outline" className={statusColors[org.status]}>
+                {org.status.charAt(0) + org.status.slice(1).toLowerCase()}
+              </Badge>
+              {!edit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setEdit({
+                      name: org.name,
+                      domain: org.domain ?? "",
+                      logoUrl: org.logoUrl ?? "",
+                    })
+                  }
+                >
+                  Edit
+                </Button>
+              )}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {fields.map((f) => (
-            <div key={f.label} className="flex items-start gap-3">
-              <f.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div>
-                <div className="text-xs text-muted-foreground">{f.label}</div>
-                <div className="font-medium">{f.value}</div>
+          {edit ? (
+            <>
+              <FormField label="Organization name">
+                <Input
+                  value={edit.name}
+                  onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Email domain" hint="Optional">
+                <Input
+                  value={edit.domain}
+                  onChange={(e) => setEdit({ ...edit, domain: e.target.value })}
+                  placeholder="acme.com"
+                />
+              </FormField>
+              <FormField label="Logo URL" hint="Optional">
+                <Input
+                  value={edit.logoUrl}
+                  onChange={(e) => setEdit({ ...edit, logoUrl: e.target.value })}
+                  placeholder="https://acme.com/logo.png"
+                  type="url"
+                />
+              </FormField>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => save.mutate()}
+                  disabled={save.isPending || edit.name.trim().length < 2}
+                >
+                  {save.isPending ? "Saving…" : "Save changes"}
+                </Button>
+                <Button variant="outline" onClick={() => setEdit(null)}>
+                  Cancel
+                </Button>
               </div>
-            </div>
-          ))}
+            </>
+          ) : (
+            fields.map((f) => (
+              <div key={f.label} className="flex items-start gap-3">
+                <f.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div>
+                  <div className="text-xs text-muted-foreground">{f.label}</div>
+                  <div className="font-medium">{f.value}</div>
+                </div>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 
@@ -98,7 +176,8 @@ export default function OrgAccount() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            To purchase additional seats, contact your SkillStream account manager.
+            Seats are managed by SkillStream — contact your account manager to
+            add more.
           </p>
         </CardContent>
       </Card>

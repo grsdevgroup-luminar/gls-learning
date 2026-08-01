@@ -99,6 +99,7 @@ export class AuthService {
       name: user.name,
       avatar: user.avatar,
       country: user.country,
+      phone: user.phone,
       role: user.role,
       emailVerified: user.emailVerified,
       instructorStatus: user.instructorProfile?.status ?? null,
@@ -134,10 +135,13 @@ export class AuthService {
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUserDto> {
     await this.prisma.user.update({
       where: { id: userId },
+      // `?? undefined` would swallow an explicit null, leaving no way to clear
+      // a field the schema declares nullable — only an absent key means "leave".
       data: {
         name: input.name,
-        avatar: input.avatar ?? undefined,
-        country: input.country ?? undefined,
+        ...(input.avatar !== undefined ? { avatar: input.avatar } : {}),
+        ...(input.country !== undefined ? { country: input.country } : {}),
+        ...(input.phone !== undefined ? { phone: input.phone } : {}),
       },
     });
     return this.me(userId);

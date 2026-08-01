@@ -123,12 +123,22 @@ export class OrganizationsService {
     return this.toDto(row);
   }
 
+  /**
+   * Org admins may edit their own branding (name, domain, logo). `seatCount`
+   * and `status` are commercial fields — letting a customer raise their own
+   * seat count or lift a suspension would be self-serve entitlement — so those
+   * are platform-admin only.
+   */
   async update(
     user: RequestUser,
     idOrSlug: string,
     input: UpdateOrganizationInput,
   ): Promise<OrganizationDto> {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
+    if (user.role !== "ADMIN" && (input.seatCount !== undefined || input.status !== undefined))
+      throw new ForbiddenException(
+        "Seat count and status are managed by SkillStream — contact support",
+      );
     await this.prisma.organization.update({ where: { id: orgId }, data: input });
     return this.toDto(await this.getRow(orgId));
   }

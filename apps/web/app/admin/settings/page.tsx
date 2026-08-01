@@ -209,6 +209,10 @@ export default function AdminSettings() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Bell className="h-4 w-4 text-primary" /> Admin notifications
           </CardTitle>
+          <CardDescription>
+            Sent to the support email above. Enrollment and review alerts go out
+            as they happen; the summaries are emailed once a day.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {NOTIFICATION_TOGGLES.map((n) => (

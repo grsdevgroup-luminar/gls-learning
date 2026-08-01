@@ -113,7 +113,15 @@ export const courses: Course[] = [
       ]),
       S("s3", "Server Components & Data", [
         L("Server vs Client Components", 16),
-        L("Streaming with Suspense", 21, { resources: [{ name: "starter-repo.zip", size: "2.4 MB" }] }),
+        L("Streaming with Suspense", 21, {
+          resources: [
+            {
+              name: "starter-repo.zip",
+              url: "https://github.com/vercel/next-learn/archive/refs/heads/main.zip",
+              sizeLabel: "2.4 MB",
+            },
+          ],
+        }),
         L("Mutations and form actions", 17),
       ]),
       S("s4", "Production Polish", [

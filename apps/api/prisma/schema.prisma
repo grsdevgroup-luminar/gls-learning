@@ -155,6 +155,8 @@ model User {
   name          String
   avatar        String?
   country       String?
+  /// E.164, e.g. +8801712345678. Optional: SMS reminders are skipped without it.
+  phone         String?
   role          UserRole @default(STUDENT)
   emailVerified Boolean  @default(false)
   createdAt     DateTime @default(now())
@@ -166,6 +168,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   enrollments       Enrollment[]
   quizResults       QuizResult[]
+  lessonNotes       LessonNote[]
   quizAttempts      QuizAttempt[]
   reviews           Review[]
   comments          Comment[]
@@ -321,6 +324,7 @@ model Lesson {
   lessonProgress LessonProgress[]
   quizResults    QuizResult[]
   quizAttempts   QuizAttempt[]
+  notes          LessonNote[]
 
   @@index([sectionId])
 }
@@ -387,6 +391,21 @@ model LessonProgress {
   completedAt  DateTime   @default(now())
 
   @@unique([enrollmentId, lessonId])
+  @@index([lessonId])
+}
+
+/// A learner's private notes on one lesson. Separate from LessonProgress so
+/// notes survive un-completing a lesson, and exist before any progress does.
+model LessonNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  body      String
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
   @@index([lessonId])
 }
 
@@ -614,7 +633,8 @@ model PlatformSettings {
   /// Gateway kill-switches — enforced at checkout, not just displayed.
   stripeEnabled   Boolean  @default(true)
   paypalEnabled   Boolean  @default(true)
-  /// Admin notification toggles, keyed by id (display-only for now).
+  /// Admin notification toggles, keyed by id. Enforced in AdminAlertsService:
+  /// event alerts (newEnrollment/newReview) and the daily digest all check these.
   notifications   Json     @default("{}")
   updatedAt       DateTime @updatedAt
 }

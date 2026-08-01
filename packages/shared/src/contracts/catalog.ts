@@ -33,6 +33,15 @@ export interface InstructorSummaryDto {
   courseCount?: number;
 }
 
+/** A downloadable attachment on a lesson (slides, starter repo, cheat sheet). */
+export interface LessonResourceDto {
+  name: string;
+  /** Absolute URL the learner downloads from. */
+  url: string;
+  /** Optional human-readable size, e.g. "2.4 MB" — display only. */
+  sizeLabel?: string;
+}
+
 export interface LessonPublicDto {
   id: string;
   title: string;
@@ -43,6 +52,7 @@ export interface LessonPublicDto {
   hasQuiz: boolean;
   /** Whether a Cloudflare Stream video is attached (course builder upload status). */
   hasVideo: boolean;
+  resources: LessonResourceDto[];
   /** Owner/admin only (course builder) — omitted from the public catalog so
    *  paid article content can't be read without enrolling. */
   articleContent?: string | null;

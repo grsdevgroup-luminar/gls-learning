@@ -2,8 +2,10 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { ReminderChannel, ReminderTrigger } from "@prisma/client";
 import { Job } from "bullmq";
+import { resolveNotificationPrefs } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import { SmsService } from "../email/sms.service";
 import { NOTIFICATIONS_QUEUE } from "./jobs.constants";
 
 export interface ReminderJobData {
@@ -27,6 +29,7 @@ export class NotificationsProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    private readonly sms: SmsService,
   ) {
     super();
   }
@@ -37,15 +40,31 @@ export class NotificationsProcessor extends WorkerHost {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, name: true },
+      select: {
+        email: true,
+        name: true,
+        phone: true,
+        studentProfile: { select: { notificationPrefs: true } },
+      },
     });
     if (!user) return { ok: false, reason: "user gone" };
+
+    // Opt-outs are enforced here rather than in the producer: every reminder,
+    // whatever enqueued it, passes through this worker.
+    const prefs = resolveNotificationPrefs(user.studentProfile?.notificationPrefs);
+    const wanted = channel === "EMAIL" ? prefs[trigger].email : prefs[trigger].sms;
+    if (!wanted) {
+      this.logger.log(`reminder skipped (${channel}/${trigger}) — user opted out`);
+      return { ok: false, reason: "opted out" };
+    }
 
     if (channel === "EMAIL") {
       await this.email.sendReminder(user.email, user.name, subject);
     } else {
-      // ponytail: SMS has no provider (no Twilio in this system) — logged only.
-      this.logger.log(`[STUB] ${channel} reminder to ${userId}: ${subject}`);
+      // No number on file is a dead end, not a failure — don't log it as sent
+      // and don't let BullMQ retry it.
+      const sent = await this.sms.send(user.phone, subject);
+      if (!sent) return { ok: false, reason: "no phone number" };
     }
 
     await this.prisma.reminderLog.create({

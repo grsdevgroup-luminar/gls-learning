@@ -1,6 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { toast } from "sonner";
 import { useMyOrders } from "@/lib/api/hooks";
+import { downloadFile } from "@/lib/api/client";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatUsd } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { CreditCard, Download, Receipt, Plus } from "lucide-react";
+import { Download, Loader2, Receipt } from "lucide-react";
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   PAID:     { label: "Paid",     className: "text-success" },
@@ -25,6 +29,18 @@ const GATEWAY_LABEL: Record<string, string> = {
 
 export default function BillingPage() {
   const { data: orders, isLoading, isError } = useMyOrders();
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  async function downloadReceipt(orderId: string) {
+    setDownloading(orderId);
+    try {
+      await downloadFile(`/me/orders/${orderId}/receipt`, `receipt-${orderId}.pdf`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setDownloading(null);
+    }
+  }
 
   const rows = orders ?? [];
   const totalSpent = rows
@@ -35,7 +51,7 @@ export default function BillingPage() {
     <div className="space-y-8 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">Manage your payment methods and view past purchases.</p>
+        <p className="text-muted-foreground">Your past purchases and receipts. Cards are handled by Stripe and PayPal at checkout — nothing is stored here.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -104,8 +120,22 @@ export default function BillingPage() {
                           {GATEWAY_LABEL[o.gateway] ?? o.gateway}
                         </TableCell>
                         <TableCell className="pr-6 text-right">
-                          <Button size="sm" variant="ghost" disabled={o.status !== "PAID"}>
-                            <Download className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`Download receipt for order ${o.id}`}
+                            // Only settled orders have a receipt — the API says the same.
+                            disabled={
+                              (o.status !== "PAID" && o.status !== "REFUNDED") ||
+                              downloading === o.id
+                            }
+                            onClick={() => downloadReceipt(o.id)}
+                          >
+                            {downloading === o.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -119,25 +149,6 @@ export default function BillingPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Payment methods</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <div className="grid h-9 w-12 place-items-center rounded bg-primary/10 text-primary">
-                  <CreditCard className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">Visa •••• 4242</div>
-                  <div className="text-xs text-muted-foreground">Expires 08/27</div>
-                </div>
-                <Badge variant="secondary">Default</Badge>
-              </div>
-              <Button variant="outline" className="w-full">
-                <Plus /> Add payment method
-              </Button>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader><CardTitle className="text-base">Total spent</CardTitle></CardHeader>
             <CardContent>

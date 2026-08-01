@@ -68,8 +68,13 @@ export default function AdminAgents() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { commissionPercent?: number } }) =>
-      apiFetch(`/admin/sales-agents/${id}`, { method: "PATCH", body }),
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: { commissionPercent?: number; status?: SalesAgentDto["status"] };
+    }) => apiFetch(`/admin/sales-agents/${id}`, { method: "PATCH", body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sales-agents"] }),
   });
 
@@ -276,9 +281,30 @@ export default function AdminAgents() {
                       <TableCell className="text-sm">{a.referralCount}</TableCell>
                       <TableCell className="text-sm">{formatUsd(a.totalEarningsCents / 100)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusCls[a.status] ?? ""}>
-                          {a.status}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className={statusCls[a.status] ?? ""}>
+                            {a.status}
+                          </Badge>
+                          {/* Suspend/reinstate: the API already accepted a status
+                              change, there just was no control for it. */}
+                          {(a.status === "APPROVED" || a.status === "SUSPENDED") && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              disabled={updateMutation.isPending}
+                              onClick={() => {
+                                const next = a.status === "APPROVED" ? "SUSPENDED" : "APPROVED";
+                                updateMutation.mutate({ id: a.id, body: { status: next } });
+                                toast.success(
+                                  next === "SUSPENDED" ? "Agent suspended" : "Agent reinstated",
+                                );
+                              }}
+                            >
+                              {a.status === "APPROVED" ? "Suspend" : "Reinstate"}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {a.pendingEarningsCents > 0

@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import type { Course, Lesson } from "@/types";
 import { useStore } from "@/lib/context/store";
 import { courseLessonCount } from "@/lib/course-stats";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { QuizPlayer } from "@/components/student/quiz-player";
@@ -33,7 +34,7 @@ import {
 import {
   Check, PlayCircle, FileText, HelpCircle, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Download, ArrowLeft, Star, Trophy, ChevronDown,
-  Bookmark, Share2, MoreVertical, Sun, Moon, Link2, Flag,
+  Share2, MoreVertical, Sun, Moon, Link2,
 } from "lucide-react";
 import { lessonTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -96,7 +97,6 @@ export function LearnClient({ course }: { course: Course }) {
           <RatingControl courseId={course.id} />
           <ProgressControl pct={pct} done={done} total={total} />
           <span aria-hidden className="mx-0.5 hidden h-6 w-px bg-border md:block" />
-          <SaveControl />
           <ShareControl title={course.title} />
           <OverflowMenu slug={course.slug} />
         </div>
@@ -182,11 +182,20 @@ export function LearnClient({ course }: { course: Course }) {
                 {current.resources?.length ? (
                   <ul className="space-y-2">
                     {current.resources.map((r) => (
-                      <li key={r.name} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                      <li key={r.url} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
                         <FileText className="h-4 w-4 text-primary" />
                         <span className="flex-1">{r.name}</span>
-                        <span className="text-xs text-muted-foreground">{r.size}</span>
-                        <Button size="sm" variant="ghost"><Download className="h-4 w-4" /></Button>
+                        {r.sizeLabel && (
+                          <span className="text-xs text-muted-foreground">{r.sizeLabel}</span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Download ${r.name}`}
+                          render={<a href={r.url} target="_blank" rel="noopener noreferrer" download />}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -195,7 +204,7 @@ export function LearnClient({ course }: { course: Course }) {
                 )}
               </TabsContent>
               <TabsContent value="notes" className="pt-4">
-                <Textarea placeholder="Take notes for this lesson… (saved locally in the demo)" className="min-h-32" />
+                <LessonNotes lessonId={current.id} />
               </TabsContent>
             </Tabs>
           </div>
@@ -432,24 +441,6 @@ function ProgressControl({ pct, done, total }: { pct: number; done: number; tota
   );
 }
 
-function SaveControl() {
-  const [saved, setSaved] = useState(false);
-  return (
-    <Button
-      variant={saved ? "secondary" : "default"}
-      size="sm"
-      className="gap-1.5"
-      aria-pressed={saved}
-      onClick={() => {
-        setSaved((s) => !s);
-        toast.success(saved ? "Removed from saved" : "Saved to your list");
-      }}
-    >
-      <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
-      {saved ? "Saved" : "Save"}
-    </Button>
-  );
-}
 
 function ShareControl({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
@@ -508,9 +499,6 @@ function OverflowMenu({ slug }: { slug: string }) {
           <DropdownMenuItem render={<Link href={`/courses/${slug}`} />}>
             <FileText /> Course details
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast("Report submitted", { description: "Thanks — our team will review this content." })}>
-            <Flag /> Report abuse
-          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/dashboard" />}>
@@ -518,5 +506,60 @@ function OverflowMenu({ slug }: { slug: string }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Per-lesson notes, stored server-side so they follow the account. Saves are
+ * debounced — one PUT when typing stops, not one per keystroke — and the
+ * pending text is kept in local state so the textarea never fights the query.
+ */
+function LessonNotes({ lessonId }: { lessonId: string }) {
+  const qc = useQueryClient();
+  const noteKey = ["me", "lesson-note", lessonId];
+  const { data: note, isLoading } = useQuery({
+    queryKey: noteKey,
+    queryFn: () => api.lessonNote(lessonId),
+  });
+  const [draft, setDraft] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (body: string) => api.saveLessonNote(lessonId, body),
+    // Writing the server's answer back into the cache is what makes the draft
+    // and the stored note match again — that comparison drives the status line.
+    onSuccess: (result, body) =>
+      qc.setQueryData(noteKey, result ?? { lessonId, body, updatedAt: new Date().toISOString() }),
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  // The server copy wins until the learner types; `draft` then owns the field.
+  const stored = note?.body ?? "";
+  const value = draft ?? stored;
+  const dirty = draft !== null && draft !== stored;
+
+  useEffect(() => {
+    if (!dirty || draft === null) return;
+    const t = setTimeout(() => save.mutate(draft), 800);
+    return () => clearTimeout(t);
+    // `save` is a stable mutation handle; re-running on it would reset the timer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, dirty, lessonId]);
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        value={value}
+        disabled={isLoading}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Take notes for this lesson…"
+        className="min-h-32"
+      />
+      <p className="text-xs text-muted-foreground">
+        {save.isPending
+          ? "Saving…"
+          : dirty
+            ? "Unsaved changes…"
+            : "Saved to your account — notes sync across devices."}
+      </p>
+    </div>
   );
 }

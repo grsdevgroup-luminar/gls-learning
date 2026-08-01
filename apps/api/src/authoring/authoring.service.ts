@@ -206,6 +206,7 @@ export class AuthoringService {
         order: input.order ?? count,
         articleContent: input.articleContent ?? null,
         cfVideoUid: input.cfVideoUid ?? null,
+        resources: input.resources ?? [],
       },
     });
     return this.detail(courseId);
@@ -224,6 +225,9 @@ export class AuthoringService {
         order: input.order,
         articleContent: input.articleContent ?? undefined,
         cfVideoUid: input.cfVideoUid ?? undefined,
+        // Omitted `resources` leaves the existing attachments alone; an empty
+        // array clears them.
+        resources: input.resources ?? undefined,
       },
     });
     return this.detail(courseId);

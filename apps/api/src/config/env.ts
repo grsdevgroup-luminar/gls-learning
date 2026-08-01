@@ -35,6 +35,10 @@ export const envSchema = z.object({
   // PKR) that ECB-sourced feeds like frankfurter.app omit.
   FX_RATES_URL: z.string().url().default("https://open.er-api.com/v6/latest/USD"),
   RESEND_API_KEY: z.string().optional(),
+  // SMS reminders. Without all three, SmsService logs instead of sending.
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@skillstream.dev"),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
   SENTRY_DSN: z.string().optional(),

@@ -10,6 +10,8 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { CoursesModule } from "./courses/courses.module";
 import { EnrollmentModule } from "./enrollment/enrollment.module";
+import { CertificatesModule } from "./certificates/certificates.module";
+import { NotesModule } from "./notes/notes.module";
 import { QuizModule } from "./quiz/quiz.module";
 import { CommerceModule } from "./commerce/commerce.module";
 import { MediaModule } from "./media/media.module";
@@ -51,6 +53,8 @@ import { AuditInterceptor } from "./common/audit.interceptor";
     AuthModule,
     CoursesModule,
     EnrollmentModule,
+    CertificatesModule,
+    NotesModule,
     QuizModule,
     CommerceModule,
     MediaModule,

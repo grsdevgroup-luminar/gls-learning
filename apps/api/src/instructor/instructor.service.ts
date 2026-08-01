@@ -13,10 +13,26 @@ import type {
 } from "@skillstream/shared";
 import type { RequestUser } from "../common/decorators";
 import { PrismaService } from "../prisma/prisma.service";
+import { EmailService } from "../email/email.service";
 
 @Injectable()
 export class InstructorService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+  ) {}
+
+  /** Applicants are promised an emailed decision; a delivery failure must not
+   *  undo the approval, so this is fire-and-forget. */
+  private notifyDecision(
+    app: { email: string; name: string },
+    approved: boolean,
+    note?: string | null,
+  ): void {
+    void this.email
+      .sendApplicationDecision(app.email, app.name, "instructor", approved, note)
+      .catch(() => undefined);
+  }
 
   private toAppDto(a: InstructorApplication): InstructorApplicationDto {
     return {
@@ -162,6 +178,7 @@ export class InstructorService {
       }
       return a;
     });
+    this.notifyDecision(updated, true, note);
     return this.toAppDto(updated);
   }
 
@@ -170,6 +187,7 @@ export class InstructorService {
       where: { id: appId },
       data: { status: "REJECTED", reviewedAt: new Date(), note },
     });
+    this.notifyDecision(app, false, note);
     return this.toAppDto(app);
   }
 }

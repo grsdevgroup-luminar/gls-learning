@@ -226,7 +226,7 @@ function StudentRow({
             onClick={onSuspend}
             disabled={suspending}
           >
-            Suspend
+            Flag at risk
           </Button>
         )}
       </TableCell>

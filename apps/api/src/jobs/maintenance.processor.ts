@@ -4,6 +4,7 @@ import { Job } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
 import { AutomationService } from "./automation.service";
 import { FxService } from "./fx.service";
+import { AdminAlertsService } from "../email/admin-alerts.service";
 import { MAINTENANCE_QUEUE } from "./jobs.constants";
 
 /**
@@ -19,6 +20,7 @@ export class MaintenanceProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly automation: AutomationService,
     private readonly fx: FxService,
+    private readonly alerts: AdminAlertsService,
   ) {
     super();
   }
@@ -27,6 +29,11 @@ export class MaintenanceProcessor extends WorkerHost {
     // Marketing automation rides the same periodic queue as the rollup.
     if (job.name === "automation-sweep") return this.automation.sweep();
     if (job.name === "fx-refresh") return this.fx.refresh();
+    if (job.name === "admin-digest") {
+      await this.alerts.dailyRevenue();
+      await this.alerts.atRiskDigest();
+      return { ok: true };
+    }
     if (job.name !== "rollup") return undefined;
 
     // Reconcile enrollment completion: mark COMPLETED when every lesson is done.

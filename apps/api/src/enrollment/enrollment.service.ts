@@ -14,7 +14,11 @@ import {
   type ToggleLessonResultDto,
   type WeeklyActivityDayDto,
 } from "@skillstream/shared";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
+import { AdminAlertsService } from "../email/admin-alerts.service";
+import { apiBaseUrl, certificatePdfUrl } from "../common/urls";
+import type { Env } from "../config/env";
 import {
   COURSE_SUMMARY_INCLUDE,
   toCourseSummary,
@@ -34,20 +38,31 @@ function countLessons(course: EnrollmentRow["course"]): number {
   return course.sections.reduce((n, s) => n + s.lessons.length, 0);
 }
 
+/** `pdfUrl` falls back to the API's on-the-fly renderer, so every certificate
+ *  is downloadable even though no file is stored. */
 function mapCertificate(
   cert: EnrollmentRow["certificate"],
+  apiBase: string,
 ): CertificateDto | null {
   if (!cert) return null;
   return {
     serial: cert.serial,
-    pdfUrl: cert.pdfUrl,
+    pdfUrl: cert.pdfUrl ?? certificatePdfUrl(apiBase, cert.serial),
     issuedAt: cert.issuedAt.toISOString(),
   };
 }
 
 @Injectable()
 export class EnrollmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<Env, true>,
+    private readonly alerts: AdminAlertsService,
+  ) {}
+
+  private get apiBase(): string {
+    return apiBaseUrl(this.config);
+  }
 
   private toDto(row: EnrollmentRow): EnrollmentDto {
     const lessonCount = countLessons(row.course);
@@ -66,7 +81,7 @@ export class EnrollmentService {
       enrolledAt: row.enrolledAt.toISOString(),
       lastActivityAt: row.lastActivityAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
-      certificate: mapCertificate(row.certificate),
+      certificate: mapCertificate(row.certificate, this.apiBase),
     };
   }
 
@@ -114,7 +129,7 @@ export class EnrollmentService {
     });
     return certs.map((c) => ({
       serial: c.serial,
-      pdfUrl: c.pdfUrl,
+      pdfUrl: c.pdfUrl ?? certificatePdfUrl(this.apiBase, c.serial),
       issuedAt: c.issuedAt.toISOString(),
       courseId: c.enrollment.courseId,
       courseTitle: (c.enrollment.course as { title: string }).title,
@@ -206,12 +221,19 @@ export class EnrollmentService {
         const course = await tx.course.update({
           where: { id: courseId },
           data: { studentCount: { increment: 1 } },
-          select: { instructorId: true },
+          select: { instructorId: true, title: true },
         });
         await tx.instructorProfile.updateMany({
           where: { userId: course.instructorId },
           data: { studentCount: { increment: 1 } },
         });
+        // Fire-and-forget: an alert must never roll back the enrollment. Read
+        // the learner name outside `tx` — the caller's transaction may still be
+        // open, and this is not part of it.
+        void this.prisma.user
+          .findUnique({ where: { id: userId }, select: { name: true } })
+          .then((u) => this.alerts.newEnrollment(u?.name ?? "A learner", course.title))
+          .catch(() => undefined);
       }
     }
   }
@@ -305,10 +327,13 @@ export class EnrollmentService {
         update: {},
         create: {
           enrollmentId,
-          serial: `CERT-${randomUUID().slice(0, 8).toUpperCase()}`,
+          // 48 bits of randomness: the serial is the only credential the public
+          // verification endpoint takes, so it must not be guessable (and must
+          // not collide — `serial` is unique).
+          serial: `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
         },
       });
-      certificate = mapCertificate(cert);
+      certificate = mapCertificate(cert, this.apiBase);
     } else {
       await this.prisma.certificate
         .delete({ where: { enrollmentId } })

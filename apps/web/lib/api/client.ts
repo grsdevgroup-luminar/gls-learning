@@ -87,3 +87,29 @@ export async function apiFetch<T>(
 
   return data as T;
 }
+
+/** Absolute URL for an API path — for links the browser navigates to directly
+ *  (PDFs, downloads) rather than fetches. */
+export function apiUrl(path: string): string {
+  return `${BASE_URL}${path}`;
+}
+
+/**
+ * Downloads a cookie-authenticated file. A plain <a href> would work only while
+ * the API stays same-site; fetching with credentials and handing the browser a
+ * blob works regardless, and surfaces API errors instead of rendering a JSON
+ * error page in a new tab.
+ */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
+    throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

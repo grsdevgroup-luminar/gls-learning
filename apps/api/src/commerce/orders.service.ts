@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { Prisma, PaymentGateway } from "@prisma/client";
 import type { OrderDto } from "@skillstream/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { receiptPdf } from "../common/pdf";
+import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
 
@@ -26,6 +32,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly enrollment: EnrollmentService,
     private readonly salesAgents: SalesAgentService,
+    private readonly email: EmailService,
   ) {}
 
   private toDto(row: OrderRow): OrderDto {
@@ -76,6 +83,40 @@ export class OrdersService {
     return this.prisma.order.findUnique({
       where: { id: orderId },
       include: orderInclude,
+    });
+  }
+
+  /**
+   * Receipt PDF for one of the caller's own orders. Scoped by `userId` in the
+   * query itself — an id from another account is a 404, never a leak — and
+   * only settled orders get one (a PENDING order was never charged).
+   */
+  async receiptPdf(userId: string, orderId: string): Promise<Buffer> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: { ...orderInclude, user: { select: { name: true, email: true } } },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.status !== "PAID" && order.status !== "REFUNDED")
+      throw new BadRequestException("No receipt for an unpaid order");
+
+    return receiptPdf({
+      orderId: order.id,
+      buyerName: order.user.name,
+      buyerEmail: order.user.email,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt,
+      status: order.status,
+      gateway: order.gateway,
+      currency: order.currency,
+      couponCode: order.couponCode,
+      subtotalCents: order.subtotalCents,
+      discountCents: order.discountCents,
+      totalCents: order.totalCents,
+      items: order.items.map((i) => ({
+        title: i.titleSnapshot,
+        priceCents: i.priceCents,
+      })),
     });
   }
 
@@ -151,6 +192,31 @@ export class OrdersService {
     await this.salesAgents.confirmReferral(orderId);
 
     const updated = await this.findById(orderId);
+
+    // Receipt email — fire-and-forget: the purchase is already complete and a
+    // mail failure must not turn a paid order into an error response.
+    void this.emailReceipt(orderId).catch(() => undefined);
+
     return this.toDto(updated!);
+  }
+
+  private async emailReceipt(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { ...orderInclude, user: { select: { name: true, email: true } } },
+    });
+    if (!order || order.status !== "PAID") return;
+    const pdf = await this.receiptPdf(order.userId, orderId);
+    await this.email.sendReceipt(
+      order.user.email,
+      order.user.name,
+      {
+        id: order.id,
+        totalCents: order.totalCents,
+        currency: order.currency,
+        items: order.items.map((i) => ({ title: i.titleSnapshot })),
+      },
+      pdf,
+    );
   }
 }

@@ -256,8 +256,14 @@ async function authoring() {
   r = await req("POST", `/courses/${state.course.id}/sections/reorder`, { token: t, body: { ids: ["not-a-real-section-id"] } });
   check("reorder with unknown id fails cleanly (4xx, not 500)", r.status >= 400 && r.status < 500, `${r.status} ${msg(r)}`);
 
-  r = await req("POST", `/sections/${state.s1}/lessons`, { token: t, body: { title: "Article Lesson", type: "ARTICLE", articleContent: "# Hello\nE2E content.", durationSec: 120, preview: true, order: 1 } });
+  r = await req("POST", `/sections/${state.s1}/lessons`, { token: t, body: { title: "Article Lesson", type: "ARTICLE", articleContent: "# Hello\nE2E content.", durationSec: 120, preview: true, order: 1, resources: [{ name: "E2E notes", url: "https://example.com/e2e-notes.pdf", sizeLabel: "1.2 MB" }] } });
   state.lessonArticle = lesId(r.json, "Article Lesson");
+  {
+    const lesson = r.json?.sections?.flatMap((x) => x.lessons).find((x) => x.title === "Article Lesson");
+    check("lesson resources persisted and returned", lesson?.resources?.[0]?.url === "https://example.com/e2e-notes.pdf", JSON.stringify(lesson?.resources));
+    const bad = await req("POST", `/sections/${state.s1}/lessons`, { token: t, body: { title: "Bad resource", type: "ARTICLE", resources: [{ name: "no url" }] } });
+    check("resource without a URL rejected", bad.status === 400, `${bad.status} ${msg(bad)}`);
+  }
   check("create ARTICLE lesson (preview)", r.status === 201 && !!state.lessonArticle, `${r.status} id=${state.lessonArticle}`);
 
   r = await req("POST", `/sections/${state.s1}/lessons`, { token: t, body: { title: "Video Lesson", type: "VIDEO", cfVideoUid: "e2e-fake-video-uid", durationSec: 300, preview: false, order: 2 } });
@@ -562,8 +568,12 @@ async function salesAgent() {
   if (state.agentRecord?.id) {
     r = await req("PATCH", `/admin/sales-agents/${state.agentRecord.id}`, { token: state.admin.token, body: { commissionPercent: 15 } });
     check("admin updates agent commission", r.status === 200, `${r.status} ${msg(r)}`);
-    r = await req("POST", `/admin/sales-agents/${state.agentRecord.id}/payout`, { token: state.admin.token });
-    check("admin triggers agent payout", [200, 201, 400].includes(r.status), `${r.status} ${msg(r)}`);
+    // Payouts moved to the unified request→approve→paid ledger; agents request
+    // their own, admins approve. The old POST /admin/sales-agents/:id/payout is gone.
+    r = await req("GET", "/me/payouts/balance", { token: state.agent.token });
+    check("agent reads payout balance", r.status === 200 && typeof r.json?.availableCents === "number", `${r.status} ${msg(r)}`);
+    r = await req("GET", "/admin/payouts?status=REQUESTED", { token: state.admin.token });
+    check("admin lists payout requests", r.status === 200 && Array.isArray(r.json), `${r.status} ${msg(r)}`);
   }
   r = await req("GET", "/me/sales-agent", { token: state.student.token });
   check("non-agent gets no agent record", r.status === 404 || r.status === 403 || (r.status === 200 && !r.json), `${r.status}`);
@@ -612,6 +622,23 @@ async function organizations() {
 
   r = await req("GET", `/organizations/${state.org.id}`, { token: state.student.token });
   check("non-member blocked from org detail", r.status === 403 || r.status === 404, `${r.status}`);
+
+  // An org admin runs their own branding, but seats/status stay with us.
+  r = await req("POST", `/organizations/${state.org.id}/invite`, { token: t, body: { email: state.student.email, role: "ADMIN" } });
+  const orgAdminToken = r.json?.token;
+  if (orgAdminToken) {
+    r = await req("POST", `/organizations/claim/${orgAdminToken}`, { token: state.student.token });
+    check("invited admin claims their seat", r.status === 200 || r.status === 201, `${r.status} ${msg(r)}`);
+
+    r = await req("PATCH", `/organizations/${state.org.id}`, { token: state.student.token, body: { name: `E2E Org ${ts} renamed` } });
+    check("org admin can rename their organization", r.status === 200 && r.json?.name?.endsWith("renamed"), `${r.status} ${msg(r)}`);
+
+    r = await req("PATCH", `/organizations/${state.org.id}`, { token: state.student.token, body: { seatCount: 9999 } });
+    check("org admin cannot grant themselves seats", r.status === 403, `${r.status} ${msg(r)}`);
+
+    r = await req("PATCH", `/organizations/${state.org.id}`, { token: state.student.token, body: { status: "ACTIVE" } });
+    check("org admin cannot change org status", r.status === 403, `${r.status} ${msg(r)}`);
+  }
 }
 
 // ─────────────────────────── 18. AUTOMATION ───────────────────────────
@@ -665,11 +692,100 @@ async function cleanup() {
   if (state.lessonVideo) await del("delete lesson", `/lessons/${state.lessonVideo}`, it);
   if (state.s2) await del("delete section", `/sections/${state.s2}`, it);
   if (state.tier) await del("delete pricing tier", `/admin/pricing/tiers/${state.tier}`, t);
-  if (state.course) await del("delete e2e course", `/courses/${state.course.id}`, it);
-  // Users: admin delete endpoint, e2e fixtures only.
-  for (const u of [state.student, state.instructor, state.agent]) {
-    if (u?.id) await del(`delete e2e user ${u.email.split("@")[0]}`, `/admin/users/${u.id}`, t);
+  if (state.course) {
+    const r = await req("DELETE", `/courses/${state.course.id}`, { token: it });
+    check(
+      r.status < 300 ? "delete e2e course" : "e2e course kept (sold — order history references it)",
+      r.status < 300 || r.status === 409,
+      `${r.status} ${msg(r)}`,
+    );
   }
+  // Users: admin delete endpoint, e2e fixtures only. Accounts with orders (the
+  // student bought a course above) are deliberately undeletable — the API says
+  // to suspend them instead, so a 400 there is the expected outcome, and the
+  // row stays behind. Same for the course: its OrderItem is an accounting record.
+  for (const u of [state.student, state.instructor, state.agent]) {
+    if (!u?.id) continue;
+    const r = await req("DELETE", `/admin/users/${u.id}`, { token: t });
+    const label = `delete e2e user ${u.email.split("@")[0]}`;
+    if (r.status === 400) {
+      check(`${label} refused with a clear reason`, true, msg(r));
+      await req("PATCH", `/admin/users/${u.id}/status`, { token: t, body: { status: "AT_RISK" } });
+    } else {
+      check(label, r.status < 300, `${r.status} ${msg(r)}`);
+    }
+  }
+}
+
+// ─────────────────────────── 20. CERTIFICATES ───────────────────────────
+async function certificates() {
+  G("certificates");
+  const t = state.student.token;
+
+  // Complete every lesson so the course issues a certificate.
+  const detail = await req("GET", `/courses/${state.course.slug}`, { token: t });
+  const lessonIds = (detail.json?.sections ?? []).flatMap((s) => s.lessons.map((l) => l.id));
+  for (const id of lessonIds) {
+    const done = await req("GET", `/me/courses/${state.course.id}/progress`, { token: t });
+    if (done.json?.completedLessonIds?.includes(id)) continue;
+    await req("POST", `/enrollments/${state.course.id}/lessons/${id}/toggle`, { token: t });
+  }
+
+  let r = await req("GET", "/me/certificates", { token: t });
+  const cert = (r.json ?? []).find((c) => c.courseId === state.course.id);
+  check("certificate issued on course completion", !!cert, `${r.status} ${JSON.stringify(r.json)?.slice(0, 120)}`);
+  if (!cert) return;
+  check("certificate exposes a pdf url", typeof cert.pdfUrl === "string" && cert.pdfUrl.endsWith(`/certificates/${cert.serial}/pdf`), cert.pdfUrl);
+
+  // Verification is public: no token on purpose.
+  r = await req("GET", `/certificates/${cert.serial}`);
+  check("public verification returns the learner + course", r.status === 200 && r.json?.valid === true && r.json?.courseTitle === state.course.title, `${r.status} ${msg(r)}`);
+  check("verification exposes no account internals", r.status === 200 && !("email" in (r.json ?? {})) && !("userId" in (r.json ?? {})), Object.keys(r.json ?? {}).join(","));
+
+  r = await req("GET", `/certificates/CERT-DOESNOTEXIST/`.slice(0, -1));
+  check("unknown serial 404s", r.status === 404, `${r.status}`);
+
+  const pdfRes = await fetch(`${BASE}/certificates/${cert.serial}/pdf`);
+  const head = Buffer.from(await pdfRes.arrayBuffer()).subarray(0, 5).toString();
+  check("certificate pdf downloads", pdfRes.status === 200 && head.startsWith("%PDF"), `${pdfRes.status} ${pdfRes.headers.get("content-type")} ${head}`);
+}
+
+// ─────────────────────────── 21. RECEIPTS ───────────────────────────
+async function receipts() {
+  G("receipts");
+  if (!state.orderId) return check("order fixture available", false, "no order created");
+  const t = state.student.token;
+
+  const ok = await fetch(`${BASE}/me/orders/${state.orderId}/receipt`, { headers: { authorization: `Bearer ${t}` } });
+  const head = Buffer.from(await ok.arrayBuffer()).subarray(0, 5).toString();
+  check("receipt pdf downloads for the buyer", ok.status === 200 && head.startsWith("%PDF"), `${ok.status} ${head}`);
+
+  const anon = await fetch(`${BASE}/me/orders/${state.orderId}/receipt`);
+  check("receipt requires auth", anon.status === 401, `${anon.status}`);
+
+  const other = await req("GET", `/me/orders/${state.orderId}/receipt`, { token: state.instructor.token });
+  check("another account cannot fetch the receipt", other.status === 404, `${other.status}`);
+}
+
+// ─────────────────────────── 22. NOTIFICATION PREFS ───────────────────────────
+async function notificationPrefs() {
+  G("notif-prefs");
+  const t = state.student.token;
+
+  let r = await req("GET", "/me/notification-preferences", { token: t });
+  check("prefs default to email-on for every trigger", r.status === 200 && r.json?.IDLE?.email === true && r.json?.NEW_CONTENT?.email === true, `${r.status} ${msg(r)}`);
+
+  r = await req("PATCH", "/me/notification-preferences", { token: t, body: { IDLE: { email: false } } });
+  check("opt out of one trigger", r.status === 200 && r.json?.IDLE?.email === false, `${r.status} ${msg(r)}`);
+
+  r = await req("GET", "/me/notification-preferences", { token: t });
+  check("opt-out survives a reload", r.json?.IDLE?.email === false && r.json?.ALMOST_DONE?.email === true, JSON.stringify(r.json?.IDLE));
+
+  r = await req("PATCH", "/me/notification-preferences", { token: t, body: { PROMOTIONS: { email: false } } });
+  check("unknown trigger rejected", r.status === 400, `${r.status} ${msg(r)}`);
+
+  const anon = await req("PATCH", "/me/notification-preferences", { body: { IDLE: { email: false } } });
+  check("prefs require auth", anon.status === 401, `${anon.status}`);
 }
 
 // ─────────────────────────── RUN ───────────────────────────
@@ -678,8 +794,10 @@ const steps = [
   ["rbac", rbac], ["catalog", catalog], ["instructor", instructorOnboarding], ["authoring", authoring],
   ["quizAuthoring", quizAuthoring], ["media", media], ["publish", publish], ["commerce", commerce],
   ["enrollment", enrollment], ["quizTaking", quizTaking], ["reviews", reviewsAndComments],
-  ["adminModeration", adminModeration], ["salesAgent", salesAgent], ["organizations", organizations],
-  ["automation", automation], ["cleanup", cleanup],
+  ["certificates", certificates], ["adminModeration", adminModeration],
+  ["salesAgent", salesAgent], ["organizations", organizations],
+  ["automation", automation], ["receipts", receipts],
+  ["notificationPrefs", notificationPrefs], ["cleanup", cleanup],
 ];
 
 for (const [name, fn] of steps) {

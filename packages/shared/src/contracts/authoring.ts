@@ -43,6 +43,27 @@ export const sectionSchema = z.object({
 });
 export type SectionInput = z.infer<typeof sectionSchema>;
 
+/** Attachments are links, not uploads: the platform hosts video (Cloudflare
+ *  Stream) but no file storage, so a resource points at a URL the author owns. */
+export const lessonResourceSchema = z.object({
+  name: z.string().min(1).max(200),
+  url: z.string().url().max(2000),
+  sizeLabel: z.string().max(20).optional(),
+});
+export type LessonResourceInput = z.infer<typeof lessonResourceSchema>;
+
+/** Reads the `Lesson.resources` JSON column defensively: it is untyped at the
+ *  database level, so anything that doesn't parse is dropped rather than served. */
+export function parseLessonResources(value: unknown): LessonResourceInput[] {
+  const parsed = z.array(lessonResourceSchema).safeParse(value);
+  if (parsed.success) return parsed.data;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const one = lessonResourceSchema.safeParse(item);
+    return one.success ? [one.data] : [];
+  });
+}
+
 export const lessonSchema = z.object({
   title: z.string().min(1).max(200),
   type: lessonTypeEnum.default("VIDEO"),
@@ -51,6 +72,7 @@ export const lessonSchema = z.object({
   order: z.number().int().min(0).optional(),
   articleContent: z.string().nullable().optional(),
   cfVideoUid: z.string().nullable().optional(),
+  resources: z.array(lessonResourceSchema).max(20).optional(),
 });
 export type LessonInput = z.infer<typeof lessonSchema>;
 
@@ -100,6 +122,12 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   avatar: z.string().url().nullable().optional(),
   country: z.string().min(2).max(2).nullable().optional(),
+  /** E.164 — the SMS reminder channel has nowhere to send without it. */
+  phone: z
+    .string()
+    .regex(/^\+[1-9]\d{7,14}$/, "Use international format, e.g. +8801712345678")
+    .nullable()
+    .optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

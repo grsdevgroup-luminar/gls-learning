@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  REMINDER_TRIGGERS,
+  REMINDER_TRIGGER_COPY,
+  DEFAULT_NOTIFICATION_PREFS,
+  type ReminderTrigger,
+} from '@skillstream/shared';
+import { api } from '@/lib/api/endpoints';
 import { useSession, SESSION_QUERY_KEY } from '@/lib/api/session';
 import { apiFetch } from '@/lib/api/client';
 import { initials } from '@/lib/format';
@@ -18,33 +25,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Mail, MessageSquare, Bell, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-
-const reminderRows = [
-  {
-    key: 'idle',
-    title: 'Idle reminders',
-    desc: "Nudge me if I haven't studied in a few days",
-  },
-  {
-    key: 'low_progress',
-    title: 'Stalled progress',
-    desc: 'Encourage me when I fall behind',
-  },
-  {
-    key: 'almost_done',
-    title: 'Almost done',
-    desc: "Celebrate when I'm close to finishing",
-  },
-  {
-    key: 'promotions',
-    title: 'Promotions & offers',
-    desc: 'Deals, new courses, and discounts',
-  },
-] as const;
 
 export default function AccountPage() {
   const { user, isLoading } = useSession();
@@ -53,12 +37,16 @@ export default function AccountPage() {
   // Profile form state — initialised from session once loaded
   const [name, setName] = useState('');
   const [country, setCountry] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [phone, setPhone] = useState('');
   const [profileReady, setProfileReady] = useState(false);
 
   // Initialise form values from the session exactly once
   if (!profileReady && user) {
     setName(user.name ?? '');
     setCountry(user.country ?? '');
+    setAvatar(user.avatar ?? '');
+    setPhone(user.phone ?? '');
     setProfileReady(true);
   }
 
@@ -67,42 +55,21 @@ export default function AccountPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Notification prefs (local — persisted to localStorage)
-  const [prefs, setPrefs] = useState<Record<string, { email: boolean; sms: boolean }>>(() => {
-    if (typeof window === 'undefined') {
-      return {
-        idle: { email: true, sms: true },
-        low_progress: { email: true, sms: false },
-        almost_done: { email: true, sms: false },
-        promotions: { email: true, sms: false },
-      };
-    }
-    try {
-      const saved = localStorage.getItem('skillstream:notif-prefs');
-      return saved
-        ? JSON.parse(saved)
-        : {
-            idle: { email: true, sms: true },
-            low_progress: { email: true, sms: false },
-            almost_done: { email: true, sms: false },
-            promotions: { email: true, sms: false },
-          };
-    } catch {
-      return {
-        idle: { email: true, sms: true },
-        low_progress: { email: true, sms: false },
-        almost_done: { email: true, sms: false },
-        promotions: { email: true, sms: false },
-      };
-    }
+  // Notification prefs — server-side; they gate real reminder delivery.
+  const { data: prefs = DEFAULT_NOTIFICATION_PREFS } = useQuery({
+    queryKey: ['me', 'notification-preferences'],
+    queryFn: api.notificationPrefs,
+  });
+  const prefsMutation = useMutation({
+    mutationFn: api.updateNotificationPrefs,
+    onSuccess: (next) => {
+      qc.setQueryData(['me', 'notification-preferences'], next);
+    },
+    onError: (err: Error) => toast.error(err.message ?? 'Failed to save preferences'),
   });
 
-  function toggle(key: string, channel: 'email' | 'sms') {
-    setPrefs((p) => {
-      const next = { ...p, [key]: { ...p[key], [channel]: !p[key][channel] } };
-      try { localStorage.setItem('skillstream:notif-prefs', JSON.stringify(next)); } catch {}
-      return next;
-    });
+  function toggle(trigger: ReminderTrigger, channel: 'email' | 'sms') {
+    prefsMutation.mutate({ [trigger]: { [channel]: !prefs[trigger][channel] } });
   }
 
   // Profile mutation
@@ -110,7 +77,12 @@ export default function AccountPage() {
     mutationFn: () =>
       apiFetch<void>('/auth/me/profile', {
         method: 'PATCH',
-        body: { name: name.trim(), country: country.trim() || null },
+        body: {
+          name: name.trim(),
+          country: country.trim().toUpperCase() || null,
+          avatar: avatar.trim() || null,
+          phone: phone.trim() || null,
+        },
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
@@ -182,13 +154,21 @@ export default function AccountPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 transition-transform duration-300 hover:scale-105">
+                {avatar && <AvatarImage src={avatar} alt="" />}
                 <AvatarFallback className="brand-gradient text-lg text-white">
                   {initials(user?.name ?? '?')}
                 </AvatarFallback>
               </Avatar>
-              <Button variant="outline" size="sm">
-                Change photo
-              </Button>
+              {/* No image hosting on this platform (Cloudflare Stream is video
+                  only), so the avatar is a link to an image you already host. */}
+              <FormField label="Photo URL" className="flex-1">
+                <Input
+                  value={avatar}
+                  onChange={(e) => setAvatar(e.target.value)}
+                  placeholder="https://example.com/me.jpg"
+                  type="url"
+                />
+              </FormField>
             </div>
             <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>
               <FormField label="Full name">
@@ -206,11 +186,24 @@ export default function AccountPage() {
                   className="cursor-not-allowed opacity-60"
                 />
               </FormField>
-              <FormField label="Country">
+              {/* Where SMS reminders go; without one they're skipped. */}
+              <FormField label="Phone" hint="For SMS reminders">
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+8801712345678"
+                  type="tel"
+                />
+              </FormField>
+              {/* The API stores an ISO-3166 alpha-2 code — a country *name*
+                  here used to fail validation. */}
+              <FormField label="Country code">
                 <Input
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  placeholder="e.g. United States"
+                  onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
+                  placeholder="US"
+                  maxLength={2}
+                  className="uppercase"
                 />
               </FormField>
             </Stagger>
@@ -299,13 +292,17 @@ export default function AccountPage() {
               </span>
             </div>
             <Stagger gap={0.04}>
-              {reminderRows.map((r, i) => (
-                <StaggerItem key={r.key} y={10}>
+              {REMINDER_TRIGGERS.map((trigger, i) => (
+                <StaggerItem key={trigger} y={10}>
                   {i > 0 && <Separator />}
                   <div className="grid grid-cols-[1fr_auto] items-center gap-4 py-3 sm:grid-cols-[1fr_80px_80px]">
                     <div>
-                      <div className="text-sm font-medium">{r.title}</div>
-                      <div className="text-xs text-muted-foreground">{r.desc}</div>
+                      <div className="text-sm font-medium">
+                        {REMINDER_TRIGGER_COPY[trigger].title}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {REMINDER_TRIGGER_COPY[trigger].description}
+                      </div>
                     </div>
                     <div className="flex items-center gap-6 sm:contents">
                       <div className="flex items-center gap-2 sm:justify-center">
@@ -313,8 +310,9 @@ export default function AccountPage() {
                           Email
                         </span>
                         <Switch
-                          checked={prefs[r.key].email}
-                          onCheckedChange={() => toggle(r.key, 'email')}
+                          checked={prefs[trigger].email}
+                          disabled={prefsMutation.isPending}
+                          onCheckedChange={() => toggle(trigger, 'email')}
                         />
                       </div>
                       <div className="flex items-center gap-2 sm:justify-center">
@@ -322,8 +320,9 @@ export default function AccountPage() {
                           SMS
                         </span>
                         <Switch
-                          checked={prefs[r.key].sms}
-                          onCheckedChange={() => toggle(r.key, 'sms')}
+                          checked={prefs[trigger].sms}
+                          disabled={prefsMutation.isPending}
+                          onCheckedChange={() => toggle(trigger, 'sms')}
                         />
                       </div>
                     </div>
@@ -332,8 +331,9 @@ export default function AccountPage() {
               ))}
             </Stagger>
             <p className="pt-3 text-xs text-muted-foreground">
-              In production these preferences drive automated email
-              (Resend/SendGrid) and SMS (Twilio) reminder workflows.
+              Email reminders go out through Resend, SMS through Twilio. SMS
+              needs a phone number on your profile above — without one those
+              reminders are skipped.
             </p>
           </CardContent>
         </Card>

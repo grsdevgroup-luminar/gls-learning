@@ -86,10 +86,12 @@ export default function CertificatesPage() {
   const earned = certs ?? [];
   const userName = user?.name ?? '';
 
+  // Shares the public verification page — a link anyone can open, unlike the
+  // dashboard route it used to point at.
   const share = async (cert: CertificateDto) => {
     const url =
       typeof window !== 'undefined'
-        ? `${window.location.origin}/dashboard/certificates`
+        ? `${window.location.origin}/verify/${cert.serial}`
         : '';
     const data = {
       title: `${cert.courseTitle} — Certificate of Completion`,
@@ -206,6 +208,12 @@ export default function CertificatesPage() {
                 serial={active.serial}
               />
               <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  render={<a href={`/verify/${active.serial}`} target="_blank" rel="noopener noreferrer" />}
+                >
+                  <ShieldCheck className="mr-1.5 h-4 w-4" /> Verify
+                </Button>
                 <Button variant="outline" onClick={() => share(active)}>
                   <Share2 className="mr-1.5 h-4 w-4" /> Share
                 </Button>

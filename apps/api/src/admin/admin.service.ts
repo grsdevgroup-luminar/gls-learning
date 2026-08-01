@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AutomationRule, Coupon, PlatformSettings, Prisma } from "@prisma/client";
 import type {
   AdminAnalyticsDto,
@@ -409,10 +409,33 @@ export class AdminService {
     return { ok: true as const };
   }
 
+  /**
+   * Hard-deletes an account. Refused once the user has financial history:
+   * orders are the platform's own accounting record and their `userId` is not
+   * nullable, so deleting the user would either destroy or orphan them. Those
+   * accounts get suspended instead.
+   */
   async deleteUser(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");
-    await this.prisma.user.delete({ where: { id: userId } });
+    const orders = await this.prisma.order.count({ where: { userId } });
+    if (orders > 0)
+      throw new BadRequestException(
+        `Cannot delete an account with ${orders} order(s) — suspend it instead`,
+      );
+    // An instructor's courses carry enrollments and order history of their own.
+    const authored = await this.prisma.course.count({ where: { instructorId: userId } });
+    if (authored > 0)
+      throw new BadRequestException(
+        `Cannot delete an instructor who still owns ${authored} course(s) — reassign or delete them first`,
+      );
+    // Reviews and comments are the user's own content and carry no accounting
+    // value, so they go with the account.
+    await this.prisma.$transaction([
+      this.prisma.review.deleteMany({ where: { userId } }),
+      this.prisma.comment.deleteMany({ where: { userId } }),
+      this.prisma.user.delete({ where: { id: userId } }),
+    ]);
     return { ok: true as const };
   }
 

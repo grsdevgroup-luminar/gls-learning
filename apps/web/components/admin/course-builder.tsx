@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CourseDetailDto } from "@skillstream/shared";
+import type { CourseDetailDto, LessonResourceDto } from "@skillstream/shared";
 import type { Lesson, Quiz } from "@/types";
 import { useCategories } from "@/lib/api/hooks";
 import { authoringApi } from "@/lib/api/endpoints";
@@ -23,7 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2,
+  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,7 @@ interface BLesson {
   hasVideo: boolean;
   cfVideoUid: string | null; // set locally after a fresh upload this session
   articleContent: string;
+  resources: LessonResourceDto[];
   durationSec: number;
   type: Lesson["type"];
   quiz?: Quiz;
@@ -119,6 +120,7 @@ function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       hasVideo: l.hasVideo,
       cfVideoUid: null,
       articleContent: l.articleContent ?? "",
+      resources: l.resources ?? [],
       durationSec: l.durationSec,
       type: TYPE_FROM_API[l.type] ?? "video",
       quiz: undefined, // loaded lazily for quiz lessons
@@ -158,8 +160,9 @@ export function CourseBuilder({
   const categoryValue = category || categories[0] || "";
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dragSection, setDragSection] = useState<number | null>(null);
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", durationSec: 300, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 300, type: "video" }] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ sections: Set<string>; lessons: Set<string> }>({
@@ -226,6 +229,18 @@ export function CourseBuilder({
 
   const totalLessons = sections.reduce((a, s) => a + s.lessons.length, 0);
 
+  /** Drops the dragged section at `to`, keeping the rest in order. */
+  function moveSection(to: number) {
+    setSections((list) => {
+      if (dragSection === null || dragSection === to) return list;
+      const next = [...list];
+      const [moved] = next.splice(dragSection, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setDragSection(null);
+  }
+
   function addSection() {
     setSections((s) => [...s, { id: nid("s"), isNew: true, title: `Section ${s.length + 1}`, lessons: [] }]);
   }
@@ -236,7 +251,7 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", durationSec: 300, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 300, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
@@ -325,6 +340,8 @@ export function CourseBuilder({
             // an already-attached video untouched (see authoring.service.ts).
             ...(l.cfVideoUid ? { cfVideoUid: l.cfVideoUid } : {}),
             ...(l.type === "article" ? { articleContent: l.articleContent } : {}),
+            // Only complete rows are sent; the API rejects a resource without a URL.
+            resources: l.resources.filter((r) => r.name.trim() && r.url.trim()),
           };
           let lessonServerId = l.id;
           if (isTemp(l.id)) {
@@ -471,10 +488,30 @@ export function CourseBuilder({
               <Button size="sm" variant="outline" onClick={addSection}><Plus /> Add section</Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              {sections.map((s) => (
-                <div key={s.id} className="rounded-xl border bg-muted/20 p-3">
+              {sections.map((s, si) => (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "rounded-xl border bg-muted/20 p-3",
+                    dragSection === si && "opacity-50",
+                  )}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => moveSection(si)}
+                >
                   <div className="flex items-center gap-2">
-                    <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
+                    {/* The grip was decorative; native DnD reorders the list and
+                        the save loop writes the new `order` on each section. */}
+                    <span
+                      draggable
+                      onDragStart={() => setDragSection(si)}
+                      onDragEnd={() => setDragSection(null)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Drag to reorder section"
+                      className="shrink-0 cursor-grab"
+                    >
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    </span>
                     <Input value={s.title} onChange={(e) => patchSection(s.id, { title: e.target.value })} className="h-8 font-medium" />
                     <Button size="icon-sm" variant="ghost" onClick={() => removeSection(s.id)} aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
                   </div>
@@ -517,6 +554,10 @@ export function CourseBuilder({
                             />
                           )}
                         </div>
+                        <LessonResources
+                          resources={l.resources}
+                          onChange={(resources) => patchLesson(s.id, l.id, { resources })}
+                        />
                       </div>
                     ))}
                     <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus /> Add lesson</Button>
@@ -637,6 +678,66 @@ export function CourseBuilder({
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Lesson attachments. The platform hosts video but no files, so a resource is
+ *  a link the author already has (their repo, a CDN, a docs page). */
+function LessonResources({
+  resources,
+  onChange,
+}: {
+  resources: LessonResourceDto[];
+  onChange: (next: LessonResourceDto[]) => void;
+}) {
+  const patch = (i: number, fields: Partial<LessonResourceDto>) =>
+    onChange(resources.map((r, x) => (x === i ? { ...r, ...fields } : r)));
+
+  return (
+    <div className="mt-3 space-y-2 border-t pt-3">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <FileText className="h-3.5 w-3.5" /> Downloadable resources
+      </div>
+      {resources.map((r, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            value={r.name}
+            onChange={(e) => patch(i, { name: e.target.value })}
+            placeholder="Name (e.g. Starter files)"
+            className="h-8"
+          />
+          <Input
+            value={r.url}
+            onChange={(e) => patch(i, { url: e.target.value })}
+            placeholder="https://…"
+            type="url"
+            className="h-8 flex-[2]"
+          />
+          <Input
+            value={r.sizeLabel ?? ""}
+            onChange={(e) => patch(i, { sizeLabel: e.target.value || undefined })}
+            placeholder="2.4 MB"
+            className="h-8 w-24 shrink-0"
+          />
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Remove resource"
+            onClick={() => onChange(resources.filter((_, x) => x !== i))}
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-muted-foreground"
+        onClick={() => onChange([...resources, { name: "", url: "" }])}
+      >
+        <Plus /> Add resource
+      </Button>
     </div>
   );
 }

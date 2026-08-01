@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
+import { orgApi } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import type { OrganizationDto, CreateOrganizationInput } from "@skillstream/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, Users, BookOpen, Plus, Search, ExternalLink } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Building2, Users, BookOpen, Plus, Search, ExternalLink, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
@@ -185,14 +190,17 @@ export default function AdminOrganizations() {
                       {new Date(o.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1 text-xs"
-                        render={<Link href={`/org/${o.slug}`} />}
-                      >
-                        <ExternalLink className="h-3 w-3" /> View portal
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <PlanDialog org={o} />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          render={<Link href={`/org/${o.slug}`} />}
+                        >
+                          <ExternalLink className="h-3 w-3" /> View portal
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -202,5 +210,70 @@ export default function AdminOrganizations() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Seats and status are platform-admin only (the API refuses them from an org
+ *  admin), so this is the one place they can be changed. */
+function PlanDialog({ org }: { org: OrganizationDto }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [seatCount, setSeatCount] = useState(String(org.seatCount));
+  const [status, setStatus] = useState(org.status);
+
+  const save = useMutation({
+    mutationFn: () =>
+      orgApi.update(org.id, {
+        seatCount: Math.max(1, parseInt(seatCount) || org.seatCount),
+        status,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-organizations"] });
+      toast.success(`${org.name} updated`);
+      setOpen(false);
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" />}>
+        <Settings2 className="h-3 w-3" /> Plan
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{org.name} — seats &amp; status</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Seats</Label>
+            <Input
+              type="number"
+              min={org.usedSeats || 1}
+              value={seatCount}
+              onChange={(e) => setSeatCount(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{org.usedSeats} currently in use.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Status</Label>
+            <Select value={status} onValueChange={(v) => v && setStatus(v as OrganizationDto["status"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["TRIAL", "ACTIVE", "SUSPENDED"].map((s) => (
+                  <SelectItem key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
