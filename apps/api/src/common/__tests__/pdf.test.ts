@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPdf, certificatePdf, receiptPdf } from "../pdf";
+import { buildPdf, certificatePdf, receiptPdf } from "../utils/pdf";
 
 /** Parses the xref table back out and checks each offset points at "<n> 0 obj". */
 function assertXrefIsSound(pdf: Buffer): void {

@@ -4,7 +4,7 @@ import { Controller, Post, Get } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Test } from "@nestjs/testing";
 import { z } from "zod";
-import { ZodBody, ZodQuery, zodSchemaObject } from "../swagger";
+import { ZodBody, ZodQuery, zodSchemaObject } from "../utils/swagger";
 
 const bodySchema = z.object({
   email: z.string().email(),

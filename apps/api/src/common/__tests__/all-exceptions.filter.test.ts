@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ArgumentsHost } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { AllExceptionsFilter } from "../all-exceptions.filter";
+import { AllExceptionsFilter } from "../filters/all-exceptions.filter";
 
 /** Drives the filter and reports what the client would actually receive. */
 function run(thrown: unknown) {
