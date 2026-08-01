@@ -788,16 +788,72 @@ async function notificationPrefs() {
   check("prefs require auth", anon.status === 401, `${anon.status}`);
 }
 
+// ─────────────────────────── 23. LESSON NOTES ───────────────────────────
+async function lessonNotes() {
+  G("notes");
+  const t = state.student.token;
+  const lessonId = state.lessonArticle;
+  if (!lessonId) return check("lesson fixture available", false, "no lesson");
+
+  let r = await req("GET", `/me/lessons/${lessonId}/note`, { token: t });
+  check("no note to start with", r.status === 200 && !r.json, `${r.status} ${msg(r)}`);
+
+  r = await req("PUT", `/me/lessons/${lessonId}/note`, { token: t, body: { body: "E2E note body" } });
+  check("write a note", r.status === 200 && r.json?.body === "E2E note body", `${r.status} ${msg(r)}`);
+
+  r = await req("PUT", `/me/lessons/${lessonId}/note`, { token: t, body: { body: "E2E note edited" } });
+  check("overwrite keeps one note per lesson", r.status === 200 && r.json?.body === "E2E note edited", `${r.status} ${msg(r)}`);
+
+  r = await req("GET", `/me/lessons/${lessonId}/note`, { token: t });
+  check("note survives a reload", r.json?.body === "E2E note edited", JSON.stringify(r.json));
+
+  // The instructor authored the course but never enrolled in it.
+  r = await req("PUT", `/me/lessons/${lessonId}/note`, { token: state.instructor.token, body: { body: "nope" } });
+  check("writing requires enrollment", r.status === 403, `${r.status} ${msg(r)}`);
+
+  r = await req("GET", `/me/lessons/${lessonId}/note`, { token: state.instructor.token });
+  check("notes are private per user", r.status === 200 && !r.json, `${r.status} ${msg(r)}`);
+
+  r = await req("PUT", `/me/lessons/${lessonId}/note`, { token: t, body: { body: "x".repeat(20_001) } });
+  check("oversized note rejected", r.status === 400, `${r.status}`);
+
+  r = await req("PUT", `/me/lessons/${lessonId}/note`, { token: t, body: { body: "   " } });
+  check("blank body deletes the note", r.status === 200 && !r.json, `${r.status} ${msg(r)}`);
+
+  const anon = await req("GET", `/me/lessons/${lessonId}/note`);
+  check("notes require auth", anon.status === 401, `${anon.status}`);
+}
+
+// ─────────────────────────── 24. PHONE / SMS TARGET ───────────────────────────
+async function phoneNumber() {
+  G("profile-phone");
+  const t = state.student.token;
+
+  let r = await req("PATCH", "/auth/me/profile", { token: t, body: { phone: "01712345678" } });
+  check("non-E.164 phone rejected", r.status === 400, `${r.status} ${msg(r)}`);
+
+  r = await req("PATCH", "/auth/me/profile", { token: t, body: { phone: "+8801712345678" } });
+  check("E.164 phone accepted", r.status === 200 && r.json?.phone === "+8801712345678", `${r.status} ${msg(r)}`);
+
+  r = await req("GET", "/auth/me", { token: t });
+  check("phone comes back on /auth/me", r.json?.phone === "+8801712345678", `${r.json?.phone}`);
+
+  r = await req("PATCH", "/auth/me/profile", { token: t, body: { phone: null } });
+  check("phone can be cleared", r.status === 200 && r.json?.phone === null, `${r.status} ${msg(r)}`);
+}
+
 // ─────────────────────────── RUN ───────────────────────────
 const steps = [
   ["health", health], ["auth", auth], ["adminLogin", adminLogin], ["logoutFlow", logoutFlow],
   ["rbac", rbac], ["catalog", catalog], ["instructor", instructorOnboarding], ["authoring", authoring],
   ["quizAuthoring", quizAuthoring], ["media", media], ["publish", publish], ["commerce", commerce],
   ["enrollment", enrollment], ["quizTaking", quizTaking], ["reviews", reviewsAndComments],
-  ["certificates", certificates], ["adminModeration", adminModeration],
+  ["certificates", certificates], ["lessonNotes", lessonNotes],
+  ["adminModeration", adminModeration],
   ["salesAgent", salesAgent], ["organizations", organizations],
   ["automation", automation], ["receipts", receipts],
-  ["notificationPrefs", notificationPrefs], ["cleanup", cleanup],
+  ["notificationPrefs", notificationPrefs], ["phoneNumber", phoneNumber],
+  ["cleanup", cleanup],
 ];
 
 for (const [name, fn] of steps) {

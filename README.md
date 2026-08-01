@@ -5,9 +5,10 @@ learning portal**, an **instructor** program, a **B2B organizations** (seat-base
 program, a worldwide **sales agent / referral** program, and an **admin** panel — backed
 by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 
-> This started as a static Next.js prototype with mocked data (see `docs/SYSTEM_DESIGN.md`
-> for the migration story). The backend below is real and production-shaped; parts of the
-> frontend are still being rewired from mock data onto it (see "What's live vs. mock").
+> This started as a static Next.js prototype with mocked data. The backend and frontend
+> below are both real and production-shaped — see [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md)
+> for architecture and data model, and [`docs/FEATURE_FLOWS.md`](docs/FEATURE_FLOWS.md) for
+> a step-by-step walkthrough of every role and feature.
 
 ## Tech stack
 
@@ -18,13 +19,14 @@ by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 | Frontend UI | Tailwind CSS v4, shadcn/ui on Base UI, framer-motion, lucide-react, Recharts, sonner, next-themes | Styling, animation, charts, toasts, dark mode |
 | Frontend data | TanStack Query + a typed `lib/api` fetch client | Server state, caching, mutations against the NestJS API |
 | Backend | NestJS 11 + TypeScript | REST API, DI, guards/pipes/interceptors, Swagger |
-| Database | PostgreSQL 16 + Prisma 6 | 28-model schema, money as integer cents, `$transaction` for atomic writes |
+| Database | PostgreSQL 16 + Prisma 6 | 40-model schema, money as integer cents, `$transaction` for atomic writes |
 | Auth | `@nestjs/jwt` + `passport-jwt` + argon2id | Access + rotating single-use refresh tokens in httpOnly cookies, RBAC |
 | Validation | Zod (shared schemas in `packages/shared`) | One schema → runtime validation + static types on both API and web |
 | Jobs/queues | Redis + BullMQ (`@nestjs/bullmq`) | Hourly maintenance rollup, engagement-reminder queue |
 | Video | Cloudflare Stream | Direct-creator-upload + signed HLS/iframe playback (no separate object storage) |
 | Payments | Stripe + PayPal (REST) | Checkout sessions, webhook-verified idempotent order fulfillment |
 | Email | Resend | Welcome + password-reset transactional email (logs to console if unset) |
+| SMS | Twilio | Marketing-automation reminders where the rule's channel is SMS (logs instead of sending if unset) |
 | Observability | pino / nestjs-pino, Sentry (optional), global exception filter, audit log interceptor | Structured logs with secret redaction, error tracking, uniform error contract, mutation audit trail |
 | Rate limiting | `@nestjs/throttler` | Global request throttling |
 
@@ -79,16 +81,13 @@ docker-compose.yml     Local Postgres + Redis
 - Unique referral code/link; commission attributed on referred orders
 - Referral list, earnings ledger (pending/confirmed/paid), payout action (admin side)
 
-## What's live vs. mock (frontend)
+## Frontend data status
 
-The backend implements all of the above. On the frontend:
-
-- **Wired to the real API:** auth, student dashboard/enrollments/progress/certificates,
-  course catalog/detail, checkout + orders, reviews, quiz play, and most of admin
-  (overview, students, orders, courses, reviews, instructors, agents).
-- **Still on `lib/mock/*` data, pending rewire:** admin pricing tiers, admin coupons,
-  admin marketing/automation, the sales-agent portal's own dashboard, and the org
-  overview page. `lib/context/store.tsx` documents this split directly in its own comments.
+Every portal (storefront, student, instructor, admin, org, sales-agent) is wired to
+the real API — there is no mock-data path left in the shipped app. `apps/web/lib/mock/*`
+still exists as reference fixtures (shapes used by early prototyping) but nothing in
+`apps/web/app` or `apps/web/components` imports from it anymore; it's safe to delete
+once no one needs it as a reference.
 
 ## Local setup
 
@@ -103,14 +102,15 @@ pnpm infra:up                # Postgres :5432 + Redis :6379 via docker-compose
 pnpm db:migrate               # apply Prisma migrations
 pnpm db:seed                  # seed admin user, pricing tiers, demo data
 
-pnpm dev                      # api on :4000 (/api prefix, Swagger at /docs), web on :3000
+pnpm dev                      # api on :4000 (/api prefix, Swagger at /docs), web on :3001
 ```
 
-Everything except `DATABASE_URL`/`JWT_*` is optional for local dev — unset integrations
-(Stripe, PayPal, Cloudflare Stream, Resend, Sentry) degrade gracefully (dev-only simulate
-paths, console-logged emails, `503` on the specific feature) rather than failing to boot.
-See `apps/api/src/config/env.ts` for the full validated env schema, and
-`docs/SYSTEM_DESIGN.md` for what each external service is for and why it's needed.
+Everything except `DATABASE_URL`/`JWT_ACCESS_SECRET` is optional for local dev — unset
+integrations (Stripe, PayPal, Cloudflare Stream, Resend, Twilio, Sentry) degrade
+gracefully (dev-only simulate paths, console-logged emails/SMS, `503` on the specific
+feature) rather than failing to boot. See `apps/api/src/config/env.ts` for the full
+validated env schema, and [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) §6 for what
+each external service is for, and its exact degrade behavior when unset.
 
 ## Scripts
 

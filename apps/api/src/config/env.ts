@@ -16,7 +16,7 @@ export const envSchema = z.object({
 
   // Cookies / CORS
   COOKIE_DOMAIN: z.string().optional(),
-  WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
+  WEB_ORIGIN: z.string().url().default("http://localhost:3001"),
 
   // Optional integrations (wired in later phases)
   REDIS_URL: z.string().optional(),
@@ -40,7 +40,7 @@ export const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@skillstream.dev"),
-  FRONTEND_URL: z.string().url().default("http://localhost:3000"),
+  FRONTEND_URL: z.string().url().default("http://localhost:3001"),
   SENTRY_DSN: z.string().optional(),
 
   // Swagger docs. In production the docs are only mounted when both are set —
