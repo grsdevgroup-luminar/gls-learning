@@ -38,7 +38,7 @@ function SignupForm() {
       toast.success('Account created!', {
         description: 'Welcome to SkillStream 🎉',
       });
-      router.push(next || '/dashboard');
+      router.push(next || '/courses');
       router.refresh();
     } catch (err) {
       const message =
