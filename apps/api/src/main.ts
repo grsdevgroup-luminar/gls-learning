@@ -5,7 +5,6 @@ import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import type { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { Logger } from "nestjs-pino";
 import type { RequestHandler } from "express";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -102,10 +101,8 @@ async function bootstrap(): Promise<void> {
   }
 
   const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
     rawBody: true, // needed for Stripe webhook signature verification
   });
-  app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService<Env, true>);
 

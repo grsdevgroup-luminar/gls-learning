@@ -2,7 +2,6 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { LoggerModule } from "nestjs-pino";
 import { validateEnv } from "./config/env";
 import { PrismaModule } from "./prisma/prisma.module";
 import { EmailModule } from "./modules/email/email.module";
@@ -29,23 +28,12 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
-import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateEnv,
-    }),
-    LoggerModule.forRoot({
-      pinoHttp: {
-        transport:
-          process.env.NODE_ENV !== "production"
-            ? { target: "pino-pretty", options: { singleLine: true } }
-            : undefined,
-        autoLogging: true,
-        redact: ["req.headers.cookie", "req.headers.authorization"],
-      },
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
@@ -75,7 +63,6 @@ import { TransformInterceptor } from "./common/interceptors/transform.intercepto
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
