@@ -89,6 +89,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     res.status(status).json({
+      success: false,
       statusCode: status,
       error,
       message,
