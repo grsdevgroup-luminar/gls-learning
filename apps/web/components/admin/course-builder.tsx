@@ -31,12 +31,13 @@ import { cn } from "@/lib/utils";
 const MAX_THUMBNAIL_DIM = 800;
 const THUMBNAIL_JPEG_QUALITY = 0.82;
 
+
 function readImageFile(file: File, maxDim = MAX_THUMBNAIL_DIM, quality = THUMBNAIL_JPEG_QUALITY): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
     reader.onload = () => {
-      const img = new Image();
+      const img = new window.Image(); // explicit window.Image avoids any ambiguity
       img.onerror = () => reject(new Error("That file isn't a valid image"));
       img.onload = () => {
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
