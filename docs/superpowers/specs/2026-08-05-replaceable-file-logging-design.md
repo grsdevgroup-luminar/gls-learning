@@ -6,18 +6,18 @@ SkillStream API will use Pino as its structured logging engine behind Nest's
 `LoggerService` contract. Application modules and services will continue to use
 Nest's `Logger` and must not import Pino or destination-specific APIs.
 
-The first destination writes JSON Lines to daily files with 14-day retention.
-The destination boundary will allow a future Loki, OpenTelemetry, or other
-backend to be added through configuration without changing application
-services.
+Development writes JSON Lines to daily files with 14-day retention. Production
+writes structured JSON to stdout only. The destination boundary will allow a
+future Loki, OpenTelemetry, or other backend to be added through configuration
+without changing application services.
 
 ## Goals
 
 - Preserve Nest's `Logger`/`LoggerService` as the application-facing API.
-- Write structured, searchable JSON Lines to a daily log file.
+- Write structured, searchable JSON Lines to a daily log file in development.
 - Keep 14 days of daily files.
 - Keep readable console output in development.
-- Write structured JSON to stdout in production.
+- Write structured JSON to stdout only in production.
 - Redact credentials and other sensitive request data.
 - Fail production startup when the configured logging destination cannot
   initialize.
@@ -48,17 +48,20 @@ A small internal destination contract owns destination initialization and
 lifecycle. A destination factory selects an implementation from validated
 configuration.
 
-The initial supported value is:
+The initially supported values are:
 
 ```text
 LOG_DESTINATION=file
+LOG_DESTINATION=stdout
 ```
 
-The factory will reject unsupported values. `loki` and `otel` will not be
-accepted or represented by nonfunctional stubs; adding either later means
-implementing the same contract and extending the validated configuration
-union. This avoids a configuration that appears to work while silently
-discarding logs.
+`stdout` is the production destination and `file` is the development
+destination. Configuration validation rejects `file` in production during the
+initial rollout, ensuring production never creates local log files. The factory
+will reject unsupported values. `loki` and `otel` will not be accepted or
+represented by nonfunctional stubs; adding either later means implementing the
+same contract and extending the validated configuration union. This avoids a
+configuration that appears to work while silently discarding logs.
 
 The contract exposes only the capabilities the logging composition layer
 needs: initialize the destination, provide a writable Pino target/stream, and
@@ -80,10 +83,11 @@ The file destination:
 Dates used in filenames and retention calculations will use UTC. This avoids
 rotation ambiguity across hosts and daylight-saving transitions.
 
-Retention cleanup runs during destination initialization and after rotation.
-A cleanup failure is logged to the remaining output but does not terminate an
-already-running application. Failure to create or open the active production
-log file is an initialization failure and prevents startup.
+Retention cleanup runs during file-destination initialization and after
+rotation. A cleanup failure is logged to the remaining output but does not
+terminate an already-running application. Failure to create or open the active
+development log file is an initialization failure rather than a silent fallback
+that pretends file logging is active.
 
 ## Output Behavior
 
@@ -99,14 +103,9 @@ alter it.
 
 ### Production
 
-Production writes to two outputs:
-
-1. structured JSON Lines on stdout;
-2. structured JSON Lines in the configured daily file.
-
-Stdout preserves compatibility with container log collectors. The file provides
-the requested local, Laravel-style daily archive. Both outputs receive the same
-logical record.
+Production writes structured JSON Lines to stdout only. It does not create or
+write daily log files. Stdout preserves compatibility with container log
+collectors and provides the handoff point for a future centralized destination.
 
 ### Test
 
@@ -118,7 +117,7 @@ use temporary directories and controlled streams.
 The validated environment schema gains:
 
 ```text
-LOG_DESTINATION=file
+LOG_DESTINATION=file|stdout
 LOG_LEVEL=info
 LOG_DIR=logs
 LOG_RETENTION_DAYS=14
@@ -126,16 +125,16 @@ LOG_RETENTION_DAYS=14
 
 Rules:
 
-- `LOG_DESTINATION` initially accepts only `file`.
+- `LOG_DESTINATION` initially accepts `file` and `stdout`.
+- The default is `file` in development and `stdout` in production.
+- Production rejects `file` during the initial rollout.
 - `LOG_LEVEL` accepts Pino's supported named levels.
-- `LOG_DIR` must be a nonempty path.
-- `LOG_RETENTION_DAYS` must be a positive integer.
-- Defaults apply in development and production unless explicitly overridden.
+- When `LOG_DESTINATION=file`, `LOG_DIR` must be a nonempty path and
+  `LOG_RETENTION_DAYS` must be a positive integer.
 
 Relative `LOG_DIR` paths resolve from the API process working directory. The
-deployment must mount this path on persistent storage if files must survive a
-container replacement. The resolved directory and active filename are reported
-at startup without exposing sensitive configuration.
+resolved development directory and active filename are reported at startup
+without exposing sensitive configuration.
 
 The repository-level `.gitignore` will exclude the runtime log directory and
 `*.log` files.
@@ -183,14 +182,14 @@ in the response.
 Nest bootstrap logs, uncaught application exceptions, existing exception-filter
 records, and service `Logger` calls all flow through the same global adapter.
 Direct `console.log`, `console.warn`, and `console.error` calls in bootstrap code
-will be migrated to the Nest logger so they are not omitted from files.
+will be migrated to the Nest logger so they reach the configured outputs.
 
 ## Failure Handling and Lifecycle
 
-- Production startup fails with a concise stderr message if the configured
-  destination cannot initialize.
-- Development also reports destination initialization errors clearly; it does
-  not silently pretend file logging is active.
+- Startup fails with a concise stderr message if the configured destination
+  cannot initialize.
+- Development does not silently fall back to console when configured file
+  logging fails.
 - Runtime file write errors are surfaced through a safe stderr fallback without
   recursively invoking the failed logger.
 - Shutdown hooks flush and close the destination.
@@ -227,23 +226,23 @@ Unit tests will verify:
 Integration tests will verify:
 
 - development emits readable console output and structured file output;
-- production emits structured stdout and structured file output;
+- production emits structured stdout and creates no log file;
 - existing Nest `Logger` calls reach the configured file;
 - HTTP completion and error records include correlation metadata;
-- startup fails when the production log directory is unusable;
+- development startup fails when the configured log directory is unusable;
 - shutdown flushes the active file.
 
 Tests use temporary directories and fixed clocks to remain deterministic.
 
 ## Acceptance Criteria
 
-- Starting the API creates `logger-YYYY-MM-DD.log` in `LOG_DIR`.
+- Starting the API in development creates `logger-YYYY-MM-DD.log` in `LOG_DIR`.
 - Every line in the file parses as one JSON object.
 - Nest service logs and HTTP logs appear in the file.
 - Development retains readable console logs.
-- Production stdout is structured JSON.
+- Production stdout is structured JSON and production creates no log file.
 - Sensitive values do not appear in either output.
 - Files older than 14 UTC days are deleted; recent and unrelated files remain.
-- An unsupported destination or unusable production log directory fails
-  startup with a clear error.
+- An unsupported destination, `file` in production, or an unusable development
+  log directory fails startup with a clear error.
 - Application services contain no Pino or destination imports.
