@@ -34,3 +34,32 @@ export async function serverApiOptional<T>(
     throw err;
   }
 }
+
+/**
+ * Cached, cookie-free fetch for public data that's safe to share across every
+ * visitor (course listings/detail, categories) — pairs with a page's
+ * `export const revalidate = N` for on-demand ISR. Unlike `serverApi`, this
+ * never forwards cookies, so the shared cache entry isn't fragmented per
+ * session for a response that doesn't actually vary by viewer.
+ */
+export async function serverApiCached<T>(
+  path: string,
+  revalidateSeconds: number,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  return apiFetch<T>(path, { ...options, next: { revalidate: revalidateSeconds } });
+}
+
+/** serverApiCached that returns null on 404 instead of throwing. */
+export async function serverApiCachedOptional<T>(
+  path: string,
+  revalidateSeconds: number,
+  options: ApiRequestOptions = {},
+): Promise<T | null> {
+  try {
+    return await serverApiCached<T>(path, revalidateSeconds, options);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}

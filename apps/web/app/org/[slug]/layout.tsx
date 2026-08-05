@@ -1,30 +1,24 @@
-"use client";
-
-import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
-import { apiFetch } from "@/lib/api/client";
+import { serverApiOptional } from "@/lib/api/server";
+import { initials } from "@/lib/format";
 import type { OrganizationDto } from "@skillstream/shared";
 import { LayoutDashboard, BookOpen, Users, Settings } from "lucide-react";
 
-export default function OrgLayout({ children }: { children: React.ReactNode }) {
-  const params = useParams<{ slug: string }>();
-  const slug = params.slug;
-
-  const { data: org } = useQuery<OrganizationDto>({
-    queryKey: ["org", slug],
-    queryFn: () => apiFetch(`/organizations/${slug}`),
-    enabled: !!slug,
-  });
+// Server Component — the org lookup only needs the route param, which a
+// Server Component receives directly (no useParams() needed), so this never
+// had to be client-rendered in the first place.
+export default async function OrgLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const org = await serverApiOptional<OrganizationDto>(`/organizations/${slug}`);
 
   const name = org?.name ?? "Organization";
   const email = org?.adminEmail ?? "";
-  const abbrev = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   const items: NavItem[] = [
     { href: `/org/${slug}`, label: "Overview", icon: LayoutDashboard, exact: true },
@@ -34,7 +28,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <PortalShell items={items} badge="Company Admin" user={{ name, email, initials: abbrev }}>
+    <PortalShell items={items} badge="Company Admin" user={{ name, email, initials: initials(name) }}>
       {children}
     </PortalShell>
   );

@@ -1,3 +1,16 @@
+import type { CourseLevel } from "@skillstream/shared";
+
+const LEVEL_LABELS: Record<CourseLevel, string> = {
+  BEGINNER: "Beginner",
+  INTERMEDIATE: "Intermediate",
+  ADVANCED: "Advanced",
+  ALL_LEVELS: "All Levels",
+};
+
+export function levelLabel(level: CourseLevel): string {
+  return LEVEL_LABELS[level];
+}
+
 export function formatUsd(n: number): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

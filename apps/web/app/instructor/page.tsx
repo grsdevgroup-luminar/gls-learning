@@ -204,13 +204,6 @@ export default function InstructorOverview() {
 
 function CourseRow({ course, index }: { course: CourseSummaryDto; index: number }) {
   const lessonCount = course.lessonCount ?? 0;
-  // Map API status (uppercase) to local CourseStatusBadge expected values (lowercase)
-  const statusMap: Record<string, "published" | "draft" | "review"> = {
-    PUBLISHED: "published",
-    DRAFT: "draft",
-    REVIEW: "review",
-  };
-  const status = statusMap[course.status] ?? "draft";
 
   return (
     <div className={`flex items-center gap-4 p-3.5 ${index > 0 ? "border-t border-border" : ""}`}>
@@ -218,7 +211,7 @@ function CourseRow({ course, index }: { course: CourseSummaryDto; index: number 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-medium">{course.title}</span>
-          <CourseStatusBadge status={status} />
+          <CourseStatusBadge status={course.status} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>{lessonCount} lessons</span>

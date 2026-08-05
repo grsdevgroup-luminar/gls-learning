@@ -89,7 +89,10 @@ export interface CertificateDto {
   courseSlug: string;
 }
 
-const qs = (params: Record<string, string | number | undefined>) => {
+/** Exported so server-side prefetches (serverApi) can build the identical
+ *  path + query string a matching client useQuery call will use — needed
+ *  for the RSC↔React Query hydration bridge to actually cache-hit. */
+export const qs = (params: Record<string, string | number | undefined>) => {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params))
     if (v !== undefined && v !== "") sp.set(k, String(v));

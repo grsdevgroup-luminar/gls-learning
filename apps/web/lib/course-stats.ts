@@ -1,34 +1,27 @@
-// Curriculum totals derived from a Course. Catalog summaries carry no
-// `sections` but do carry `lessonCount`/`durationSec`, so those win when
-// present and the section walk is the fallback for a fully-loaded detail.
-import type { Course } from "@/types";
+// Curriculum totals derived from a course DTO. The API reports durationSec/
+// lessonCount directly on every course (summary or detail), so these never
+// need to fall back to walking `sections` — only summaries used to omit them
+// in the old mock data, which is gone now.
+import type { CourseDetailDto, CourseSummaryDto } from "@skillstream/shared";
 
-export function courseDurationMin(course: Course) {
-  const sec =
-    course.durationSec ??
-    course.sections.reduce(
-      (sum, s) => sum + s.lessons.reduce((a, l) => a + l.durationSec, 0),
-      0,
-    );
-  return Math.round(sec / 60);
+export function courseDurationMin(course: CourseSummaryDto) {
+  return Math.round(course.durationSec / 60);
 }
 
-export function courseLessonCount(course: Course) {
-  return (
-    course.lessonCount ?? course.sections.reduce((a, s) => a + s.lessons.length, 0)
-  );
+export function courseLessonCount(course: CourseSummaryDto) {
+  return course.lessonCount;
 }
 
-export function courseArticleCount(course: Course) {
+export function courseArticleCount(course: CourseDetailDto) {
   return course.sections.reduce(
-    (a, s) => a + s.lessons.filter((l) => l.type === "article").length,
+    (a, s) => a + s.lessons.filter((l) => l.type === "ARTICLE").length,
     0,
   );
 }
 
-export function courseResourceCount(course: Course) {
+export function courseResourceCount(course: CourseDetailDto) {
   return course.sections.reduce(
-    (a, s) => a + s.lessons.reduce((b, l) => b + (l.resources?.length ?? 0), 0),
+    (a, s) => a + s.lessons.reduce((b, l) => b + l.resources.length, 0),
     0,
   );
 }

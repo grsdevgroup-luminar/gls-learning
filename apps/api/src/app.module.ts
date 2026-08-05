@@ -2,7 +2,6 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { LoggerModule } from "nestjs-pino";
 import { validateEnv } from "./config/env";
 import { PrismaModule } from "./prisma/prisma.module";
 import { EmailModule } from "./modules/email/email.module";
@@ -35,16 +34,6 @@ import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateEnv,
-    }),
-    LoggerModule.forRoot({
-      pinoHttp: {
-        transport:
-          process.env.NODE_ENV !== "production"
-            ? { target: "pino-pretty", options: { singleLine: true } }
-            : undefined,
-        autoLogging: true,
-        redact: ["req.headers.cookie", "req.headers.authorization"],
-      },
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,

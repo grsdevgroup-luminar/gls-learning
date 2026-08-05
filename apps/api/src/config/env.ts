@@ -49,8 +49,12 @@ export const envSchema = z.object({
   DOCS_PASSWORD: z.string().optional(),
   // Public base URL of this API, used as the Swagger "try it out" target.
   // Defaults to a relative server, which is correct when docs are served
-  // from the same origin as the API.
-  PUBLIC_API_URL: z.string().url().optional(),
+  // from the same origin as the API. dotenv turns an unset `PUBLIC_API_URL=`
+  // line into "", so normalize that to undefined before the url() check.
+  PUBLIC_API_URL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().url().optional(),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

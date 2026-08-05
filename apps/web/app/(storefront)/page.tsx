@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CourseCard } from "@/components/storefront/course-card";
+import { CourseCard } from "./_components/course-card";
 import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/shared/stars";
 import { CourseArt } from "@/components/shared/course-art";
@@ -15,7 +15,6 @@ import {
   SpotlightCard,
 } from "@/components/shared/motion";
 import { serverApi } from "@/lib/api/server";
-import { toLegacyCourse } from "@/lib/api/adapters";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import type {
   CourseSummaryDto,
@@ -23,7 +22,6 @@ import type {
   Paginated,
   ReviewDto,
 } from "@skillstream/shared";
-import type { Course } from "@/types";
 import { compactNumber, initials } from "@/lib/format";
 import {
   ShieldCheck, Globe2, LineChart, BellRing, ArrowRight, Star,
@@ -90,7 +88,7 @@ export default async function HomePage() {
     safe(serverApi<ReviewDto[]>("/reviews/featured"), []),
   ]);
 
-  const publishedCourses = coursePage.items.map(toLegacyCourse);
+  const publishedCourses = coursePage.items;
   const bestsellers = publishedCourses.filter((c) => c.bestseller).slice(0, 4);
   const popular = publishedCourses.slice(0, 8);
   const featured = publishedCourses[0];
@@ -337,7 +335,7 @@ function SectionGrid({
 }: {
   title: string;
   sub?: string;
-  courses: Course[];
+  courses: CourseSummaryDto[];
 }) {
   return (
     <Section>
@@ -362,7 +360,7 @@ function SectionGrid({
   );
 }
 
-function HeroPreview({ course: c }: { course: Course | undefined }) {
+function HeroPreview({ course: c }: { course: CourseSummaryDto | undefined }) {
   if (!c) return null;
   return (
     <Parallax distance={50} className="relative hidden lg:block">

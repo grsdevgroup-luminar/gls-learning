@@ -1,7 +1,6 @@
-"use client";
-
 import Link from "next/link";
-import { useSession } from "@/lib/api/session";
+import type { AuthUserDto } from "@skillstream/shared";
+import { serverApiOptional } from "@/lib/api/server";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,11 @@ const items: NavItem[] = [
   { href: "/instructor/profile", label: "Profile", icon: UserCog },
 ];
 
-export default function InstructorLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useSession();
-
-  if (isLoading) return null;
+// Server Component — see app/(student)/layout.tsx for why. The role gate
+// below now runs against a server-fetched session, so there's no client-side
+// loading flash before it decides what to render.
+export default async function InstructorLayout({ children }: { children: React.ReactNode }) {
+  const user = await serverApiOptional<AuthUserDto>("/auth/me");
 
   if (!user || (user.role !== "INSTRUCTOR" && user.role !== "ADMIN")) {
     return (

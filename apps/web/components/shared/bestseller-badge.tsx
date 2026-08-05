@@ -16,8 +16,8 @@ export function BestsellerBadge({ className }: { className?: string }) {
 }
 
 /** A course earns this when its rating sits at the top tier of the catalog. */
-export function isHighestRated(course: { rating: number; reviewCount: number }) {
-  return course.rating >= 4.9 && course.reviewCount >= 100;
+export function isHighestRated(course: { ratingAvg: number; reviewCount: number }) {
+  return course.ratingAvg >= 4.9 && course.reviewCount >= 100;
 }
 
 export function HighestRatedBadge({ className }: { className?: string }) {
