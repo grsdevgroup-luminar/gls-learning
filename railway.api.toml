@@ -1,0 +1,24 @@
+# Railway config — API service.
+# Attach to a service via env var: RAILWAY_CONFIG_FILE=railway.api.toml
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+# Rebuild only when API-related paths change.
+watchPatterns = [
+  "apps/api/**",
+  "packages/shared/**",
+  "packages/config/**",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "package.json",
+]
+
+[deploy]
+startCommand = "node apps/api/dist/main.js"
+preDeployCommand = ["pnpm --filter @skillstream/api exec prisma migrate deploy"]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+numReplicas = 1
