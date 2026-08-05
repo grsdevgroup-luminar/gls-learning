@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "node",
+  "packages": {
+    "node": "22"
+  },
+  "steps": {
+    "install": {
+      "commands": [
+        "corepack enable",
+        "corepack prepare pnpm@11.4.0 --activate",
+        "pnpm install --frozen-lockfile --prefer-offline"
+      ]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": [
+        "pnpm --filter @skillstream/api exec prisma generate",
+        "pnpm --filter @skillstream/shared build",
+        "pnpm --filter @skillstream/api build"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "pnpm --filter @skillstream/api exec prisma migrate deploy && node apps/api/dist/main.js"
+  }
+}
