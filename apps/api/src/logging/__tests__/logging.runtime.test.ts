@@ -67,11 +67,15 @@ const createDestination = () => {
 };
 
 describe("createLoggingRuntime", () => {
-  it("writes one redacted logical record to console and file in development", async () => {
+  it("writes redacted logical records to console and file in development", async () => {
     const file = createDestination();
     const consoleLines: string[] = [];
     const runtime = await createLoggingRuntime(
-      validateEnv({ ...base, NODE_ENV: "development", LOG_DESTINATION: "file" }),
+      validateEnv({
+        ...base,
+        NODE_ENV: "development",
+        LOG_DESTINATION: "file",
+      }),
       {
         createDestination: async () => file.destination,
         consoleStream: captureStream(consoleLines),
@@ -79,14 +83,28 @@ describe("createLoggingRuntime", () => {
     );
 
     runtime.logger.log({ event: "ready", password: "secret" }, "Bootstrap");
-    runtime.logger.error("failed", { authorization: "Bearer runtime-secret" }, "Auth");
+    runtime.logger.error(
+      "failed",
+      { authorization: "Bearer runtime-secret" },
+      "Auth",
+    );
     await runtime.close();
 
     expect(parseRecords(file.lines)).toMatchObject([
       { event: "ready", password: "[Redacted]", context: "Bootstrap" },
+      {
+        msg: "failed",
+        context: "Auth",
+        diagnostics: [{ authorization: "[Redacted]" }],
+      },
     ]);
     expect(parseRecords(consoleLines)).toMatchObject([
       { event: "ready", password: "[Redacted]", context: "Bootstrap" },
+      {
+        msg: "failed",
+        context: "Auth",
+        diagnostics: [{ authorization: "[Redacted]" }],
+      },
     ]);
     expect(JSON.stringify(file.lines)).not.toContain("Bearer runtime-secret");
     expect(JSON.stringify(consoleLines)).not.toContain("Bearer runtime-secret");
@@ -123,9 +141,16 @@ describe("createLoggingRuntime", () => {
     const file = createDestination();
     const fileStream = createFlushableStream();
     const pretty = createFlushableStream();
-    const destination: LogDestination = { ...file.destination, stream: fileStream.stream };
+    const destination: LogDestination = {
+      ...file.destination,
+      stream: fileStream.stream,
+    };
     const runtime = await createLoggingRuntime(
-      validateEnv({ ...base, NODE_ENV: "development", LOG_DESTINATION: "file" }),
+      validateEnv({
+        ...base,
+        NODE_ENV: "development",
+        LOG_DESTINATION: "file",
+      }),
       {
         createDestination: async () => destination,
         createPrettyStream: () => pretty.stream,
@@ -136,7 +161,9 @@ describe("createLoggingRuntime", () => {
     await runtime.close();
     await runtime.close();
 
-    expect(parseRecords(fileStream.lines)).toMatchObject([{ event: "shutdown" }]);
+    expect(parseRecords(fileStream.lines)).toMatchObject([
+      { event: "shutdown" },
+    ]);
     expect(parseRecords(pretty.lines)).toMatchObject([{ event: "shutdown" }]);
     expect(fileStream.flush).toHaveBeenCalled();
     expect(pretty.flush).toHaveBeenCalled();

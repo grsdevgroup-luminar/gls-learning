@@ -1,9 +1,32 @@
+const SECRET_ENV_FIELDS = [
+  "DATABASE_URL",
+  "JWT_ACCESS_SECRET",
+  "REDIS_URL",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "PAYPAL_CLIENT_SECRET",
+  "CLOUDFLARE_STREAM_TOKEN",
+  "CLOUDFLARE_STREAM_KEY_PEM",
+  "RESEND_API_KEY",
+  "TWILIO_AUTH_TOKEN",
+  "SENTRY_DSN",
+  "DOCS_PASSWORD",
+] as const;
+
+const SECRET_ENV_PATHS = SECRET_ENV_FIELDS.flatMap((field) => [
+  field,
+  `*.${field}`,
+  `diagnostics.*.${field}`,
+  `diagnostics.*.*.${field}`,
+]);
+
 export const REDACT_PATHS = [
   "req.headers.authorization",
   "req.headers.cookie",
   "res.headers.set-cookie",
   "authorization",
   "cookie",
+  "token",
   "password",
   "passwordConfirmation",
   "accessToken",
@@ -14,6 +37,10 @@ export const REDACT_PATHS = [
   "webhookSecret",
   "*.password",
   "*.passwordConfirmation",
+  "*.token",
+  "*.headers.authorization",
+  "*.headers.cookie",
+  "*.headers.set-cookie",
   "*.accessToken",
   "*.refreshToken",
   "*.apiKey",
@@ -24,6 +51,7 @@ export const REDACT_PATHS = [
   "diagnostics.*.cookie",
   "diagnostics.*.password",
   "diagnostics.*.passwordConfirmation",
+  "diagnostics.*.token",
   "diagnostics.*.accessToken",
   "diagnostics.*.refreshToken",
   "diagnostics.*.apiKey",
@@ -32,8 +60,10 @@ export const REDACT_PATHS = [
   "diagnostics.*.webhookSecret",
   "diagnostics.*.*.authorization",
   "diagnostics.*.*.cookie",
+  "diagnostics.*.*.headers.set-cookie",
   "diagnostics.*.*.password",
   "diagnostics.*.*.passwordConfirmation",
+  "diagnostics.*.*.token",
   "diagnostics.*.*.accessToken",
   "diagnostics.*.*.refreshToken",
   "diagnostics.*.*.apiKey",
@@ -46,4 +76,5 @@ export const REDACT_PATHS = [
   "diagnostics.*.req.headers.authorization",
   "diagnostics.*.req.headers.cookie",
   "diagnostics.*.res.headers.set-cookie",
+  ...SECRET_ENV_PATHS,
 ] as const;

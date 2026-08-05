@@ -27,7 +27,7 @@ by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 | Payments | Stripe + PayPal (REST) | Checkout sessions, webhook-verified idempotent order fulfillment |
 | Email | Resend | Welcome + password-reset transactional email (logs to console if unset) |
 | SMS | Twilio | Marketing-automation reminders where the rule's channel is SMS (logs instead of sending if unset) |
-| Observability | pino / nestjs-pino, Sentry (optional), global exception filter, audit log interceptor | Structured logs with secret redaction, error tracking, uniform error contract, mutation audit trail |
+| Observability | pino with an application-owned Nest logger adapter, Sentry (optional), global exception filter, audit log interceptor | Structured logs with secret redaction, error tracking, uniform error contract, mutation audit trail |
 | Rate limiting | `@nestjs/throttler` | Global request throttling |
 
 ## Monorepo layout
@@ -111,6 +111,29 @@ gracefully (dev-only simulate paths, console-logged emails/SMS, `503` on the spe
 feature) rather than failing to boot. See `apps/api/src/config/env.ts` for the full
 validated env schema, and [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) §6 for what
 each external service is for, and its exact degrade behavior when unset.
+
+### API logs
+
+Development writes readable logs to the console and structured JSON Lines to
+`apps/api/logs/logger-YYYY-MM-DD.log` by default. Files older than 14 UTC days
+are removed automatically.
+
+```bash
+# Search message text
+rg 'payment failed' apps/api/logs/
+
+# Filter errors with jq
+jq -c 'select(.level >= 50)' apps/api/logs/logger-$(date -u +%F).log
+```
+
+Production uses `LOG_DESTINATION=stdout` and does not create log files. Future
+centralized destinations are added behind the logging destination factory.
+
+Configure API logging with `LOG_DESTINATION` (`file` or `stdout`), `LOG_LEVEL`
+(`fatal`, `error`, `warn`, `info`, `debug`, or `trace`), `LOG_DIR`, and
+`LOG_RETENTION_DAYS`. Development defaults to `file`, while production defaults
+to and requires `stdout`; `LOG_DIR` and `LOG_RETENTION_DAYS` only apply to the
+file destination.
 
 ## Scripts
 
