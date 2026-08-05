@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import type { INestApplication } from "@nestjs/common";
+import { Logger, type INestApplication } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import type { RequestHandler } from "express";
@@ -38,9 +38,7 @@ export function setupSwagger(
   const password = config.get("DOCS_PASSWORD", { infer: true });
 
   if (isProd && !(user && password)) {
-    console.warn(
-      "Docs disabled: set DOCS_USER and DOCS_PASSWORD to enable in production",
-    );
+    new Logger("Swagger").warn("Docs disabled: set DOCS_USER and DOCS_PASSWORD to enable in production");
     return;
   }
   if (user && password) {

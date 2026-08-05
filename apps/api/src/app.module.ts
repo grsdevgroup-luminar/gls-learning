@@ -28,6 +28,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
+import { LoggingModule } from "./logging/logging.module";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
       isGlobal: true,
       validate: validateEnv,
     }),
+    LoggingModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
     EmailModule,
