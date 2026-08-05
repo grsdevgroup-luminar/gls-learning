@@ -1,7 +1,6 @@
-"use client";
-
+import type { AuthUserDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
-import { useSession } from "@/lib/api/session";
+import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
 import {
   LayoutDashboard, BookOpen, Users, ShoppingBag, Ticket, Globe2,
@@ -24,8 +23,9 @@ const items: NavItem[] = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useSession();
+// Server Component — see app/(student)/layout.tsx for why.
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const user = await serverApiOptional<AuthUserDto>("/auth/me");
   const name = user?.name ?? "Admin";
   const email = user?.email ?? "";
   return (

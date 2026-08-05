@@ -45,7 +45,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
       group: "Navigation",
     }));
     const courseCmds: Cmd[] = courses
-      .filter((c) => c.status === "published")
+      .filter((c) => c.status === "PUBLISHED")
       .slice(0, 8)
       .map((c) => ({
         id: c.id,

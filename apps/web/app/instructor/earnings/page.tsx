@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { instructorApi } from "@/lib/api/endpoints";
-import { ApprovalGate } from "@/components/instructor/approval-gate";
+import { ApprovalGate } from "../_components/approval-gate";
 import { PayoutPanel } from "@/components/shared/payout-panel";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

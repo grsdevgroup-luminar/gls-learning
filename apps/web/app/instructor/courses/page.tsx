@@ -80,12 +80,6 @@ export default function InstructorCourses() {
 }
 
 function CourseCard({ course }: { course: CourseSummaryDto }) {
-  const statusMap: Record<string, "published" | "draft" | "review"> = {
-    PUBLISHED: "published",
-    DRAFT: "draft",
-    REVIEW: "review",
-  };
-  const status = statusMap[course.status] ?? "draft";
   const lessonCount = course.lessonCount ?? 0;
 
   return (
@@ -94,7 +88,7 @@ function CourseCard({ course }: { course: CourseSummaryDto }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-semibold">{course.title}</span>
-          <CourseStatusBadge status={status} />
+          <CourseStatusBadge status={course.status} />
         </div>
         <p className="mt-0.5 truncate text-sm text-muted-foreground">{course.subtitle}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -107,7 +101,7 @@ function CourseCard({ course }: { course: CourseSummaryDto }) {
         </div>
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-        {status === "published" && (
+        {course.status === "PUBLISHED" && (
           <Button variant="ghost" size="sm" render={<Link href={`/courses/${course.slug}`} />}>
             <Eye /> View
           </Button>

@@ -1,4 +1,4 @@
-import { LearnLoader } from "@/components/student/learn-loader";
+import { LearnLoader } from "./_components/learn-loader";
 
 export const dynamic = "force-dynamic";
 
