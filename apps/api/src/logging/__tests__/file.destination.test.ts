@@ -1,3 +1,4 @@
+import type { WriteStream } from "node:fs";
 import {
   mkdir,
   mkdtemp,
@@ -8,8 +9,28 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { Writable } from "node:stream";
+import { describe, expect, it, vi } from "vitest";
 import { createFileDestination } from "../file.destination";
+
+const { createWriteStreamMock } = vi.hoisted(() => ({
+  createWriteStreamMock: vi.fn(),
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    createWriteStream: (
+      ...args: Parameters<typeof actual.createWriteStream>
+    ) => {
+      const implementation = createWriteStreamMock.getMockImplementation();
+      return implementation
+        ? (implementation(...args) as WriteStream)
+        : actual.createWriteStream(...args);
+    },
+  };
+});
 
 const createDirectory = () => mkdtemp(join(tmpdir(), "skillstream-logs-"));
 
@@ -128,5 +149,38 @@ describe("createFileDestination", () => {
         now: () => new Date("2026-08-05T12:00:00.000Z"),
       }),
     ).rejects.toBeDefined();
+  });
+
+  it("forwards post-open write-stream errors through the destination stream", async () => {
+    const directory = await createDirectory();
+    let resolveWrite!: () => void;
+    const sourceWrite = new Promise<void>((resolve) => {
+      resolveWrite = resolve;
+    });
+    const source = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+        resolveWrite();
+      },
+    });
+    createWriteStreamMock.mockImplementation(() => {
+      queueMicrotask(() => source.emit("open"));
+      return source as unknown as WriteStream;
+    });
+
+    const destination = await createFileDestination({
+      directory,
+      retentionDays: 14,
+    });
+    destination.stream.write('{"msg":"hello"}\n');
+    await sourceWrite;
+
+    const writeError = new Error("disk full");
+    const destinationError = new Promise<Error>((resolve) => {
+      destination.stream.once("error", resolve);
+    });
+    source.emit("error", writeError);
+
+    await expect(destinationError).resolves.toBe(writeError);
   });
 });

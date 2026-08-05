@@ -49,6 +49,9 @@ const closeWriteStream = (stream: WriteStream): Promise<void> =>
 class DailyFileStream extends Writable {
   private activeDate: string;
   private activeStream!: WriteStream;
+  private readonly forwardActiveStreamError = (error: Error): void => {
+    this.destroy(error);
+  };
 
   private constructor(
     private readonly options: Required<FileDestinationOptions>,
@@ -86,7 +89,7 @@ class DailyFileStream extends Writable {
   }
 
   override _final(callback: (error?: Error | null) => void): void {
-    void closeWriteStream(this.activeStream).then(
+    void this.closeActiveStream().then(
       () => callback(),
       (error: Error) => callback(error),
     );
@@ -100,7 +103,7 @@ class DailyFileStream extends Writable {
   ): Promise<void> {
     try {
       if (recordDate !== this.activeDate) {
-        await closeWriteStream(this.activeStream);
+        await this.closeActiveStream();
         await this.openActiveStream(recordDate);
       }
 
@@ -120,10 +123,16 @@ class DailyFileStream extends Writable {
       await this.cleanup(date);
       this.activeDate = date;
       this.activeStream = stream;
+      stream.on("error", this.forwardActiveStreamError);
     } catch (error) {
       await closeWriteStream(stream);
       throw error;
     }
+  }
+
+  private async closeActiveStream(): Promise<void> {
+    this.activeStream.off("error", this.forwardActiveStreamError);
+    await closeWriteStream(this.activeStream);
   }
 
   private async cleanup(activeDate: string): Promise<void> {
