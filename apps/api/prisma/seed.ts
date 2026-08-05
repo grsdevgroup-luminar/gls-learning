@@ -1,30 +1,31 @@
 /**
- * Seeds the database to full parity with the prototype's mock data. For now it
- * imports the mock modules directly from apps/web (they use type-only imports,
- * erased at runtime). When the frontend is rewired off the mocks, snapshot this
- * data into the seed so it becomes self-contained.
+ * Seeds the database to full parity with the original prototype's mock data.
+ * The fixtures live in ./seed-data — backend-owned, self-contained — snapshot
+ * ed there from apps/web/lib/mock/* once the frontend was migrated onto
+ * @skillstream/shared DTOs directly and the frontend's copies were deleted as
+ * dead code (they weren't dead here).
  */
 import { PrismaClient, type Prisma } from "@prisma/client";
 import * as argon2 from "argon2";
 
-import { courses as mockCourses } from "../../web/lib/mock/courses";
+import { courses as mockCourses } from "./seed-data/courses";
 import {
   instructors as mockInstructors,
   pendingApplications,
-} from "../../web/lib/mock/instructors";
-import { students as mockStudents } from "../../web/lib/mock/students";
-import { coupons as mockCoupons } from "../../web/lib/mock/coupons";
-import { reviews as mockReviews } from "../../web/lib/mock/reviews";
-import { automationRules as mockRules } from "../../web/lib/mock/automation";
+} from "./seed-data/instructors";
+import { students as mockStudents } from "./seed-data/students";
+import { coupons as mockCoupons } from "./seed-data/coupons";
+import { reviews as mockReviews } from "./seed-data/reviews";
+import { automationRules as mockRules } from "./seed-data/automation";
 import {
   salesAgents as mockAgents,
   pendingAgentApplications,
   agentReferrals,
-} from "../../web/lib/mock/sales-agents";
+} from "./seed-data/sales-agents";
 import {
   organizations as mockOrgs,
   pendingInvitations,
-} from "../../web/lib/mock/organizations";
+} from "./seed-data/organizations";
 
 const prisma = new PrismaClient();
 
