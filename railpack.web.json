@@ -21,6 +21,6 @@
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter @skillstream/web start -- -p ${PORT:-3001}"
+    "startCommand": "pnpm --filter @skillstream/web start"
   }
 }
