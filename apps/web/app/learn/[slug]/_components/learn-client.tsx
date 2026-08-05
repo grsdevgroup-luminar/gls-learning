@@ -314,7 +314,7 @@ function RatingControl({ courseId }: { courseId: string }) {
       toast.error("Pick a star rating first");
       return;
     }
-    submitReview(courseId, value, title || existing?.title || "", existing?.body || "");
+    submitReview(courseId, value, title.trim() || existing?.title || "Course rating", existing?.body || "");
     setOpen(false);
     toast.success("Thanks for your rating!", { description: `${value} of 5 stars` });
   }

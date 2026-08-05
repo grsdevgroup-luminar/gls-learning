@@ -204,7 +204,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     enrolled,
     isEnrolled: (id) => enrolled.includes(id),
     toggleLesson: (courseId, lessonId) => {
-      void api.toggleLesson(courseId, lessonId).then(refetchEnrollments);
+      void api
+        .toggleLesson(courseId, lessonId)
+        .then(refetchEnrollments)
+        .catch((err) => toast.error(getApiErrorMessage(err)));
     },
     isLessonDone: (courseId, lessonId) =>
       (progress[courseId] ?? []).includes(lessonId),
