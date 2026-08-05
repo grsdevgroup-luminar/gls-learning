@@ -1,0 +1,23 @@
+# Nixpacks build plan for Web service.
+# Wire to service via env: NIXPACKS_CONFIG_FILE=nixpacks.web.toml
+
+providers = ["node"]
+
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = [
+  "corepack enable",
+  "corepack prepare pnpm@11.4.0 --activate",
+  "pnpm install --frozen-lockfile --prefer-offline",
+]
+
+[phases.build]
+cmds = [
+  "pnpm --filter @skillstream/shared build",
+  "pnpm --filter @skillstream/web build",
+]
+
+[start]
+cmd = "pnpm --filter @skillstream/web start -- -p ${PORT:-3001}"
