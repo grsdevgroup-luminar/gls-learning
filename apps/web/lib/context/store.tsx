@@ -16,19 +16,23 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { DEFAULT_REGION, FALLBACK_REGION, type RegionRow } from "@/lib/pricing";
 import { toast } from "sonner";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
+import { useCatalog } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import {
-  enrollmentsToProgress,
-  toLegacyCourse,
-  toLegacyCourseDetail,
-} from "@/lib/api/adapters";
 import { useSession } from "@/lib/api/session";
-import type { Course } from "@/types";
+import type { CourseSummaryDto, EnrollmentDto } from "@skillstream/shared";
+
+/** Completed-lesson-id map keyed by courseId, from the user's enrollments. */
+function enrollmentsToProgress(
+  enrollments: EnrollmentDto[],
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const e of enrollments) out[e.courseId] = e.completedLessonIds;
+  return out;
+}
 
 export type Role =
   | "guest"
@@ -88,8 +92,7 @@ interface StoreContextValue {
     body: string,
   ) => void;
   // courses
-  courses: Course[];
-  getCourse: (id: string) => Course | undefined;
+  courses: CourseSummaryDto[];
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -106,7 +109,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ── client caches (quiz results / my reviews) ──
   const [myReviews, setMyReviews] = useState<Record<string, MyReview>>({});
-  const [detailsById, setDetailsById] = useState<Record<string, Course>>({});
 
   useEffect(() => {
     // Restore persisted client state after mount. Deferred to a task so the
@@ -153,16 +155,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     FALLBACK_REGION;
 
   // ── catalog (published summaries) ──
-  const { data: courseList } = useQuery({
-    queryKey: ["store", "courses"],
-    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
-    staleTime: 60_000,
-  });
-  const courses = useMemo<Course[]>(() => {
-    const summaries = (courseList?.items ?? []).map(toLegacyCourse);
-    // Prefer fully-loaded details (with curriculum) when available.
-    return summaries.map((c) => detailsById[c.id] ?? c);
-  }, [courseList, detailsById]);
+  const { data: courseList } = useCatalog();
+  const courses: CourseSummaryDto[] = courseList?.items ?? [];
 
   // ── enrollments / progress ──
   const { data: enrollments } = useQuery({
@@ -178,34 +172,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const progress = useMemo(
     () => enrollmentsToProgress(enrollments ?? []),
     [enrollments],
-  );
-
-  // Lazily load a course's full curriculum into the details cache.
-  const ensureDetail = useCallback(
-    async (idOrSlug: string) => {
-      const known =
-        courseList?.items.find(
-          (c) => c.id === idOrSlug || c.slug === idOrSlug,
-        ) ?? null;
-      const slug = known?.slug ?? idOrSlug;
-      try {
-        const detail = await api.course(slug);
-        setDetailsById((m) => ({ ...m, [detail.id]: toLegacyCourseDetail(detail) }));
-      } catch {
-        /* ignore */
-      }
-    },
-    [courseList],
-  );
-
-  const getCourse = useCallback(
-    (id: string): Course | undefined => {
-      const found =
-        detailsById[id] ?? courses.find((c) => c.id === id || c.slug === id);
-      if (found && detailsById[found.id] === undefined) void ensureDetail(id);
-      return found;
-    },
-    [courses, detailsById, ensureDetail],
   );
 
   const refetchEnrollments = useCallback(
@@ -262,7 +228,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     // courses
     courses,
-    getCourse,
   };
 
   return (

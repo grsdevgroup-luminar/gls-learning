@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import type {
   AutomationRuleDto,
   CheckoutQuoteInput,
@@ -17,38 +18,29 @@ import type {
   UpsertCouponInput,
 } from "@skillstream/shared";
 import { api } from "./endpoints";
+import { qk } from "./query-keys";
 
-// Query keys
-export const qk = {
-  courses: (params?: unknown) => ["courses", params] as const,
-  course: (slug: string) => ["course", slug] as const,
-  enrollments: ["enrollments"] as const,
-  weeklyActivity: ["enrollments", "weekly-activity"] as const,
-  progress: (courseId: string) => ["progress", courseId] as const,
-  quiz: (lessonId: string) => ["quiz", lessonId] as const,
-  quizResult: (lessonId: string) => ["quiz-result", lessonId] as const,
-  orders: ["orders"] as const,
-  reviews: (courseId: string) => ["reviews", courseId] as const,
-  comments: (courseId: string) => ["comments", courseId] as const,
-  myReview: (courseId: string) => ["my-review", courseId] as const,
-  certificates: ["certificates"] as const,
-  adminOverview: ["admin-overview"] as const,
-  adminStudents: (params?: unknown) => ["admin-students", params] as const,
-  adminOrders: (params?: unknown) => ["admin-orders", params] as const,
-  instructorProfile: ["instructor-profile"] as const,
-  instructorCourses: ["instructor-courses"] as const,
-  salesAgents: ["sales-agents"] as const,
-  categories: ["categories"] as const,
-  adminCoupons: ["admin-coupons"] as const,
-  featuredCoupon: ["featured-coupon"] as const,
-  adminSettings: ["admin-settings"] as const,
-  automationRules: ["automation-rules"] as const,
-  reminderLogs: ["reminder-logs"] as const,
-};
+// Re-exported for existing importers — the canonical definition lives in
+// query-keys.ts (no "use client") so Server Components can also use it when
+// prefetching, which a plain export from this "use client" file can't do:
+// importing a "use client" module's non-component exports into a Server
+// Component gets you an opaque client reference, not the callable function.
+export { qk };
 
 // ── catalog ──────────────────────────────────────────────────────────────
 export const useCourses = (params: Record<string, string | number | undefined>) =>
   useQuery({ queryKey: qk.courses(params), queryFn: () => api.courses(params) });
+
+/** The full published catalog at once — used wherever a page needs to look up
+ *  courses by id/slug from an already-fetched list (store, cart) rather than
+ *  paginated browsing (that's `useCourses`). One query key so every caller
+ *  shares the same cache entry instead of each re-fetching independently. */
+export const useCatalog = () =>
+  useQuery({
+    queryKey: qk.catalog,
+    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
+    staleTime: 60_000,
+  });
 
 export const useCourse = (slug: string) =>
   useQuery({ queryKey: qk.course(slug), queryFn: () => api.course(slug) });

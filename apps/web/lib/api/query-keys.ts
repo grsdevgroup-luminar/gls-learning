@@ -1,0 +1,31 @@
+// Pure query-key builders — deliberately not "use client" (unlike hooks.ts)
+// so Server Components can import and call them directly when prefetching,
+// and have the resulting key match what a client useQuery call builds with
+// the same params.
+export const qk = {
+  courses: (params?: unknown) => ["courses", params] as const,
+  course: (slug: string) => ["course", slug] as const,
+  enrollments: ["enrollments"] as const,
+  weeklyActivity: ["enrollments", "weekly-activity"] as const,
+  progress: (courseId: string) => ["progress", courseId] as const,
+  quiz: (lessonId: string) => ["quiz", lessonId] as const,
+  quizResult: (lessonId: string) => ["quiz-result", lessonId] as const,
+  orders: ["orders"] as const,
+  reviews: (courseId: string) => ["reviews", courseId] as const,
+  comments: (courseId: string) => ["comments", courseId] as const,
+  myReview: (courseId: string) => ["my-review", courseId] as const,
+  certificates: ["certificates"] as const,
+  adminOverview: ["admin-overview"] as const,
+  adminStudents: (params?: unknown) => ["admin-students", params] as const,
+  adminOrders: (params?: unknown) => ["admin-orders", params] as const,
+  instructorProfile: ["instructor-profile"] as const,
+  instructorCourses: ["instructor-courses"] as const,
+  salesAgents: ["sales-agents"] as const,
+  categories: ["categories"] as const,
+  adminCoupons: ["admin-coupons"] as const,
+  featuredCoupon: ["featured-coupon"] as const,
+  adminSettings: ["admin-settings"] as const,
+  automationRules: ["automation-rules"] as const,
+  reminderLogs: ["reminder-logs"] as const,
+  catalog: ["store", "courses"] as const,
+};

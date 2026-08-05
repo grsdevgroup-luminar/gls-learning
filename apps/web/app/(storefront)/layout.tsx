@@ -1,6 +1,6 @@
-import { SaleBanner } from "@/components/storefront/sale-banner";
-import { SiteHeader } from "@/components/storefront/site-header";
-import { SiteFooter } from "@/components/storefront/site-footer";
+import { SaleBanner } from "@/components/layout/sale-banner";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 
 export default function StorefrontLayout({
   children,

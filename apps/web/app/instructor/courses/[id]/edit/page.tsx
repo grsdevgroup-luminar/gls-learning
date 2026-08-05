@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { CourseBuilder } from "@/components/admin/course-builder";
-import { ApprovalGate } from "@/components/instructor/approval-gate";
+import { CourseBuilder } from "@/components/shared/course-builder";
+import { ApprovalGate } from "../../../_components/approval-gate";
 
 export default function EditInstructorCourse() {
   const { id } = useParams<{ id: string }>();

@@ -1,10 +1,10 @@
-"use client";
-
 import Link from "next/link";
+import type { AuthUserDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
-import { useSession } from "@/lib/api/session";
+import { serverApiOptional } from "@/lib/api/server";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
+import { initials } from "@/lib/format";
 import {
   LayoutDashboard,
   Link2,
@@ -20,10 +20,9 @@ const items: NavItem[] = [
   { href: "/sales-agent/profile", label: "Profile", icon: UserCog },
 ];
 
-export default function SalesAgentLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useSession();
-
-  if (isLoading) return null;
+// Server Component — see app/(student)/layout.tsx for why.
+export default async function SalesAgentLayout({ children }: { children: React.ReactNode }) {
+  const user = await serverApiOptional<AuthUserDto>("/auth/me");
 
   if (!user) {
     return (
@@ -46,18 +45,12 @@ export default function SalesAgentLayout({ children }: { children: React.ReactNo
 
   const name = user.name;
   const email = user.email;
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <PortalShell
       items={items}
       badge="Sales Agent"
-      user={{ name, email, initials }}
+      user={{ name, email, initials: initials(name) }}
     >
       {children}
     </PortalShell>

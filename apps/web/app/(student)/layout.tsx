@@ -1,7 +1,6 @@
-"use client";
-
+import type { AuthUserDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
-import { useSession } from "@/lib/api/session";
+import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
 import { LayoutDashboard, BarChart3, Award, Receipt, Settings, Building2 } from "lucide-react";
 
@@ -14,8 +13,13 @@ const items: NavItem[] = [
   { href: "/account", label: "Account", icon: Settings },
 ];
 
-export default function StudentLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useSession();
+// Server Component: only PortalShell's nav chrome needs to be a client
+// boundary (active-link highlighting, mobile sheet, logout dropdown) — the
+// viewer's name/email for the sidebar comes from a server-side session read
+// (same cookie-forwarding serverApi pattern as the home page), instead of
+// requiring this whole layout to be client-rendered just for useSession().
+export default async function StudentLayout({ children }: { children: React.ReactNode }) {
+  const user = await serverApiOptional<AuthUserDto>("/auth/me");
   const name = user?.name ?? "Student";
   const email = user?.email ?? "";
   return (
