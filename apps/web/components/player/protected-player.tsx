@@ -72,7 +72,7 @@ export function ProtectedPlayer({
     );
   }
 
-  if (!data?.ready) {
+  if (!data?.ready || !data.iframeUrl) {
     return (
       <Frame seed={seed}>
         <Clock className="h-8 w-8 text-white/70" />
@@ -88,9 +88,9 @@ export function ProtectedPlayer({
       <div className="aspect-video">
         <iframe
           key={lessonId}
-          src={data.iframeUrl ?? undefined}
+          src={data.iframeUrl}
           title={title}
-          className="h-full w-full"
+          className="h-full w-full border-0"
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
         />
@@ -114,7 +114,6 @@ function Frame({ seed, children }: { seed: string; children: React.ReactNode }) 
       )}
       style={{ backgroundImage: gradientFor(seed) }}
     >
-      <div className="absolute inset-0 rounded-xl bg-black/35" />
       <div className="relative z-10 flex flex-col items-center">{children}</div>
     </div>
   );

@@ -3,7 +3,31 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { type LucideIcon, Menu, ExternalLink, LogOut } from "lucide-react";
+import {
+  Award,
+  BarChart3,
+  BookOpen,
+  Building2,
+  DollarSign,
+  ExternalLink,
+  Globe2,
+  GraduationCap,
+  LayoutDashboard,
+  Link2,
+  LogOut,
+  Menu,
+  Megaphone,
+  Receipt,
+  Settings,
+  ShoppingBag,
+  Star,
+  Ticket,
+  type LucideIcon,
+  UserCheck,
+  UserCog,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { CommandPalette } from "@/components/shared/command-palette";
@@ -19,10 +43,38 @@ import {
 import { useLogout } from "@/lib/api/session";
 import { cn } from "@/lib/utils";
 
+const navIcons = {
+  Award,
+  BarChart3,
+  BookOpen,
+  Building2,
+  DollarSign,
+  Globe2,
+  GraduationCap,
+  LayoutDashboard,
+  Link2,
+  Megaphone,
+  Receipt,
+  Settings,
+  ShoppingBag,
+  Star,
+  Ticket,
+  UserCheck,
+  UserCog,
+  Users,
+  Wallet,
+} satisfies Record<string, LucideIcon>;
+
+export type NavIconName = keyof typeof navIcons;
+
+export function getNavIcon(name: NavIconName) {
+  return navIcons[name];
+}
+
 export interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: NavIconName;
   exact?: boolean;
 }
 
@@ -52,9 +104,10 @@ export function PortalShell({
     it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/");
 
   const Nav = (
-    <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
+    <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
       {items.map((it) => {
         const active = isActive(it);
+        const Icon = getNavIcon(it.icon);
         return (
           <Link
             key={it.href}
@@ -74,7 +127,7 @@ export function PortalShell({
                 active ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0",
               )}
             />
-            <it.icon
+            <Icon
               className={cn(
                 "size-4 transition-colors",
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
@@ -88,8 +141,8 @@ export function PortalShell({
   );
 
   const SidebarInner = (
-    <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border pl-4 pr-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border pl-4 pr-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Logo className="shrink-0" iconOnly />
           <span className="shrink-0 truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -98,11 +151,11 @@ export function PortalShell({
         </div>
         <ThemeToggle className="shrink-0" />
       </div>
-      <div className="px-3 pt-3">
+      <div className="shrink-0 px-3 pt-3">
         <CommandPalette items={items} />
       </div>
       {Nav}
-      <div className="border-t border-sidebar-border p-3">
+      <div className="shrink-0 border-t border-sidebar-border p-3">
         <Link
           href="/"
           className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"

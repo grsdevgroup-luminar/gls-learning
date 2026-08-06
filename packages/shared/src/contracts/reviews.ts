@@ -4,7 +4,7 @@ import type { ReviewStatus } from "../enums.js";
 export const createReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   title: z.string().min(1).max(160),
-  body: z.string().min(1).max(4000),
+  body: z.string().trim().max(4000),
 });
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 

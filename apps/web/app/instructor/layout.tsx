@@ -5,13 +5,13 @@ import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/format";
-import { LayoutDashboard, BookOpen, BarChart3, UserCog, GraduationCap } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 
 const items: NavItem[] = [
-  { href: "/instructor", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/instructor/courses", label: "My Courses", icon: BookOpen },
-  { href: "/instructor/earnings", label: "Earnings", icon: BarChart3 },
-  { href: "/instructor/profile", label: "Profile", icon: UserCog },
+  { href: "/instructor", label: "Overview", icon: "LayoutDashboard", exact: true },
+  { href: "/instructor/courses", label: "My Courses", icon: "BookOpen" },
+  { href: "/instructor/earnings", label: "Earnings", icon: "BarChart3" },
+  { href: "/instructor/profile", label: "Profile", icon: "UserCog" },
 ];
 
 // Server Component — see app/(student)/layout.tsx for why. The role gate

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/context/store";
-import type { NavItem } from "@/components/shared/portal-shell";
+import { getNavIcon, type NavItem } from "@/components/shared/portal-shell";
 import { Search, CornerDownLeft, ArrowRight, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
       id: it.href,
       label: it.label,
       href: it.href,
-      icon: it.icon,
+      icon: getNavIcon(it.icon),
       group: "Navigation",
     }));
     const courseCmds: Cmd[] = courses

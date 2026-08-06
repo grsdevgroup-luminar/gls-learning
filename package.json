@@ -7,7 +7,8 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "node scripts/ensure-infra.mjs && turbo run dev",
+    "dev:app": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
