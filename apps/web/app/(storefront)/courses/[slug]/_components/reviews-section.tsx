@@ -82,7 +82,7 @@ export function ReviewsSection({
               </div>
             </div>
             <h4 className="mt-2 text-sm font-semibold">{r.title}</h4>
-            <p className="mt-1 text-sm text-muted-foreground">{r.body}</p>
+            {r.body && <p className="mt-1 text-sm text-muted-foreground">{r.body}</p>}
             <button className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <ThumbsUp className="h-3.5 w-3.5" /> Helpful ({r.helpful})
             </button>

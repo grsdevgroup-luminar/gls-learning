@@ -141,7 +141,7 @@ function ReviewBody({ r }: { r: ReviewDto }) {
         <Badge variant="outline" className="text-xs">{r.courseTitle}</Badge>
       </div>
       <h4 className="mt-2 text-sm font-semibold">{r.title}</h4>
-      <p className="text-sm text-muted-foreground">{r.body}</p>
+      {r.body && <p className="text-sm text-muted-foreground">{r.body}</p>}
     </div>
   );
 }

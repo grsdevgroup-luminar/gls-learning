@@ -5,19 +5,13 @@ import { serverApiOptional } from "@/lib/api/server";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/format";
-import {
-  LayoutDashboard,
-  Link2,
-  DollarSign,
-  UserCog,
-  Megaphone,
-} from "lucide-react";
+import { Megaphone } from "lucide-react";
 
 const items: NavItem[] = [
-  { href: "/sales-agent", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/sales-agent/referrals", label: "Referrals", icon: Link2 },
-  { href: "/sales-agent/earnings", label: "Earnings", icon: DollarSign },
-  { href: "/sales-agent/profile", label: "Profile", icon: UserCog },
+  { href: "/sales-agent", label: "Overview", icon: "LayoutDashboard", exact: true },
+  { href: "/sales-agent/referrals", label: "Referrals", icon: "Link2" },
+  { href: "/sales-agent/earnings", label: "Earnings", icon: "DollarSign" },
+  { href: "/sales-agent/profile", label: "Profile", icon: "UserCog" },
 ];
 
 // Server Component — see app/(student)/layout.tsx for why.

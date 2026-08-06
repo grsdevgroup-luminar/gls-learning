@@ -2,15 +2,14 @@ import type { AuthUserDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
-import { LayoutDashboard, BarChart3, Award, Receipt, Settings, Building2 } from "lucide-react";
 
 const items: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/progress", label: "My progress", icon: BarChart3 },
-  { href: "/dashboard/team", label: "Team courses", icon: Building2 },
-  { href: "/dashboard/certificates", label: "Certificates", icon: Award },
-  { href: "/dashboard/billing", label: "Billing", icon: Receipt },
-  { href: "/account", label: "Account", icon: Settings },
+  { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard", exact: true },
+  { href: "/dashboard/progress", label: "My progress", icon: "BarChart3" },
+  { href: "/dashboard/team", label: "Team courses", icon: "Building2" },
+  { href: "/dashboard/certificates", label: "Certificates", icon: "Award" },
+  { href: "/dashboard/billing", label: "Billing", icon: "Receipt" },
+  { href: "/account", label: "Account", icon: "Settings" },
 ];
 
 // Server Component: only PortalShell's nav chrome needs to be a client
