@@ -1,7 +1,21 @@
 import { z } from "zod";
 
 // Validated environment. Fails fast at boot if anything required is missing.
-export const envSchema = z.object({
+const optionalUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().url().optional(),
+);
+
+const logLevelSchema = z.enum([
+  "fatal",
+  "error",
+  "warn",
+  "info",
+  "debug",
+  "trace",
+]);
+
+const rawEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -49,13 +63,32 @@ export const envSchema = z.object({
   DOCS_PASSWORD: z.string().optional(),
   // Public base URL of this API, used as the Swagger "try it out" target.
   // Defaults to a relative server, which is correct when docs are served
-  // from the same origin as the API. dotenv turns an unset `PUBLIC_API_URL=`
-  // line into "", so normalize that to undefined before the url() check.
-  PUBLIC_API_URL: z.preprocess(
-    (v) => (v === "" ? undefined : v),
-    z.string().url().optional(),
-  ),
+  // from the same origin as the API.
+  PUBLIC_API_URL: optionalUrl,
+
+  // Logging
+  LOG_DESTINATION: z.enum(["file", "stdout"]).optional(),
+  LOG_LEVEL: logLevelSchema.default("info"),
+  LOG_DIR: z.string().trim().min(1).default("logs"),
+  LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
 });
+
+export const envSchema = rawEnvSchema
+  .transform((env) => ({
+    ...env,
+    LOG_DESTINATION:
+      env.LOG_DESTINATION ??
+      (env.NODE_ENV === "production" ? ("stdout" as const) : ("file" as const)),
+  }))
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === "production" && env.LOG_DESTINATION === "file") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["LOG_DESTINATION"],
+        message: "LOG_DESTINATION must be stdout in production",
+      });
+    }
+  });
 
 export type Env = z.infer<typeof envSchema>;
 

@@ -1,9 +1,12 @@
 import "reflect-metadata";
-import { describe, expect, it } from "vitest";
-import { Controller, Post, Get } from "@nestjs/common";
+import { describe, expect, it, vi } from "vitest";
+import { Controller, Get, Logger, Post } from "@nestjs/common";
+import type { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Test } from "@nestjs/testing";
 import { z } from "zod";
+import type { Env } from "../../config/env";
+import { setupSwagger } from "../../config/swagger.config";
 import { ZodBody, ZodQuery, zodSchemaObject } from "../utils/swagger";
 
 const bodySchema = z.object({
@@ -80,5 +83,21 @@ describe("ZodQuery", () => {
     expect(byName.q).toMatchObject({ in: "query", required: true });
     // `page` has a default, so it must not be advertised as required.
     expect(byName.page).toMatchObject({ in: "query", required: false });
+  });
+});
+
+describe("setupSwagger", () => {
+  it("uses the Nest logger when production docs are disabled", () => {
+    const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
+    const config = {
+      get: (key: string) => (key === "NODE_ENV" ? "production" : undefined),
+    } as unknown as ConfigService<Env, true>;
+
+    setupSwagger({} as never, config);
+
+    expect(warn).toHaveBeenCalledWith(
+      "Docs disabled: set DOCS_USER and DOCS_PASSWORD to enable in production",
+    );
+    warn.mockRestore();
   });
 });

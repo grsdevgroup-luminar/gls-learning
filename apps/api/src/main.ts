@@ -1,12 +1,14 @@
 import "reflect-metadata";
 import * as Sentry from "@sentry/node";
 import { NestFactory } from "@nestjs/core";
+import { Logger, type LoggerService } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import type { Env } from "./config/env";
 import { setupSwagger } from "./config/swagger.config";
+import { APP_LOGGER } from "./logging/logging.constants";
 
 async function bootstrap(): Promise<void> {
   // Initialise error tracking before anything else when a DSN is configured.
@@ -19,8 +21,12 @@ async function bootstrap(): Promise<void> {
   }
 
   const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
     rawBody: true, // needed for Stripe webhook signature verification
   });
+  app.useLogger(app.get<LoggerService>(APP_LOGGER));
+  app.flushLogs();
+  app.enableShutdownHooks();
 
   const config = app.get(ConfigService<Env, true>);
 
@@ -38,7 +44,8 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get("PORT", { infer: true });
   await app.listen(port);
-  console.log(`API listening on http://localhost:${port} (docs at /docs)`);
+  const logger = new Logger("Bootstrap");
+  logger.log(`API listening on http://localhost:${port} (docs at /docs)`);
 }
 
 void bootstrap();
