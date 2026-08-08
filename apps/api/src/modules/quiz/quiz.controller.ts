@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Controller, Get, Param, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { quizAttemptSchema, type QuizAttemptInput } from "@skillstream/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";

@@ -31,10 +31,12 @@ export default function AdminStudents() {
 
   // Debounce the search box so every keystroke doesn't hit the API.
   useEffect(() => {
-    const t = setTimeout(() => setQ(qInput), 300);
+    const t = setTimeout(() => {
+      setQ(qInput);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(t);
   }, [qInput]);
-  useEffect(() => setPage(1), [q]);
 
   const { data: studentPage, isLoading, error } = useQuery({
     queryKey: ["admin", "students", q, page],
