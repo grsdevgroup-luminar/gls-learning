@@ -10,7 +10,7 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
-import { PaymentsService } from "./payments.service";
+import { PaymentsService, type PaypalWebhookBody } from "./payments.service";
 
 @ApiTags("payments")
 @Controller()
@@ -31,7 +31,7 @@ export class PaymentsController {
   @Public()
   @Post("webhooks/paypal")
   @HttpCode(200)
-  async paypal(@Body() body: unknown): Promise<{ received: true }> {
+  async paypal(@Body() body: PaypalWebhookBody): Promise<{ received: true }> {
     await this.payments.handlePaypalWebhook(body);
     return { received: true };
   }

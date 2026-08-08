@@ -16,8 +16,6 @@ import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PayoutsRepository } from "./payouts.repository";
 
-// Payouts that still "hold" part of the balance — a REJECTED one releases it.
-const OUTSTANDING = ["REQUESTED", "APPROVED", "PAID"] as const;
 const OPEN = ["REQUESTED", "APPROVED"] as const;
 
 /** Pure balance math, shared by the DTO builder and tested in isolation.
