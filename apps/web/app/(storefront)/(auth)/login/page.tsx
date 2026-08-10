@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { authApi } from "@/lib/api/auth";
 import { useLogin } from "@/lib/api/session";
@@ -18,7 +18,6 @@ import { toast } from "sonner";
 
 function LoginForm() {
   const login = useLogin();
-  const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,8 +39,11 @@ function LoginForm() {
       await login.mutateAsync({ email, password });
       const me = await authApi.me();
       toast.success("Welcome back!", { description: `Signed in as ${me.name}` });
-      router.push(destinationFor(me.role));
-      router.refresh();
+      // Hard navigation, not router.push: the destination route may already be
+      // sitting in Next's client router cache from a pre-login prefetch (e.g. a
+      // visible nav link to /admin or /dashboard), which would serve the stale
+      // "redirect to /login" response instead of re-checking the fresh session.
+      window.location.href = destinationFor(me.role);
     } catch (err) {
       const message = err instanceof ApiError ? err.displayMessage : "Login failed";
       toast.error("Could not sign in", { description: message });
