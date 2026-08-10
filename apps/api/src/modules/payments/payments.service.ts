@@ -14,6 +14,16 @@ import { PaymentsRepository } from "./payments.repository";
 
 type OrderRow = NonNullable<Awaited<ReturnType<OrdersService["findById"]>>>;
 
+export type PaypalWebhookBody = {
+  id?: string;
+  event_type?: string;
+  resource?: {
+    id?: string;
+    custom_id?: string;
+    purchase_units?: { custom_id?: string }[];
+  };
+};
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -193,7 +203,7 @@ export class PaymentsService {
     };
   }
 
-  async handlePaypalWebhook(body: any): Promise<void> {
+  async handlePaypalWebhook(body: PaypalWebhookBody): Promise<void> {
     const eventId: string | undefined = body?.id;
     const type: string | undefined = body?.event_type;
     if (!eventId || !type) throw new BadRequestException("Invalid PayPal event");

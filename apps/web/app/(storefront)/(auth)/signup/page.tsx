@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
 import { ApiError } from '@/lib/api/errors';
@@ -23,7 +23,6 @@ const perks = [
 
 function SignupForm() {
   const register = useRegister();
-  const router = useRouter();
   const params = useSearchParams();
   // Carried from an org-invite link: prefill the invited email and return to
   // the join page (which auto-claims) after the account is created.
@@ -38,8 +37,10 @@ function SignupForm() {
       toast.success('Account created!', {
         description: 'Welcome to SkillStream 🎉',
       });
-      router.push(next || '/courses');
-      router.refresh();
+      // Hard navigation, not router.push — see login/page.tsx for why: `next`
+      // can point at a protected route (e.g. an org-invite join link) that may
+      // already be sitting in the router cache as a stale pre-auth redirect.
+      window.location.href = next || '/courses';
     } catch (err) {
       const message =
         err instanceof ApiError ? err.displayMessage : 'Sign up failed';

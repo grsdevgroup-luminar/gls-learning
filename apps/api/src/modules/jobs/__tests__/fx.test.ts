@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FxService } from "../fx.service";
 
-// Minimal stand-ins: FxService only reaches for region.findMany/update and one
-// config key, so a full Nest testing module would be ceremony with no payoff.
+// Minimal stand-ins: FxService only reaches for findAllRegions/updateRegionRate
+// and one config key, so a full Nest testing module would be ceremony with no payoff.
 function makeService(regions: { code: string; currency: string; fxRate: number }[]) {
   const update = vi.fn().mockResolvedValue({});
-  const prisma = { region: { findMany: vi.fn().mockResolvedValue(regions), update } };
+  const repo = { findAllRegions: vi.fn().mockResolvedValue(regions), updateRegionRate: update };
   const config = { get: () => "https://fx.example/latest/USD" };
-  const service = new FxService(prisma as never, config as never);
+  const service = new FxService(repo as never, config as never);
   return { service, update };
 }
 
@@ -35,12 +35,7 @@ describe("FxService.refresh", () => {
     const result = await service.refresh();
 
     expect(result).toEqual({ updated: 2, skipped: [] });
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { code: "BD" },
-        data: expect.objectContaining({ fxRate: 122.5 }),
-      }),
-    );
+    expect(update).toHaveBeenCalledWith("BD", 122.5, expect.any(Date));
   });
 
   it("never round-trips USD through the feed — the base is always exactly 1", async () => {
@@ -50,9 +45,7 @@ describe("FxService.refresh", () => {
 
     await service.refresh();
 
-    expect(update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ where: { code: "US" } }),
-    );
+    expect(update).not.toHaveBeenCalledWith("US", expect.anything(), expect.anything());
   });
 
   it("keeps the last known rate when the feed is unreachable", async () => {
@@ -86,9 +79,7 @@ describe("FxService.refresh", () => {
     const result = await service.refresh();
 
     expect(result).toEqual({ updated: 1, skipped: ["BDT"] });
-    expect(update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ where: { code: "BD" } }),
-    );
+    expect(update).not.toHaveBeenCalledWith("BD", expect.anything(), expect.anything());
   });
 
   it("skips currencies the feed omits, leaving their stored rate intact", async () => {
