@@ -1,8 +1,11 @@
 import type { ProblemDetail } from "@skillstream/shared";
 import { ApiError } from "./errors";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+const BROWSER_BASE = "/api";
+const SERVER_BASE = process.env.API_ORIGIN
+  ? `${process.env.API_ORIGIN}/api`
+  : "http://localhost:4000/api";
+const BASE_URL = typeof window === "undefined" ? SERVER_BASE : BROWSER_BASE;
 
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
