@@ -10,7 +10,7 @@ import { PricingService } from "./pricing.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
 import { OrdersRepository } from "./orders.repository";
-import { PaymentsService } from "../payments/payments.service";
+import { PaymentsService } from "../payment/payments.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
 
 @Injectable()

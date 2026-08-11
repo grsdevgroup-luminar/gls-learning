@@ -1,9 +1,12 @@
 import { Module } from "@nestjs/common";
 import { EnrollmentModule } from "../enrollment/enrollment.module";
 import { SalesAgentModule } from "../sales-agent/sales-agent.module";
-import { PaymentsService } from "../payments/payments.service";
-import { PaymentsController } from "../payments/payments.controller";
-import { PaymentsRepository } from "../payments/payments.repository";
+import { PaymentsService } from "../payment/payments.service";
+import { PaymentsController } from "../payment/payments.controller";
+import { PaymentsRepository } from "../payment/payments.repository";
+import { PaymentGatewayFactory } from "../payment/factory/payment-gateway.factory";
+import { StripeGateway } from "../payment/gateways/stripe/stripe.gateway";
+import { PaypalGateway } from "../payment/gateways/paypal/paypal.gateway";
 import { PricingService } from "./pricing.service";
 import { PricingController } from "./pricing.controller";
 import { PricingRepository } from "./pricing.repository";
@@ -38,6 +41,9 @@ import { CheckoutController } from "./checkout.controller";
     CheckoutService,
     PaymentsService,
     PaymentsRepository,
+    StripeGateway,
+    PaypalGateway,
+    PaymentGatewayFactory,
   ],
   exports: [PricingService, CouponsService, OrdersService, PaymentsService],
 })

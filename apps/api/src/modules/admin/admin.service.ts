@@ -18,7 +18,7 @@ import type {
   UpsertCouponInput,
   UpdateUserStatusInput,
 } from "@skillstream/shared";
-import { PaymentsService } from "../payments/payments.service";
+import { PaymentsService } from "../payment/payments.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import { AdminRepository } from "./admin.repository";
 

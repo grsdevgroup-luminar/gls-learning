@@ -9,8 +9,12 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
-import { PaymentsService, type PaypalWebhookBody } from "./payments.service";
+import {
+  CurrentUser,
+  Public,
+  type RequestUser,
+} from "../../common/decorators/decorators";
+import { PaymentsService } from "./payments.service";
 
 @ApiTags("payments")
 @Controller()
@@ -20,7 +24,9 @@ export class PaymentsController {
   @Public()
   @Post("webhooks/stripe")
   @HttpCode(200)
-  async stripe(@Req() req: RawBodyRequest<Request>): Promise<{ received: true }> {
+  async stripe(
+    @Req() req: RawBodyRequest<Request>,
+  ): Promise<{ received: true }> {
     await this.payments.handleStripeWebhook(
       req.rawBody as Buffer,
       req.headers["stripe-signature"] as string | undefined,
@@ -31,12 +37,11 @@ export class PaymentsController {
   @Public()
   @Post("webhooks/paypal")
   @HttpCode(200)
-  async paypal(@Body() body: PaypalWebhookBody): Promise<{ received: true }> {
+  async paypal(@Body() body: unknown): Promise<{ received: true }> {
     await this.payments.handlePaypalWebhook(body);
     return { received: true };
   }
 
-  /** Dev-only: simulate a successful payment to exercise fulfilment locally. */
   @Post("payments/dev/simulate/:orderId")
   @HttpCode(200)
   devSimulate(
