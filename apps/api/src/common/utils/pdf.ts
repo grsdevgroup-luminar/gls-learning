@@ -29,6 +29,16 @@ export interface PdfRect {
   w: number;
   h: number;
   gray?: number;
+  fillGray?: number;
+  lineWidth?: number;
+}
+
+export interface PdfCircle {
+  x: number;
+  y: number;
+  r: number;
+  gray?: number;
+  fillGray?: number;
   lineWidth?: number;
 }
 
@@ -37,6 +47,7 @@ export interface PdfPage {
   height: number;
   lines: PdfLine[];
   rects?: PdfRect[];
+  circles?: PdfCircle[];
 }
 
 /**
@@ -64,7 +75,23 @@ function contentStream(page: PdfPage): string {
 
   for (const r of page.rects ?? []) {
     const g = r.gray ?? 0;
+    if (r.fillGray !== undefined)
+      ops.push(`${r.fillGray} g ${r.x} ${r.y} ${r.w} ${r.h} re f`);
     ops.push(`${g} G ${r.lineWidth ?? 1} w ${r.x} ${r.y} ${r.w} ${r.h} re S`);
+  }
+
+  for (const c of page.circles ?? []) {
+    const k = 0.5522847498;
+    const cp = c.r * k;
+    const path = [
+      `${(c.x + c.r).toFixed(2)} ${c.y.toFixed(2)} m`,
+      `${(c.x + c.r).toFixed(2)} ${(c.y + cp).toFixed(2)} ${(c.x + cp).toFixed(2)} ${(c.y + c.r).toFixed(2)} ${c.x.toFixed(2)} ${(c.y + c.r).toFixed(2)} c`,
+      `${(c.x - cp).toFixed(2)} ${(c.y + c.r).toFixed(2)} ${(c.x - c.r).toFixed(2)} ${(c.y + cp).toFixed(2)} ${(c.x - c.r).toFixed(2)} ${c.y.toFixed(2)} c`,
+      `${(c.x - c.r).toFixed(2)} ${(c.y - cp).toFixed(2)} ${(c.x - cp).toFixed(2)} ${(c.y - c.r).toFixed(2)} ${c.x.toFixed(2)} ${(c.y - c.r).toFixed(2)} c`,
+      `${(c.x + cp).toFixed(2)} ${(c.y - c.r).toFixed(2)} ${(c.x + c.r).toFixed(2)} ${(c.y - cp).toFixed(2)} ${(c.x + c.r).toFixed(2)} ${c.y.toFixed(2)} c`,
+    ].join(" ");
+    if (c.fillGray !== undefined) ops.push(`${c.fillGray} g ${path} f`);
+    ops.push(`${c.gray ?? 0} G ${c.lineWidth ?? 1} w ${path} S`);
   }
 
   for (const line of page.lines) {
@@ -130,28 +157,46 @@ export function certificatePdf(input: {
 }): Buffer {
   const width = 842;
   const height = 595;
+  const issuedDate = input.issuedAt.toLocaleDateString("en-US", LONG_DATE);
+  const texture: PdfCircle[] = [];
+  for (let x = 62; x <= width - 62; x += 28) {
+    for (let y = 62; y <= height - 62; y += 28) {
+      texture.push({ x, y, r: 0.65, fillGray: 0.88, gray: 0.88, lineWidth: 0.1 });
+    }
+  }
   return buildPdf({
     width,
     height,
     rects: [
-      { x: 24, y: 24, w: width - 48, h: height - 48, gray: 0.15, lineWidth: 2 },
-      { x: 34, y: 34, w: width - 68, h: height - 68, gray: 0.6, lineWidth: 0.5 },
+      { x: 0, y: 0, w: width, h: height, fillGray: 0.985, gray: 0.985, lineWidth: 0.1 },
+      { x: 24, y: 24, w: width - 48, h: height - 48, gray: 0.55, lineWidth: 1.4 },
+      { x: 38, y: 38, w: width - 76, h: height - 76, gray: 0.78, lineWidth: 0.6 },
+      { x: 58, y: 58, w: width - 116, h: height - 116, gray: 0.9, lineWidth: 0.45 },
+      { x: 196, y: 170, w: 450, h: 0.1, gray: 0.64, lineWidth: 0.8 },
+      { x: 331, y: 96, w: 180, h: 0.1, gray: 0.64, lineWidth: 0.8 },
+      { x: 130, y: 96, w: 175, h: 0.1, gray: 0.72, lineWidth: 0.7 },
+      { x: 537, y: 96, w: 175, h: 0.1, gray: 0.72, lineWidth: 0.7 },
+    ],
+    circles: [
+      ...texture,
+      { x: width / 2, y: 190, r: 37, fillGray: 0.94, gray: 0.62, lineWidth: 1.6 },
+      { x: width / 2, y: 190, r: 43, gray: 0.75, lineWidth: 0.8 },
+      { x: width / 2, y: 190, r: 28, gray: 0.78, lineWidth: 0.6 },
     ],
     lines: [
-      { text: "SKILLSTREAM", y: 500, size: 16, bold: true, gray: 0.35 },
-      { text: "Certificate of Completion", y: 445, size: 34, bold: true },
-      { text: "This certifies that", y: 390, size: 13, gray: 0.35 },
-      { text: input.learnerName, y: 340, size: 30, bold: true },
-      { text: "has successfully completed the course", y: 295, size: 13, gray: 0.35 },
-      { text: input.courseTitle, y: 250, size: 20, bold: true },
-      {
-        text: `Issued ${input.issuedAt.toLocaleDateString("en-US", LONG_DATE)}`,
-        y: 150,
-        size: 12,
-        gray: 0.3,
-      },
-      { text: `Serial ${input.serial}`, y: 120, size: 10, gray: 0.45 },
-      { text: `Verify at ${input.verifyUrl}`, y: 100, size: 9, gray: 0.45 },
+      { text: "SKILLSTREAM ACADEMY", y: 505, size: 14, bold: true, gray: 0.28 },
+      { text: "Certificate of Completion", y: 455, size: 34, bold: true },
+      { text: "This certifies that", y: 400, size: 13, gray: 0.42 },
+      { text: input.learnerName, y: 350, size: 30, bold: true },
+      { text: "has successfully completed the course", y: 302, size: 13, gray: 0.42 },
+      { text: input.courseTitle, y: 262, size: 20, bold: true, gray: 0.18 },
+      { text: "VERIFIED", y: 184, size: 10, bold: true, gray: 0.35 },
+      { text: "SkillStream", x: 217, y: 112, size: 13, bold: true, align: "center" },
+      { text: "Issuing Platform", x: 217, y: 76, size: 9, gray: 0.45, align: "center" },
+      { text: `Issued ${issuedDate}`, x: 624, y: 112, size: 12, bold: true, align: "center" },
+      { text: "Date Issued", x: 624, y: 76, size: 9, gray: 0.45, align: "center" },
+      { text: `Serial ${input.serial}`, y: 130, size: 10, gray: 0.45 },
+      { text: `Verify at ${input.verifyUrl}`, y: 52, size: 8, gray: 0.45 },
     ],
   });
 }

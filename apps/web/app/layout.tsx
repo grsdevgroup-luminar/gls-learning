@@ -22,7 +22,7 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: 'SkillStream — Learn anything, anywhere',
+  title: 'GRS Learning — Learn anything, anywhere',
   description:
     'A modern course platform: world-class courses, protected video, progress tracking, and region-fair pricing.',
 };
@@ -45,3 +45,4 @@ export default function RootLayout({
     </html>
   );
 }
+

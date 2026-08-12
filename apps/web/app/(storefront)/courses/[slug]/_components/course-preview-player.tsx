@@ -16,7 +16,7 @@ export function CoursePreviewPlayer({
   seed: string;
 }) {
   const { user } = useSession();
-  const watermark = user?.email ?? "preview@SkillStream";
+  const watermark = user?.email ?? "preview@grs-learning";
 
   return (
     <div>

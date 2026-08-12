@@ -34,7 +34,7 @@ import {
 import {
   Check, PlayCircle, FileText, HelpCircle, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Download, ArrowLeft, Star, Trophy, ChevronDown,
-  Share2, MoreVertical, Sun, Moon, Link2,
+  Share2, MoreVertical, Sun, Moon, Link2, Save,
 } from "lucide-react";
 import { lessonTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -204,7 +204,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                 )}
               </TabsContent>
               <TabsContent value="notes" className="pt-4">
-                <LessonNotes lessonId={current.id} />
+                <LessonNotes key={current.id} lessonId={current.id} lessonTitle={current.title} />
               </TabsContent>
             </Tabs>
           </div>
@@ -510,55 +510,70 @@ function OverflowMenu({ slug }: { slug: string }) {
 }
 
 /**
- * Per-lesson notes, stored server-side so they follow the account. Saves are
- * debounced — one PUT when typing stops, not one per keystroke — and the
- * pending text is kept in local state so the textarea never fights the query.
+ * Per-lesson notes, stored server-side so they follow the account. The draft
+ * resets whenever the learner opens a different lesson and saves only when the
+ * explicit save button is pressed.
  */
-function LessonNotes({ lessonId }: { lessonId: string }) {
+function LessonNotes({ lessonId, lessonTitle }: { lessonId: string; lessonTitle: string }) {
   const qc = useQueryClient();
   const noteKey = ["me", "lesson-note", lessonId];
   const { data: note, isLoading } = useQuery({
     queryKey: noteKey,
     queryFn: () => api.lessonNote(lessonId),
   });
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const save = useMutation({
     mutationFn: (body: string) => api.saveLessonNote(lessonId, body),
-    // Writing the server's answer back into the cache is what makes the draft
-    // and the stored note match again — that comparison drives the status line.
-    onSuccess: (result, body) =>
-      qc.setQueryData(noteKey, result ?? { lessonId, body, updatedAt: new Date().toISOString() }),
+    // Writing the server's answer back into the cache makes the draft and
+    // stored note match again, which drives the status line.
+    onSuccess: (result) => {
+      const next = result?.body ?? "";
+      qc.setQueryData(noteKey, result);
+      setDraft(next);
+      toast.success("Lesson note saved", { description: lessonTitle });
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
-  // The server copy wins until the learner types; `draft` then owns the field.
   const stored = note?.body ?? "";
-  const value = draft ?? stored;
-  const dirty = draft !== null && draft !== stored;
+  const dirty = draft !== stored;
 
   useEffect(() => {
-    if (!dirty || draft === null) return;
-    const t = setTimeout(() => save.mutate(draft), 800);
-    return () => clearTimeout(t);
-    // `save` is a stable mutation handle; re-running on it would reset the timer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, dirty, lessonId]);
+    setDraft(stored);
+  }, [lessonId, stored]);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">Lesson notes</h3>
+          <p className="text-xs text-muted-foreground">
+            Notes are saved separately for this lesson.
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => save.mutate(draft)}
+          disabled={isLoading || save.isPending || !dirty}
+        >
+          <Save className="h-4 w-4" />
+          {save.isPending ? "Saving..." : "Save note"}
+        </Button>
+      </div>
       <Textarea
-        value={value}
-        disabled={isLoading}
+        value={draft}
+        disabled={isLoading || save.isPending}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="Take notes for this lesson…"
+        placeholder="Take notes for this lesson..."
         className="min-h-32"
       />
       <p className="text-xs text-muted-foreground">
-        {save.isPending
-          ? "Saving…"
+        {isLoading
+          ? "Loading this lesson's saved note..."
           : dirty
-            ? "Unsaved changes…"
-            : "Saved to your account — notes sync across devices."}
+            ? "Unsaved changes for this lesson."
+            : "Saved to your account. Notes sync across devices."}
       </p>
     </div>
   );

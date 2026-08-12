@@ -277,7 +277,7 @@ export default function AccountPage() {
               <Bell className="h-4 w-4 text-primary" /> Notification preferences
             </CardTitle>
             <CardDescription>
-              Choose how SkillStream keeps you on track. This powers the automated
+              Choose how GRS Learning keeps you on track. This powers the automated
               reminder system.
             </CardDescription>
           </CardHeader>
@@ -341,3 +341,4 @@ export default function AccountPage() {
     </div>
   );
 }
+

@@ -69,9 +69,13 @@ export default function CheckoutPage() {
     const c = items.find((i) => i.id === courseId);
     return c ? c.basePriceCents / 100 : 0;
   };
-  const subtotal = (quote?.subtotalCents ?? 0) / 100;
-  const discount = (quote?.discountCents ?? 0) / 100;
-  const total = (quote?.totalCents ?? 0) / 100;
+  const fallbackSubtotalCents = items.reduce((sum, c) => sum + c.basePriceCents, 0);
+  const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
+  const discountCents = quote?.discountCents ?? 0;
+  const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents);
+  const subtotal = subtotalCents / 100;
+  const discount = discountCents / 100;
+  const total = totalCents / 100;
 
   async function pay() {
     if (!user) {
@@ -212,7 +216,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Lock className="h-3.5 w-3.5 shrink-0" /> Card details are entered on the provider&apos;s PCI-compliant page — never on SkillStream.
+                  <Lock className="h-3.5 w-3.5 shrink-0" /> Card details are entered on the provider&apos;s PCI-compliant page — never on GRS Learning.
                 </p>
               </CardContent>
             </Card>

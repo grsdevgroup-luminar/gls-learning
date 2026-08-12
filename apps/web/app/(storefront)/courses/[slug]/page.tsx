@@ -31,10 +31,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const dto = await fetchCourse(slug);
-  if (!dto) return { title: "Course not found | SkillStream" };
+  if (!dto) return { title: "Course not found | GRS Learning" };
 
   return {
-    title: `${dto.title} | SkillStream`,
+    title: `${dto.title} | GRS Learning`,
     description: dto.subtitle,
     openGraph: {
       title: dto.title,
@@ -77,7 +77,7 @@ function courseJsonLd(dto: CourseDetailDto) {
     "@type": "Course",
     name: dto.title,
     description: dto.description || dto.subtitle,
-    provider: { "@type": "Organization", name: "SkillStream" },
+    provider: { "@type": "Organization", name: "GRS Learning" },
     ...(dto.reviewCount > 0
       ? {
           aggregateRating: {

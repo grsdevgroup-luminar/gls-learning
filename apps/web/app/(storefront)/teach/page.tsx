@@ -93,7 +93,7 @@ export default function TeachPage() {
               <span className="text-brand-gradient">Teach the world.</span>
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
-              Join SkillStream&apos;s instructors and turn your expertise into a course that reaches learners everywhere.
+              Join GRS Learning&apos;s instructors and turn your expertise into a course that reaches learners everywhere.
             </p>
           </Reveal>
         </div>
@@ -193,3 +193,4 @@ export default function TeachPage() {
     </>
   );
 }
+

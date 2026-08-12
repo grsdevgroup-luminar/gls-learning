@@ -11,7 +11,7 @@ import { FormField } from '@/components/shared/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Check } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const perks = [
@@ -30,12 +30,13 @@ function SignupForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(params.get('email') ?? '');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   async function create() {
     try {
       await register.mutateAsync({ name, email, password });
       toast.success('Account created!', {
-        description: 'Welcome to SkillStream 🎉',
+        description: 'Welcome to GRS Learning 🎉',
       });
       // Hard navigation, not router.push — see login/page.tsx for why: `next`
       // can point at a protected route (e.g. an org-invite join link) that may
@@ -60,7 +61,7 @@ function SignupForm() {
           Start learning today
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Join half a million learners growing their skills on SkillStream.
+          Join half a million learners growing their skills on GRS Learning.
         </p>
         <Stagger className="mt-6 space-y-3" gap={0.08}>
           {perks.map((p) => (
@@ -99,8 +100,29 @@ function SignupForm() {
                 <FormField label="Email">
                   <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </FormField>
-                <FormField label="Password">
-                  <Input type="password" placeholder="Create a password (min 8 chars)" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <FormField label="Password" htmlFor="signup-password">
+                  <div className="relative">
+                    <Input
+                      id="signup-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Create a password (min 8 chars)"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-8 w-9 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword((current) => !current)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </FormField>
               </Stagger>
               <Magnetic strength={0.15} className="mt-4 flex w-full">
