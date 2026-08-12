@@ -16,6 +16,9 @@ export const courseListQuerySchema = z.object({
   level: z
     .enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ALL_LEVELS"])
     .optional(),
+  minPriceCents: z.coerce.number().int().min(0).optional(),
+  maxPriceCents: z.coerce.number().int().min(0).optional(),
+  minRating: z.coerce.number().min(0).max(5).optional(),
   sort: courseSortSchema,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),

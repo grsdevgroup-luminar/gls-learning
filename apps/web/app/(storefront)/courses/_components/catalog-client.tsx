@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCategories, useCourses } from "@/lib/api/hooks";
+import { useStore } from "@/lib/context/store";
 import { CatalogFilters, PRICE_BUCKETS } from "./catalog-filters";
 import { CatalogResults } from "./catalog-results";
-import type { CourseLevel, CourseSort } from "@skillstream/shared";
+import { rawPriceCentsForRegionalBound, type CourseLevel, type CourseSort } from "@skillstream/shared";
 
 const SORT_TO_API: Record<string, CourseSort> = {
   popular: "popular",
@@ -17,6 +18,7 @@ const SORT_TO_API: Record<string, CourseSort> = {
 
 export function CatalogClient() {
   const { data: categories = [] } = useCategories();
+  const { region } = useStore();
   const searchParams = useSearchParams();
   const urlQ = searchParams.get("q") ?? "";
   const urlCat = searchParams.get("category");
@@ -44,30 +46,49 @@ export function CatalogClient() {
     setCat(urlCat);
   }
 
-  // Any change to a server-backed filter resets pagination — same pattern.
-  const [pagingKey, setPagingKey] = useState({ q, cat, lvl, sort });
-  if (pagingKey.q !== q || pagingKey.cat !== cat || pagingKey.lvl !== lvl || pagingKey.sort !== sort) {
-    setPagingKey({ q, cat, lvl, sort });
+  // Every filter is now server-backed (price/rating included), so any change
+  // to any of them resets pagination — the fetched page is always the full,
+  // already-filtered result, never something to narrow down further client-side.
+  // `region.multiplier` is included because it changes what raw-price bound
+  // the current price bucket resolves to below, even if `price` itself didn't change.
+  const [pagingKey, setPagingKey] = useState({ q, cat, lvl, price, minRating, sort, m: region.multiplier });
+  if (
+    pagingKey.q !== q ||
+    pagingKey.cat !== cat ||
+    pagingKey.lvl !== lvl ||
+    pagingKey.price !== price ||
+    pagingKey.minRating !== minRating ||
+    pagingKey.sort !== sort ||
+    pagingKey.m !== region.multiplier
+  ) {
+    setPagingKey({ q, cat, lvl, price, minRating, sort, m: region.multiplier });
     setPage(1);
   }
 
+  const bucket = PRICE_BUCKETS.find((b) => b.id === price)!;
+  // Price buckets are labeled in the *regional* (discounted) price shown on
+  // each card — e.g. "Under $30" — but `basePriceCents` on the server is the
+  // raw, undiscounted USD price. Convert the bucket's bound into raw terms
+  // for this region before querying, or a "$22.99"-displaying course fails
+  // an "under $30" filter because its raw price is $64.99.
   const { data: coursePage, isLoading } = useCourses({
     q: q || undefined,
     category: cat ?? undefined,
     level: lvl ?? undefined,
+    minPriceCents:
+      bucket.minPriceCents !== undefined
+        ? rawPriceCentsForRegionalBound(bucket.minPriceCents, region, "min")
+        : undefined,
+    maxPriceCents:
+      bucket.maxPriceCents !== undefined
+        ? rawPriceCentsForRegionalBound(bucket.maxPriceCents, region, "max")
+        : undefined,
+    minRating: minRating || undefined,
     sort: SORT_TO_API[sort],
     page,
   });
 
-  // Price/rating aren't in the backend's filter contract — refine within the
-  // fetched page client-side (a page at a time, not the whole catalog).
-  const filtered = useMemo(() => {
-    const fetchedCourses = coursePage?.items ?? [];
-    const bucket = PRICE_BUCKETS.find((b) => b.id === price)!;
-    return fetchedCourses.filter(
-      (c) => bucket.test(c.basePriceCents / 100) && c.ratingAvg >= minRating,
-    );
-  }, [coursePage, price, minRating]);
+  const items = coursePage?.items ?? [];
 
   function clearAllFilters() {
     setQ("");
@@ -82,8 +103,8 @@ export function CatalogClient() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">All courses</h1>
         <p className="text-muted-foreground">
-          {coursePage?.total ?? filtered.length} course
-          {(coursePage?.total ?? filtered.length) !== 1 && "s"} · learn at your own pace
+          {coursePage?.total ?? 0} course
+          {(coursePage?.total ?? 0) !== 1 && "s"} · learn at your own pace
         </p>
       </div>
 
@@ -103,7 +124,7 @@ export function CatalogClient() {
         />
         <CatalogResults
           coursePage={coursePage}
-          filtered={filtered}
+          items={items}
           isLoading={isLoading}
           sort={sort}
           onSortChange={setSort}

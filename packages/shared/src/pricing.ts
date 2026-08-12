@@ -36,6 +36,38 @@ export function regionalPriceCents(
   return Math.max(0, wholeDollars * 100 + 99);
 }
 
+/**
+ * Inverts `regionalPriceCents`: given a bound expressed in *regional*
+ * (already-discounted) USD cents — e.g. a catalog price-filter label like
+ * "under $30" — returns the equivalent bound in *raw* `basePriceCents` terms.
+ *
+ * Needed because course prices are stored and filtered in raw USD, but a
+ * price filter's label refers to the discounted price a viewer in that
+ * region actually sees on the card. Filtering raw cents directly against a
+ * regional-dollar bound silently mismatches the two — a course showing
+ * "$22.99" on screen can fail an "under $30" filter because its undiscounted
+ * price is $64.99. `edge` picks which side of the bucket this bound is:
+ * `"max"` widens the raw ceiling enough to admit every course that would
+ * round to at or under the bound after discount; `"min"` raises the raw
+ * floor to exclude everything that would round below it.
+ */
+export function rawPriceCentsForRegionalBound(
+  regionalBoundCents: number,
+  region: Pick<RegionRow, "multiplier">,
+  edge: "max" | "min",
+): number {
+  const m = region.multiplier;
+  if (m === 1) return regionalBoundCents;
+  if (edge === "max") {
+    // Largest whole-dollar bucket (the ".99" rounding step) still <= bound.
+    const bucket = Math.floor((regionalBoundCents - 99) / 100);
+    return Math.ceil(((bucket + 1) * 100) / m) - 1;
+  }
+  // Smallest whole-dollar bucket still >= bound.
+  const bucket = Math.ceil((regionalBoundCents - 99) / 100);
+  return Math.ceil((bucket * 100) / m);
+}
+
 /** Format a USD cents amount in the region's local currency for display. */
 export function formatLocal(
   usdCents: number,
