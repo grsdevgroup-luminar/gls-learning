@@ -111,7 +111,7 @@ describe("createLoggingRuntime", () => {
     expect(file.close).toHaveBeenCalledOnce();
   });
 
-  it("writes production records only to stdout and closes the destination once", async () => {
+  it("writes production records through the pretty stdout branch", async () => {
     const stdout = createDestination();
     const consoleLines: string[] = [];
     const runtime = await createLoggingRuntime(
@@ -130,10 +130,10 @@ describe("createLoggingRuntime", () => {
     await runtime.close();
     await runtime.close();
 
-    expect(parseRecords(stdout.lines)).toMatchObject([
+    expect(stdout.lines).toEqual([]);
+    expect(parseRecords(consoleLines)).toMatchObject([
       { event: "ready", password: "[Redacted]" },
     ]);
-    expect(consoleLines).toEqual([]);
     expect(stdout.close).toHaveBeenCalledOnce();
   });
 

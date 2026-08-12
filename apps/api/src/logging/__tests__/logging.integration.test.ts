@@ -94,7 +94,7 @@ describe("logging output modes", () => {
     expect(pretty.writableFinished).toBe(true);
   });
 
-  it("production writes JSON to stdout and creates no LOG_DIR", async () => {
+  it("production writes pretty logs to stdout and creates no LOG_DIR", async () => {
     const directory = await createTemporaryDirectory();
     const stdout = captureDestination();
     const productionEnv = validateEnv({
@@ -105,12 +105,20 @@ describe("logging output modes", () => {
     });
     const runtime = await createLoggingRuntime(productionEnv, {
       createDestination: async () => stdout.destination,
+      createPrettyStream: () =>
+        pinoPretty({
+          colorize: false,
+          destination: stdout.destination.stream,
+          sync: true,
+        }),
     });
 
     runtime.logger.log("ready", "IntegrationTest");
     await runtime.close();
 
-    expect(JSON.parse(stdout.text().trim())).toMatchObject({ msg: "ready" });
+    expect(stdout.text()).toContain("INFO");
+    expect(stdout.text()).toContain("ready");
+    expect(stdout.text().trim().startsWith("{")).toBe(false);
     await expect(stat(productionEnv.LOG_DIR)).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -196,15 +204,22 @@ describe("logging output modes", () => {
         LOG_DESTINATION: "stdout",
         LOG_DIR: join(directory, "logs"),
       }),
-      { createDestination: async () => stdout.destination },
+      {
+        createDestination: async () => stdout.destination,
+        createPrettyStream: () =>
+          pinoPretty({
+            colorize: false,
+            destination: stdout.destination.stream,
+            sync: true,
+          }),
+      },
     );
 
     runtime.logger.log({ event: "integration.shutdown" }, "IntegrationTest");
     await runtime.close();
 
-    expect(JSON.parse(stdout.text().trim())).toMatchObject({
-      event: "integration.shutdown",
-      context: "IntegrationTest",
-    });
+    expect(stdout.text()).toContain("integration.shutdown");
+    expect(stdout.text()).toContain("IntegrationTest");
+    expect(stdout.text().trim().startsWith("{")).toBe(false);
   });
 });
