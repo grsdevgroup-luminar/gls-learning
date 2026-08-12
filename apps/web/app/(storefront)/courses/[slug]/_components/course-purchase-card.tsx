@@ -38,7 +38,10 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
   }
   function buyNow() {
     addToCart(course.id);
-    router.push("/checkout");
+    toast.success("Ready when you are", {
+      description: "Review your cart and apply a coupon before checkout.",
+    });
+    router.push("/cart#coupon");
   }
 
   const articleCount = courseArticleCount(course);

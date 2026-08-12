@@ -6,7 +6,7 @@ const cols = [
     title: 'Platform',
     links: [
       ['Browse courses', '/courses'],
-      ['Teach on SkillStream', '/teach'],
+      ['Teach on GRS Learning', '/teach'],
       // The affiliate application lives on the portal page itself, which is
       // otherwise only linked for existing agents — so without this there is no
       // way to discover the program.
@@ -60,8 +60,9 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="border-t py-4 text-center text-xs text-muted-foreground">
-        © 2026 SkillStream — prototype for client review. Not a live store.
+        © 2026 GRS Learning — prototype for client review. Not a live store.
       </div>
     </footer>
   );
 }
+

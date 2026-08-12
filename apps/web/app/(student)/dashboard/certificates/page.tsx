@@ -6,11 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/api/session';
 import { apiFetch } from '@/lib/api/client';
+import { CertificatePreview } from '@/components/shared/certificate-preview';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,7 @@ interface CertificateDto {
 export default function CertificatesPage() {
   const { user } = useSession();
   const [active, setActive] = useState<CertificateDto | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: certs, isLoading, isError } = useQuery({
     queryKey: ['me', 'certificates'],
@@ -95,20 +96,43 @@ export default function CertificatesPage() {
         : '';
     const data = {
       title: `${cert.courseTitle} — Certificate of Completion`,
-      text: `I just completed "${cert.courseTitle}" on SkillStream 🎓`,
+      text: `I just completed "${cert.courseTitle}" on GRS Learning 🎓`,
       url,
     };
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share(data);
+        toast.success('Certificate share sheet opened');
+        return;
       } catch {
-        // user dismissed the share sheet — nothing to do
+        // Fall back to copying the public verification link.
       }
-      return;
     }
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(url);
-      toast.success('Link copied to clipboard');
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Certificate link copied');
+        return;
+      } catch {
+        toast.error('Could not copy certificate link');
+        return;
+      }
+    }
+    toast.error('Sharing is not available in this browser');
+  };
+
+  const downloadCertificate = async (cert: CertificateDto) => {
+    setDownloading(cert.serial);
+    try {
+      window.open(
+        `/certificates/${encodeURIComponent(cert.serial)}/print`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+    } catch {
+      toast.error('Could not open certificate PDF page');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -154,26 +178,15 @@ export default function CertificatesPage() {
                   <Button size="sm" variant="outline" onClick={() => share(cert)}>
                     <Share2 className="h-3.5 w-3.5" />
                   </Button>
-                  <TooltipProvider>
-                    {cert.pdfUrl ? (
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        render={<a href={cert.pdfUrl} target="_blank" rel="noopener noreferrer" />}
-                      >
-                        <Download className="mr-1 h-3.5 w-3.5" /> Download PDF
-                      </Button>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger render={<span className="flex-1" />}>
-                          <Button size="sm" className="w-full" disabled>
-                            <Download className="mr-1 h-3.5 w-3.5" /> Download PDF
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Coming soon</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </TooltipProvider>
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => void downloadCertificate(cert)}
+                    disabled={downloading === cert.serial}
+                  >
+                    <Download className="mr-1 h-3.5 w-3.5" />
+                    {downloading === cert.serial ? 'Downloading...' : 'Download PDF'}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -217,22 +230,13 @@ export default function CertificatesPage() {
                 <Button variant="outline" onClick={() => share(active)}>
                   <Share2 className="mr-1.5 h-4 w-4" /> Share
                 </Button>
-                <TooltipProvider>
-                  {active.pdfUrl ? (
-                    <Button render={<a href={active.pdfUrl} target="_blank" rel="noopener noreferrer" />}>
-                      <Download className="mr-1.5 h-4 w-4" /> Download PDF
-                    </Button>
-                  ) : (
-                    <Tooltip>
-                      <TooltipTrigger render={<span />}>
-                        <Button disabled>
-                          <Download className="mr-1.5 h-4 w-4" /> Download PDF
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Coming soon</TooltipContent>
-                    </Tooltip>
-                  )}
-                </TooltipProvider>
+                <Button
+                  onClick={() => void downloadCertificate(active)}
+                  disabled={downloading === active.serial}
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  {downloading === active.serial ? 'Downloading...' : 'Download PDF'}
+                </Button>
               </div>
             </>
           )}
@@ -242,125 +246,4 @@ export default function CertificatesPage() {
   );
 }
 
-function CertificatePreview({
-  courseTitle,
-  userName,
-  issuedAt,
-  serial,
-  small,
-}: {
-  courseTitle: string;
-  userName: string;
-  issuedAt: string;
-  serial: string;
-  small?: boolean;
-}) {
-  const issuedDate = new Date(issuedAt).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
 
-  return (
-    <div
-      className={`relative isolate overflow-hidden ${small ? 'rounded-t-xl p-5' : 'rounded-2xl p-10 sm:p-14'} border border-amber-500/25 bg-linear-to-br from-primary/6 via-background to-chart-2/6 text-center dark:border-amber-300/20`}
-      style={{ fontFamily: 'var(--font-certificate), serif' }}
-    >
-      {/* faint guilloché-style dot texture */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.05] dark:opacity-[0.08]"
-        style={{
-          backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
-          backgroundSize: small ? '10px 10px' : '14px 14px',
-          color: 'var(--primary)',
-        }}
-      />
-
-      {/* double hairline frame */}
-      <div className={`pointer-events-none absolute ${small ? 'inset-1.5' : 'inset-3'} rounded-xl border border-amber-500/35 dark:border-amber-300/25`} />
-      <div className={`pointer-events-none absolute ${small ? 'inset-2.5' : 'inset-5'} rounded-lg border border-amber-500/15 dark:border-amber-300/10`} />
-
-      {/* corner flourishes */}
-      {!small && (
-        <>
-          <CornerMark className="left-4 top-4" />
-          <CornerMark className="right-4 top-4 rotate-90" />
-          <CornerMark className="bottom-4 right-4 rotate-180" />
-          <CornerMark className="bottom-4 left-4 -rotate-90" />
-        </>
-      )}
-
-      <div className="relative flex flex-col items-center">
-        <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
-          <GraduationCap className={small ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-          <span className={`font-sans font-semibold uppercase text-foreground/70 ${small ? 'text-[9px] tracking-[0.25em]' : 'text-[11px] tracking-[0.35em]'}`}>
-            SkillStream Academy
-          </span>
-        </div>
-
-        {!small && (
-          <p className="mt-6 font-sans text-[11px] font-medium uppercase tracking-[0.4em] text-muted-foreground">
-            Certificate of Completion
-          </p>
-        )}
-
-        <p className={`font-sans text-muted-foreground ${small ? 'mt-2 text-[10px]' : 'mt-6 text-sm'}`}>
-          This certifies that
-        </p>
-        <p className={`font-semibold text-foreground ${small ? 'text-base' : 'mt-2 text-4xl'}`}>
-          {userName}
-        </p>
-        <div className={`bg-linear-to-r from-transparent via-amber-500/60 to-transparent ${small ? 'mt-1 h-px w-16' : 'mt-2 h-px w-44'}`} />
-
-        <p className={`font-sans text-muted-foreground ${small ? 'mt-2 text-[10px]' : 'mt-5 text-sm'}`}>
-          has successfully completed the course
-        </p>
-        <p className={`font-semibold italic text-primary ${small ? 'text-sm' : 'mt-2 max-w-md text-xl'}`}>
-          {courseTitle}
-        </p>
-
-        {!small && (
-          <>
-            <div className="relative mt-10 grid h-16 w-16 place-items-center rounded-full border-2 border-amber-500/50 bg-linear-to-br from-amber-400/15 to-amber-600/10 text-amber-700 shadow-inner dark:border-amber-300/40 dark:text-amber-300">
-              <ShieldCheck className="h-7 w-7" />
-              <div className="absolute -inset-1 rounded-full border border-dashed border-amber-500/30 dark:border-amber-300/25" />
-            </div>
-
-            <div className="mt-8 grid w-full grid-cols-2 gap-10 font-sans text-xs">
-              <div className="flex flex-col items-center gap-1.5">
-                <p className="italic text-foreground" style={{ fontFamily: 'var(--font-certificate), serif' }}>
-                  SkillStream
-                </p>
-                <div className="h-px w-full bg-border" />
-                <p className="uppercase tracking-wide text-muted-foreground">Issuing Platform</p>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <p className="font-medium text-foreground">{issuedDate}</p>
-                <div className="h-px w-full bg-border" />
-                <p className="uppercase tracking-wide text-muted-foreground">Date Issued</p>
-              </div>
-            </div>
-
-            <p className="mt-6 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Verify · Serial {serial}
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CornerMark({ className }: { className: string }) {
-  return (
-    <svg
-      className={`pointer-events-none absolute h-5 w-5 text-amber-500/50 dark:text-amber-300/40 ${className}`}
-      viewBox="0 0 20 20"
-      fill="none"
-    >
-      <path d="M1 1H10" stroke="currentColor" strokeWidth="1.25" />
-      <path d="M1 1V10" stroke="currentColor" strokeWidth="1.25" />
-      <circle cx="1" cy="1" r="2" fill="currentColor" />
-    </svg>
-  );
-}

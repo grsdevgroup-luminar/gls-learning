@@ -9,6 +9,7 @@ import {
   type RequestLoggingMiddlewareOptions,
 } from "../request-logging.middleware";
 import { NestPinoLogger } from "../nest-pino.logger";
+import { REDACT_PATHS } from "../redaction";
 
 type CompletionRecord = {
   event: "http.request.completed";
@@ -32,11 +33,19 @@ const createRequest = (options: {
     body: options.body,
   }) as Request;
 
-const createResponse = (statusCode = 200) =>
-  Object.assign(new EventEmitter(), {
+const createResponse = (statusCode = 200) => {
+  const response = Object.assign(new EventEmitter(), {
     statusCode,
     setHeader: vi.fn(),
   }) as unknown as Response;
+  response.send = vi.fn(function (this: Response) {
+    return this;
+  }) as Response["send"];
+  response.json = vi.fn(function (this: Response, body: unknown) {
+    return this.send(body);
+  }) as Response["json"];
+  return response;
+};
 
 const createMiddleware = (
   options: Omit<RequestLoggingMiddlewareOptions, "logger"> = {},
@@ -49,6 +58,40 @@ const createMiddleware = (
 };
 
 describe("RequestLoggingMiddleware", () => {
+  it("includes the JSON response body in the completion record", () => {
+    const { logger, middleware } = createMiddleware({
+      now: vi.fn().mockReturnValueOnce(100).mockReturnValueOnce(137),
+    });
+    const response = createResponse(422);
+
+    middleware.use(createRequest(), response, vi.fn());
+    response.json({ message: "Validation failed" });
+    response.emit("finish");
+
+    expect(logger.log).toHaveBeenCalledWith({
+      event: "http.request.completed",
+      requestId: expect.any(String),
+      method: "GET",
+      route: "/",
+      statusCode: 422,
+      durationMs: 37,
+      response: { message: "Validation failed" },
+    });
+  });
+
+  it("includes a body sent directly through Express", () => {
+    const { logger, middleware } = createMiddleware();
+    const response = createResponse(400);
+
+    middleware.use(createRequest(), response, vi.fn());
+    expect(response.send("Bad request")).toBe(response);
+    response.emit("finish");
+
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.objectContaining({ response: "Bad request" }),
+    );
+  });
+
   it("reuses a valid ID and emits one redacted completion record", () => {
     const { logger, middleware } = createMiddleware({
       now: vi.fn().mockReturnValueOnce(100).mockReturnValueOnce(137),
@@ -124,7 +167,16 @@ const createCapturedLogger = () => {
   });
 
   return {
-    logger: new NestPinoLogger(pino({ base: null, timestamp: false }, stream)),
+    logger: new NestPinoLogger(
+      pino(
+        {
+          base: null,
+          timestamp: false,
+          redact: { paths: [...REDACT_PATHS], censor: "[Redacted]" },
+        },
+        stream,
+      ),
+    ),
     records: (): Record<string, unknown>[] =>
       lines.map((line) => JSON.parse(line) as Record<string, unknown>),
   };
@@ -193,6 +245,7 @@ describe("production Nest Logger path", () => {
         response,
         vi.fn(),
       );
+      response.json({ password: "response-secret", message: "No content" });
       response.emit("finish");
 
       expect(records()).toMatchObject([
@@ -204,6 +257,7 @@ describe("production Nest Logger path", () => {
           statusCode: 204,
           durationMs: 25,
           context: "HTTP",
+          response: { password: "[Redacted]", message: "No content" },
         },
       ]);
       expect(records()[0]).not.toHaveProperty("diagnostics");

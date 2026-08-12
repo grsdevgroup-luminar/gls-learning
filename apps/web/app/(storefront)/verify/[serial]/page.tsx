@@ -2,14 +2,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import type { CertificateVerificationDto } from "@skillstream/shared";
 import { serverApiOptional } from "@/lib/api/server";
-import { apiUrl } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BadgeCheck, Download, ShieldX } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Verify a certificate · SkillStream",
-  description: "Check that a SkillStream certificate of completion is genuine.",
+  title: "Verify a certificate · GRS Learning",
+  description: "Check that a GRS Learning certificate of completion is genuine.",
 };
 
 /** Public — anyone holding a serial (an employer, say) can confirm it's real. */
@@ -35,7 +34,7 @@ export default async function VerifyCertificatePage({
               <div>
                 <h1 className="text-xl font-bold tracking-tight">Certificate verified</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  This certificate was issued by SkillStream.
+                  This certificate was issued by GRS Learning.
                 </p>
               </div>
               <dl className="grid gap-3 rounded-xl border border-border bg-muted/30 p-5 text-left text-sm">
@@ -52,15 +51,7 @@ export default async function VerifyCertificatePage({
                 <Row label="Serial" value={cert.serial} mono />
               </dl>
               <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  render={
-                    <a
-                      href={apiUrl(`/certificates/${encodeURIComponent(cert.serial)}/pdf`)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    />
-                  }
-                >
+                <Button render={<Link href={`/certificates/${cert.serial}/print`} target="_blank" />}>
                   <Download className="mr-1.5 h-4 w-4" /> View PDF
                 </Button>
                 <Button variant="outline" render={<Link href={`/courses/${cert.courseSlug}`} />}>

@@ -12,6 +12,14 @@ import {
 import { SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Paginated, CourseSummaryDto } from "@skillstream/shared";
 
+const SORT_OPTIONS = [
+  { value: "popular", label: "Most popular" },
+  { value: "rating", label: "Highest rated" },
+  { value: "newest", label: "Newest" },
+  { value: "price_low", label: "Price: low to high" },
+  { value: "price_high", label: "Price: high to low" },
+] as const;
+
 export function CatalogResults({
   coursePage,
   items,
@@ -39,14 +47,16 @@ export function CatalogResults({
         </span>
         <Select value={sort} onValueChange={(v) => v && onSortChange(v)}>
           <SelectTrigger className="w-48">
-            <SelectValue />
+            <SelectValue>
+              {SORT_OPTIONS.find((option) => option.value === sort)?.label}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="popular">Most popular</SelectItem>
-            <SelectItem value="rating">Highest rated</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="price_low">Price: low to high</SelectItem>
-            <SelectItem value="price_high">Price: high to low</SelectItem>
+            {SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

@@ -134,7 +134,7 @@ export function SiteHeader() {
                       {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
                     </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@skillstream.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
+                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@grs-learning.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
@@ -205,3 +205,4 @@ export function SiteHeader() {
     </header>
   );
 }
+
