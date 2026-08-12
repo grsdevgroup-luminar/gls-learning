@@ -176,7 +176,7 @@ export default function OrgAccount() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Seats are managed by SkillStream — contact your account manager to
+            Seats are managed by GRS Learning — contact your account manager to
             add more.
           </p>
         </CardContent>

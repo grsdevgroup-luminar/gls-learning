@@ -31,7 +31,7 @@ export default async function InstructorLayout({ children }: { children: React.R
         <p className="mt-2 text-sm text-muted-foreground">
           {user
             ? "Your account isn't an instructor yet. Apply to teach — once you're approved this area unlocks automatically."
-            : "Sign in to your instructor account, or apply to teach on SkillStream."}
+            : "Sign in to your instructor account, or apply to teach on GRS Learning."}
         </p>
         <div className="mt-6 flex flex-col gap-2">
           {!user && <Button render={<Link href="/login?next=/instructor" />} size="lg">Log in as instructor</Button>}
@@ -55,3 +55,4 @@ export default async function InstructorLayout({ children }: { children: React.R
     </PortalShell>
   );
 }
+

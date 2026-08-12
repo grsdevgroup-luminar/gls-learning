@@ -45,7 +45,7 @@ export function ApprovalGate({ children }: { children: React.ReactNode }) {
         tone="amber"
         icon={GraduationCap}
         title="You're not an instructor yet"
-        body="Apply to teach on SkillStream — approved instructors unlock the full course builder, earnings and analytics."
+        body="Apply to teach on GRS Learning — approved instructors unlock the full course builder, earnings and analytics."
         action={<Button render={<Link href="/teach" />}>Apply to teach</Button>}
       />
     );
@@ -96,3 +96,4 @@ function Notice({
     </div>
   );
 }
+
