@@ -37,6 +37,23 @@ export class RequestLoggingMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
     const requestId = this.requestIdFor(req.headers["x-request-id"]);
     const startedAt = this.now();
+    let response: unknown;
+    let responseCaptured = false;
+    const send = res.send.bind(res);
+    const json = res.json.bind(res);
+
+    res.send = ((body: unknown) => {
+      if (!responseCaptured) {
+        response = body;
+        responseCaptured = true;
+      }
+      return send(body);
+    }) as Response["send"];
+    res.json = ((body: unknown) => {
+      response = body;
+      responseCaptured = true;
+      return json(body);
+    }) as Response["json"];
 
     res.setHeader("X-Request-Id", requestId);
     res.once("finish", () => {
@@ -48,6 +65,7 @@ export class RequestLoggingMiddleware implements NestMiddleware {
           route: new URL(req.originalUrl, "http://local").pathname,
           statusCode: res.statusCode,
           durationMs: this.now() - startedAt,
+          ...(responseCaptured ? { response } : {}),
         },
       );
     });
