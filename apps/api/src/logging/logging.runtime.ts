@@ -37,19 +37,18 @@ export async function createLoggingRuntime(
 ): Promise<LoggingRuntime> {
   const destination = await (options.createDestination ?? createLogDestination)(env);
   const isDevelopment = env.NODE_ENV === "development";
-  const prettyStream = isDevelopment
-    ? options.consoleStream ??
-      options.createPrettyStream?.() ??
-      pinoPretty({ colorize: true, sync: true })
-    : undefined;
-  const ownsPrettyStream = isDevelopment && options.consoleStream === undefined;
-  const multistream = prettyStream
+  const prettyStream =
+    options.consoleStream ??
+    options.createPrettyStream?.() ??
+    pinoPretty({ colorize: true, sync: true });
+  const ownsPrettyStream = options.consoleStream === undefined;
+  const multistream = isDevelopment
     ? pino.multistream([
         { stream: prettyStream },
         { stream: destination.stream },
       ])
     : undefined;
-  const output = multistream ?? destination.stream;
+  const output = multistream ?? prettyStream;
   const rootLogger = pino(
     {
       level: env.LOG_LEVEL,
@@ -75,24 +74,26 @@ export async function createLoggingRuntime(
             resolve();
           });
         });
-        if (multistream && prettyStream) {
+        if (multistream) {
           multistream.flushSync();
-          await Promise.all(
-            [prettyStream, destination.stream].map(flushStream),
-          );
-          if (ownsPrettyStream) {
-            const stream = prettyStream as NodeJS.WritableStream & {
-              end: () => void;
-              once: (event: string, listener: () => void) => void;
-              writableFinished?: boolean;
-            };
-            if (!stream.writableFinished) {
-              await new Promise<void>((resolve, reject) => {
-                stream.once("error", reject);
-                stream.once("finish", resolve);
-                stream.end();
-              });
-            }
+        }
+        await Promise.all(
+          [prettyStream, ...(multistream ? [destination.stream] : [])].map(
+            flushStream,
+          ),
+        );
+        if (ownsPrettyStream) {
+          const stream = prettyStream as NodeJS.WritableStream & {
+            end: () => void;
+            once: (event: string, listener: () => void) => void;
+            writableFinished?: boolean;
+          };
+          if (!stream.writableFinished) {
+            await new Promise<void>((resolve, reject) => {
+              stream.once("error", reject);
+              stream.once("finish", resolve);
+              stream.end();
+            });
           }
         }
         await destination.close();
