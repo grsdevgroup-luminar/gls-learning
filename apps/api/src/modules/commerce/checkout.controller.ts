@@ -43,6 +43,10 @@ export class CheckoutController {
     return this.coupons.featured();
   }
 
+  /** Pure price calculation (course IDs + region + coupon, no user data) — the
+   *  checkout page shows real pricing to anonymous visitors by design; only
+   *  "Pay" itself requires login (`FEATURE_FLOWS.md` §2.4). */
+  @Public()
   @Post("checkout/quote")
   quote(
     @ZodBody(checkoutQuoteSchema) body: CheckoutQuoteInput,
