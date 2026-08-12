@@ -174,6 +174,22 @@ URLs are signed in-process instead of one Cloudflare API call per lesson play.
   IDs, nothing persisted server-side until checkout.
 - **Referral capture**: a `?ref=CODE` query param is captured client-side into
   `localStorage` and survives navigation to checkout (`FEATURE_FLOWS.md` §2.2).
+- **Regional/PPP pricing vs. raw price — a standing gotcha**: `Course.basePriceCents`
+  is always the raw, undiscounted USD price. The region a visitor has selected
+  (`lib/context/store.tsx`, manual dropdown + `localStorage`, no IP geolocation)
+  applies a per-region `multiplier` **client-side, at render time**
+  (`regionalUsd`/`Price` in `lib/pricing.ts` and `components/shared/price.tsx`) —
+  it is never baked into the stored value, and the API's `GET /courses` filters
+  (`minPriceCents`/`maxPriceCents`/sort-by-price) operate on the raw value too.
+  **Any UI that compares a price against a threshold — filters, "under $X"
+  labels, promo eligibility — must convert that threshold through the active
+  region first**, or the comparison silently disagrees with the price the user
+  is actually looking at (e.g. a card showing "$22.99" after an India PPP
+  discount failing an "under $30" filter because its raw price is $64.99). Use
+  `rawPriceCentsForRegionalBound()` in `packages/shared/src/pricing.ts` — the
+  exact inverse of `regionalPriceCents()` — rather than re-deriving this math
+  ad hoc. See `apps/web/app/(storefront)/courses/_components/catalog-client.tsx`
+  for the reference usage (the catalog price filter).
 
 ## 9. Monorepo & tooling
 

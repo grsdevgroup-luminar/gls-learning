@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { regionalPriceCents } from "../pricing.js";
+import { regionalPriceCents, rawPriceCentsForRegionalBound } from "../pricing.js";
 import {
   validateCoupon,
   discountCents,
@@ -19,6 +19,33 @@ describe("regionalPriceCents", () => {
   });
   it("never returns below zero", () => {
     expect(regionalPriceCents(0, { multiplier: 0.3 })).toBe(99);
+  });
+});
+
+describe("rawPriceCentsForRegionalBound", () => {
+  it("leaves full-price (multiplier 1) regions untouched", () => {
+    expect(rawPriceCentsForRegionalBound(2999, { multiplier: 1 }, "max")).toBe(2999);
+    expect(rawPriceCentsForRegionalBound(3000, { multiplier: 1 }, "min")).toBe(3000);
+  });
+  it("round-trips against regionalPriceCents at the boundary", () => {
+    // A course priced exactly at the raw bound this resolves to must land on
+    // the correct side of the regional bound it was derived from.
+    const region = { multiplier: 0.45 };
+    const rawMax = rawPriceCentsForRegionalBound(2999, region, "max");
+    expect(regionalPriceCents(rawMax, region)).toBeLessThanOrEqual(2999);
+    expect(regionalPriceCents(rawMax + 1, region)).toBeGreaterThan(2999);
+
+    const rawMin = rawPriceCentsForRegionalBound(3000, region, "min");
+    expect(regionalPriceCents(rawMin, region)).toBeGreaterThanOrEqual(3000);
+    expect(regionalPriceCents(rawMin - 1, region)).toBeLessThan(3000);
+  });
+  it("matches the live India tier (0.35) 'under $30' bucket used by the catalog filter", () => {
+    // $64.99 course displays as $22.99 in India (see regionalPriceCents),
+    // so it must be admitted by the raw bound for the "under $30" filter.
+    const region = { multiplier: 0.35 };
+    const rawMax = rawPriceCentsForRegionalBound(2999, region, "max");
+    expect(6499).toBeLessThanOrEqual(rawMax);
+    expect(regionalPriceCents(6499, region)).toBe(2299);
   });
 });
 

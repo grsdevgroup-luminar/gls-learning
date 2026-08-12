@@ -13,12 +13,14 @@ export const LEVELS: CourseLevel[] = [
   CourseLevel.ADVANCED,
   CourseLevel.ALL_LEVELS,
 ];
+// Boundaries mirror the backend's `minPriceCents`/`maxPriceCents` filter
+// exactly (whole-cent integers) so the label matches what the server returns.
 export const PRICE_BUCKETS = [
-  { id: "all", label: "Any price", test: () => true },
-  { id: "lt30", label: "Under $30", test: (p: number) => p < 30 },
-  { id: "30to70", label: "$30 – $70", test: (p: number) => p >= 30 && p <= 70 },
-  { id: "gt70", label: "Over $70", test: (p: number) => p > 70 },
-];
+  { id: "all", label: "Any price", minPriceCents: undefined, maxPriceCents: undefined },
+  { id: "lt30", label: "Under $30", minPriceCents: undefined, maxPriceCents: 2999 },
+  { id: "30to70", label: "$30 – $70", minPriceCents: 3000, maxPriceCents: 7000 },
+  { id: "gt70", label: "Over $70", minPriceCents: 7001, maxPriceCents: undefined },
+] as const;
 
 export function CatalogFilters({
   categories,

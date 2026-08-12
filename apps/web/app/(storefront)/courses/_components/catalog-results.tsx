@@ -22,7 +22,7 @@ const SORT_OPTIONS = [
 
 export function CatalogResults({
   coursePage,
-  filtered,
+  items,
   isLoading,
   sort,
   onSortChange,
@@ -31,7 +31,7 @@ export function CatalogResults({
   onClearFilters,
 }: {
   coursePage: Paginated<CourseSummaryDto> | undefined;
-  filtered: CourseSummaryDto[];
+  items: CourseSummaryDto[];
   isLoading: boolean;
   sort: string;
   onSortChange: (v: string) => void;
@@ -67,7 +67,7 @@ export function CatalogResults({
             <div key={i} className="h-64 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
           No courses match your filters.
           <div className="mt-3">
@@ -79,7 +79,7 @@ export function CatalogResults({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((c) => (
+            {items.map((c) => (
               <CourseCard key={c.id} course={c} />
             ))}
           </div>
