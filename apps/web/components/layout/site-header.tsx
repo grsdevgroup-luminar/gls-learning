@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
-  const { cart, mounted } = useStore();
+  const { cart, mounted, clearCart } = useStore();
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
   const router = useRouter();
@@ -40,6 +40,7 @@ export function SiteHeader() {
 
   async function logout() {
     await logoutMut.mutateAsync();
+    clearCart();
     toast.success("Signed out");
     router.push("/");
     router.refresh();
