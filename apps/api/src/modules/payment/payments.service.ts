@@ -89,6 +89,10 @@ export class PaymentsService {
     await this.processWebhook(PaymentGatewayName.PAYPAL, { body });
   }
 
+  async handleSslcommerzWebhook(body: unknown): Promise<void> {
+    await this.processWebhook(PaymentGatewayName.SSLCOMMERZ, { body });
+  }
+
   private async processWebhook(
     gateway: PaymentGatewayName,
     input: WebhookInput,

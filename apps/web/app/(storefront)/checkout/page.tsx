@@ -30,6 +30,7 @@ const methods = [
   { id: "stripe", label: "Credit / debit card", sub: "Visa, Mastercard, Amex", icon: StripeIcon },
   // PayPal disabled for now — uncomment to re-enable.
   // { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: PaypalIcon },
+  { id: "sslcommerz", label: "SSLCommerz", sub: "bKash, Nagad, cards, mobile banking", icon: CreditCard },
 ];
 
 const perks = [
@@ -90,7 +91,12 @@ export default function CheckoutPage() {
         courseIds: cart,
         couponCode: coupon ?? undefined,
         regionCode,
-        gateway: method === "paypal" ? "PAYPAL" : "STRIPE",
+        gateway:
+          method === "paypal"
+            ? "PAYPAL"
+            : method === "sslcommerz"
+              ? "SSLCOMMERZ"
+              : "STRIPE",
         referralCode: getReferralCode() ?? undefined,
       });
       clearReferralCode();
@@ -214,7 +220,9 @@ export default function CheckoutPage() {
                 <div className="animate-in rounded-xl border border-primary/20 bg-primary/5 p-6 text-center text-sm font-medium text-foreground fade-in zoom-in-95 duration-200">
                   {method === "stripe"
                     ? "You'll be redirected to Stripe's secure checkout to enter your card."
-                    : "You'll be redirected to PayPal to complete your purchase."}
+                    : method === "sslcommerz"
+                      ? "You'll be redirected to SSLCommerz to complete your purchase."
+                      : "You'll be redirected to PayPal to complete your purchase."}
                 </div>
 
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

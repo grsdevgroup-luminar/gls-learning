@@ -315,6 +315,7 @@ export class AdminService {
       defaultLanguage: s.defaultLanguage,
       stripeEnabled: s.stripeEnabled,
       paypalEnabled: s.paypalEnabled,
+      sslcommerzEnabled: s.sslcommerzEnabled,
       notifications: (s.notifications ?? {}) as Record<string, boolean>,
       updatedAt: s.updatedAt.toISOString(),
     };

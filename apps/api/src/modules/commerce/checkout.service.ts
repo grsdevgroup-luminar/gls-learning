@@ -76,15 +76,28 @@ export class CheckoutService {
 
   /** Admin gateway kill-switch (PlatformSettings). Enforced here, server-side —
    *  the storefront hiding a button is not a control. */
-  private async assertGatewayEnabled(gateway: "STRIPE" | "PAYPAL") {
+  private async assertGatewayEnabled(
+    gateway: "STRIPE" | "PAYPAL" | "SSLCOMMERZ",
+  ) {
     const settings = await this.repo.findPlatformSettings();
     if (!settings) return; // never configured — nothing disabled yet
     const enabled =
-      gateway === "STRIPE" ? settings.stripeEnabled : settings.paypalEnabled;
-    if (!enabled)
+      gateway === "STRIPE"
+        ? settings.stripeEnabled
+        : gateway === "PAYPAL"
+          ? settings.paypalEnabled
+          : settings.sslcommerzEnabled;
+    if (!enabled) {
+      const label =
+        gateway === "STRIPE"
+          ? "Card"
+          : gateway === "PAYPAL"
+            ? "PayPal"
+            : "SSLCommerz";
       throw new BadRequestException(
-        `${gateway === "STRIPE" ? "Card" : "PayPal"} payments are currently unavailable`,
+        `${label} payments are currently unavailable`,
       );
+    }
   }
 
   async createSession(
