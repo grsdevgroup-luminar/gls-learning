@@ -32,6 +32,7 @@ export class QuizService {
     );
     if (!enrolled && !lesson.preview)
       throw new ForbiddenException("Enroll to access this quiz");
+    if (enrolled) await this.enrollment.assertLessonAccessible(userId, lessonId);
 
     return {
       lessonId,
@@ -57,6 +58,7 @@ export class QuizService {
     const courseId = lesson.section.courseId;
     const enrolled = await this.enrollment.isEnrolled(userId, courseId);
     if (!enrolled) throw new ForbiddenException("Enroll to submit this quiz");
+    await this.enrollment.assertLessonAccessible(userId, lessonId);
 
     const answerByQuestion = new Map(
       input.answers.map((a) => [a.questionId, a.optionId]),

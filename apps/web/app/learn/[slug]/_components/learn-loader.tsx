@@ -1,14 +1,21 @@
 "use client";
 
-import { useCourse } from "@/lib/api/hooks";
+import { useCourse, useLearningCourse } from "@/lib/api/hooks";
+import { useSession } from "@/lib/api/session";
 import { LearnClient } from "./learn-client";
 
 export function LearnLoader({ slug }: { slug: string }) {
   // Fetch the detail directly: the store's catalog list only carries summaries,
   // whose `sections` are always empty, and the player needs the curriculum.
   const { data, isLoading, isError } = useCourse(slug);
+  const { user, isLoading: sessionLoading } = useSession();
+  const {
+    data: learningCourse,
+    isLoading: learningLoading,
+    isError: learningError,
+  } = useLearningCourse(data?.id, !!user && !!data);
 
-  if (isLoading) {
+  if (isLoading || sessionLoading || (user && learningLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Loading course…
@@ -17,7 +24,13 @@ export function LearnLoader({ slug }: { slug: string }) {
   }
 
   // A course with no lessons would crash the player, so treat it as unavailable.
-  if (isError || !data || data.sections.every((s) => s.lessons.length === 0)) {
+  if (
+    isError ||
+    learningError ||
+    !data ||
+    (user ? !learningCourse : false) ||
+    data.sections.every((s) => s.lessons.length === 0)
+  ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">
         <h1 className="text-xl font-semibold">Course not available</h1>
@@ -28,5 +41,5 @@ export function LearnLoader({ slug }: { slug: string }) {
     );
   }
 
-  return <LearnClient course={data} />;
+  return <LearnClient course={learningCourse ?? data} />;
 }

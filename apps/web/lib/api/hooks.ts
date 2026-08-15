@@ -45,6 +45,13 @@ export const useCatalog = () =>
 export const useCourse = (slug: string) =>
   useQuery({ queryKey: qk.course(slug), queryFn: () => api.course(slug) });
 
+export const useLearningCourse = (courseId: string | undefined, enabled = true) =>
+  useQuery({
+    queryKey: ["learning-course", courseId],
+    queryFn: () => api.learningCourse(courseId as string),
+    enabled: enabled && !!courseId,
+  });
+
 /** Course categories from the API. Rarely change, so cache them for the session. */
 export const useCategories = () =>
   useQuery({

@@ -106,6 +106,8 @@ export const api = {
   courses: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<CourseSummaryDto>>(`/courses${qs(params)}`),
   course: (slug: string) => apiFetch<CourseDetailDto>(`/courses/${slug}`),
+  learningCourse: (courseId: string) =>
+    apiFetch<CourseDetailDto>(`/me/courses/${courseId}/learning`),
   categories: () => apiFetch<string[]>("/categories"),
 
   // pricing regions (public; FX rates refreshed daily by the API's fx job)

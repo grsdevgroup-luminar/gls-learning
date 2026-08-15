@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { courseListQuerySchema, type CourseListQuery } from "@skillstream/shared";
-import { Public } from "../../common/decorators/decorators";
+import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
 import { ZodQuery } from "../../common/utils/swagger";
 import { CoursesService } from "./courses.service";
 
@@ -28,5 +28,13 @@ export class CatalogController {
   @Get("courses/:slug")
   bySlug(@Param("slug") slug: string) {
     return this.courses.bySlug(slug);
+  }
+
+  @Get("me/courses/:courseId/learning")
+  learning(
+    @CurrentUser() user: RequestUser,
+    @Param("courseId") courseId: string,
+  ) {
+    return this.courses.learning(user.id, courseId);
   }
 }

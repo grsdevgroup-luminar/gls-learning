@@ -66,7 +66,12 @@ export class AuthoringService {
   private detail(id: string) {
     return this.repo
       .findCourseDetailOrThrow(id)
-      .then((row) => toCourseDetail(row, { includeArticleContent: true }));
+      .then((row) =>
+        toCourseDetail(row, {
+          includeArticleContent: true,
+          includeLessonResources: true,
+        }),
+      );
   }
 
   /** Owner-gated detail so the course builder can edit drafts. */
