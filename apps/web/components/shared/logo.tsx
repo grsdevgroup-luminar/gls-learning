@@ -17,13 +17,24 @@ export function Logo({
       aria-label="GRS Learning home"
       className={cn('flex items-center gap-2 font-bold', className)}
     >
-  <Image
-  src="/GRS-Learning.svg"
-  alt="GRS Learning logo"
-  width={85}
-  height={85}
-  className="shrink-0 -translate-y-1"
-/>
+      <Image
+        src={iconOnly ? '/GRS-Mark.svg' : '/GRS-Learning.svg'}
+        alt="GRS Learning logo"
+        width={iconOnly ? 1525 : 1536}
+        height={iconOnly ? 742 : 1024}
+        sizes="85px"
+        loading="eager"
+        className="h-auto w-[85px] shrink-0 -translate-y-1 dark:hidden"
+      />
+      <Image
+        src={iconOnly ? '/GRS-Mark-Dark.svg' : '/GRS-Learning-Dark.svg'}
+        alt="GRS Learning logo"
+        width={iconOnly ? 1525 : 1536}
+        height={iconOnly ? 742 : 1024}
+        sizes="85px"
+        loading="eager"
+        className="hidden h-auto w-[85px] shrink-0 -translate-y-1 dark:block"
+      />
     </Link>
   );
 }
