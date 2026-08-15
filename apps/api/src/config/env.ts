@@ -38,6 +38,16 @@ const rawEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   PAYPAL_CLIENT_ID: z.string().optional(),
   PAYPAL_CLIENT_SECRET: z.string().optional(),
+  // SSLCommerz: store credentials from https://developer.sslcommerz.com. Without
+  // both, the gateway is treated as unconfigured (dev-simulate outside prod).
+  SSLCOMMERZ_STORE_ID: z.string().optional(),
+  SSLCOMMERZ_STORE_PASSWD: z.string().optional(),
+  // Sandbox (`sandbox.sslcommerz.com`) vs live (`securepay.sslcommerz.com`).
+  // Defaults to sandbox in non-prod; prod must set this to "false" explicitly.
+  SSLCOMMERZ_SANDBOX: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === undefined ? undefined : v === "true"),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_STREAM_TOKEN: z.string().optional(),
   // Local playback-token signing (efficient DRM: no API call per play). Generate

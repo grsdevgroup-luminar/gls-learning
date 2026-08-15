@@ -7,6 +7,7 @@ import { PaymentsRepository } from "../payment/payments.repository";
 import { PaymentGatewayFactory } from "../payment/factory/payment-gateway.factory";
 import { StripeGateway } from "../payment/gateways/stripe/stripe.gateway";
 import { PaypalGateway } from "../payment/gateways/paypal/paypal.gateway";
+import { SslcommerzGateway } from "../payment/gateways/sslcommerz/sslcommerz.gateway";
 import { PricingService } from "./pricing.service";
 import { PricingController } from "./pricing.controller";
 import { PricingRepository } from "./pricing.repository";
@@ -43,6 +44,7 @@ import { CheckoutController } from "./checkout.controller";
     PaymentsRepository,
     StripeGateway,
     PaypalGateway,
+    SslcommerzGateway,
     PaymentGatewayFactory,
   ],
   exports: [PricingService, CouponsService, OrdersService, PaymentsService],

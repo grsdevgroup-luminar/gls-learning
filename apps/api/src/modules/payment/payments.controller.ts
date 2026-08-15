@@ -42,6 +42,17 @@ export class PaymentsController {
     return { received: true };
   }
 
+  // SSLCommerz posts IPN as form-urlencoded, not JSON. Nest's default parsers
+  // handle both — the gateway calls their validator API before trusting these
+  // fields, so the shape is checked there.
+  @Public()
+  @Post("webhooks/sslcommerz")
+  @HttpCode(200)
+  async sslcommerz(@Body() body: unknown): Promise<{ received: true }> {
+    await this.payments.handleSslcommerzWebhook(body);
+    return { received: true };
+  }
+
   @Post("payments/dev/simulate/:orderId")
   @HttpCode(200)
   devSimulate(

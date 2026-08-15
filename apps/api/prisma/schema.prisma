@@ -114,6 +114,7 @@ enum OrderStatus {
 enum PaymentGateway {
   STRIPE
   PAYPAL
+  SSLCOMMERZ
 }
 
 enum CouponType {
@@ -634,6 +635,7 @@ model PlatformSettings {
   /// Gateway kill-switches — enforced at checkout, not just displayed.
   stripeEnabled   Boolean  @default(true)
   paypalEnabled   Boolean  @default(true)
+  sslcommerzEnabled Boolean  @default(true)
   /// Admin notification toggles, keyed by id. Enforced in AdminAlertsService:
   /// event alerts (newEnrollment/newReview) and the daily digest all check these.
   notifications   Json     @default("{}")

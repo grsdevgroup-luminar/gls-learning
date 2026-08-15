@@ -110,6 +110,7 @@ export interface PlatformSettingsDto {
   /** Gateway kill-switches — checkout rejects a disabled gateway. */
   stripeEnabled: boolean;
   paypalEnabled: boolean;
+  sslcommerzEnabled: boolean;
   notifications: Record<string, boolean>;
   updatedAt: string;
 }
@@ -123,6 +124,7 @@ export const updatePlatformSettingsSchema = z
     defaultLanguage: z.string().trim().min(1).max(40),
     stripeEnabled: z.boolean(),
     paypalEnabled: z.boolean(),
+    sslcommerzEnabled: z.boolean(),
     notifications: z.record(z.boolean()),
   })
   .partial()

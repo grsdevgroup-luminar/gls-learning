@@ -22,12 +22,15 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Lock, CreditCard, ShieldCheck, Check, Loader2, Globe2, ShoppingCart,
-  ChevronRight, Wallet, BadgeCheck, Infinity as InfinityIcon, Award, ArrowLeft,
+  ChevronRight, BadgeCheck, Infinity as InfinityIcon, Award, ArrowLeft,
 } from "lucide-react";
+import { StripeIcon, PaypalIcon } from "@/components/shared/payment-icons";
 
 const methods = [
-  { id: "stripe", label: "Credit / debit card", sub: "Visa, Mastercard, Amex", icon: CreditCard },
-  { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: Wallet },
+  { id: "stripe", label: "Credit / debit card", sub: "Visa, Mastercard, Amex", icon: StripeIcon },
+  // PayPal disabled for now — uncomment to re-enable.
+  // { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: PaypalIcon },
+  { id: "sslcommerz", label: "SSLCommerz", sub: "bKash, Nagad, cards, mobile banking", icon: CreditCard },
 ];
 
 const perks = [
@@ -88,7 +91,12 @@ export default function CheckoutPage() {
         courseIds: cart,
         couponCode: coupon ?? undefined,
         regionCode,
-        gateway: method === "paypal" ? "PAYPAL" : "STRIPE",
+        gateway:
+          method === "paypal"
+            ? "PAYPAL"
+            : method === "sslcommerz"
+              ? "SSLCOMMERZ"
+              : "STRIPE",
         referralCode: getReferralCode() ?? undefined,
       });
       clearReferralCode();
@@ -179,7 +187,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className={`grid gap-3 ${methods.length > 1 ? "sm:grid-cols-2" : ""}`}>
                   {methods.map((m) => (
                     <button
                       key={m.id}
@@ -209,10 +217,12 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                <div className="animate-in rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground fade-in zoom-in-95 duration-200">
+                <div className="animate-in rounded-xl border border-primary/20 bg-primary/5 p-6 text-center text-sm font-medium text-foreground fade-in zoom-in-95 duration-200">
                   {method === "stripe"
                     ? "You'll be redirected to Stripe's secure checkout to enter your card."
-                    : "You'll be redirected to PayPal to complete your purchase."}
+                    : method === "sslcommerz"
+                      ? "You'll be redirected to SSLCommerz to complete your purchase."
+                      : "You'll be redirected to PayPal to complete your purchase."}
                 </div>
 
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

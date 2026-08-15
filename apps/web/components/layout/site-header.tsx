@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { RegionSelect } from "@/components/shared/region-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +25,7 @@ import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
-  const { cart, mounted } = useStore();
+  const { cart, mounted, clearCart } = useStore();
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
   const router = useRouter();
@@ -40,6 +39,7 @@ export function SiteHeader() {
 
   async function logout() {
     await logoutMut.mutateAsync();
+    clearCart();
     toast.success("Signed out");
     router.push("/");
     router.refresh();
@@ -75,11 +75,6 @@ export function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-3">
           <div className="hidden items-center gap-0.5 rounded-full border border-border bg-muted/40 p-1 sm:flex">
-            <RegionSelect
-              compact
-              className="h-7 gap-1 rounded-full border-0 bg-transparent px-2 shadow-none hover:bg-accent"
-            />
-            <span aria-hidden className="h-4 w-px bg-border" />
             <ThemeToggle size="icon-sm" className="rounded-full" />
             <span aria-hidden className="h-4 w-px bg-border" />
             <Button

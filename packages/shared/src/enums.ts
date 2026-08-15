@@ -76,6 +76,7 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 export const PaymentGateway = {
   STRIPE: "STRIPE",
   PAYPAL: "PAYPAL",
+  SSLCOMMERZ: "SSLCOMMERZ",
 } as const;
 export type PaymentGateway =
   (typeof PaymentGateway)[keyof typeof PaymentGateway];

@@ -9,7 +9,7 @@ export const checkoutQuoteSchema = z.object({
 export type CheckoutQuoteInput = z.infer<typeof checkoutQuoteSchema>;
 
 export const checkoutSessionSchema = checkoutQuoteSchema.extend({
-  gateway: z.enum(["STRIPE", "PAYPAL"]),
+  gateway: z.enum(["STRIPE", "PAYPAL", "SSLCOMMERZ"]),
   /** Optional sales-agent referral code for commission attribution. */
   referralCode: z.string().trim().optional(),
 });
