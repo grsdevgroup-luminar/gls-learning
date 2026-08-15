@@ -8,10 +8,14 @@ import type {
 } from "@skillstream/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
+import { EnrollmentService } from "../enrollment/enrollment.service";
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly repo: CoursesRepository) {}
+  constructor(
+    private readonly repo: CoursesRepository,
+    private readonly enrollment: EnrollmentService,
+  ) {}
 
   private orderBy(
     sort: CourseListQuery["sort"],
@@ -79,5 +83,34 @@ export class CoursesService {
     const row = await this.repo.findBySlug(slug);
     if (!row) throw new NotFoundException("Course not found");
     return toCourseDetail(row);
+  }
+
+  /** Enrolled learner view. Resource links are returned only for lessons the
+   * learner has reached; the actual lesson body/video is still protected by
+   * the playback and quiz endpoints. */
+  async learning(userId: string, courseId: string): Promise<CourseDetailDto> {
+    const completedIds = await this.enrollment.completedLessonIds(userId, courseId);
+    const row = await this.repo.findById(courseId);
+    if (!row) throw new NotFoundException("Course not found");
+
+    const orderedLessonIds = row.sections.flatMap((section) =>
+      section.lessons.map((lesson) => lesson.id),
+    );
+    const completed = new Set(completedIds);
+    const accessibleLessonIds = new Set<string>();
+    for (const [index, lessonId] of orderedLessonIds.entries()) {
+      if (
+        orderedLessonIds
+          .slice(0, index)
+          .every((previousId) => completed.has(previousId))
+      ) {
+        accessibleLessonIds.add(lessonId);
+      }
+    }
+
+    return toCourseDetail(row, {
+      includeLessonResources: true,
+      accessibleLessonIds,
+    });
   }
 }

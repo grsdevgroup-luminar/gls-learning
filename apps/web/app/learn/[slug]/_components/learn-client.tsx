@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import type { CourseDetailDto, LessonPublicDto } from "@skillstream/shared";
+import {
+  isLessonSequentiallyAccessible,
+  type CourseDetailDto,
+  type LessonPublicDto,
+} from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
 import { courseLessonCount } from "@/lib/course-stats";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,7 +38,7 @@ import {
 import {
   Check, PlayCircle, FileText, HelpCircle, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Download, ArrowLeft, Star, Trophy, ChevronDown,
-  Share2, MoreVertical, Sun, Moon, Link2, Save,
+  Share2, MoreVertical, Sun, Moon, Link2, Save, Lock,
 } from "lucide-react";
 import { lessonTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -46,7 +50,7 @@ interface FlatLesson extends LessonPublicDto {
 }
 
 export function LearnClient({ course }: { course: CourseDetailDto }) {
-  const { isLessonDone, toggleLesson, completedCount, mounted } = useStore();
+  const { isLessonDone, toggleLesson, completedCount, mounted, isEnrolled } = useStore();
   const { user } = useSession();
 
   const flat: FlatLesson[] = useMemo(() => {
@@ -57,27 +61,40 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   }, [course]);
 
   const [currentId, setCurrentId] = useState(flat[0].id);
-  const current = flat.find((l) => l.id === currentId) ?? flat[0];
+  const enrolled = mounted && isEnrolled(course.id);
+  const completedIds = mounted
+    ? new Set(flat.filter((lesson) => isLessonDone(course.id, lesson.id)).map((lesson) => lesson.id))
+    : new Set<string>();
+  const orderedLessonIds = flat.map((lesson) => lesson.id);
+  const canAccess = (lesson: FlatLesson) =>
+    enrolled
+      ? isLessonSequentiallyAccessible(orderedLessonIds, completedIds, lesson.id)
+      : lesson.preview;
+  const firstAccessible = flat.find(canAccess) ?? flat[0];
+  const selected = flat.find((l) => l.id === currentId) ?? firstAccessible;
+  const current = canAccess(selected) ? selected : firstAccessible;
+  const currentAccessible = canAccess(current);
 
   // Server-side quiz result for the current lesson (grading lives in the API).
   const { data: quizResult } = useQuery({
     queryKey: ["quiz-result", current.id],
     queryFn: () => api.quizResult(current.id),
-    enabled: current.type === "QUIZ",
+    enabled: currentAccessible && current.type === "QUIZ",
   });
   const total = courseLessonCount(course);
   const done = mounted ? completedCount(course.id) : 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   function markAndMaybeAdvance() {
-    if (!isLessonDone(course.id, current.id)) {
+    if (currentAccessible && !isLessonDone(course.id, current.id)) {
       toggleLesson(course.id, current.id);
       toast.success("Lesson complete!", { description: current.title });
     }
   }
   function goto(delta: number) {
     const next = flat[current.index + delta];
-    if (next) setCurrentId(next.id);
+    if (next && canAccess(next)) setCurrentId(next.id);
+    else if (next) toast.info("Complete the previous lesson first");
   }
 
   return (
@@ -105,7 +122,9 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
       <div className="grid flex-1 lg:grid-cols-[1fr_360px]">
         {/* Player + content */}
         <div className="flex flex-col">
-          {current.type === "QUIZ" ? (
+          {!currentAccessible ? (
+            <LockedLesson title={current.title} />
+          ) : current.type === "QUIZ" ? (
             <div className="bg-secondary/20">
               <QuizPlayer key={current.id} courseId={course.id} lessonId={current.id} />
             </div>
@@ -146,6 +165,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                 <Button
                   variant={isLessonDone(course.id, current.id) ? "secondary" : "default"}
                   onClick={() => toggleLesson(course.id, current.id)}
+                  disabled={!currentAccessible}
                 >
                   {isLessonDone(course.id, current.id) ? <><CheckCircle2 className="animate-[complete-pop_0.4s_ease-out] text-success" /> Completed</> : <><Check /> Mark as complete</>}
                 </Button>
@@ -157,12 +177,12 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                 <ChevronLeft /> Previous
               </Button>
               <span className="text-xs text-muted-foreground">Lesson {current.index + 1} of {total}</span>
-              <Button variant="outline" size="sm" onClick={() => goto(1)} disabled={current.index === total - 1}>
+              <Button variant="outline" size="sm" onClick={() => goto(1)} disabled={current.index === total - 1 || !flat[current.index + 1] || !canAccess(flat[current.index + 1])}>
                 Next <ChevronRight />
               </Button>
             </div>
 
-            <Tabs defaultValue="overview" className="mt-6">
+            {currentAccessible ? <Tabs defaultValue="overview" className="mt-6">
               <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -206,7 +226,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <TabsContent value="notes" className="pt-4">
                 <LessonNotes key={current.id} lessonId={current.id} lessonTitle={current.title} />
               </TabsContent>
-            </Tabs>
+            </Tabs> : <LockedLessonDetails />}
           </div>
         </div>
 
@@ -227,20 +247,26 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
           <Accordion defaultValue={course.sections.map((s) => s.id)} className="max-h-[calc(100vh-7rem)] overflow-y-auto">
             {course.sections.map((s) => (
               <AccordionItem key={s.id} value={s.id} className="px-3">
-                <AccordionTrigger>
-                  <span className="text-sm font-medium">{s.title}</span>
+                <AccordionTrigger disabled={!s.lessons[0] || !canAccess({ ...s.lessons[0], sectionTitle: s.title, index: 0 })}>
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    {(!s.lessons[0] || !canAccess({ ...s.lessons[0], sectionTitle: s.title, index: 0 })) && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {s.title}
+                  </span>
                 </AccordionTrigger>
                 <AccordionContent>
                   <ul className="pb-1">
                     {s.lessons.map((l) => {
                       const isCur = l.id === current.id;
                       const isDone = mounted && isLessonDone(course.id, l.id);
+                      const accessible = canAccess({ ...l, sectionTitle: s.title, index: 0 });
                       return (
                         <li
                           key={l.id}
                           className={cn(
                             "group/lesson relative flex items-stretch rounded-md transition-colors",
-                            isCur
+                            !accessible
+                              ? "text-muted-foreground/50"
+                              : isCur
                               ? "bg-primary/10 text-primary"
                               : "text-muted-foreground hover:bg-secondary/60",
                           )}
@@ -252,6 +278,10 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                           <button
                             type="button"
                             onClick={() => {
+                              if (!accessible) {
+                                toast.info("Complete the previous lesson first");
+                                return;
+                              }
                               toggleLesson(course.id, l.id);
                               toast.success(
                                 isDone ? "Marked as not complete" : "Marked as complete",
@@ -259,6 +289,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                               );
                             }}
                             aria-pressed={isDone}
+                            disabled={!accessible}
                             aria-label={isDone ? `Mark "${l.title}" as not complete` : `Mark "${l.title}" as complete`}
                             title={isDone ? "Mark as not complete" : "Mark as complete"}
                             className="flex shrink-0 items-center self-stretch rounded-l-md pl-2.5 pr-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -272,7 +303,11 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                           {/* Navigate to lesson */}
                           <button
                             type="button"
-                            onClick={() => setCurrentId(l.id)}
+                            onClick={() => {
+                              if (accessible) setCurrentId(l.id);
+                              else toast.info("Complete the previous lesson first");
+                            }}
+                            aria-disabled={!accessible}
                             className={cn(
                               "flex flex-1 items-start gap-2 rounded-r-md py-2 pr-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                               isCur ? "font-medium" : "group-hover/lesson:text-foreground",
@@ -280,7 +315,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                           >
                             <span className="flex-1">{l.title}</span>
                             <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                              {l.type === "VIDEO" ? <PlayCircle className="h-3 w-3" /> : l.type === "QUIZ" ? <HelpCircle className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                              {!accessible ? <Lock className="h-3 w-3" /> : l.type === "VIDEO" ? <PlayCircle className="h-3 w-3" /> : l.type === "QUIZ" ? <HelpCircle className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
                               {lessonTime(l.durationSec)}
                             </span>
                           </button>
@@ -299,6 +334,30 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
 }
 
 /* ── Top-bar controls ───────────────────────────────────────────────────── */
+
+function LockedLesson({ title }: { title: string }) {
+  return (
+    <div className="mx-auto flex aspect-video w-full max-w-4xl flex-col items-center justify-center rounded-xl border bg-secondary/20 p-6 text-center">
+      <Lock className="h-8 w-8 text-muted-foreground" />
+      <h2 className="mt-3 font-semibold">Lesson locked</h2>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Complete the previous lesson before opening “{title}”.
+      </p>
+    </div>
+  );
+}
+
+function LockedLessonDetails() {
+  return (
+    <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
+      <Lock className="mx-auto h-5 w-5 text-muted-foreground" />
+      <p className="mt-2 text-sm font-medium">Complete the previous lesson to unlock this content.</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Video, quiz questions, notes, and downloads are protected until then.
+      </p>
+    </div>
+  );
+}
 
 function RatingControl({ courseId }: { courseId: string }) {
   const { getMyReview, submitReview, mounted } = useStore();
@@ -539,6 +598,9 @@ function LessonNotes({ lessonId, lessonTitle }: { lessonId: string; lessonTitle:
   const dirty = draft !== stored;
 
   useEffect(() => {
+    // The note query can resolve after this client component mounts; mirror
+    // that server value into the local editor when it does.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(stored);
   }, [lessonId, stored]);
 

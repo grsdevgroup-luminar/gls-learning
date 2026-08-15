@@ -90,7 +90,11 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
 
 export function toCourseDetail(
   row: CourseDetailRow,
-  opts?: { includeArticleContent?: boolean },
+  opts?: {
+    includeArticleContent?: boolean;
+    includeLessonResources?: boolean;
+    accessibleLessonIds?: ReadonlySet<string>;
+  },
 ): CourseDetailDto {
   let durationSec = 0;
   let lessonCount = 0;
@@ -110,7 +114,11 @@ export function toCourseDetail(
         order: l.order,
         hasQuiz: l.quiz !== null,
         hasVideo: l.cfVideoUid !== null,
-        resources: parseLessonResources(l.resources),
+        resources:
+          opts?.includeLessonResources &&
+          (!opts.accessibleLessonIds || opts.accessibleLessonIds.has(l.id))
+            ? parseLessonResources(l.resources)
+            : [],
         ...(opts?.includeArticleContent
           ? { articleContent: l.articleContent }
           : {}),

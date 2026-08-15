@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import {
   completionPct,
+  isLessonSequentiallyAccessible,
   isCourseComplete,
   type CertificateDto,
   type EnrollmentDto,
@@ -133,6 +134,42 @@ export class EnrollmentService {
     return n > 0;
   }
 
+  /** Completed ids for an enrolled learner, used to build the gated learner
+   * course view without exposing attachment URLs for locked lessons. */
+  async completedLessonIds(userId: string, courseId: string): Promise<string[]> {
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
+    if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+    const rows = await this.repo.findCompletedLessonIds(enrollment.id);
+    return rows.map((row) => row.lessonId);
+  }
+
+  /** Throws unless the learner is enrolled and all preceding lessons are done. */
+  async assertLessonAccessible(userId: string, lessonId: string): Promise<void> {
+    const lesson = await this.repo.findLessonAccessContext(lessonId);
+    if (!lesson) throw new NotFoundException("Lesson not found");
+
+    const enrollment = await this.repo.findIdByUserAndCourse(
+      userId,
+      lesson.section.courseId,
+    );
+    if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+
+    const completed = await this.repo.findCompletedLessonIds(enrollment.id);
+    const orderedLessonIds = lesson.section.course.sections.flatMap((section) =>
+      section.lessons.map((courseLesson) => courseLesson.id),
+    );
+
+    if (
+      !isLessonSequentiallyAccessible(
+        orderedLessonIds,
+        completed.map((row) => row.lessonId),
+        lessonId,
+      )
+    ) {
+      throw new ForbiddenException("Complete the previous lesson first");
+    }
+  }
+
   /**
    * Free self-enroll. Allowed for: free PUBLIC courses, or org-PRIVATE courses
    * the user has a seat for (org-paid). Paid public courses must go through
@@ -203,6 +240,8 @@ export class EnrollmentService {
     if (!lesson || lesson.section.courseId !== courseId)
       throw new BadRequestException("Lesson does not belong to this course");
 
+    await this.assertLessonAccessible(userId, lessonId);
+
     const existing = await this.repo.findLessonProgress(enrollment.id, lessonId);
 
     let completed: boolean;
@@ -225,6 +264,7 @@ export class EnrollmentService {
   ): Promise<void> {
     const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
     if (!enrollment) return;
+    await this.assertLessonAccessible(userId, lessonId);
     await this.repo.upsertLessonProgress(enrollment.id, lessonId);
     await this.recompute(courseId, enrollment.id, lessonId, true);
   }

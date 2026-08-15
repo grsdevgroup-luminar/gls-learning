@@ -104,6 +104,13 @@ export class MediaService {
       if (!enrolled) throw new ForbiddenException("Enroll to access this lesson");
     }
 
+    // Preview lessons remain public for visitors, but an enrolled learner is
+    // still bound to the course sequence. This prevents a direct playback
+    // request from bypassing the curriculum sidebar lock.
+    if (userId && (await this.enrollment.isEnrolled(userId, lesson.section.courseId))) {
+      await this.enrollment.assertLessonAccessible(userId, lessonId);
+    }
+
     if (lesson.type === "ARTICLE") {
       return {
         lessonId,

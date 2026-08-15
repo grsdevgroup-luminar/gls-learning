@@ -6,8 +6,25 @@ import {
   couponStatus,
   type CouponLike,
 } from "../coupon.js";
-import { completionPct, isCourseComplete, quizPassed } from "../progress.js";
-import { CouponType, CouponScope } from "../enums.js";
+import {
+  completionPct,
+  isCourseComplete,
+  isLessonSequentiallyAccessible,
+  quizPassed,
+} from "../progress.js";
+import { CouponType, CouponScope, SalesAgentStatus } from "../enums.js";
+import {
+  ReviewAgentApplicationSchema,
+  UpdateAgentSchema,
+} from "../contracts/sales-agent.js";
+import { emailSchema, normalizeEmail } from "../contracts/auth.js";
+
+describe("email normalization", () => {
+  it("removes whitespace and lowercases email values", () => {
+    expect(normalizeEmail("  Alice  @ Example.COM  ")).toBe("alice@example.com");
+    expect(emailSchema.parse("  Alice  @ Example.COM  ")).toBe("alice@example.com");
+  });
+});
 
 describe("regionalPriceCents", () => {
   it("leaves full-price (multiplier 1) regions untouched", () => {
@@ -146,5 +163,36 @@ describe("progress", () => {
   it("grades quizzes by pass threshold", () => {
     expect(quizPassed(80, 70)).toBe(true);
     expect(quizPassed(60, 70)).toBe(false);
+  });
+  it("only unlocks the next lesson in course order", () => {
+    const ordered = ["lesson-1", "lesson-2", "lesson-3"];
+    expect(isLessonSequentiallyAccessible(ordered, [], "lesson-1")).toBe(true);
+    expect(isLessonSequentiallyAccessible(ordered, [], "lesson-2")).toBe(false);
+    expect(isLessonSequentiallyAccessible(ordered, ["lesson-1"], "lesson-2")).toBe(true);
+    expect(isLessonSequentiallyAccessible(ordered, ["lesson-1"], "lesson-3")).toBe(false);
+    expect(isLessonSequentiallyAccessible(ordered, ["lesson-1", "lesson-2"], "lesson-3")).toBe(true);
+  });
+});
+
+describe("sales agent commission validation", () => {
+  it("rejects negative or zero commission during application review", () => {
+    expect(
+      ReviewAgentApplicationSchema.safeParse({
+        status: SalesAgentStatus.APPROVED,
+        commissionPercent: -10,
+      }).success,
+    ).toBe(false);
+    expect(
+      ReviewAgentApplicationSchema.safeParse({
+        status: SalesAgentStatus.APPROVED,
+        commissionPercent: 0,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts only 1% to 50% when updating an agent commission", () => {
+    expect(UpdateAgentSchema.safeParse({ commissionPercent: 1 }).success).toBe(true);
+    expect(UpdateAgentSchema.safeParse({ commissionPercent: 50 }).success).toBe(true);
+    expect(UpdateAgentSchema.safeParse({ commissionPercent: 51 }).success).toBe(false);
   });
 });

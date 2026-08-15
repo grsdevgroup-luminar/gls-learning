@@ -103,6 +103,41 @@ export class EnrollmentRepository {
     });
   }
 
+  /** Course order is authoritative for sequential lesson access. */
+  findLessonAccessContext(lessonId: string) {
+    return this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: {
+        id: true,
+        section: {
+          select: {
+            courseId: true,
+            course: {
+              select: {
+                sections: {
+                  orderBy: { order: "asc" },
+                  select: {
+                    lessons: {
+                      orderBy: { order: "asc" },
+                      select: { id: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  findCompletedLessonIds(enrollmentId: string) {
+    return this.prisma.lessonProgress.findMany({
+      where: { enrollmentId, completed: true },
+      select: { lessonId: true },
+    });
+  }
+
   findLessonProgress(enrollmentId: string, lessonId: string) {
     return this.prisma.lessonProgress.findUnique({
       where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
