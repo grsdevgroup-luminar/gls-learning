@@ -14,9 +14,11 @@ export class OrdersRepository {
     return tx ?? this.prisma;
   }
 
+  // Org-private courses are seat-gated, not for sale — access comes only from
+  // a paid org seat (see FEATURE_FLOWS.md §6.5), never a storefront purchase.
   findPublishedCoursesByIds(ids: string[]) {
     return this.prisma.course.findMany({
-      where: { id: { in: ids }, status: "PUBLISHED" },
+      where: { id: { in: ids }, status: "PUBLISHED", visibility: "PUBLIC" },
       select: { id: true, title: true, basePriceCents: true },
     });
   }
