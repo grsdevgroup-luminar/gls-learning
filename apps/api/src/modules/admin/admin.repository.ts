@@ -121,15 +121,20 @@ export class AdminRepository {
   }
 
   // ── orders ────────────────────────────────────────────────────────────────
-  findOrdersPage(page: number, pageSize: number) {
+  findOrdersPage(
+    where: Prisma.OrderWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
     return this.prisma.$transaction([
       this.prisma.order.findMany({
+        where,
         include: { items: true },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.order.count(),
+      this.prisma.order.count({ where }),
     ]);
   }
 

@@ -7,6 +7,10 @@ import { formatUsd } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -16,11 +20,12 @@ import {
   CreditCard,
   DollarSign,
   RotateCcw,
+  Search,
   ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const statusCls: Record<string, string> = {
   PAID: "text-success",
@@ -32,10 +37,23 @@ const statusCls: Record<string, string> = {
 export default function AdminOrders() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
+  const [qInput, setQInput] = useState("");
+  const [q, setQ] = useState("");
+
+  // Debounce search box so every keystroke doesn't hit the API.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(qInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [qInput]);
 
   const { data: orderPage, isLoading, error } = useQuery({
-    queryKey: ["admin", "orders", page],
-    queryFn: () => adminApi.orders({ page, pageSize: PAGE_SIZE }),
+    queryKey: ["admin", "orders", "list", { q, page, pageSize }],
+    queryFn: () =>
+      adminApi.orders({ q: q || undefined, page, pageSize }),
     placeholderData: (prev) => prev,
   });
 
@@ -115,6 +133,39 @@ export default function AdminOrders() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative sm:max-w-xs sm:flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Search by order id, coupon, user, item…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Rows per page</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {error && (
