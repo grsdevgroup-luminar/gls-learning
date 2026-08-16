@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
@@ -30,11 +31,19 @@ export function SiteHeader() {
   const logoutMut = useLogout();
   const router = useRouter();
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedSearch(q);
   const isAuthed = !!user;
+
+  useEffect(() => {
+    if (!debouncedQ) return;
+    router.replace(`/courses?q=${encodeURIComponent(debouncedQ)}`);
+  }, [debouncedQ, router]);
 
   function search(e: React.FormEvent) {
     e.preventDefault();
-    router.push(`/courses?q=${encodeURIComponent(q)}`);
+    const query = q.trim();
+    if (query.length < 2) return;
+    router.push(`/courses?q=${encodeURIComponent(query)}`);
   }
 
   async function logout() {
@@ -64,12 +73,20 @@ export function SiteHeader() {
         </nav>
 
         <form onSubmit={search} className="relative ml-2 hidden flex-1 lg:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <button
+            type="submit"
+            aria-label="Search courses"
+            className="absolute left-0 top-0 z-10 flex h-8 w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <Search className="h-4 w-4" />
+          </button>
           <Input
+            type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
+            minLength={2}
           />
         </form>
 
@@ -171,7 +188,7 @@ export function SiteHeader() {
                     <DropdownMenuItem render={<Link href="/dashboard" />}>
                       <LayoutDashboard /> Dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                    <DropdownMenuItem render={<Link href="/dashboard/progress" />}>
                       <GraduationCap /> My Learning
                     </DropdownMenuItem>
                     <DropdownMenuItem render={<Link href="/account" />}>

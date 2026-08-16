@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCategories, useCourses } from "@/lib/api/hooks";
 import { useStore } from "@/lib/context/store";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { CatalogFilters, PRICE_BUCKETS } from "./catalog-filters";
 import { CatalogResults } from "./catalog-results";
 import { rawPriceCentsForRegionalBound, type CourseLevel, type CourseSort } from "@skillstream/shared";
@@ -26,7 +27,8 @@ export function CatalogClient() {
   // Backend `GET /courses` only accepts one category / one level at a time —
   // the filter UI matches that instead of pretending to support multi-select
   // then silently only honoring the first pick.
-  const [q, setQ] = useState(urlQ);
+  const [qInput, setQInput] = useState(urlQ);
+  const q = useDebouncedSearch(qInput);
   const [cat, setCat] = useState<string | null>(urlCat);
   const [lvl, setLvl] = useState<CourseLevel | null>(null);
   const [price, setPrice] = useState("all");
@@ -42,7 +44,7 @@ export function CatalogClient() {
   const [syncedFromUrl, setSyncedFromUrl] = useState({ q: urlQ, cat: urlCat });
   if (syncedFromUrl.q !== urlQ || syncedFromUrl.cat !== urlCat) {
     setSyncedFromUrl({ q: urlQ, cat: urlCat });
-    setQ(urlQ);
+    setQInput(urlQ);
     setCat(urlCat);
   }
 
@@ -91,7 +93,7 @@ export function CatalogClient() {
   const items = coursePage?.items ?? [];
 
   function clearAllFilters() {
-    setQ("");
+    setQInput("");
     setCat(null);
     setLvl(null);
     setPrice("all");
@@ -111,8 +113,8 @@ export function CatalogClient() {
       <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
         <CatalogFilters
           categories={categories}
-          q={q}
-          onQChange={setQ}
+          q={qInput}
+          onQChange={setQInput}
           cat={cat}
           onCatChange={setCat}
           lvl={lvl}

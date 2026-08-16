@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Paginated, CourseSummaryDto } from "@skillstream/shared";
 
 const SORT_OPTIONS = [
@@ -41,10 +41,7 @@ export function CatalogResults({
 }) {
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <SlidersHorizontal className="h-4 w-4" /> Sort
-        </span>
+      <div className="mb-4 flex justify-end">
         <Select value={sort} onValueChange={(v) => v && onSortChange(v)}>
           <SelectTrigger className="w-48">
             <SelectValue>

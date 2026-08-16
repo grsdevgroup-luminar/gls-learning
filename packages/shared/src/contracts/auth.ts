@@ -6,22 +6,47 @@ export const passwordSchema = z
   .min(8, "Password must be at least 8 characters")
   .max(128);
 
+const emailFormatSchema = z.string().email("Enter a valid email address");
+
+/**
+ * Email validation shared by the browser and API.
+ *
+ * Do not trim here: leading/trailing whitespace is input that should be
+ * rejected explicitly instead of silently changing the credential the user
+ * entered.
+ */
+export const emailSchema = z
+  .string()
+  .min(1, "Email is required")
+  .max(254, "Email is too long")
+  .refine((value) => value === value.trim(), {
+    message: "Email must not have leading or trailing whitespace",
+  })
+  .refine((value) => emailFormatSchema.safeParse(value).success, {
+    message: "Enter a valid email address",
+  });
+
+/** Canonical form for a validated email before persistence or lookup. */
+export function normalizeEmail(value: string): string {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
 export const registerSchema = z.object({
   name: z.string().min(1).max(120),
-  email: z.string().email(),
+  email: emailSchema,
   password: passwordSchema,
   country: z.string().min(2).max(80).optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: emailSchema,
+  password: z.string().min(1, "Password is required").max(128),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
 });
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 

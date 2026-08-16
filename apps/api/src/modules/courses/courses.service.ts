@@ -11,6 +11,17 @@ import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 
+function slugCandidates(input: string): string[] {
+  let normalized = input.trim().toLowerCase();
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch {
+    // Keep the original value if a malformed encoded slug reaches the API.
+  }
+
+  return [...new Set([normalized, normalized.replace(/-and-/g, "-")])];
+}
+
 @Injectable()
 export class CoursesService {
   constructor(
@@ -81,7 +92,10 @@ export class CoursesService {
   }
 
   async bySlug(slug: string): Promise<CourseDetailDto> {
-    const row = await this.repo.findBySlug(slug);
+    const rows = await Promise.all(
+      slugCandidates(slug).map((candidate) => this.repo.findBySlug(candidate)),
+    );
+    const row = rows.find((candidate) => candidate !== null);
     if (!row) throw new NotFoundException("Course not found");
     return toCourseDetail(row);
   }

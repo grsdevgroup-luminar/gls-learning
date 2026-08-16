@@ -93,6 +93,7 @@ export function CatalogFilters({
       </FilterGroup>
 
       <FilterGroup title="Rating">
+        <p className="text-xs text-muted-foreground">Show courses rated at least:</p>
         {[4.5, 4, 3].map((r) => (
           <label key={r} className="flex cursor-pointer items-center gap-2 text-sm">
             <input
@@ -102,7 +103,7 @@ export function CatalogFilters({
               onChange={() => onMinRatingChange(r)}
               className="accent-primary"
             />
-            {r}+ stars
+            {r.toFixed(1)} stars and above
           </label>
         ))}
         <button

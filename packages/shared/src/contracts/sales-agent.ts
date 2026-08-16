@@ -12,7 +12,7 @@ export type ApplySalesAgentInput = z.infer<typeof ApplySalesAgentSchema>;
 
 export const ReviewAgentApplicationSchema = z.object({
   status: z.enum([SalesAgentStatus.APPROVED, SalesAgentStatus.REJECTED]),
-  commissionPercent: z.number().min(0).max(50).optional(),
+  commissionPercent: z.number().min(1, "Commission must be at least 1%").max(50, "Commission cannot exceed 50%").optional(),
   note: z.string().max(500).optional(),
 });
 export type ReviewAgentApplicationInput = z.infer<
@@ -20,7 +20,7 @@ export type ReviewAgentApplicationInput = z.infer<
 >;
 
 export const UpdateAgentSchema = z.object({
-  commissionPercent: z.number().min(0).max(50).optional(),
+  commissionPercent: z.number().min(1, "Commission must be at least 1%").max(50, "Commission cannot exceed 50%").optional(),
   status: z.nativeEnum(SalesAgentStatus).optional(),
 });
 export type UpdateAgentInput = z.infer<typeof UpdateAgentSchema>;

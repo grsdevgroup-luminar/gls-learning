@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import * as argon2 from "argon2";
 import { UserRole } from "@prisma/client";
+import { normalizeEmail } from "@skillstream/shared";
 import type {
   AuthUserDto,
   ChangePasswordInput,
@@ -42,14 +43,15 @@ export class AuthService {
   ) {}
 
   async register(input: RegisterInput, meta: SessionMeta) {
-    const existing = await this.users.findByEmail(input.email);
+    const email = normalizeEmail(input.email);
+    const existing = await this.users.findByEmail(email);
     if (existing) throw new ConflictException("Email already registered");
 
     const passwordHash = await argon2.hash(input.password, {
       type: argon2.argon2id,
     });
     const user = await this.users.create({
-      email: input.email.toLowerCase(),
+      email,
       name: input.name,
       country: input.country,
       passwordHash,
@@ -62,7 +64,7 @@ export class AuthService {
   }
 
   async login(input: LoginInput, meta: SessionMeta) {
-    const user = await this.users.findByEmail(input.email);
+    const user = await this.users.findByEmail(normalizeEmail(input.email));
     const valid = await argon2.verify(user?.passwordHash ?? DUMMY_HASH, input.password);
     if (!user || !valid) throw new UnauthorizedException("Invalid credentials");
     return this.issueSession(user.id, user.email, user.role, meta);
@@ -107,7 +109,7 @@ export class AuthService {
   }
 
   async forgotPassword(input: ForgotPasswordInput): Promise<{ ok: true }> {
-    const user = await this.users.findByEmail(input.email);
+    const user = await this.users.findByEmail(normalizeEmail(input.email));
     // Always return ok to prevent email enumeration.
     if (!user) return { ok: true };
 

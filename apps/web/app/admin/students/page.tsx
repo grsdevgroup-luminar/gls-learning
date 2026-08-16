@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Users, UserCheck, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 type StatusKey = "ACTIVE" | "IDLE" | "AT_RISK";
 
@@ -25,18 +26,14 @@ const statusBadge: Record<StatusKey, { label: string; cls: string }> = {
 
 export default function AdminStudents() {
   const [qInput, setQInput] = useState("");
-  const [q, setQ] = useState("");
+  const q = useDebouncedSearch(qInput);
   const [page, setPage] = useState(1);
   const qc = useQueryClient();
 
-  // Debounce the search box so every keystroke doesn't hit the API.
+  // Reset to the first page after the debounced query changes.
   useEffect(() => {
-    const t = setTimeout(() => {
-      setQ(qInput);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [qInput]);
+    setPage(1);
+  }, [q]);
 
   const { data: studentPage, isLoading, error } = useQuery({
     queryKey: ["admin", "students", q, page],

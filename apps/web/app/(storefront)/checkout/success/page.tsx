@@ -17,7 +17,6 @@ function SuccessContent() {
 
   // Fresh enrollments so the dashboard reflects the purchase immediately.
   useEffect(() => {
-    void qc.invalidateQueries({ queryKey: ["store", "enrollments"] });
     void qc.invalidateQueries({ queryKey: ["enrollments"] });
   }, [qc]);
 

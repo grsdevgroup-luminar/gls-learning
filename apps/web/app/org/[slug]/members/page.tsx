@@ -23,11 +23,13 @@ import {
 } from "@/components/ui/select";
 import { UserPlus, Trash2, Search, Users, MailPlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 export default function OrgMembers() {
   const params = useParams<{ slug: string }>();
   const qc = useQueryClient();
-  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const q = useDebouncedSearch(qInput);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
@@ -140,7 +142,7 @@ export default function OrgMembers() {
       <div className="flex gap-3">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members…" className="pl-9" />
+          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search members…" className="pl-9" />
         </div>
       </div>
 

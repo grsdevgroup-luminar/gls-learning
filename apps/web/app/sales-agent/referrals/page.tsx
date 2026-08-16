@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Search, Link2, TrendingUp, CheckCircle2, Clock } from "lucide-react";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 const statusBadge = {
   paid:      { label: "Paid",      cls: "text-success" },
@@ -20,7 +21,8 @@ const statusBadge = {
 export default function AgentReferrals() {
   const { data: agent } = useMySalesAgent();
   const { data: referrals } = useMyAgentReferrals();
-  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const q = useDebouncedSearch(qInput);
 
   if (!agent) return null;
 
@@ -68,7 +70,7 @@ export default function AgentReferrals() {
 
       <div className="relative sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search student or course…" className="pl-9" />
+        <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search student or course…" className="pl-9" />
       </div>
 
       <Card>

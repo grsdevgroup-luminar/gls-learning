@@ -20,6 +20,7 @@ import {
 import { formatUsd, compactNumber } from "@/lib/format";
 import { Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket } from "lucide-react";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 type ApiStatus = "PUBLISHED" | "DRAFT" | "REVIEW";
 
@@ -35,7 +36,8 @@ export default function AdminCourses() {
     queryKey: ["admin", "courses"],
     queryFn: adminApi.courses,
   });
-  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const q = useDebouncedSearch(qInput);
   const [status, setStatus] = useState<"all" | ApiStatus>("all");
 
   const invalidate = () => {
@@ -85,7 +87,7 @@ export default function AdminCourses() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search courses…" className="pl-9" />
+          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search courses…" className="pl-9" />
         </div>
         <div className="flex gap-1">
           {(["all", "PUBLISHED", "DRAFT", "REVIEW"] as const).map((s) => (

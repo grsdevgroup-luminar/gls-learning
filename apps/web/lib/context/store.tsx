@@ -22,6 +22,7 @@ import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
 import { useCatalog } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { qk } from "@/lib/api/query-keys";
 import { useSession } from "@/lib/api/session";
 import type { CourseSummaryDto, EnrollmentDto } from "@skillstream/shared";
 
@@ -160,7 +161,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ── enrollments / progress ──
   const { data: enrollments } = useQuery({
-    queryKey: ["store", "enrollments"],
+    queryKey: qk.enrollments,
     queryFn: () => api.myEnrollments(),
     enabled: !!user,
     staleTime: 30_000,
@@ -175,7 +176,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const refetchEnrollments = useCallback(
-    () => qc.invalidateQueries({ queryKey: ["store", "enrollments"] }),
+    () => qc.invalidateQueries({ queryKey: qk.enrollments }),
     [qc],
   );
 

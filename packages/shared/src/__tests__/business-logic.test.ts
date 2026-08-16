@@ -20,9 +20,10 @@ import {
 import { emailSchema, normalizeEmail } from "../contracts/auth.js";
 
 describe("email normalization", () => {
-  it("removes whitespace and lowercases email values", () => {
+  it("canonicalizes validated email values", () => {
     expect(normalizeEmail("  Alice  @ Example.COM  ")).toBe("alice@example.com");
-    expect(emailSchema.parse("  Alice  @ Example.COM  ")).toBe("alice@example.com");
+    expect(emailSchema.safeParse("  Alice  @ Example.COM  ").success).toBe(false);
+    expect(emailSchema.parse("Alice@example.com")).toBe("Alice@example.com");
   });
 });
 

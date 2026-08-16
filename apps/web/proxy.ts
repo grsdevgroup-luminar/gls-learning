@@ -22,6 +22,7 @@ type Role = "STUDENT" | "INSTRUCTOR" | "ADMIN" | "SALES_AGENT" | "ORG_ADMIN";
 const ROLE_PREFIXES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/admin", roles: ["ADMIN"] },
   { prefix: "/instructor", roles: ["INSTRUCTOR", "ADMIN"] },
+  { prefix: "/dashboard", roles: ["STUDENT", "ORG_ADMIN"] },
 ];
 
 const HOME: Record<Role, string> = {
