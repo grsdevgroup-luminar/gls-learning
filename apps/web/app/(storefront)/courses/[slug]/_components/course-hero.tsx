@@ -11,7 +11,7 @@ export function CourseHero({ course }: { course: CourseDetailDto }) {
   const instructor = course.instructor;
   return (
     <section className="border-b bg-foreground text-background dark:bg-card dark:text-foreground">
-      <div className="mx-auto grid max-w-7xl gap-8 overflow-x-hidden px-4 pb-32 pt-10 lg:grid-cols-[1fr_380px] lg:pb-40">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-32 pt-10 lg:grid-cols-[1fr_380px] lg:pb-40">
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{course.category}</Badge>

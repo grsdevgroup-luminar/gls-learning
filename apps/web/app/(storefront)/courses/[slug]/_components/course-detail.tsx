@@ -4,6 +4,7 @@ import { CourseHero } from "./course-hero";
 import { CourseCurriculum } from "./course-curriculum";
 import { CoursePreviewPlayer } from "./course-preview-player";
 import { CoursePurchaseCard } from "./course-purchase-card";
+import { MobilePurchaseBar } from "./mobile-purchase-bar";
 import { ReviewsSection } from "./reviews-section";
 
 /** Server-rendered shell: hero, curriculum, requirements, instructor bio, and
@@ -26,7 +27,7 @@ export function CourseDetail({
     <>
       <CourseHero course={course} />
 
-      <div className="mx-auto grid max-w-7xl gap-8 overflow-x-hidden px-4 pb-10 lg:grid-cols-[1fr_380px]">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-24 lg:pb-10 lg:grid-cols-[1fr_380px]">
         <div className="min-w-0 space-y-10 pt-10">
           {previewLesson && (
             <CoursePreviewPlayer lesson={previewLesson} seed={course.thumbnail} />
@@ -39,11 +40,14 @@ export function CourseDetail({
           <CourseComments courseId={course.id} />
         </div>
 
-        {/* Purchase card — pulled up to overlap the hero, then sticky */}
-        <div className="order-first min-w-0 lg:order-none lg:-mt-32">
+        {/* Purchase card — pulled up to overlap the hero, then sticky. Desktop
+            only: mobile gets the fixed bottom bar instead. */}
+        <div className="hidden min-w-0 lg:block lg:-mt-32">
           <CoursePurchaseCard course={course} />
         </div>
       </div>
+
+      <MobilePurchaseBar course={course} />
     </>
   );
 }
