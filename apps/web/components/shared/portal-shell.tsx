@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLogout } from "@/lib/api/session";
+import { useStore } from "@/lib/context/store";
 import { cn } from "@/lib/utils";
 
 const navIcons = {
@@ -92,11 +93,13 @@ export function PortalShell({
   const pathname = usePathname();
   const router = useRouter();
   const logoutMut = useLogout();
+  const { clearCart } = useStore();
   const [open, setOpen] = useState(false);
 
   async function handleLogout() {
     setOpen(false);
     await logoutMut.mutateAsync();
+    clearCart();
     router.push("/");
   }
 
