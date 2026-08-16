@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import type {
-  CourseDetailDto,
-  CourseListQuery,
-  CourseSummaryDto,
-  Paginated,
+import {
+  isLessonSequentiallyAccessible,
+  type CourseDetailDto,
+  type CourseListQuery,
+  type CourseSummaryDto,
+  type Paginated,
 } from "@skillstream/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
@@ -96,17 +97,11 @@ export class CoursesService {
     const orderedLessonIds = row.sections.flatMap((section) =>
       section.lessons.map((lesson) => lesson.id),
     );
-    const completed = new Set(completedIds);
-    const accessibleLessonIds = new Set<string>();
-    for (const [index, lessonId] of orderedLessonIds.entries()) {
-      if (
-        orderedLessonIds
-          .slice(0, index)
-          .every((previousId) => completed.has(previousId))
-      ) {
-        accessibleLessonIds.add(lessonId);
-      }
-    }
+    const accessibleLessonIds = new Set(
+      orderedLessonIds.filter((lessonId) =>
+        isLessonSequentiallyAccessible(orderedLessonIds, completedIds, lessonId),
+      ),
+    );
 
     return toCourseDetail(row, {
       includeLessonResources: true,
