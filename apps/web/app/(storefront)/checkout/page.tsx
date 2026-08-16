@@ -28,8 +28,7 @@ import { StripeIcon, PaypalIcon } from "@/components/shared/payment-icons";
 
 const methods = [
   { id: "stripe", label: "Credit / debit card", sub: "Visa, Mastercard, Amex", icon: StripeIcon },
-  // PayPal disabled for now — uncomment to re-enable.
-  // { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: PaypalIcon },
+  { id: "paypal", label: "PayPal", sub: "Pay with your PayPal balance", icon: PaypalIcon },
   { id: "sslcommerz", label: "SSLCommerz", sub: "bKash, Nagad, cards, mobile banking", icon: CreditCard },
 ];
 
