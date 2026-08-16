@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Coupon } from "@prisma/client";
 import {
+  CouponScope,
   couponStatus,
   discountCents,
   validateCoupon,
@@ -49,16 +50,30 @@ export class CouponsService {
     };
   }
 
-  /** Validates a code and computes its discount against the cart. */
+  /** Validates a code and computes its discount against the cart.
+   *
+   *  A COURSE-scoped coupon must only discount the price of *that* course —
+   *  not the whole cart. Otherwise stacking an unrelated course alongside the
+   *  scoped one turns a single-course coupon into a free-everything code. */
   async evaluate(
     code: string,
-    subtotalCents: number,
-    courseIds: string[],
+    lines: { courseId: string; priceCents: number }[],
   ): Promise<{ result: CouponResult; coupon: Coupon | null; discountCents: number }> {
+    const subtotalCents = lines.reduce((s, l) => s + l.priceCents, 0);
+    const courseIds = lines.map((l) => l.courseId);
     const coupon = await this.findByCode(code);
     const like = coupon ? this.toCouponLike(coupon) : null;
     const result = validateCoupon(like, subtotalCents, courseIds);
-    const discount = result.ok && like ? discountCents(like, subtotalCents) : 0;
+    let discount = 0;
+    if (result.ok && like) {
+      const eligibleCents =
+        like.scope === CouponScope.COURSE && like.courseId
+          ? lines
+              .filter((l) => l.courseId === like.courseId)
+              .reduce((s, l) => s + l.priceCents, 0)
+          : subtotalCents;
+      discount = discountCents(like, eligibleCents);
+    }
     return { result, coupon, discountCents: discount };
   }
 }

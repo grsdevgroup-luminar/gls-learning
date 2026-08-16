@@ -48,7 +48,7 @@ export function CatalogFilters({
   onMinRatingChange: (v: number) => void;
 }) {
   return (
-    <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
+    <div className="space-y-6">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -112,7 +112,7 @@ export function CatalogFilters({
           Clear rating
         </button>
       </FilterGroup>
-    </aside>
+    </div>
   );
 }
 

@@ -6,6 +6,17 @@ import { useCategories, useCourses } from "@/lib/api/hooks";
 import { useStore } from "@/lib/context/store";
 import { CatalogFilters, PRICE_BUCKETS } from "./catalog-filters";
 import { CatalogResults } from "./catalog-results";
+import { SortSelect } from "./sort-select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SlidersHorizontal } from "lucide-react";
 import { rawPriceCentsForRegionalBound, type CourseLevel, type CourseSort } from "@skillstream/shared";
 
 const SORT_TO_API: Record<string, CourseSort> = {
@@ -33,6 +44,7 @@ export function CatalogClient() {
   const [minRating, setMinRating] = useState(0);
   const [sort, setSort] = useState("popular");
   const [page, setPage] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Re-searching from the header (`/courses?q=...`) while already on this
   // page changes the URL but not this component's state — pick it up.
@@ -89,6 +101,8 @@ export function CatalogClient() {
   });
 
   const items = coursePage?.items ?? [];
+  const activeFilterCount =
+    (cat ? 1 : 0) + (lvl ? 1 : 0) + (price !== "all" ? 1 : 0) + (minRating > 0 ? 1 : 0);
 
   function clearAllFilters() {
     setQ("");
@@ -97,6 +111,20 @@ export function CatalogClient() {
     setPrice("all");
     setMinRating(0);
   }
+
+  const filterProps = {
+    categories,
+    q,
+    onQChange: setQ,
+    cat,
+    onCatChange: setCat,
+    lvl,
+    onLvlChange: setLvl,
+    price,
+    onPriceChange: setPrice,
+    minRating,
+    onMinRatingChange: setMinRating,
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -108,20 +136,38 @@ export function CatalogClient() {
         </p>
       </div>
 
+      {/* Mobile/tablet: filters live in a sheet instead of stacking above the
+          grid (that pattern pushes every course below the fold on a phone).
+          This sticky bar — Filters + Sort side by side — is the common
+          marketplace pattern (Airbnb/Etsy/Amazon mobile) for the same reason. */}
+      <div className="sticky top-16 z-20 -mx-4 mb-4 flex items-center gap-2 bg-[#eef0f8] px-4 py-3 dark:bg-background lg:hidden">
+        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <SheetTrigger
+            render={<Button variant="outline" className="flex-1 bg-transparent shadow-none" />}
+          >
+            <SlidersHorizontal className="h-4 w-4" /> Filters
+            {activeFilterCount > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </SheetTrigger>
+          <SheetContent side="left" className="overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-6">
+              <CatalogFilters {...filterProps} />
+            </div>
+          </SheetContent>
+        </Sheet>
+        <SortSelect value={sort} onChange={setSort} className="flex-1" />
+      </div>
+
       <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-        <CatalogFilters
-          categories={categories}
-          q={q}
-          onQChange={setQ}
-          cat={cat}
-          onCatChange={setCat}
-          lvl={lvl}
-          onLvlChange={setLvl}
-          price={price}
-          onPriceChange={setPrice}
-          minRating={minRating}
-          onMinRatingChange={setMinRating}
-        />
+        <aside className="hidden lg:sticky lg:top-16 lg:block lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto">
+          <CatalogFilters {...filterProps} />
+        </aside>
         <CatalogResults
           coursePage={coursePage}
           items={items}

@@ -12,14 +12,14 @@ export function CourseHero({ course }: { course: CourseDetailDto }) {
   return (
     <section className="border-b bg-foreground text-background dark:bg-card dark:text-foreground">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-32 pt-10 lg:grid-cols-[1fr_380px] lg:pb-40">
-        <div>
+        <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{course.category}</Badge>
             {course.bestseller && <BestsellerBadge />}
             {isHighestRated(course) && <HighestRatedBadge />}
             <span className="text-sm opacity-80">{levelLabel(course.level)}</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+          <h1 className="break-words text-3xl font-bold tracking-tight md:text-4xl">
             {course.title}
           </h1>
           <p className="mt-3 max-w-2xl text-lg opacity-90">{course.subtitle}</p>
