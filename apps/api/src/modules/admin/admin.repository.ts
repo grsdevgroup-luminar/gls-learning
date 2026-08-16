@@ -113,11 +113,28 @@ export class AdminRepository {
   }
 
   // ── courses ───────────────────────────────────────────────────────────────
-  findAllCourses() {
-    return this.prisma.course.findMany({
-      include: COURSE_SUMMARY_INCLUDE,
-      orderBy: { updatedAt: "desc" },
-    });
+  findCoursesPage(
+    where: Prisma.CourseWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.course.findMany({
+        where,
+        include: COURSE_SUMMARY_INCLUDE,
+        orderBy: { updatedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.course.count({ where }),
+    ]);
+  }
+
+  courseStatsCounts() {
+    return this.prisma.$transaction([
+      this.prisma.course.count(),
+      this.prisma.course.count({ where: { status: "PUBLISHED" } }),
+    ]);
   }
 
   // ── orders ────────────────────────────────────────────────────────────────

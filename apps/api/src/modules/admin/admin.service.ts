@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AutomationRule, Coupon, PlatformSettings, Prisma } from "@prisma/client";
 import type {
   AdminAnalyticsDto,
+  AdminCourseQuery,
+  AdminCourseStatsDto,
   AdminOrderStatsDto,
   AdminOverviewDto,
   AdminStudentDto,
@@ -223,10 +225,41 @@ export class AdminService {
     return { total, active, atRisk: total - active };
   }
 
-  async courses() {
-    const rows = await this.repo.findAllCourses();
+  async courses(query: AdminCourseQuery) {
+    const q = query.q?.trim();
+    const where: Prisma.CourseWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" } },
+              { slug: { contains: q, mode: "insensitive" } },
+              { instructor: { name: { contains: q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.repo.findCoursesPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
     // Admin view also exposes revenue (not part of the public summary).
-    return rows.map((r) => ({ ...toCourseSummary(r), revenueCents: r.revenueCents }));
+    return {
+      items: rows.map((r) => ({
+        ...toCourseSummary(r),
+        revenueCents: r.revenueCents,
+      })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async courseStats(): Promise<AdminCourseStatsDto> {
+    const [total, published] = await this.repo.courseStatsCounts();
+    return { total, published };
   }
 
   async orders(query: SearchQuery): Promise<Paginated<OrderDto>> {

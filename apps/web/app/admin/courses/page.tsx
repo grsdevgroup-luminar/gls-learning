@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi, authoringApi, type InstructorCourseDto } from "@/lib/api/endpoints";
@@ -12,13 +12,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatUsd, compactNumber } from "@/lib/format";
-import { Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket,
+} from "lucide-react";
 import { toast } from "sonner";
 
 type ApiStatus = "PUBLISHED" | "DRAFT" | "REVIEW";
@@ -29,14 +34,47 @@ const statusStyle: Record<ApiStatus, string> = {
   REVIEW: "text-warning",
 };
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 export default function AdminCourses() {
   const qc = useQueryClient();
-  const { data: courses } = useQuery({
-    queryKey: ["admin", "courses"],
-    queryFn: adminApi.courses,
-  });
+  const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | ApiStatus>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(qInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  const { data: coursePage, isLoading } = useQuery({
+    queryKey: ["admin", "courses", "list", { q, status, page, pageSize }],
+    queryFn: () =>
+      adminApi.courses({
+        q: q || undefined,
+        status: status === "all" ? undefined : status,
+        page,
+        pageSize,
+      }),
+    placeholderData: (prev) => prev,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin", "courses", "stats"],
+    queryFn: adminApi.courseStats,
+  });
+
+  const courses = coursePage?.items ?? [];
+  const totalPages = coursePage?.totalPages ?? 1;
+
+  useEffect(() => {
+    if (coursePage && page > coursePage.totalPages) setPage(coursePage.totalPages);
+  }, [coursePage, page]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
@@ -46,7 +84,7 @@ export default function AdminCourses() {
   const publishMutation = useMutation({
     mutationFn: (id: string) => authoringApi.setCourseStatus(id, "PUBLISHED"),
     onSuccess: (_, id) => {
-      const c = (courses ?? []).find((x) => x.id === id);
+      const c = courses.find((x) => x.id === id);
       toast.success("Course approved & published 🚀", { description: c?.title });
       invalidate();
     },
@@ -56,18 +94,11 @@ export default function AdminCourses() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => authoringApi.deleteCourse(id),
     onSuccess: (_, id) => {
-      const c = (courses ?? []).find((x) => x.id === id);
+      const c = courses.find((x) => x.id === id);
       toast.success("Course deleted", { description: c?.title });
       invalidate();
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
-  });
-
-  const all = courses ?? [];
-  const filtered = all.filter((c) => {
-    if (q && !c.title.toLowerCase().includes(q.toLowerCase())) return false;
-    if (status !== "all" && c.status !== status) return false;
-    return true;
   });
 
   return (
@@ -76,7 +107,7 @@ export default function AdminCourses() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
           <p className="text-muted-foreground">
-            {all.length} courses · {all.filter((c) => c.status === "PUBLISHED").length} published
+            {stats ? `${stats.total} courses · ${stats.published} published` : "…"}
           </p>
         </div>
         <Button render={<Link href="/admin/courses/new" />}><Plus /> New course</Button>
@@ -85,14 +116,47 @@ export default function AdminCourses() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search courses…" className="pl-9" />
+          <Input
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Search courses…"
+            className="pl-9"
+          />
         </div>
         <div className="flex gap-1">
           {(["all", "PUBLISHED", "DRAFT", "REVIEW"] as const).map((s) => (
-            <Button key={s} size="sm" variant={status === s ? "default" : "outline"} onClick={() => setStatus(s)} className="capitalize">
+            <Button
+              key={s}
+              size="sm"
+              variant={status === s ? "default" : "outline"}
+              onClick={() => {
+                setStatus(s);
+                setPage(1);
+              }}
+              className="capitalize"
+            >
               {s.toLowerCase()}
             </Button>
           ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Rows</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -111,7 +175,7 @@ export default function AdminCourses() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((c: InstructorCourseDto) => (
+              {courses.map((c: InstructorCourseDto) => (
                 <TableRow key={c.id}>
                   <TableCell className="pl-6">
                     <div className="flex items-center gap-3">
@@ -155,6 +219,30 @@ export default function AdminCourses() {
           </Table>
         </CardContent>
       </Card>
+
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
