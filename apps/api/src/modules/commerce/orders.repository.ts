@@ -73,6 +73,31 @@ export class OrdersRepository {
     });
   }
 
+  findOrdersPageByUser(
+    where: Prisma.OrderWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+  }
+
+  aggregatePaidByUser(userId: string) {
+    return this.prisma.order.aggregate({
+      where: { userId, status: "PAID" },
+      _sum: { totalCents: true },
+      _count: { _all: true },
+    });
+  }
+
   updateOrder(orderId: string, data: Prisma.OrderUpdateInput, tx?: Db) {
     return this.db(tx).order.update({
       where: { id: orderId },

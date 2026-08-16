@@ -69,3 +69,9 @@ export interface OrderDto {
   createdAt: string;
   paidAt: string | null;
 }
+
+/** Aggregate spend stats for the caller's own orders (drives billing sidebar). */
+export interface MyOrderStatsDto {
+  totalSpentCents: number;
+  paidCount: number;
+}

@@ -17,11 +17,13 @@ import type { Response } from "express";
 import {
   checkoutQuoteSchema,
   checkoutSessionSchema,
+  searchQuerySchema,
   type CheckoutQuoteInput,
   type CheckoutSessionInput,
+  type SearchQuery,
 } from "@skillstream/shared";
 import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
-import { ZodBody } from "../../common/utils/swagger";
+import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { CheckoutService } from "./checkout.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
@@ -64,8 +66,17 @@ export class CheckoutController {
   }
 
   @Get("me/orders")
-  myOrders(@CurrentUser() user: RequestUser) {
-    return this.orders.myOrders(user.id);
+  myOrders(
+    @CurrentUser() user: RequestUser,
+    @ZodQuery(searchQuerySchema) query: SearchQuery,
+  ) {
+    return this.orders.myOrders(user.id, query);
+  }
+
+  /** Aggregate spend/paid-count for the caller — drives the billing sidebar. */
+  @Get("me/orders/stats")
+  myOrderStats(@CurrentUser() user: RequestUser) {
+    return this.orders.myOrderStats(user.id);
   }
 
   /** Receipt for one of the caller's own paid orders. */

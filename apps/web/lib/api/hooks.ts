@@ -106,8 +106,17 @@ export function useQuote() {
   return useMutation({ mutationFn: (body: CheckoutQuoteInput) => api.quote(body) });
 }
 
-export const useMyOrders = () =>
-  useQuery({ queryKey: qk.orders, queryFn: api.myOrders });
+export const useMyOrders = (
+  params: { q?: string; page: number; pageSize: number },
+) =>
+  useQuery({
+    queryKey: qk.orders(params),
+    queryFn: () => api.myOrders(params),
+    placeholderData: (prev) => prev,
+  });
+
+export const useMyOrderStats = () =>
+  useQuery({ queryKey: qk.myOrderStats, queryFn: api.myOrderStats });
 
 // ── reviews ───────────────────────────────────────────────────────────────
 export const useCourseReviews = (courseId: string, page = 1) =>
