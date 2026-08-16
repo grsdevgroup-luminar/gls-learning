@@ -26,8 +26,8 @@ export function CourseDetail({
     <>
       <CourseHero course={course} />
 
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-10 lg:grid-cols-[1fr_380px]">
-        <div className="space-y-10 pt-10">
+      <div className="mx-auto grid max-w-7xl gap-8 overflow-x-hidden px-4 pb-10 lg:grid-cols-[1fr_380px]">
+        <div className="min-w-0 space-y-10 pt-10">
           {previewLesson && (
             <CoursePreviewPlayer lesson={previewLesson} seed={course.thumbnail} />
           )}
@@ -40,7 +40,7 @@ export function CourseDetail({
         </div>
 
         {/* Purchase card — pulled up to overlap the hero, then sticky */}
-        <div className="order-first lg:order-none lg:-mt-32">
+        <div className="order-first min-w-0 lg:order-none lg:-mt-32">
           <CoursePurchaseCard course={course} />
         </div>
       </div>

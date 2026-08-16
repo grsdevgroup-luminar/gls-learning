@@ -37,7 +37,7 @@ export function CourseComments({ courseId }: { courseId: string }) {
   }
 
   return (
-    <div className="border-t border-border pt-8">
+    <div className="max-w-full border-t border-border pt-8">
       <div className="mb-4 flex items-center gap-2">
         <MessageSquare className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-bold">Discussion</h2>
