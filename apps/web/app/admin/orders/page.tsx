@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, type OrderDto } from "@/lib/api/endpoints";
 import { formatUsd } from "@/lib/format";
@@ -9,8 +10,17 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { CreditCard, DollarSign, RotateCcw, ShoppingBag } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  DollarSign,
+  RotateCcw,
+  ShoppingBag,
+} from "lucide-react";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 10;
 
 const statusCls: Record<string, string> = {
   PAID: "text-success",
@@ -21,11 +31,25 @@ const statusCls: Record<string, string> = {
 
 export default function AdminOrders() {
   const qc = useQueryClient();
+  const [page, setPage] = useState(1);
 
-  const { data: orders, isLoading, error } = useQuery({
-    queryKey: ["admin", "orders"],
-    queryFn: adminApi.orders,
+  const { data: orderPage, isLoading, error } = useQuery({
+    queryKey: ["admin", "orders", page],
+    queryFn: () => adminApi.orders({ page, pageSize: PAGE_SIZE }),
+    placeholderData: (prev) => prev,
   });
+
+  const { data: orderStats } = useQuery({
+    queryKey: ["admin", "orders", "stats"],
+    queryFn: adminApi.orderStats,
+  });
+
+  const pagedOrders = orderPage?.items ?? [];
+  const totalPages = orderPage?.totalPages ?? 1;
+
+  useEffect(() => {
+    if (orderPage && page > orderPage.totalPages) setPage(orderPage.totalPages);
+  }, [orderPage, page]);
 
   const refundMutation = useMutation({
     mutationFn: (id: string) => adminApi.refundOrder(id),
@@ -36,16 +60,27 @@ export default function AdminOrders() {
     onError: () => toast.error("Refund failed"),
   });
 
-  const gross = (orders ?? [])
-    .filter((o) => o.status === "PAID")
-    .reduce((s, o) => s + o.totalCents, 0);
-  const refundCount = (orders ?? []).filter((o) => o.status === "REFUNDED").length;
-
   const stats = [
-    { icon: DollarSign, label: "Gross revenue", value: formatUsd(gross / 100).replace(".00", "") },
-    { icon: ShoppingBag, label: "Orders", value: orders?.length ?? "—" },
-    { icon: RotateCcw, label: "Refunds", value: refundCount },
+    {
+      icon: DollarSign,
+      label: "Gross revenue",
+      value: orderStats
+        ? formatUsd(orderStats.grossPaidCents / 100).replace(".00", "")
+        : "—",
+    },
+    {
+      icon: ShoppingBag,
+      label: "Orders",
+      value: orderStats?.total ?? "—",
+    },
+    {
+      icon: RotateCcw,
+      label: "Refunds",
+      value: orderStats?.refundCount ?? "—",
+    },
   ];
+
+  const statsLoading = !orderStats;
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -58,7 +93,7 @@ export default function AdminOrders() {
         {stats.map((s) => (
           <Card key={s.label}>
             <CardContent className="flex items-center gap-3 pt-6">
-              {isLoading ? (
+              {statsLoading ? (
                 <>
                   <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
                   <div className="space-y-1.5">
@@ -111,7 +146,7 @@ export default function AdminOrders() {
                       ))}
                     </TableRow>
                   ))
-                : (orders ?? []).map((o) => (
+                : pagedOrders.map((o) => (
                     <OrderRow
                       key={o.id}
                       order={o}
@@ -123,6 +158,30 @@ export default function AdminOrders() {
           </Table>
         </CardContent>
       </Card>
+
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

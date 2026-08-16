@@ -2,12 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AutomationRule, Coupon, PlatformSettings, Prisma } from "@prisma/client";
 import type {
   AdminAnalyticsDto,
+  AdminOrderStatsDto,
   AdminOverviewDto,
   AdminStudentDto,
   AdminStudentStatsDto,
   AutomationRuleDto,
   CouponDto,
   Paginated,
+  PaginationQuery,
   PlatformSettingsDto,
   SearchQuery,
   UpdatePlatformSettingsInput,
@@ -228,25 +230,43 @@ export class AdminService {
     return rows.map((r) => ({ ...toCourseSummary(r), revenueCents: r.revenueCents }));
   }
 
-  async orders(): Promise<OrderDto[]> {
-    const rows = await this.repo.findAllOrders();
-    return rows.map((row) => ({
-      id: row.id,
-      status: row.status,
-      gateway: row.gateway,
-      subtotalCents: row.subtotalCents,
-      discountCents: row.discountCents,
-      totalCents: row.totalCents,
-      currency: row.currency,
-      couponCode: row.couponCode,
-      items: row.items.map((i) => ({
-        courseId: i.courseId,
-        title: i.titleSnapshot,
-        priceCents: i.priceCents,
+  async orders(query: PaginationQuery): Promise<Paginated<OrderDto>> {
+    const [rows, total] = await this.repo.findOrdersPage(
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        gateway: row.gateway,
+        subtotalCents: row.subtotalCents,
+        discountCents: row.discountCents,
+        totalCents: row.totalCents,
+        currency: row.currency,
+        couponCode: row.couponCode,
+        items: row.items.map((i) => ({
+          courseId: i.courseId,
+          title: i.titleSnapshot,
+          priceCents: i.priceCents,
+        })),
+        createdAt: row.createdAt.toISOString(),
+        paidAt: row.paidAt?.toISOString() ?? null,
       })),
-      createdAt: row.createdAt.toISOString(),
-      paidAt: row.paidAt?.toISOString() ?? null,
-    }));
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async orderStats(): Promise<AdminOrderStatsDto> {
+    const [total, paidAgg, refundCount] = await this.repo.orderStatsCounts();
+    return {
+      total,
+      grossPaidCents: paidAgg._sum.totalCents ?? 0,
+      refundCount,
+    };
   }
 
   // ── coupons ──────────────────────────────────────────────────────────────

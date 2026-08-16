@@ -121,12 +121,27 @@ export class AdminRepository {
   }
 
   // ── orders ────────────────────────────────────────────────────────────────
-  findAllOrders() {
-    return this.prisma.order.findMany({
-      include: { items: true },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
+  findOrdersPage(page: number, pageSize: number) {
+    return this.prisma.$transaction([
+      this.prisma.order.findMany({
+        include: { items: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.order.count(),
+    ]);
+  }
+
+  orderStatsCounts() {
+    return this.prisma.$transaction([
+      this.prisma.order.count(),
+      this.prisma.order.aggregate({
+        where: { status: "PAID" },
+        _sum: { totalCents: true },
+      }),
+      this.prisma.order.count({ where: { status: "REFUNDED" } }),
+    ]);
   }
 
   findOrderWithItems(orderId: string) {

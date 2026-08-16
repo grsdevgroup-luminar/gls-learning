@@ -38,6 +38,12 @@ export interface AdminStudentStatsDto {
   atRisk: number;
 }
 
+export interface AdminOrderStatsDto {
+  total: number;
+  grossPaidCents: number;
+  refundCount: number;
+}
+
 export interface AdminStudentDto {
   id: string;
   name: string;
