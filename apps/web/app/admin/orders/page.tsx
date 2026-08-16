@@ -15,8 +15,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   CreditCard,
   DollarSign,
   RotateCcw,
@@ -249,7 +254,20 @@ function OrderRow({
   return (
     <TableRow>
       <TableCell className="pl-6">
-        <div className="font-mono text-xs">{order.id.slice(0, 12)}…</div>
+        <div className="flex items-center gap-1.5">
+          <Tooltip>
+            <TooltipTrigger
+              render={<span />}
+              className="cursor-default font-mono text-xs"
+            >
+              {order.id.slice(0, 12)}…
+            </TooltipTrigger>
+            <TooltipContent>
+              <span className="font-mono text-xs">{order.id}</span>
+            </TooltipContent>
+          </Tooltip>
+          <CopyOrderId id={order.id} />
+        </div>
         <div className="text-xs text-muted-foreground">
           {new Date(order.createdAt).toLocaleDateString()}
         </div>
@@ -295,5 +313,42 @@ function OrderRow({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+function CopyOrderId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      toast.success("Order ID copied");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            onClick={onCopy}
+            aria-label="Copy order ID"
+            className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          />
+        }
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-success" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>{copied ? "Copied" : "Copy ID"}</TooltipContent>
+    </Tooltip>
   );
 }
