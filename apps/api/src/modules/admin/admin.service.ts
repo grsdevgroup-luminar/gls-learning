@@ -307,9 +307,28 @@ export class AdminService {
     };
   }
 
-  async listCoupons(): Promise<CouponDto[]> {
-    const rows = await this.repo.findAllCoupons();
-    return rows.map((c) => this.toCouponDto(c));
+  async listCoupons(query: SearchQuery): Promise<Paginated<CouponDto>> {
+    const q = query.q?.trim();
+    const where: Prisma.CouponWhereInput = q
+      ? {
+          OR: [
+            { code: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {};
+    const [rows, total] = await this.repo.findCouponsPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map((c) => this.toCouponDto(c)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
   }
 
   async upsertCoupon(input: UpsertCouponInput): Promise<CouponDto> {

@@ -22,7 +22,7 @@ export const qk = {
   instructorCourses: ["instructor-courses"] as const,
   salesAgents: ["sales-agents"] as const,
   categories: ["categories"] as const,
-  adminCoupons: ["admin-coupons"] as const,
+  adminCoupons: (params?: unknown) => ["admin-coupons", params] as const,
   featuredCoupon: ["featured-coupon"] as const,
   adminSettings: ["admin-settings"] as const,
   automationRules: ["automation-rules"] as const,

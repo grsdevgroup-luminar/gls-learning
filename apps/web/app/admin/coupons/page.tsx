@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { couponStatus, type CouponStatus, type CouponType } from "@skillstream/shared";
 import type { CouponDto } from "@/lib/api/endpoints";
 import {
@@ -22,8 +22,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Ticket, Plus, Copy, Percent, DollarSign, Gift, Star, Trash2 } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, Ticket, Plus, Copy, Percent, DollarSign, Gift, Star, Trash2, Search,
+} from "lucide-react";
 import { toast } from "sonner";
+
+const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 
 const typeIcon: Record<CouponType, typeof Percent> = {
   PERCENT: Percent,
@@ -46,7 +50,31 @@ function offerLabel(c: CouponDto) {
 }
 
 export default function AdminCoupons() {
-  const { data: coupons = [], isLoading } = useAdminCoupons();
+  const [qInput, setQInput] = useState("");
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(qInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  const { data: couponPage, isLoading } = useAdminCoupons({
+    q: q || undefined,
+    page,
+    pageSize,
+  });
+  const coupons = couponPage?.items ?? [];
+  const totalPages = couponPage?.totalPages ?? 1;
+
+  useEffect(() => {
+    if (couponPage && page > couponPage.totalPages) setPage(couponPage.totalPages);
+  }, [couponPage, page]);
+
   const upsert = useUpsertCoupon();
   const patch = usePatchCoupon();
   const remove = useDeleteCoupon();
@@ -148,10 +176,43 @@ export default function AdminCoupons() {
         </Dialog>
       </div>
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative sm:max-w-xs sm:flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Search by code or description…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Per page</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading coupons…</p>
       ) : coupons.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No coupons yet. Create one to get started.</p>
+        <p className="text-sm text-muted-foreground">
+          {q ? `No coupons match “${q}”.` : "No coupons yet. Create one to get started."}
+        </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {coupons.map((c) => {
@@ -229,6 +290,30 @@ export default function AdminCoupons() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>

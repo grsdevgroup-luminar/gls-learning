@@ -164,10 +164,20 @@ export class AdminRepository {
   }
 
   // ── coupons ───────────────────────────────────────────────────────────────
-  findAllCoupons() {
-    return this.prisma.coupon.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+  findCouponsPage(
+    where: Prisma.CouponWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.coupon.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.coupon.count({ where }),
+    ]);
   }
 
   findCouponByCode(code: string, tx?: Db) {

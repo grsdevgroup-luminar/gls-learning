@@ -220,7 +220,8 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/orders/${orderId}/refund`, { method: "POST" }),
   // coupons — the featured one drives the public storefront banner
   featuredCoupon: () => apiFetch<FeaturedCouponDto | null>("/coupons/featured"),
-  adminCoupons: () => apiFetch<CouponDto[]>("/admin/coupons"),
+  adminCoupons: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<CouponDto>>(`/admin/coupons${qs(params)}`),
   adminUpsertCoupon: (input: UpsertCouponInput) =>
     apiFetch<CouponDto>("/admin/coupons", { method: "POST", body: input }),
   adminPatchCoupon: (code: string, input: PatchCouponInput) =>

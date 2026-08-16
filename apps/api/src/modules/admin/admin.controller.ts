@@ -109,8 +109,8 @@ export class AdminController {
 
   // coupons
   @Get("coupons")
-  listCoupons() {
-    return this.admin.listCoupons();
+  listCoupons(@ZodQuery(searchQuerySchema) query: SearchQuery) {
+    return this.admin.listCoupons(query);
   }
 
   @Post("coupons")
