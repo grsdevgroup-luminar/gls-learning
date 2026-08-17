@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
 import { useCatalog } from "@/lib/api/hooks";
-import { getApiErrorMessage } from "@/lib/api/errors";
+import { ApiError, getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { cartApi } from "@/lib/api/cart";
 import type {
@@ -239,14 +239,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   // ── server cart (auth'd users only) ──
+  // Swallow 401 → null so a logout-time refetch race (useLogout calls
+  // qc.clear(), which triggers active queries to refetch before the user
+  // state has propagated through render) doesn't surface as a toast.
   const {
     data: serverCart,
     refetch: refetchCart,
   } = useQuery({
     queryKey: ["store", "cart"],
-    queryFn: () => cartApi.get(),
+    queryFn: async () => {
+      try {
+        return await cartApi.get();
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return null;
+        throw err;
+      }
+    },
     enabled: !!user && mounted,
     staleTime: 30_000,
+    retry: false,
   });
 
   const applyServerCart = useCallback((dto: CartDto) => {
@@ -289,14 +300,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         qc.setQueryData(["store", "cart"], dto);
       })
       .catch((err) => {
-        toast.error(getApiErrorMessage(err));
         // Reset the guard so a manual retry (e.g. reopening the cart) will
         // attempt the merge again instead of silently sticking to localStorage.
         mergedForUserRef.current = null;
+        // 401 during a logout race isn't user-actionable — session already
+        // turned over. Swallow it silently and let the guest-hydrate path
+        // that runs on the next render take over.
+        if (err instanceof ApiError && err.status === 401) return;
+        toast.error(getApiErrorMessage(err));
       });
   }, [user, mounted, applyServerCart, qc]);
 
   // Adopt query updates (e.g. after a background refetch) into local state.
+  // A null result means the server responded 401 — treated as "not signed in",
+  // so we leave in-memory state alone and let the user-change effect handle it.
   useEffect(() => {
     if (serverCart && user) applyServerCart(serverCart);
   }, [serverCart, user, applyServerCart]);
