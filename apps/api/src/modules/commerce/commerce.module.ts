@@ -19,6 +19,9 @@ import { OrdersService } from "./orders.service";
 import { OrdersRepository } from "./orders.repository";
 import { CheckoutService } from "./checkout.service";
 import { CheckoutController } from "./checkout.controller";
+import { CartService } from "./cart.service";
+import { CartController } from "./cart.controller";
+import { CartRepository } from "./cart.repository";
 
 // Single module for the whole commerce surface (pricing, coupons, checkout,
 // orders, payments) to keep the order ↔ payment relationship free of circular
@@ -30,6 +33,7 @@ import { CheckoutController } from "./checkout.controller";
     PricingController,
     AdminPricingController,
     PaymentsController,
+    CartController,
   ],
   providers: [
     PricingService,
@@ -46,7 +50,15 @@ import { CheckoutController } from "./checkout.controller";
     PaypalGateway,
     SslcommerzGateway,
     PaymentGatewayFactory,
+    CartService,
+    CartRepository,
   ],
-  exports: [PricingService, CouponsService, OrdersService, PaymentsService],
+  exports: [
+    PricingService,
+    CouponsService,
+    OrdersService,
+    PaymentsService,
+    CartService,
+  ],
 })
 export class CommerceModule {}

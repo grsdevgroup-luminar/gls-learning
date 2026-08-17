@@ -16,6 +16,7 @@ import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
 import { OrdersRepository, type OrderRow } from "./orders.repository";
+import { CartService } from "./cart.service";
 
 export interface CreateOrderInput {
   userId: string;
@@ -37,6 +38,7 @@ export class OrdersService {
     private readonly enrollment: EnrollmentService,
     private readonly salesAgents: SalesAgentService,
     private readonly email: EmailService,
+    private readonly cart: CartService,
   ) {}
 
   private toDto(row: OrderRow): OrderDto {
@@ -220,6 +222,10 @@ export class OrdersService {
           tx,
         );
       }
+
+      // Payment settled — the cart that produced this order is no longer valid.
+      // Same transaction as fulfilment so a rollback keeps the cart intact.
+      await this.cart.resetOnFulfilled(order.userId, tx);
     });
 
     // Credit any attributed sales-agent referral now that payment succeeded.
