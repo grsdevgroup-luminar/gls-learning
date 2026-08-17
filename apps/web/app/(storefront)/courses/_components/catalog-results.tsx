@@ -2,23 +2,9 @@
 
 import { CourseCard } from "../../_components/course-card";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { SortSelect } from "./sort-select";
+import { SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Paginated, CourseSummaryDto } from "@skillstream/shared";
-
-const SORT_OPTIONS = [
-  { value: "popular", label: "Most popular" },
-  { value: "rating", label: "Highest rated" },
-  { value: "newest", label: "Newest" },
-  { value: "price_low", label: "Price: low to high" },
-  { value: "price_high", label: "Price: high to low" },
-] as const;
 
 export function CatalogResults({
   coursePage,
@@ -41,21 +27,13 @@ export function CatalogResults({
 }) {
   return (
     <div>
-      <div className="mb-4 flex justify-end">
-        <Select value={sort} onValueChange={(v) => v && onSortChange(v)}>
-          <SelectTrigger className="w-48">
-            <SelectValue>
-              {SORT_OPTIONS.find((option) => option.value === sort)?.label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Mobile gets this control folded into the sticky Filters/Sort toolbar
+          instead (see CatalogClient) so it isn't duplicated on small screens. */}
+      <div className="mb-4 hidden items-center justify-between lg:sticky lg:top-16 lg:z-10 lg:-mt-4 lg:flex lg:bg-[linear-gradient(135deg,#f1f4f8,#f3e3f4)] lg:py-4 dark:lg:bg-background dark:lg:bg-none">
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <SlidersHorizontal className="h-4 w-4" /> Sort
+        </span>
+        <SortSelect value={sort} onChange={onSortChange} />
       </div>
 
       {isLoading ? (

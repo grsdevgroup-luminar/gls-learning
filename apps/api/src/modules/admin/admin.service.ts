@@ -2,6 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AutomationRule, Coupon, PlatformSettings, Prisma } from "@prisma/client";
 import type {
   AdminAnalyticsDto,
+  AdminCourseQuery,
+  AdminCourseStatsDto,
+  AdminOrderStatsDto,
   AdminOverviewDto,
   AdminStudentDto,
   AdminStudentStatsDto,
@@ -222,31 +225,101 @@ export class AdminService {
     return { total, active, atRisk: total - active };
   }
 
-  async courses() {
-    const rows = await this.repo.findAllCourses();
+  async courses(query: AdminCourseQuery) {
+    const q = query.q?.trim();
+    const where: Prisma.CourseWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" } },
+              { slug: { contains: q, mode: "insensitive" } },
+              { instructor: { name: { contains: q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.repo.findCoursesPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
     // Admin view also exposes revenue (not part of the public summary).
-    return rows.map((r) => ({ ...toCourseSummary(r), revenueCents: r.revenueCents }));
+    return {
+      items: rows.map((r) => ({
+        ...toCourseSummary(r),
+        revenueCents: r.revenueCents,
+      })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
   }
 
-  async orders(): Promise<OrderDto[]> {
-    const rows = await this.repo.findAllOrders();
-    return rows.map((row) => ({
-      id: row.id,
-      status: row.status,
-      gateway: row.gateway,
-      subtotalCents: row.subtotalCents,
-      discountCents: row.discountCents,
-      totalCents: row.totalCents,
-      currency: row.currency,
-      couponCode: row.couponCode,
-      items: row.items.map((i) => ({
-        courseId: i.courseId,
-        title: i.titleSnapshot,
-        priceCents: i.priceCents,
+  async courseStats(): Promise<AdminCourseStatsDto> {
+    const [total, published] = await this.repo.courseStatsCounts();
+    return { total, published };
+  }
+
+  async orders(query: SearchQuery): Promise<Paginated<OrderDto>> {
+    const q = query.q?.trim();
+    const where: Prisma.OrderWhereInput = q
+      ? {
+          OR: [
+            { id: { contains: q, mode: "insensitive" } },
+            { couponCode: { contains: q, mode: "insensitive" } },
+            { providerPaymentId: { contains: q, mode: "insensitive" } },
+            { providerRef: { contains: q, mode: "insensitive" } },
+            { user: { email: { contains: q, mode: "insensitive" } } },
+            { user: { name: { contains: q, mode: "insensitive" } } },
+            {
+              items: {
+                some: {
+                  titleSnapshot: { contains: q, mode: "insensitive" },
+                },
+              },
+            },
+          ],
+        }
+      : {};
+    const [rows, total] = await this.repo.findOrdersPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        gateway: row.gateway,
+        subtotalCents: row.subtotalCents,
+        discountCents: row.discountCents,
+        totalCents: row.totalCents,
+        currency: row.currency,
+        couponCode: row.couponCode,
+        items: row.items.map((i) => ({
+          courseId: i.courseId,
+          title: i.titleSnapshot,
+          priceCents: i.priceCents,
+        })),
+        createdAt: row.createdAt.toISOString(),
+        paidAt: row.paidAt?.toISOString() ?? null,
       })),
-      createdAt: row.createdAt.toISOString(),
-      paidAt: row.paidAt?.toISOString() ?? null,
-    }));
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async orderStats(): Promise<AdminOrderStatsDto> {
+    const [total, paidAgg, refundCount] = await this.repo.orderStatsCounts();
+    return {
+      total,
+      grossPaidCents: paidAgg._sum.totalCents ?? 0,
+      refundCount,
+    };
   }
 
   // ── coupons ──────────────────────────────────────────────────────────────
@@ -267,9 +340,28 @@ export class AdminService {
     };
   }
 
-  async listCoupons(): Promise<CouponDto[]> {
-    const rows = await this.repo.findAllCoupons();
-    return rows.map((c) => this.toCouponDto(c));
+  async listCoupons(query: SearchQuery): Promise<Paginated<CouponDto>> {
+    const q = query.q?.trim();
+    const where: Prisma.CouponWhereInput = q
+      ? {
+          OR: [
+            { code: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {};
+    const [rows, total] = await this.repo.findCouponsPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map((c) => this.toCouponDto(c)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
   }
 
   async upsertCoupon(input: UpsertCouponInput): Promise<CouponDto> {

@@ -20,17 +20,17 @@ function SuccessContent() {
     void qc.invalidateQueries({ queryKey: ["enrollments"] });
   }, [qc]);
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: ordersPage, isLoading } = useQuery({
     queryKey: ["orders", "mine"],
-    queryFn: () => api.myOrders(),
+    queryFn: () => api.myOrders({ page: 1, pageSize: 10 }),
     enabled: !!orderId,
     // Stripe/PayPal webhooks may lag a moment behind the redirect.
     refetchInterval: (q) => {
-      const found = q.state.data?.find((o) => o.id === orderId);
+      const found = q.state.data?.items.find((o) => o.id === orderId);
       return found?.status === "PAID" ? false : 2000;
     },
   });
-  const order = orders?.find((o) => o.id === orderId);
+  const order = ordersPage?.items.find((o) => o.id === orderId);
   const pending = !!orderId && order?.status !== "PAID";
 
   return (

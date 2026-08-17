@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/context/store";
 import { useCatalog, useFeaturedCoupon } from "@/lib/api/hooks";
@@ -24,8 +24,21 @@ import { toast } from "sonner";
 export default function CartPage() {
   const { cart, removeFromCart, region, regionCode, coupon, setCoupon, mounted } = useStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [code, setCode] = useState("");
   const [applying, setApplying] = useState(false);
+
+  useEffect(() => {
+    const canceledOrder = searchParams.get("canceled");
+    if (!canceledOrder) return;
+    toast.error("Payment canceled", {
+      description: "Your order was not completed. You can try again anytime.",
+    });
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("canceled");
+    const qs = params.toString();
+    router.replace(qs ? `/cart?${qs}` : "/cart");
+  }, [searchParams, router]);
 
   const { data: catalog } = useCatalog();
   const items = useMemo(

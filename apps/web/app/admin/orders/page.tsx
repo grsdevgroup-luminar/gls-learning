@@ -1,16 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, type OrderDto } from "@/lib/api/endpoints";
 import { formatUsd } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { CreditCard, DollarSign, RotateCcw, ShoppingBag } from "lucide-react";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  CreditCard,
+  DollarSign,
+  RotateCcw,
+  Search,
+  ShoppingBag,
+} from "lucide-react";
 import { toast } from "sonner";
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const statusCls: Record<string, string> = {
   PAID: "text-success",
@@ -21,11 +41,38 @@ const statusCls: Record<string, string> = {
 
 export default function AdminOrders() {
   const qc = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
+  const [qInput, setQInput] = useState("");
+  const [q, setQ] = useState("");
 
-  const { data: orders, isLoading, error } = useQuery({
-    queryKey: ["admin", "orders"],
-    queryFn: adminApi.orders,
+  // Debounce search box so every keystroke doesn't hit the API.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(qInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  const { data: orderPage, isLoading, error } = useQuery({
+    queryKey: ["admin", "orders", "list", { q, page, pageSize }],
+    queryFn: () =>
+      adminApi.orders({ q: q || undefined, page, pageSize }),
+    placeholderData: (prev) => prev,
   });
+
+  const { data: orderStats } = useQuery({
+    queryKey: ["admin", "orders", "stats"],
+    queryFn: adminApi.orderStats,
+  });
+
+  const pagedOrders = orderPage?.items ?? [];
+  const totalPages = orderPage?.totalPages ?? 1;
+
+  useEffect(() => {
+    if (orderPage && page > orderPage.totalPages) setPage(orderPage.totalPages);
+  }, [orderPage, page]);
 
   const refundMutation = useMutation({
     mutationFn: (id: string) => adminApi.refundOrder(id),
@@ -36,16 +83,27 @@ export default function AdminOrders() {
     onError: () => toast.error("Refund failed"),
   });
 
-  const gross = (orders ?? [])
-    .filter((o) => o.status === "PAID")
-    .reduce((s, o) => s + o.totalCents, 0);
-  const refundCount = (orders ?? []).filter((o) => o.status === "REFUNDED").length;
-
   const stats = [
-    { icon: DollarSign, label: "Gross revenue", value: formatUsd(gross / 100).replace(".00", "") },
-    { icon: ShoppingBag, label: "Orders", value: orders?.length ?? "—" },
-    { icon: RotateCcw, label: "Refunds", value: refundCount },
+    {
+      icon: DollarSign,
+      label: "Gross revenue",
+      value: orderStats
+        ? formatUsd(orderStats.grossPaidCents / 100).replace(".00", "")
+        : "—",
+    },
+    {
+      icon: ShoppingBag,
+      label: "Orders",
+      value: orderStats?.total ?? "—",
+    },
+    {
+      icon: RotateCcw,
+      label: "Refunds",
+      value: orderStats?.refundCount ?? "—",
+    },
   ];
+
+  const statsLoading = !orderStats;
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -58,7 +116,7 @@ export default function AdminOrders() {
         {stats.map((s) => (
           <Card key={s.label}>
             <CardContent className="flex items-center gap-3 pt-6">
-              {isLoading ? (
+              {statsLoading ? (
                 <>
                   <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
                   <div className="space-y-1.5">
@@ -80,6 +138,39 @@ export default function AdminOrders() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative sm:max-w-xs sm:flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Search by order id, coupon, user, item…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Rows per page</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {error && (
@@ -111,7 +202,7 @@ export default function AdminOrders() {
                       ))}
                     </TableRow>
                   ))
-                : (orders ?? []).map((o) => (
+                : pagedOrders.map((o) => (
                     <OrderRow
                       key={o.id}
                       order={o}
@@ -123,6 +214,30 @@ export default function AdminOrders() {
           </Table>
         </CardContent>
       </Card>
+
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -139,7 +254,20 @@ function OrderRow({
   return (
     <TableRow>
       <TableCell className="pl-6">
-        <div className="font-mono text-xs">{order.id.slice(0, 12)}…</div>
+        <div className="flex items-center gap-1.5">
+          <Tooltip>
+            <TooltipTrigger
+              render={<span />}
+              className="cursor-default font-mono text-xs"
+            >
+              {order.id.slice(0, 12)}…
+            </TooltipTrigger>
+            <TooltipContent>
+              <span className="font-mono text-xs">{order.id}</span>
+            </TooltipContent>
+          </Tooltip>
+          <CopyOrderId id={order.id} />
+        </div>
         <div className="text-xs text-muted-foreground">
           {new Date(order.createdAt).toLocaleDateString()}
         </div>
@@ -185,5 +313,42 @@ function OrderRow({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+function CopyOrderId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      toast.success("Order ID copied");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            onClick={onCopy}
+            aria-label="Copy order ID"
+            className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          />
+        }
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-success" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>{copied ? "Copied" : "Copy ID"}</TooltipContent>
+    </Tooltip>
   );
 }

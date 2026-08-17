@@ -3,8 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { PaymentGateway } from "@prisma/client";
-import type { OrderDto } from "@skillstream/shared";
+import { PaymentGateway, Prisma } from "@prisma/client";
+import type {
+  MyOrderStatsDto,
+  OrderDto,
+  Paginated,
+  SearchQuery,
+} from "@skillstream/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { receiptPdf } from "../../common/utils/pdf";
 import { EmailService } from "../email/email.service";
@@ -110,9 +115,51 @@ export class OrdersService {
     });
   }
 
-  async myOrders(userId: string): Promise<OrderDto[]> {
-    const rows = await this.repo.findManyByUser(userId);
-    return rows.map((r) => this.toDto(r));
+  async myOrders(
+    userId: string,
+    query: SearchQuery,
+  ): Promise<Paginated<OrderDto>> {
+    const q = query.q?.trim();
+    // Restrict to caller's own orders and, when a search term is present,
+    // match against order id or a purchased course title (order items).
+    const where: Prisma.OrderWhereInput = {
+      userId,
+      ...(q
+        ? {
+            OR: [
+              { id: { contains: q, mode: "insensitive" } },
+              {
+                items: {
+                  some: {
+                    titleSnapshot: { contains: q, mode: "insensitive" },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, total] = await this.repo.findOrdersPageByUser(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map((r) => this.toDto(r)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async myOrderStats(userId: string): Promise<MyOrderStatsDto> {
+    const agg = await this.repo.aggregatePaidByUser(userId);
+    return {
+      totalSpentCents: agg._sum.totalCents ?? 0,
+      paidCount: agg._count._all,
+    };
   }
 
   /**

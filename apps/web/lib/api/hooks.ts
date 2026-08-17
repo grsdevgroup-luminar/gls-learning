@@ -113,8 +113,17 @@ export function useQuote() {
   return useMutation({ mutationFn: (body: CheckoutQuoteInput) => api.quote(body) });
 }
 
-export const useMyOrders = () =>
-  useQuery({ queryKey: qk.orders, queryFn: api.myOrders });
+export const useMyOrders = (
+  params: { q?: string; page: number; pageSize: number },
+) =>
+  useQuery({
+    queryKey: qk.orders(params),
+    queryFn: () => api.myOrders(params),
+    placeholderData: (prev) => prev,
+  });
+
+export const useMyOrderStats = () =>
+  useQuery({ queryKey: qk.myOrderStats, queryFn: api.myOrderStats });
 
 // ── reviews ───────────────────────────────────────────────────────────────
 export const useCourseReviews = (courseId: string, page = 1) =>
@@ -233,8 +242,8 @@ export const ruleToInput = (r: AutomationRuleDto): UpsertAutomationRuleInput => 
 export const useFeaturedCoupon = () =>
   useQuery({ queryKey: qk.featuredCoupon, queryFn: api.featuredCoupon });
 
-export const useAdminCoupons = () =>
-  useQuery({ queryKey: qk.adminCoupons, queryFn: api.adminCoupons });
+export const useAdminCoupons = (params: Record<string, string | number | undefined> = {}) =>
+  useQuery({ queryKey: qk.adminCoupons(params), queryFn: () => api.adminCoupons(params) });
 
 /** Any coupon write can change which one is promoted, so both the admin table
  *  and the public banner are refetched. */
@@ -243,7 +252,7 @@ function useCouponMutation<TArgs, TData>(fn: (args: TArgs) => Promise<TData>) {
   return useMutation({
     mutationFn: fn,
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: qk.adminCoupons });
+      void qc.invalidateQueries({ queryKey: qk.adminCoupons() });
       void qc.invalidateQueries({ queryKey: qk.featuredCoupon });
     },
   });

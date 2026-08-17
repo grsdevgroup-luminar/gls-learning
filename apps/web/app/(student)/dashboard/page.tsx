@@ -214,17 +214,23 @@ export default function DashboardPage() {
       )}
 
       {/* Reminder nudge */}
-      <section className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-secondary/50 p-5">
-        <div className="grid size-10 place-items-center rounded-lg border border-border bg-card text-primary">
-          <Bell className="size-5" />
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-secondary/50 p-4 sm:flex-row sm:items-center sm:p-5">
+        <div className="flex items-start gap-4 sm:flex-1">
+          <div className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-card text-primary">
+            <Bell className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold">Stay on track with smart reminders</h3>
+            <p className="text-sm text-muted-foreground">
+              We&apos;ll nudge you by email or SMS if you go idle — manage exactly how in your account.
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h3 className="font-semibold">Stay on track with smart reminders</h3>
-          <p className="text-sm text-muted-foreground">
-            We&apos;ll nudge you by email or SMS if you go idle — manage exactly how in your account.
-          </p>
-        </div>
-        <Button variant="outline" render={<Link href="/account" />}>
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto"
+          render={<Link href="/account" />}
+        >
           Reminder settings
         </Button>
       </section>

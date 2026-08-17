@@ -51,8 +51,7 @@ export class CheckoutService {
     if (input.couponCode) {
       const ev = await this.coupons.evaluate(
         input.couponCode,
-        subtotalCents,
-        lines.map((l) => l.courseId),
+        lines.map((l) => ({ courseId: l.courseId, priceCents: l.priceCents })),
       );
       discountCents = ev.discountCents;
       coupon = {

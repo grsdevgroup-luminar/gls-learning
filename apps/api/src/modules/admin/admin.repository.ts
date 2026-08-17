@@ -113,20 +113,57 @@ export class AdminRepository {
   }
 
   // ── courses ───────────────────────────────────────────────────────────────
-  findAllCourses() {
-    return this.prisma.course.findMany({
-      include: COURSE_SUMMARY_INCLUDE,
-      orderBy: { updatedAt: "desc" },
-    });
+  findCoursesPage(
+    where: Prisma.CourseWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.course.findMany({
+        where,
+        include: COURSE_SUMMARY_INCLUDE,
+        orderBy: { updatedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.course.count({ where }),
+    ]);
+  }
+
+  courseStatsCounts() {
+    return this.prisma.$transaction([
+      this.prisma.course.count(),
+      this.prisma.course.count({ where: { status: "PUBLISHED" } }),
+    ]);
   }
 
   // ── orders ────────────────────────────────────────────────────────────────
-  findAllOrders() {
-    return this.prisma.order.findMany({
-      include: { items: true },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
+  findOrdersPage(
+    where: Prisma.OrderWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        include: { items: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+  }
+
+  orderStatsCounts() {
+    return this.prisma.$transaction([
+      this.prisma.order.count(),
+      this.prisma.order.aggregate({
+        where: { status: "PAID" },
+        _sum: { totalCents: true },
+      }),
+      this.prisma.order.count({ where: { status: "REFUNDED" } }),
+    ]);
   }
 
   findOrderWithItems(orderId: string) {
@@ -144,10 +181,20 @@ export class AdminRepository {
   }
 
   // ── coupons ───────────────────────────────────────────────────────────────
-  findAllCoupons() {
-    return this.prisma.coupon.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+  findCouponsPage(
+    where: Prisma.CouponWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.coupon.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.coupon.count({ where }),
+    ]);
   }
 
   findCouponByCode(code: string, tx?: Db) {

@@ -1,5 +1,7 @@
 import type {
   AdminAnalyticsDto,
+  AdminCourseStatsDto,
+  AdminOrderStatsDto,
   AdminOverviewDto,
   AdminStudentStatsDto,
   AdminPricingDto,
@@ -21,6 +23,7 @@ import type {
   InstructorApplicationDto,
   InstructorProfileDto,
   InstructorRosterDto,
+  MyOrderStatsDto,
   OrderDto,
   DirectUploadDto,
   OrganizationDto,
@@ -67,6 +70,7 @@ export type {
   InstructorApplicationDto,
   InstructorProfileDto,
   InstructorRosterDto,
+  MyOrderStatsDto,
   OrderDto,
   OrganizationDto,
   Paginated,
@@ -146,7 +150,9 @@ export const api = {
     apiFetch<QuoteDto>("/checkout/quote", { method: "POST", body }),
   checkoutSession: (body: CheckoutSessionInput) =>
     apiFetch<CheckoutSessionDto>("/checkout/session", { method: "POST", body }),
-  myOrders: () => apiFetch<OrderDto[]>("/me/orders"),
+  myOrders: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<OrderDto>>(`/me/orders${qs(params)}`),
+  myOrderStats: () => apiFetch<MyOrderStatsDto>("/me/orders/stats"),
   devSimulatePayment: (orderId: string) =>
     apiFetch<OrderDto>(`/payments/dev/simulate/${orderId}`, { method: "POST" }),
 
@@ -209,8 +215,13 @@ export const api = {
   adminStudentStats: () =>
     apiFetch<AdminStudentStatsDto>("/admin/students/stats"),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
-    apiFetch<OrderDto[]>(`/admin/orders${qs(params)}`),
-  adminCourses: () => apiFetch<InstructorCourseDto[]>("/admin/courses"),
+    apiFetch<Paginated<OrderDto>>(`/admin/orders${qs(params)}`),
+  adminOrderStats: () =>
+    apiFetch<AdminOrderStatsDto>("/admin/orders/stats"),
+  adminCourses: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<InstructorCourseDto>>(`/admin/courses${qs(params)}`),
+  adminCourseStats: () =>
+    apiFetch<AdminCourseStatsDto>("/admin/courses/stats"),
   updateUserStatus: (userId: string, status: "ACTIVE" | "IDLE" | "AT_RISK") =>
     apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
   deleteUser: (userId: string) =>
@@ -219,7 +230,8 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/orders/${orderId}/refund`, { method: "POST" }),
   // coupons — the featured one drives the public storefront banner
   featuredCoupon: () => apiFetch<FeaturedCouponDto | null>("/coupons/featured"),
-  adminCoupons: () => apiFetch<CouponDto[]>("/admin/coupons"),
+  adminCoupons: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<CouponDto>>(`/admin/coupons${qs(params)}`),
   adminUpsertCoupon: (input: UpsertCouponInput) =>
     apiFetch<CouponDto>("/admin/coupons", { method: "POST", body: input }),
   adminPatchCoupon: (code: string, input: PatchCouponInput) =>
@@ -495,8 +507,12 @@ export const adminApi = {
   students: (params: Record<string, string | number | undefined> = {}) =>
     api.adminStudents(params),
   studentStats: () => api.adminStudentStats(),
-  orders: () => api.adminOrders(),
-  courses: () => api.adminCourses(),
+  orders: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminOrders(params),
+  orderStats: () => api.adminOrderStats(),
+  courses: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminCourses(params),
+  courseStats: () => api.adminCourseStats(),
   updateUserStatus: api.updateUserStatus,
   deleteUser: api.deleteUser,
   refundOrder: api.refundOrder,
