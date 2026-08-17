@@ -41,7 +41,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLogout } from "@/lib/api/session";
-import { useStore } from "@/lib/context/store";
 import { cn } from "@/lib/utils";
 
 const navIcons = {
@@ -93,13 +92,13 @@ export function PortalShell({
   const pathname = usePathname();
   const router = useRouter();
   const logoutMut = useLogout();
-  const { clearCart } = useStore();
   const [open, setOpen] = useState(false);
 
   async function handleLogout() {
     setOpen(false);
+    // Do NOT call clearCart() — the server cart persists across logout.
+    // Store rehydrates from the guest cart on the user-change effect.
     await logoutMut.mutateAsync();
-    clearCart();
     router.push("/");
   }
 

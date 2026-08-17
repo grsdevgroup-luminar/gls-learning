@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
-  const { cart, mounted, clearCart } = useStore();
+  const { cart, mounted } = useStore();
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
   const router = useRouter();
@@ -38,8 +38,10 @@ export function SiteHeader() {
   }
 
   async function logout() {
+    // Do NOT call clearCart() here — the server cart persists across logout
+    // (the whole point of the DB cart). The store's user-change effect resets
+    // in-memory cart to the (empty) guest cart automatically.
     await logoutMut.mutateAsync();
-    clearCart();
     toast.success("Signed out");
     router.push("/");
     router.refresh();

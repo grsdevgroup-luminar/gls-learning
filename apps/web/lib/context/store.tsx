@@ -335,6 +335,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
         .catch((err) => {
           rollback();
+          // 401 during a logout race isn't user-actionable — swallow silently.
+          if (err instanceof ApiError && err.status === 401) return;
           toast.error(getApiErrorMessage(err));
           void refetchCart();
         });
