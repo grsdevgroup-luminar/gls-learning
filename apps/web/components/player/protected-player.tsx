@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/endpoints';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { gradientFor } from '@/lib/format';
-import { AlertTriangle, Clock, Loader2, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STREAM_ORIGIN = 'https://iframe.videodelivery.net';
@@ -97,11 +97,6 @@ export function ProtectedPlayer({
       </div>
 
       <Watermark text={watermark} />
-
-      <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs text-white backdrop-blur">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-        DRM protected
-      </div>
     </div>
   );
 }

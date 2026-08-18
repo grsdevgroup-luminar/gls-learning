@@ -15,6 +15,13 @@ import type { Env } from "../../config/env";
  *  re-scrub a full lesson; short enough that a leaked URL expires quickly. */
 const TOKEN_TTL_SECONDS = 2 * 60 * 60;
 
+/** Brand indigo (matches --primary in apps/web/app/globals.css) — Cloudflare
+ *  Stream's iframe player supports a `primaryColor` query param that themes
+ *  its native play button and seekbar. Left unset, every embed uses
+ *  Cloudflare's default gray, which is the single biggest reason the player
+ *  reads as generic/unbranded rather than a config gap in our own code. */
+const PLAYER_PRIMARY_COLOR = "#4F46E5";
+
 const b64url = (obj: unknown) =>
   Buffer.from(JSON.stringify(obj)).toString("base64url");
 
@@ -161,12 +168,13 @@ export class MediaService {
     }
 
     const token = await this.playbackToken(lesson.cfVideoUid, ip);
+    const playerParams = new URLSearchParams({ primaryColor: PLAYER_PRIMARY_COLOR });
     return {
       lessonId,
       type: lesson.type,
       ready: true,
       hlsUrl: `https://videodelivery.net/${token}/manifest/video.m3u8`,
-      iframeUrl: `https://iframe.videodelivery.net/${token}`,
+      iframeUrl: `https://iframe.videodelivery.net/${token}?${playerParams}`,
       articleContent: null,
     };
   }

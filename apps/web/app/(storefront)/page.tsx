@@ -32,7 +32,7 @@ const features = [
   {
     icon: ShieldCheck,
     title: "Protected video",
-    desc: "DRM-grade streaming with per-student watermarks and download protection keeps your content safe.",
+    desc: "Secure streaming with per-student watermarks and no downloadable copies keeps your content safe.",
     tint: "var(--tint-indigo)",
   },
   {
@@ -395,9 +395,7 @@ function HeroPreview({ course: c }: { course: CourseSummaryDto | undefined }) {
             <div className="p-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground">{c.category}</p>
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                  <ShieldCheck className="size-3.5" /> DRM protected
-                </span>
+                
               </div>
               <h3 className="mt-1.5 font-semibold leading-snug text-foreground">{c.title}</h3>
               {/* foreground/10 (not bg-secondary) so the track stays visible against
