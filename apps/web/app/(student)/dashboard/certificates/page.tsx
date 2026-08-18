@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Playfair_Display } from 'next/font/google';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/api/session';
@@ -24,15 +23,6 @@ import {
   Share2,
   ShieldCheck,
 } from 'lucide-react';
-
-// Certificate-only display face — a classic serif that reads as an
-// institution's letterhead rather than the app's product UI.
-const serif = Playfair_Display({
-  variable: '--font-certificate',
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  style: ['normal', 'italic'],
-});
 
 interface CertificateDto {
   serial: string;
@@ -137,7 +127,7 @@ export default function CertificatesPage() {
   };
 
   return (
-    <div className={`${serif.variable} space-y-8 p-6 md:p-8`}>
+    <div className="space-y-8 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
         <p className="text-muted-foreground">
@@ -205,7 +195,7 @@ export default function CertificatesPage() {
       )}
 
       <Dialog open={!!active} onOpenChange={(open) => !open && setActive(null)}>
-        <DialogContent className={`${serif.variable} sm:max-w-2xl`}>
+        <DialogContent className="sm:max-w-2xl">
           <DialogTitle className="sr-only">
             {active ? `Certificate — ${active.courseTitle}` : 'Certificate'}
           </DialogTitle>

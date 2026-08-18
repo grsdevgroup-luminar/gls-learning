@@ -1,18 +1,10 @@
 import Link from 'next/link';
-import { Playfair_Display } from 'next/font/google';
 import type { Metadata } from 'next';
 import type { CertificateVerificationDto } from '@skillstream/shared';
 import { serverApiOptional } from '@/lib/api/server';
 import { Button } from '@/components/ui/button';
 import { CertificatePreview } from '@/components/shared/certificate-preview';
 import { CertificatePrintActions, CertificatePrintClient } from './print-client';
-
-const serif = Playfair_Display({
-  variable: '--font-certificate',
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  style: ['normal', 'italic'],
-});
 
 export const metadata: Metadata = {
   title: 'Certificate PDF · GRS Learning',
@@ -43,7 +35,7 @@ export default async function CertificatePrintPage({
   }
 
   return (
-    <main className={`${serif.variable} min-h-screen bg-muted/40 text-foreground print:bg-white`}>
+    <main className="min-h-screen bg-muted/40 text-foreground print:bg-white">
       <style>{`
         @page {
           size: A4 landscape;

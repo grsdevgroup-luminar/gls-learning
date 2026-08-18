@@ -3,7 +3,7 @@
 import { CourseCard } from "../../_components/course-card";
 import { Button } from "@/components/ui/button";
 import { SortSelect } from "./sort-select";
-import { SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Paginated, CourseSummaryDto } from "@skillstream/shared";
 
 export function CatalogResults({
@@ -29,10 +29,7 @@ export function CatalogResults({
     <div>
       {/* Mobile gets this control folded into the sticky Filters/Sort toolbar
           instead (see CatalogClient) so it isn't duplicated on small screens. */}
-      <div className="mb-4 hidden items-center justify-between lg:sticky lg:top-16 lg:z-10 lg:-mt-4 lg:flex lg:bg-[linear-gradient(135deg,#f1f4f8,#f3e3f4)] lg:py-4 dark:lg:bg-background dark:lg:bg-none">
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <SlidersHorizontal className="h-4 w-4" /> Sort
-        </span>
+      <div className="mb-4 hidden justify-end lg:flex">
         <SortSelect value={sort} onChange={onSortChange} />
       </div>
 

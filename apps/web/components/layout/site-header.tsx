@@ -165,7 +165,7 @@ export function SiteHeader() {
                     <DropdownMenuItem render={<Link href="/instructor/courses" />}>
                       <PenSquare /> My courses
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/dashboard" />}>
+                    <DropdownMenuItem render={<Link href="/dashboard/progress" />}>
                       <GraduationCap /> My Learning
                     </DropdownMenuItem>
                   </>

@@ -1,4 +1,94 @@
 # Changelog
+
+## 2026-08-18
+
+### Fixed
+
+- Fixed the browser tab title remaining on the global “GRS Learning — Learn anything, anywhere” title while navigating between application modules.
+- Added module-level metadata for the marketplace, student dashboard, admin portal, instructor portal, sales-agent portal, and organization portal.
+- Added a shared “%s | GRS Learning” title template so module titles stay recognizable and consistently branded.
+- Kept route-specific metadata, such as course detail titles, compatible with the global template instead of replacing it with a generic module title.
+- Fixed the instructor account menu’s “My Learning” action to open `/dashboard/progress`, since instructors can also use the student learning area.
+- Added an explicit “My Learning” item to the instructor portal sidebar, pointing to the student progress page.
+- Allowed instructor sessions through `/dashboard/*` so the proxy no longer redirects them back to the instructor portal.
+
+- Fixed “Resume course” opening the first lesson instead of the learner’s latest completed lesson.
+- Resume now derives the furthest completed lesson from enrollment progress after that data loads, while preserving manual lesson selection.
+- Removed the mutable `Set` dependency from the resume calculation so React Compiler no longer reports `react-hooks/preserve-manual-memoization`.
+
+- Fixed the admin dashboard Revenue by region chart so each paid order is attributed to its resolved checkout region.
+- Added a buyer-country fallback for historical paid orders that were created before order-region attribution was stored.
+- Removed the six-region limit so the chart includes every region with paid revenue.
+- Fixed the admin course conversion funnel to count enrolled courses, purchased courses, and completed courses instead of distinct users.
+- Renamed the funnel stages and dashboard heading to make the course-based metrics explicit.
+
+### Changed Files
+
+- apps/web/app/layout.tsx
+  - Changed the root title to a default plus reusable title template.
+
+- apps/web/app/(storefront)/layout.tsx
+- apps/web/app/(student)/layout.tsx
+- apps/web/app/admin/layout.tsx
+- apps/web/app/instructor/layout.tsx
+- apps/web/app/sales-agent/layout.tsx
+- apps/web/app/org/page.tsx
+- apps/web/app/org/[slug]/layout.tsx
+  - Added module-specific browser tab metadata at each navigation boundary.
+
+- apps/web/components/layout/site-header.tsx
+  - Explicitly routes instructor “My Learning” to the student progress section while preserving the instructor dashboard and course links.
+
+- apps/web/app/instructor/layout.tsx
+  - Adds the instructor portal’s own “My Learning” navigation item to `/dashboard/progress`.
+
+- apps/web/proxy.ts
+  - Treats instructors as valid student-dashboard users because an instructor can also be a learner.
+
+- `apps/web/app/learn/[slug]/_components/learn-client.tsx`
+  - Initializes the learner view at the furthest completed lesson in curriculum order.
+  - Falls back to the first lesson when no lesson has been completed.
+  - Keeps all hooks unconditional and avoids mutable memoization dependencies.
+
+- `apps/web/app/admin/page.tsx`
+  - Renamed the dashboard funnel heading to `Course conversion funnel`.
+
+- `apps/api/src/modules/commerce/checkout.service.ts`
+  - Persists the resolved checkout region on new orders for accurate revenue attribution.
+
+- `apps/api/src/modules/admin/admin.repository.ts`
+  - Loads paid orders with their stored region and buyer country fallback.
+  - Counts enrollment records, paid order items, and completed enrollment records for the course funnel.
+
+- `apps/api/src/modules/admin/admin.service.ts`
+  - Aggregates paid revenue across every region, including historical fallback data.
+  - Builds the funnel from course activity counts rather than distinct student counts.
+
+- `packages/shared/src/contracts/admin.ts`
+  - Updated analytics documentation to describe all-region revenue and course activity metrics.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web exec eslint "app/learn/[slug]/_components/learn-client.tsx"`
+  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @skillstream/web exec eslint "app/admin/page.tsx" "components/charts/charts.tsx"`
+  - `pnpm --filter @skillstream/api typecheck`
+  - `pnpm --filter @skillstream/api build`
+  - `pnpm --filter @skillstream/api test`
+  - `pnpm --filter @skillstream/shared typecheck`
+  - `pnpm --filter @skillstream/shared test`
+
+- Note:
+  - The full web lint command still reports six pre-existing `react-hooks/set-state-in-effect` errors in unrelated dashboard pages.
+
+### Reasoning
+
+- The fixed title came from the root layout being the only metadata source. Placing titles at module layouts lets Next.js update the document head during route transitions while avoiding duplicated client-side pathname title logic.
+- The root template centralizes branding, while nested route metadata supplies the meaningful module name.
+- Revenue attribution now uses the checkout region saved on each order, with a buyer-country fallback only for historical orders that lack that field.
+- The funnel labels describe course activity, so its values use enrollment records, paid order items, and completed enrollment records rather than distinct student IDs.
+
 ## 2026-08-16
 
 ### Added

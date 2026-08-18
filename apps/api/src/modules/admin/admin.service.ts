@@ -74,11 +74,11 @@ export class AdminService {
     const [
       recentOrders,
       recentEnrollments,
-      revenueByCountry,
+      paidOrdersByRegion,
       totalStudents,
-      enrolledStudentIds,
-      completedStudentIds,
-      paidStudentIds,
+      enrolledCourses,
+      completedCourses,
+      purchasedCourses,
       latestOrders,
       latestEnrollments,
       latestReviews,
@@ -86,12 +86,12 @@ export class AdminService {
     ] = await this.repo.analyticsBatch(since14);
 
     const revenueTrend = this.buildRevenueTrend(since14, recentOrders, recentEnrollments);
-    const revenueByRegion = this.buildRevenueByRegion(revenueByCountry);
+    const revenueByRegion = this.buildRevenueByRegion(paidOrdersByRegion);
     const funnel = this.buildFunnel(
       totalStudents,
-      enrolledStudentIds,
-      paidStudentIds,
-      completedStudentIds,
+      enrolledCourses,
+      purchasedCourses,
+      completedCourses,
     );
     const recentActivity = this.buildRecentActivity(
       latestOrders,
@@ -128,27 +128,34 @@ export class AdminService {
     return [...byDate.entries()].map(([date, v]) => ({ date, ...v }));
   }
 
-  // ── top regions by revenue ──
+  // ── all regions by paid revenue ──
   private buildRevenueByRegion(
-    revenueByCountry: Awaited<ReturnType<AdminRepository["analyticsBatch"]>>[2],
+    paidOrders: Awaited<ReturnType<AdminRepository["analyticsBatch"]>>[2],
   ) {
-    return revenueByCountry
-      .map((r) => ({ country: r.country ?? "Unknown", revenueCents: r._sum?.totalCents ?? 0 }))
+    const totals = new Map<string, number>();
+    for (const order of paidOrders) {
+      // New orders use the checkout region. Fall back to the buyer profile for
+      // historical orders created before region attribution was persisted.
+      const country = order.country?.trim() || order.user.country?.trim() || "Unknown";
+      totals.set(country, (totals.get(country) ?? 0) + order.totalCents);
+    }
+
+    return [...totals]
+      .map(([country, revenueCents]) => ({ country, revenueCents }))
       .sort((a, b) => b.revenueCents - a.revenueCents)
-      .slice(0, 6);
   }
 
   private buildFunnel(
     totalStudents: number,
-    enrolledStudentIds: unknown[],
-    paidStudentIds: unknown[],
-    completedStudentIds: unknown[],
+    enrolledCourses: number,
+    purchasedCourses: number,
+    completedCourses: number,
   ) {
     return [
       { stage: "Signed up", count: totalStudents },
-      { stage: "Enrolled", count: enrolledStudentIds.length },
-      { stage: "Purchased", count: paidStudentIds.length },
-      { stage: "Completed a course", count: completedStudentIds.length },
+      { stage: "Enrolled courses", count: enrolledCourses },
+      { stage: "Purchased courses", count: purchasedCourses },
+      { stage: "Completed courses", count: completedCourses },
     ];
   }
 

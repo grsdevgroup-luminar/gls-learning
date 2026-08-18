@@ -27,7 +27,7 @@ import { api } from "@/lib/api/endpoints";
 import { useCatalog } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { qk } from "@/lib/api/query-keys";
-import { ApiError, getApiErrorMessage } from "@/lib/api/errors";
+import { ApiError } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { cartApi } from "@/lib/api/cart";
 import type {

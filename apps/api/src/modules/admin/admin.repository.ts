@@ -40,27 +40,18 @@ export class AdminRepository {
         where: { enrolledAt: { gte: since14 } },
         select: { enrolledAt: true },
       }),
-      this.prisma.order.groupBy({
-        by: ["country"],
-        where: { status: "PAID" },
-        _sum: { totalCents: true },
-        orderBy: { _sum: { totalCents: "desc" } },
-      }),
-      this.prisma.user.count({ where: { role: "STUDENT" } }),
-      this.prisma.enrollment.findMany({
-        distinct: ["userId"],
-        select: { userId: true },
-      }),
-      this.prisma.enrollment.findMany({
-        where: { status: "COMPLETED" },
-        distinct: ["userId"],
-        select: { userId: true },
-      }),
       this.prisma.order.findMany({
         where: { status: "PAID" },
-        distinct: ["userId"],
-        select: { userId: true },
+        select: {
+          country: true,
+          totalCents: true,
+          user: { select: { country: true } },
+        },
       }),
+      this.prisma.user.count({ where: { role: "STUDENT" } }),
+      this.prisma.enrollment.count(),
+      this.prisma.enrollment.count({ where: { status: "COMPLETED" } }),
+      this.prisma.orderItem.count({ where: { order: { status: "PAID" } } }),
       this.prisma.order.findMany({
         where: { status: "PAID" },
         orderBy: { paidAt: "desc" },

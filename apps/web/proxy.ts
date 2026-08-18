@@ -22,7 +22,9 @@ type Role = "STUDENT" | "INSTRUCTOR" | "ADMIN" | "SALES_AGENT" | "ORG_ADMIN";
 const ROLE_PREFIXES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/admin", roles: ["ADMIN"] },
   { prefix: "/instructor", roles: ["INSTRUCTOR", "ADMIN"] },
-  { prefix: "/dashboard", roles: ["STUDENT", "ORG_ADMIN"] },
+  // Instructors can also be learners, so they may use the student dashboard
+  // and progress pages without being redirected back to the instructor portal.
+  { prefix: "/dashboard", roles: ["STUDENT", "INSTRUCTOR", "ORG_ADMIN"] },
 ];
 
 const HOME: Record<Role, string> = {

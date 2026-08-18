@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { AuthUserDto } from "@skillstream/shared";
 import { serverApiOptional } from "@/lib/api/server";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
@@ -7,9 +8,14 @@ import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/format";
 import { GraduationCap } from "lucide-react";
 
+export const metadata: Metadata = {
+  title: "Instructor Portal",
+};
+
 const items: NavItem[] = [
   { href: "/instructor", label: "Overview", icon: "LayoutDashboard", exact: true },
   { href: "/instructor/courses", label: "My Courses", icon: "BookOpen" },
+  { href: "/dashboard/progress", label: "My Learning", icon: "GraduationCap" },
   { href: "/instructor/earnings", label: "Earnings", icon: "BarChart3" },
   { href: "/instructor/profile", label: "Profile", icon: "UserCog" },
 ];
