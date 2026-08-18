@@ -39,7 +39,7 @@ const perks = [
 ];
 
 export default function CheckoutPage() {
-  const { cart, region, regionCode, coupon, clearCart, mounted } = useStore();
+  const { cart, cartLoading, region, regionCode, coupon, clearCart, mounted } = useStore();
   const { user } = useSession();
   const router = useRouter();
   const [method, setMethod] = useState("stripe");
@@ -100,12 +100,18 @@ export default function CheckoutPage() {
       });
       clearReferralCode();
       // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
+      // Do NOT clear the cart here — payment isn't confirmed yet. If the user
+      // hits Back from the gateway (or cancels), the checkout page must still
+      // have the items. The server-side payment-succeeded webhook is
+      // responsible for wiping the cart; the success page picks that up via
+      // a cart refetch.
       if (session.redirectUrl && !session.devSimulateToken) {
-        clearCart();
         window.location.assign(session.redirectUrl);
         return;
       }
       // Dev environment without gateway credentials → simulate the payment.
+      // Payment is confirmed synchronously here, so clearing the cart before
+      // routing to the success page is safe.
       if (session.devSimulateToken) {
         await api.devSimulatePayment(session.orderId);
       }
@@ -117,7 +123,23 @@ export default function CheckoutPage() {
     }
   }
 
-  if (!mounted) return <div className="mx-auto max-w-7xl px-4 py-16" />;
+  // Blank shell while:
+  //  1. the client hasn't hydrated yet (`!mounted`), or
+  //  2. the authoritative server cart for an authenticated user is still in
+  //     flight — otherwise a full page reload triggered by returning from a
+  //     cancelled gateway payment would render the empty-cart state for a
+  //     frame before the server cart resolves.
+  //
+  // Also treat the catalog fetch as loading: `items` is derived from
+  // (cart ∩ catalog), so an in-flight catalog with a populated cart would
+  // also render as empty.
+  if (!mounted || cartLoading || (cart.length > 0 && !catalog)) {
+    return (
+      <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

@@ -13,6 +13,7 @@ export * from "./contracts/catalog.js";
 export * from "./contracts/enrollment.js";
 export * from "./contracts/quiz.js";
 export * from "./contracts/checkout.js";
+export * from "./contracts/cart.js";
 export * from "./contracts/media.js";
 export * from "./contracts/authoring.js";
 export * from "./contracts/reviews.js";

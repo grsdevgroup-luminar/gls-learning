@@ -164,24 +164,25 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  studentProfile    StudentProfile?
-  instructorProfile InstructorProfile?
-  refreshTokens     RefreshToken[]
+  studentProfile      StudentProfile?
+  instructorProfile   InstructorProfile?
+  refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  enrollments       Enrollment[]
-  quizResults       QuizResult[]
-  lessonNotes       LessonNote[]
-  quizAttempts      QuizAttempt[]
-  reviews           Review[]
-  comments          Comment[]
-  orders            Order[]
-  reminderLogs      ReminderLog[]
-  couponRedemptions CouponRedemption[]
-  authoredCourses   Course[]           @relation("InstructorCourses")
-  salesAgent        SalesAgent?
-  orgMemberships    OrgMember[]
-  payoutAccount     PayoutAccount?
-  payouts           Payout[]
+  enrollments         Enrollment[]
+  quizResults         QuizResult[]
+  lessonNotes         LessonNote[]
+  quizAttempts        QuizAttempt[]
+  reviews             Review[]
+  comments            Comment[]
+  orders              Order[]
+  reminderLogs        ReminderLog[]
+  couponRedemptions   CouponRedemption[]
+  authoredCourses     Course[]             @relation("InstructorCourses")
+  salesAgent          SalesAgent?
+  orgMemberships      OrgMember[]
+  payoutAccount       PayoutAccount?
+  payouts             Payout[]
+  cart                Cart?
 
   @@index([role])
 }
@@ -222,16 +223,16 @@ model StudentProfile {
 }
 
 model InstructorProfile {
-  userId       String           @id
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String           @default("")
-  bio          String           @default("")
-  expertise    String?
-  ratingAvg    Float            @default(0)
-  studentCount Int              @default(0)
-  courseCount  Int              @default(0)
-  earningsCents Int             @default(0)
-  status       InstructorStatus @default(PENDING)
+  userId        String           @id
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String           @default("")
+  bio           String           @default("")
+  expertise     String?
+  ratingAvg     Float            @default(0)
+  studentCount  Int              @default(0)
+  courseCount   Int              @default(0)
+  earningsCents Int              @default(0)
+  status        InstructorStatus @default(PENDING)
 }
 
 model InstructorApplication {
@@ -255,34 +256,34 @@ model InstructorApplication {
 // ─── Catalog ──────────────────────────────────────────────────────────────────
 
 model Course {
-  id                String       @id @default(cuid())
-  slug              String       @unique
-  title             String
-  subtitle          String       @default("")
-  description       String       @default("")
-  category          String
-  level             CourseLevel  @default(ALL_LEVELS)
-  thumbnail         String       @default("")
-  instructorId      String
-  instructor        User         @relation("InstructorCourses", fields: [instructorId], references: [id])
-  basePriceCents    Int
+  id                 String       @id @default(cuid())
+  slug               String       @unique
+  title              String
+  subtitle           String       @default("")
+  description        String       @default("")
+  category           String
+  level              CourseLevel  @default(ALL_LEVELS)
+  thumbnail          String       @default("")
+  instructorId       String
+  instructor         User         @relation("InstructorCourses", fields: [instructorId], references: [id])
+  basePriceCents     Int
   originalPriceCents Int?
-  language          String       @default("English")
-  status            CourseStatus @default(DRAFT)
-  bestseller        Boolean      @default(false)
-  whatYouLearn      String[]
-  requirements      String[]
-  ratingAvg         Float        @default(0)
-  reviewCount       Int          @default(0)
-  studentCount      Int          @default(0)
-  revenueCents      Int          @default(0)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  publishedAt       DateTime?
+  language           String       @default("English")
+  status             CourseStatus @default(DRAFT)
+  bestseller         Boolean      @default(false)
+  whatYouLearn       String[]
+  requirements       String[]
+  ratingAvg          Float        @default(0)
+  reviewCount        Int          @default(0)
+  studentCount       Int          @default(0)
+  revenueCents       Int          @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  publishedAt        DateTime?
 
-  visibility  CourseVisibility @default(PUBLIC)
-  orgId       String?
-  org         Organization?   @relation(fields: [orgId], references: [id])
+  visibility CourseVisibility @default(PUBLIC)
+  orgId      String?
+  org        Organization?    @relation(fields: [orgId], references: [id])
 
   sections    Section[]
   enrollments Enrollment[]
@@ -290,6 +291,7 @@ model Course {
   comments    Comment[]
   orderItems  OrderItem[]
   coupons     Coupon[]
+  cartItems   CartItem[]
 
   @@index([status])
   @@index([instructorId])
@@ -504,8 +506,8 @@ model Order {
   agentReferralCode String?
   agentId           String?
 
-  items       OrderItem[]
-  redemptions CouponRedemption[]
+  items         OrderItem[]
+  redemptions   CouponRedemption[]
   agentReferral SalesAgentReferral?
 
   @@index([userId])
@@ -578,34 +580,34 @@ model CountryOverride {
 }
 
 model Region {
-  code       String  @id
-  country    String
-  flag       String
-  currency   String
-  symbol     String
-  locale     String  @default("en-US")
-  fxRate     Float
+  code        String    @id
+  country     String
+  flag        String
+  currency    String
+  symbol      String
+  locale      String    @default("en-US")
+  fxRate      Float
   // Null = never refreshed by the FX job (seeded value). Surfaced in admin so a
   // silently-failing feed shows up as a stale rate instead of hiding in logs.
   fxUpdatedAt DateTime?
-  multiplier Float
-  tierId     String?
-  override   Boolean @default(false)
+  multiplier  Float
+  tierId      String?
+  override    Boolean   @default(false)
 }
 
 // ─── Marketing / automation ───────────────────────────────────────────────────
 
 model AutomationRule {
-  id        String          @id @default(cuid())
+  id        String            @id @default(cuid())
   name      String
   trigger   ReminderTrigger
   condition String
   channels  ReminderChannel[]
   template  String
-  active    Boolean         @default(true)
-  sentCount Int             @default(0)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  active    Boolean           @default(true)
+  sentCount Int               @default(0)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
 
 model ReminderLog {
@@ -627,19 +629,19 @@ model ReminderLog {
 /// Platform-wide settings. Exactly one row: `id` is pinned to "singleton" so a
 /// second row cannot be created, and reads upsert the defaults on first access.
 model PlatformSettings {
-  id              String   @id @default("singleton")
-  platformName    String   @default("SkillStream")
-  supportEmail    String   @default("support@skillstream.dev")
-  baseCurrency    String   @default("USD")
-  defaultLanguage String   @default("English")
+  id                String   @id @default("singleton")
+  platformName      String   @default("SkillStream")
+  supportEmail      String   @default("support@skillstream.dev")
+  baseCurrency      String   @default("USD")
+  defaultLanguage   String   @default("English")
   /// Gateway kill-switches — enforced at checkout, not just displayed.
-  stripeEnabled   Boolean  @default(true)
-  paypalEnabled   Boolean  @default(true)
+  stripeEnabled     Boolean  @default(true)
+  paypalEnabled     Boolean  @default(true)
   sslcommerzEnabled Boolean  @default(true)
   /// Admin notification toggles, keyed by id. Enforced in AdminAlertsService:
   /// event alerts (newEnrollment/newReview) and the daily digest all check these.
-  notifications   Json     @default("{}")
-  updatedAt       DateTime @updatedAt
+  notifications     Json     @default("{}")
+  updatedAt         DateTime @updatedAt
 }
 
 model AuditLog {
@@ -668,19 +670,19 @@ model WebhookEvent {
 // ─── Sales Agents ─────────────────────────────────────────────────────────────
 
 model SalesAgent {
-  id                String           @id @default(cuid())
-  userId            String           @unique
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  referralCode      String           @unique
-  commissionPercent Float            @default(10)
-  region            String           @default("")
-  status            SalesAgentStatus @default(PENDING)
-  totalEarningsCents   Int           @default(0)
-  pendingEarningsCents Int           @default(0)
-  paidEarningsCents    Int           @default(0)
-  referralCount     Int              @default(0)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id                   String           @id @default(cuid())
+  userId               String           @unique
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referralCode         String           @unique
+  commissionPercent    Float            @default(10)
+  region               String           @default("")
+  status               SalesAgentStatus @default(PENDING)
+  totalEarningsCents   Int              @default(0)
+  pendingEarningsCents Int              @default(0)
+  paidEarningsCents    Int              @default(0)
+  referralCount        Int              @default(0)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   referrals SalesAgentReferral[]
 
@@ -705,14 +707,14 @@ model SalesAgentApplication {
 }
 
 model SalesAgentReferral {
-  id                String      @id @default(cuid())
-  agentId           String
-  agent             SalesAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  orderId           String      @unique
-  order             Order       @relation(fields: [orderId], references: [id])
-  commissionCents   Int
-  status            String      @default("pending") // pending | confirmed | paid
-  createdAt         DateTime    @default(now())
+  id              String     @id @default(cuid())
+  agentId         String
+  agent           SalesAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  orderId         String     @unique
+  order           Order      @relation(fields: [orderId], references: [id])
+  commissionCents Int
+  status          String     @default("pending") // pending | confirmed | paid
+  createdAt       DateTime   @default(now())
 
   @@index([agentId])
 }
@@ -720,17 +722,17 @@ model SalesAgentReferral {
 // ─── B2B Organizations ────────────────────────────────────────────────────────
 
 model Organization {
-  id           String    @id @default(cuid())
-  slug         String    @unique
-  name         String
-  domain       String?
-  logoUrl      String?
-  adminEmail   String
-  status       OrgStatus @default(TRIAL)
-  seatCount    Int       @default(10)
-  usedSeats    Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  slug       String    @unique
+  name       String
+  domain     String?
+  logoUrl    String?
+  adminEmail String
+  status     OrgStatus @default(TRIAL)
+  seatCount  Int       @default(10)
+  usedSeats  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   members     OrgMember[]
   invitations OrgInvitation[]
@@ -740,15 +742,15 @@ model Organization {
 }
 
 model OrgMember {
-  id        String        @id @default(cuid())
-  orgId     String
-  org       Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  userId    String?
-  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  name      String
-  email     String
-  role      OrgMemberRole @default(MEMBER)
-  joinedAt  DateTime      @default(now())
+  id       String        @id @default(cuid())
+  orgId    String
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId   String?
+  user     User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name     String
+  email    String
+  role     OrgMemberRole @default(MEMBER)
+  joinedAt DateTime      @default(now())
 
   @@unique([orgId, email])
   @@index([orgId])
@@ -756,15 +758,15 @@ model OrgMember {
 }
 
 model OrgInvitation {
-  id        String       @id @default(cuid())
+  id        String        @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org       Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   email     String
   role      OrgMemberRole @default(MEMBER)
-  token     String       @unique
+  token     String        @unique
   expiresAt DateTime
   claimedAt DateTime?
-  createdAt DateTime     @default(now())
+  createdAt DateTime      @default(now())
 
   @@index([orgId])
   @@index([token])
@@ -802,4 +804,28 @@ model Payout {
 
   @@index([payeeUserId])
   @@index([status])
+}
+
+// ─── Shopping cart ────────────────────────────────────────────────────────────
+
+model Cart {
+  id         String     @id @default(cuid())
+  userId     String     @unique
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couponCode String?
+  items      CartItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, courseId])
+  @@index([courseId])
 }

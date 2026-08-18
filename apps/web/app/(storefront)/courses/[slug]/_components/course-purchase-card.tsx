@@ -13,7 +13,6 @@ import {
   PlayCircle,
   FileText,
   ShoppingCart,
-  ShieldCheck,
   Infinity as InfinityIcon,
   Award,
   ClipboardList,
@@ -65,7 +64,6 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
       : []),
     { icon: Smartphone, label: "Access on mobile and TV" },
     { icon: InfinityIcon, label: "Full lifetime access" },
-    { icon: ShieldCheck, label: "DRM-protected streaming" },
     { icon: Award, label: "Certificate of completion" },
   ];
 
