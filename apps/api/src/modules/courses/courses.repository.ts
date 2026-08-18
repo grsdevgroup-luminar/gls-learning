@@ -40,4 +40,11 @@ export class CoursesRepository {
       include: COURSE_DETAIL_INCLUDE,
     });
   }
+
+  findById(id: string) {
+    return this.prisma.course.findUnique({
+      where: { id },
+      include: COURSE_DETAIL_INCLUDE,
+    });
+  }
 }

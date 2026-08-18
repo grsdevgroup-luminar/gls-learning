@@ -25,6 +25,7 @@ function slugify(s: string): string {
   return s
     .toLowerCase()
     .trim()
+    .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
@@ -66,7 +67,12 @@ export class AuthoringService {
   private detail(id: string) {
     return this.repo
       .findCourseDetailOrThrow(id)
-      .then((row) => toCourseDetail(row, { includeArticleContent: true }));
+      .then((row) =>
+        toCourseDetail(row, {
+          includeArticleContent: true,
+          includeLessonResources: true,
+        }),
+      );
   }
 
   /** Owner-gated detail so the course builder can edit drafts. */

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Building2, Users, BookOpen, Plus, Search, ExternalLink, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 const statusColors: Record<string, string> = {
   ACTIVE: "text-success",
@@ -33,7 +34,8 @@ const statusColors: Record<string, string> = {
 
 export default function AdminOrganizations() {
   const qc = useQueryClient();
-  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const q = useDebouncedSearch(qInput);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ name: "", slug: "", domain: "", adminEmail: "", seatCount: "10" });
 
@@ -149,7 +151,7 @@ export default function AdminOrganizations() {
 
       <div className="relative sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search organizations…" className="pl-9" />
+        <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search organizations…" className="pl-9" />
       </div>
 
       <Card>

@@ -19,6 +19,8 @@ import {
 import { Check, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { COUNTRIES, flagFor } from '@/lib/countries';
+import { useDebouncedSearch } from '@/lib/use-debounced-value';
+import { registerSchema } from '@skillstream/shared';
 
 const perks = [
   '500,000+ learners',
@@ -40,21 +42,29 @@ function SignupForm() {
   const [country, setCountry] = useState<string>('');
   const [countryOpen, setCountryOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const debouncedCountryQuery = useDebouncedSearch(countryQuery);
 
   const filteredCountries = useMemo(() => {
-    const q = countryQuery.trim().toLowerCase();
+    const q = debouncedCountryQuery.trim().toLowerCase();
     if (!q) return COUNTRIES;
     return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
-  }, [countryQuery]);
+  }, [debouncedCountryQuery]);
 
   async function create() {
+    const result = registerSchema.safeParse({
+      name,
+      email,
+      password,
+      country: country || undefined,
+    });
+    if (!result.success) {
+      setValidationError(result.error.issues[0]?.message ?? 'Enter valid account details');
+      return;
+    }
+    setValidationError(null);
     try {
-      await register.mutateAsync({
-        name,
-        email,
-        password,
-        country: country || undefined,
-      });
+      await register.mutateAsync(result.data);
       toast.success('Account created!', {
         description: 'Welcome to GRS Learning 🎉',
       });
@@ -115,10 +125,28 @@ function SignupForm() {
             >
               <Stagger className="space-y-3" gap={0.06}>
                 <FormField label="Full name">
-                  <Input placeholder="Alex Morgan" value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input
+                    placeholder="Alex Morgan"
+                    required
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setValidationError(null);
+                    }}
+                  />
                 </FormField>
                 <FormField label="Email">
-                  <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setValidationError(null);
+                    }}
+                  />
                 </FormField>
                 <FormField label="Country">
                   <Popover open={countryOpen} onOpenChange={setCountryOpen}>
@@ -193,8 +221,13 @@ function SignupForm() {
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Create a password (min 8 chars)"
                       autoComplete="new-password"
+                      required
+                      minLength={8}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setValidationError(null);
+                      }}
                       className="pr-10"
                     />
                     <Button
@@ -211,6 +244,11 @@ function SignupForm() {
                   </div>
                 </FormField>
               </Stagger>
+              {validationError && (
+                <p role="alert" className="mt-3 text-sm text-destructive">
+                  {validationError}
+                </p>
+              )}
               <Magnetic strength={0.15} className="mt-4 flex w-full">
                 <Button type="submit" className="sheen w-full" size="lg" disabled={register.isPending}>
                   {register.isPending ? 'Creating…' : 'Create account'}

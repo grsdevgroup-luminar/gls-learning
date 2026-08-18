@@ -47,7 +47,6 @@ export function QuizPlayer({
       setAttempt(result);
       void qc.invalidateQueries({ queryKey: ["quiz-result", lessonId] });
       // Passing may auto-complete the lesson (and even finish the course).
-      void qc.invalidateQueries({ queryKey: ["store", "enrollments"] });
       void qc.invalidateQueries({ queryKey: ["enrollments"] });
       if (result.passed) {
         toast.success("Quiz passed!", { description: `Scored ${result.score}%` });

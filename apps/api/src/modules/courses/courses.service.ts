@@ -1,17 +1,33 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import type {
-  CourseDetailDto,
-  CourseListQuery,
-  CourseSummaryDto,
-  Paginated,
+import {
+  isLessonSequentiallyAccessible,
+  type CourseDetailDto,
+  type CourseListQuery,
+  type CourseSummaryDto,
+  type Paginated,
 } from "@skillstream/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
+import { EnrollmentService } from "../enrollment/enrollment.service";
+
+function slugCandidates(input: string): string[] {
+  let normalized = input.trim().toLowerCase();
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch {
+    // Keep the original value if a malformed encoded slug reaches the API.
+  }
+
+  return [...new Set([normalized, normalized.replace(/-and-/g, "-")])];
+}
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly repo: CoursesRepository) {}
+  constructor(
+    private readonly repo: CoursesRepository,
+    private readonly enrollment: EnrollmentService,
+  ) {}
 
   private orderBy(
     sort: CourseListQuery["sort"],
@@ -76,8 +92,34 @@ export class CoursesService {
   }
 
   async bySlug(slug: string): Promise<CourseDetailDto> {
-    const row = await this.repo.findBySlug(slug);
+    const rows = await Promise.all(
+      slugCandidates(slug).map((candidate) => this.repo.findBySlug(candidate)),
+    );
+    const row = rows.find((candidate) => candidate !== null);
     if (!row) throw new NotFoundException("Course not found");
     return toCourseDetail(row);
+  }
+
+  /** Enrolled learner view. Resource links are returned only for lessons the
+   * learner has reached; the actual lesson body/video is still protected by
+   * the playback and quiz endpoints. */
+  async learning(userId: string, courseId: string): Promise<CourseDetailDto> {
+    const completedIds = await this.enrollment.completedLessonIds(userId, courseId);
+    const row = await this.repo.findById(courseId);
+    if (!row) throw new NotFoundException("Course not found");
+
+    const orderedLessonIds = row.sections.flatMap((section) =>
+      section.lessons.map((lesson) => lesson.id),
+    );
+    const accessibleLessonIds = new Set(
+      orderedLessonIds.filter((lessonId) =>
+        isLessonSequentiallyAccessible(orderedLessonIds, completedIds, lessonId),
+      ),
+    );
+
+    return toCourseDetail(row, {
+      includeLessonResources: true,
+      accessibleLessonIds,
+    });
   }
 }

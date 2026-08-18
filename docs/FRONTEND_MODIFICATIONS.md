@@ -1,4 +1,65 @@
 # Changelog
+## 2026-08-16
+
+### Added
+
+- Removed the redundant, non-functional `Sort` control from the courses section.
+- Kept the working sorting dropdown as the single sorting control.
+- Clarified the course Rating filter to show that each option is a minimum rating threshold.
+- Rating choices now display as `3.0 stars and above`, `4.0 stars and above`, and `4.5 stars and above`.
+- Fixed stale enrollment state after course enrollment by unifying the storefront and learner enrollment query cache key.
+- Enrolled learners now have their course access state refreshed consistently instead of seeing an enrollment access message from stale client data.
+- Fixed intermittent role redirects after login by prioritizing the authenticated role over stale `next` paths.
+- Admins now consistently land in `/admin`, and the proxy prevents an admin session from remaining in the student dashboard.
+- Synchronized the freshly loaded authenticated user into the client session cache so names, emails, and role badges stay consistent.
+- Added a shared 300 ms `useDebouncedValue` hook for search inputs.
+- Applied debounced filtering to the course catalog, admin courses, admin students, admin sales agents, admin organizations, organization members, and sales-agent referrals.
+- Applied debounced local filtering to the signup country picker and command palette.
+- Kept search inputs responsive while delaying filtering and API-backed query updates until typing pauses.
+- Added strict login and registration credential validation.
+- Email fields now reject leading or trailing whitespace and require a valid email format.
+- Registration now requires a name and an 8–128 character password.
+- Login now requires a non-empty password and displays validation feedback before submitting.
+- Added consistent email normalization during registration, login, and password recovery so email casing resolves to the same account.
+- Added Sales Agent commission validation in the admin panel.
+- Commission values must be between 1% and 50%, inclusive; negative values, 0%, and values above 50% are rejected.
+- Invalid commission values remain visible for correction and display a clear error message.
+
+### Changed Files
+
+- `apps/web/app/(storefront)/(auth)/login/page.tsx`
+  - Added shared schema validation and inline credential error feedback.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+  - Added shared registration validation, required fields, password length constraints, and inline error feedback.
+
+- `apps/web/app/admin/agents/page.tsx`
+  - Validated commission values before approval and agent updates.
+  - Added error feedback for values outside the 1%–50% range.
+
+- `packages/shared/src/contracts/auth.ts`
+  - Added shared strict email validation and email normalization.
+
+- `packages/shared/src/contracts/sales-agent.ts`
+  - Changed commission validation from `0%–50%` to `1%–50%`.
+
+- `apps/api/src/modules/auth/auth.service.ts`
+  - Applied canonical email lookup and storage for registration, login, and password recovery.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/shared test`
+  - `pnpm --filter @skillstream/shared typecheck`
+  - `pnpm --filter @skillstream/api typecheck`
+  - `pnpm --filter @skillstream/web typecheck`
+
+### Fixed
+
+- Fixed the student account menu's `My Learning` navigation after login.
+### Notes
+
+- The site-header course search remains submit-based and does not need debounce behavior.
 
 ## 2026-08-12
 

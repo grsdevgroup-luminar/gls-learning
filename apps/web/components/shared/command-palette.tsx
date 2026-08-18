@@ -7,6 +7,7 @@ import { useStore } from "@/lib/context/store";
 import { getNavIcon, type NavItem } from "@/components/shared/portal-shell";
 import { Search, CornerDownLeft, ArrowRight, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 type Cmd = {
   id: string;
@@ -24,6 +25,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debouncedQ = useDebouncedSearch(q);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -59,10 +61,10 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
   }, [items, courses]);
 
   const results = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = debouncedQ.trim().toLowerCase();
     if (!needle) return commands;
     return commands.filter((c) => c.label.toLowerCase().includes(needle));
-  }, [q, commands]);
+  }, [debouncedQ, commands]);
 
   // Reset the highlight whenever the query changes — adjusting state during
   // render instead of syncing in an effect.

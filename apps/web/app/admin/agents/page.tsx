@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
-import type { SalesAgentDto } from "@skillstream/shared";
+import {
+  ReviewAgentApplicationSchema,
+  UpdateAgentSchema,
+  type SalesAgentDto,
+} from "@skillstream/shared";
 import { initials, formatUsd } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Link2, DollarSign, Users, Search, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 type AgentApplication = {
   id: string;
@@ -39,7 +44,8 @@ const statusCls: Record<string, string> = {
 
 export default function AdminAgents() {
   const qc = useQueryClient();
-  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const q = useDebouncedSearch(qInput);
   const [commissionInputs, setCommissionInputs] = useState<Record<string, string>>({});
   const [reviewingApp, setReviewingApp] = useState<string | null>(null);
   const [appCommission, setAppCommission] = useState("10");
@@ -65,6 +71,9 @@ export default function AdminAgents() {
       qc.invalidateQueries({ queryKey: ["admin-agent-applications"] });
       qc.invalidateQueries({ queryKey: ["admin-sales-agents"] });
     },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Could not review application");
+    },
   });
 
   const updateMutation = useMutation({
@@ -76,6 +85,9 @@ export default function AdminAgents() {
       body: { commissionPercent?: number; status?: SalesAgentDto["status"] };
     }) => apiFetch(`/admin/sales-agents/${id}`, { method: "PATCH", body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sales-agents"] }),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Could not update commission");
+    },
   });
 
   const filtered = agents.filter(
@@ -158,7 +170,7 @@ export default function AdminAgents() {
                       <div className="mt-2 space-y-4">
                         <div className="space-y-1">
                           <label className="text-sm font-medium">Commission %</label>
-                          <Input type="number" min={1} max={50} value={appCommission} onChange={(e) => setAppCommission(e.target.value)} />
+                          <Input type="number" min={1} max={50} step="0.01" value={appCommission} onChange={(e) => setAppCommission(e.target.value)} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-sm font-medium">Note (optional)</label>
@@ -180,14 +192,21 @@ export default function AdminAgents() {
                           <Button
                             disabled={reviewMutation.isPending}
                             onClick={() => {
-                              reviewMutation.mutate({
-                                id: app.id,
+                              const result = ReviewAgentApplicationSchema.safeParse({
                                 status: "APPROVED",
-                                commissionPercent: parseFloat(appCommission) || 10,
+                                commissionPercent: Number(appCommission),
                                 note: appNote || undefined,
                               });
-                              toast.success("Agent approved");
+                              if (!result.success) {
+                                toast.error(result.error.issues[0]?.message ?? "Commission must be between 1% and 50%");
+                                return;
+                              }
+                              reviewMutation.mutate({
+                                id: app.id,
+                                ...result.data,
+                              });
                               setReviewingApp(null);
+                              toast.success("Agent approval submitted");
                             }}
                           >
                             <CheckCircle2 className="h-4 w-4" /> Approve
@@ -208,7 +227,7 @@ export default function AdminAgents() {
           <h2 className="text-lg font-semibold">All agents</h2>
           <div className="relative sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search agents…" className="pl-9" />
+            <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search agents…" className="pl-9" />
           </div>
         </div>
         <Card>
@@ -265,12 +284,19 @@ export default function AdminAgents() {
                               className="h-7 px-2 text-xs"
                               disabled={updateMutation.isPending}
                               onClick={() => {
+                                const result = UpdateAgentSchema.safeParse({
+                                  commissionPercent: Number(commissionInputs[a.id]),
+                                });
+                                if (!result.success) {
+                                  toast.error(result.error.issues[0]?.message ?? "Commission must be between 1% and 50%");
+                                  return;
+                                }
                                 updateMutation.mutate({
                                   id: a.id,
-                                  body: { commissionPercent: parseFloat(commissionInputs[a.id]) || a.commissionPercent },
+                                  body: result.data,
                                 });
                                 setCommissionInputs((p) => { const n = { ...p }; delete n[a.id]; return n; });
-                                toast.success("Commission updated");
+                                toast.success("Commission update submitted");
                               }}
                             >
                               Save

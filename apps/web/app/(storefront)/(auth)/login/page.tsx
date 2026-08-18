@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/lib/api/auth";
-import { useLogin } from "@/lib/api/session";
+import { SESSION_QUERY_KEY, useLogin } from "@/lib/api/session";
 import { ApiError } from "@/lib/api/errors";
 import { Logo } from "@/components/shared/logo";
 import { Reveal, Stagger, StaggerItem, Magnetic } from "@/components/shared/motion";
@@ -15,18 +16,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { loginSchema } from "@skillstream/shared";
 
 function LoginForm() {
   const login = useLogin();
+  const queryClient = useQueryClient();
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   function destinationFor(role: string): string {
     const next = params.get("next");
-    // An explicit return path (e.g. an org-invite join link) always wins.
-    if (next) return next;
+    // Role portals take priority over a stale/previous return path. Otherwise
+    // an admin can authenticate successfully and still land in /dashboard.
     if (role === "ADMIN") return "/admin";
     if (role === "INSTRUCTOR") return "/instructor";
     if (role === "SALES_AGENT") return "/sales-agent";
@@ -36,9 +40,18 @@ function LoginForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const result = loginSchema.safeParse({ email, password });
+    if (!result.success) {
+      setValidationError(result.error.issues[0]?.message ?? "Enter valid credentials");
+      return;
+    }
+    setValidationError(null);
     try {
-      await login.mutateAsync({ email, password });
+      await login.mutateAsync(result.data);
       const me = await authApi.me();
+      // Keep client session consumers (header/store/portal controls) aligned
+      // with the identity that was just authenticated before navigation.
+      queryClient.setQueryData(SESSION_QUERY_KEY, me);
       toast.success("Welcome back!", { description: `Signed in as ${me.name}` });
       // Hard navigation, not router.push: the destination route may already be
       // sitting in Next's client router cache from a pre-login prefetch (e.g. a
@@ -81,7 +94,10 @@ function LoginForm() {
                     autoComplete="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setValidationError(null);
+                    }}
                   />
                 </FormField>
                 <FormField label="Password" htmlFor="password">
@@ -93,7 +109,10 @@ function LoginForm() {
                       autoComplete="current-password"
                       required
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setValidationError(null);
+                      }}
                       className="pr-10"
                     />
                     <Button
@@ -118,6 +137,12 @@ function LoginForm() {
                   </Link>
                 </StaggerItem>
               </Stagger>
+
+              {validationError && (
+                <p role="alert" className="mt-3 text-sm text-destructive">
+                  {validationError}
+                </p>
+              )}
 
               <Magnetic strength={0.15} className="mt-4 flex w-full">
                 <Button

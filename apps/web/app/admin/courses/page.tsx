@@ -25,6 +25,7 @@ import {
   ChevronLeft, ChevronRight, Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
 type ApiStatus = "PUBLISHED" | "DRAFT" | "REVIEW";
 
@@ -39,18 +40,14 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export default function AdminCourses() {
   const qc = useQueryClient();
   const [qInput, setQInput] = useState("");
-  const [q, setQ] = useState("");
+  const q = useDebouncedSearch(qInput);
   const [status, setStatus] = useState<"all" | ApiStatus>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setQ(qInput);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [qInput]);
+    setPage(1);
+  }, [q]);
 
   const { data: coursePage, isLoading } = useQuery({
     queryKey: ["admin", "courses", "list", { q, status, page, pageSize }],
