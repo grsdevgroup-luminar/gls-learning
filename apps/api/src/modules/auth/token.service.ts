@@ -49,11 +49,35 @@ export class TokenService {
     return createHash("sha256").update(token).digest("hex");
   }
 
+  /** Concurrent logged-in devices allowed per account — the standard signal
+   *  LMS platforms lean on to blunt casual credential sharing (one password,
+   *  many simultaneous viewers). Kept generous for a real multi-device
+   *  student (phone + laptop + a shared family PC). Evicting the oldest
+   *  session rather than blocking the new login means the device that gets
+   *  silently logged out is whichever has sat idle longest — the sharer's,
+   *  in the common case, not the person actively learning. */
+  private readonly MAX_ACTIVE_SESSIONS = 3;
+
+  /** Keeps a user at or under the session cap before a new login is issued. */
+  private async enforceSessionCap(userId: string): Promise<void> {
+    const active = await this.repo.findActiveRefreshTokensForUser(userId, new Date());
+    const overflow = active.length - this.MAX_ACTIVE_SESSIONS + 1;
+    if (overflow <= 0) return;
+    const revokedAt = new Date();
+    // `active` is oldest-first, so this evicts the least-recently-used sessions.
+    await Promise.all(
+      active
+        .slice(0, overflow)
+        .map((session) => this.repo.revokeRefreshTokenByHash(session.tokenHash, revokedAt)),
+    );
+  }
+
   /** Issues a new opaque refresh token, persisting only its hash. */
   async issueRefreshToken(
     userId: string,
     meta: { userAgent?: string; ip?: string },
   ): Promise<string> {
+    await this.enforceSessionCap(userId);
     const raw = randomBytes(48).toString("base64url");
     const days = this.config.get("JWT_REFRESH_TTL_DAYS", { infer: true });
     const expiresAt = new Date(Date.now() + days * 86_400_000);
