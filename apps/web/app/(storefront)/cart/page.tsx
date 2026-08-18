@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -28,17 +28,29 @@ export default function CartPage() {
   const [code, setCode] = useState("");
   const [applying, setApplying] = useState(false);
 
+  // Show the "Payment canceled" toast at most once per page load, and strip
+  // `?canceled=` from the URL synchronously so a browser refresh doesn't
+  // re-trigger the toast. `router.replace` alone is async — a refresh (or
+  // Strict Mode's double-invoke in dev) can fire the toast a second time
+  // before the URL update commits, which the user observes as the toast
+  // re-appearing on every refresh.
+  const canceledToastFiredRef = useRef(false);
   useEffect(() => {
+    if (canceledToastFiredRef.current) return;
     const canceledOrder = searchParams.get("canceled");
     if (!canceledOrder) return;
+    canceledToastFiredRef.current = true;
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("canceled");
+      window.history.replaceState(null, "", url.pathname + (url.search ? url.search : ""));
+    }
+
     toast.error("Payment canceled", {
       description: "Your order was not completed. You can try again anytime.",
     });
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("canceled");
-    const qs = params.toString();
-    router.replace(qs ? `/cart?${qs}` : "/cart");
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   const { data: catalog } = useCatalog();
   const items = useMemo(
