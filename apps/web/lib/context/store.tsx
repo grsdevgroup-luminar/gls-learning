@@ -81,6 +81,14 @@ interface StoreContextValue {
   setRegionCode: (code: string) => void;
   // cart
   cart: string[];
+  /**
+   * True while the authoritative cart is still being fetched from the server
+   * for an authenticated user. The checkout page uses this to avoid flashing
+   * an "empty cart" state on the round-trip back from an external payment
+   * gateway (Stripe/PayPal cancel), where the page fully reloads and the
+   * in-memory cart is [] until the server cart resolves.
+   */
+  cartLoading: boolean;
   coupon: string | null;
   addToCart: (courseId: string) => void;
   removeFromCart: (courseId: string) => void;
@@ -245,6 +253,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const {
     data: serverCart,
     refetch: refetchCart,
+    isPending: serverCartPending,
+    fetchStatus: serverCartFetchStatus,
   } = useQuery({
     queryKey: ["store", "cart"],
     queryFn: async () => {
@@ -259,6 +269,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     staleTime: 30_000,
     retry: false,
   });
+
+  // Loading is only meaningful for authenticated users — guests read from
+  // localStorage synchronously. We combine `isPending` (no data yet) with
+  // `fetchStatus !== "idle"` so a disabled query (guest / pre-mount) is not
+  // counted as loading.
+  const cartLoading =
+    !!user &&
+    mounted &&
+    serverCartPending &&
+    serverCartFetchStatus !== "idle";
 
   const applyServerCart = useCallback((dto: CartDto) => {
     setCart(dto.items.map((i) => i.courseId));
@@ -431,6 +451,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRegionCode: setRegionCodeState,
     // cart
     cart,
+    cartLoading,
     coupon,
     addToCart,
     removeFromCart,
