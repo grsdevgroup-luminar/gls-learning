@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/endpoints";
+import { useStore } from "@/lib/context/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, ArrowRight, ReceiptText, PlayCircle, Loader2 } from "lucide-react";
@@ -14,6 +15,8 @@ function SuccessContent() {
   const qc = useQueryClient();
   const params = useSearchParams();
   const orderId = params.get("order");
+  const { clearCart } = useStore();
+  const clearedRef = useRef(false);
 
   // Fresh enrollments so the dashboard reflects the purchase immediately.
   useEffect(() => {
@@ -33,6 +36,18 @@ function SuccessContent() {
   });
   const order = ordersPage?.items.find((o) => o.id === orderId);
   const pending = !!orderId && order?.status !== "PAID";
+
+  // Clear the cart only after the server confirms the order is PAID. This is
+  // the gateway-redirect path (Stripe/PayPal); the checkout page intentionally
+  // leaves the cart intact until this webhook-driven confirmation lands, so
+  // that a Back/cancel from the gateway returns the user to a populated cart.
+  useEffect(() => {
+    if (order?.status === "PAID" && !clearedRef.current) {
+      clearedRef.current = true;
+      clearCart();
+      void qc.invalidateQueries({ queryKey: ["store", "cart"] });
+    }
+  }, [order?.status, clearCart, qc]);
 
   return (
     <div className="mx-auto max-w-xl px-4 py-20 text-center">

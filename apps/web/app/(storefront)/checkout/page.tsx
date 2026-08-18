@@ -100,12 +100,18 @@ export default function CheckoutPage() {
       });
       clearReferralCode();
       // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
+      // Do NOT clear the cart here — payment isn't confirmed yet. If the user
+      // hits Back from the gateway (or cancels), the checkout page must still
+      // have the items. The server-side payment-succeeded webhook is
+      // responsible for wiping the cart; the success page picks that up via
+      // a cart refetch.
       if (session.redirectUrl && !session.devSimulateToken) {
-        clearCart();
         window.location.assign(session.redirectUrl);
         return;
       }
       // Dev environment without gateway credentials → simulate the payment.
+      // Payment is confirmed synchronously here, so clearing the cart before
+      // routing to the success page is safe.
       if (session.devSimulateToken) {
         await api.devSimulatePayment(session.orderId);
       }
