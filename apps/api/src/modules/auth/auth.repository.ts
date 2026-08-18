@@ -46,6 +46,15 @@ export class AuthRepository {
     return this.db(tx).refreshToken.findUnique({ where: { tokenHash } });
   }
 
+  /** Live sessions for a user, oldest first — the set concurrent-session
+   *  capping evicts from. */
+  findActiveRefreshTokensForUser(userId: string, now: Date, tx?: Db) {
+    return this.db(tx).refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   revokeRefreshTokenByHash(tokenHash: string, revokedAt: Date, tx?: Db) {
     return this.db(tx).refreshToken.update({
       where: { tokenHash },

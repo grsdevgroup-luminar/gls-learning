@@ -37,12 +37,17 @@ interface RefreshRow {
   userId: string;
   expiresAt: Date;
   revokedAt: Date | null;
+  createdAt: Date;
 }
 
 /** In-memory AuthRepository covering the RefreshToken ops rotateRefreshToken
- *  touches. */
+ *  and the session cap touch. */
 function fakeRefreshRepo() {
   const rows = new Map<string, RefreshRow>();
+  // Monotonic stand-in for createdAt — real timestamps can collide within the
+  // same millisecond when a test issues several sessions back to back, which
+  // would make "oldest first" ordering flaky.
+  let seq = 0;
   const api = {
     __rows: rows,
     async createRefreshToken(data: {
@@ -56,11 +61,20 @@ function fakeRefreshRepo() {
         userId: data.userId,
         expiresAt: data.expiresAt,
         revokedAt: null,
+        createdAt: new Date(seq++),
       });
     },
     async findRefreshTokenByHash(tokenHash: string) {
       const r = rows.get(tokenHash);
       return r ? { ...r, tokenHash } : null;
+    },
+    async findActiveRefreshTokensForUser(userId: string, now: Date) {
+      return [...rows.entries()]
+        .filter(
+          ([, r]) => r.userId === userId && r.revokedAt === null && r.expiresAt > now,
+        )
+        .sort(([, a], [, b]) => a.createdAt.getTime() - b.createdAt.getTime())
+        .map(([tokenHash, r]) => ({ ...r, tokenHash }));
     },
     async revokeRefreshTokenByHash(tokenHash: string, at: Date) {
       const r = rows.get(tokenHash);
@@ -139,6 +153,70 @@ describe("TokenService refresh-token rotation & reuse detection", () => {
       repo as never,
     );
     await expect(tokens.rotateRefreshToken("nope", {})).resolves.toBeNull();
+  });
+});
+
+describe("TokenService concurrent-session cap", () => {
+  it("allows up to the cap without evicting anyone", async () => {
+    const repo = fakeRefreshRepo();
+    const tokens = new TokenService(
+      undefined as never,
+      fakeConfig as never,
+      fakePrisma as never,
+      repo as never,
+    );
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+    const live = [...repo.__rows.values()].filter((r) => r.revokedAt === null);
+    expect(live).toHaveLength(3);
+  });
+
+  it("evicts the oldest session once a 4th device logs in", async () => {
+    const repo = fakeRefreshRepo();
+    const tokens = new TokenService(
+      undefined as never,
+      fakeConfig as never,
+      fakePrisma as never,
+      repo as never,
+    );
+    const first = await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+
+    const live = [...repo.__rows.values()].filter((r) => r.revokedAt === null);
+    expect(live).toHaveLength(3);
+    // The first-issued session — the oldest — is the one that got revoked.
+    const firstHash = [...repo.__rows.entries()].find(
+      ([, r]) => r.createdAt.getTime() === 0,
+    )?.[0];
+    expect(repo.__rows.get(firstHash!)?.revokedAt).not.toBeNull();
+    // And it can no longer be rotated.
+    await expect(tokens.rotateRefreshToken(first, {})).resolves.toBeNull();
+  });
+
+  it("doesn't count another user's sessions toward the cap", async () => {
+    const repo = fakeRefreshRepo();
+    const tokens = new TokenService(
+      undefined as never,
+      fakeConfig as never,
+      fakePrisma as never,
+      repo as never,
+    );
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_1", {});
+    await tokens.issueRefreshToken("user_2", {});
+
+    const user1Live = [...repo.__rows.values()].filter(
+      (r) => r.userId === "user_1" && r.revokedAt === null,
+    );
+    const user2Live = [...repo.__rows.values()].filter(
+      (r) => r.userId === "user_2" && r.revokedAt === null,
+    );
+    expect(user1Live).toHaveLength(3);
+    expect(user2Live).toHaveLength(1);
   });
 });
 

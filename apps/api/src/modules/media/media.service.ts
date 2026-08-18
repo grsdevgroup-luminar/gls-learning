@@ -15,8 +15,42 @@ import type { Env } from "../../config/env";
  *  re-scrub a full lesson; short enough that a leaked URL expires quickly. */
 const TOKEN_TTL_SECONDS = 2 * 60 * 60;
 
+/** Brand indigo (matches --primary in apps/web/app/globals.css) — Cloudflare
+ *  Stream's iframe player supports a `primaryColor` query param that themes
+ *  its native play button and seekbar. Left unset, every embed uses
+ *  Cloudflare's default gray, which is the single biggest reason the player
+ *  reads as generic/unbranded rather than a config gap in our own code. */
+const PLAYER_PRIMARY_COLOR = "#4F46E5";
+
 const b64url = (obj: unknown) =>
   Buffer.from(JSON.stringify(obj)).toString("base64url");
+
+const IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+/**
+ * Cloudflare Stream access rules binding a token to the requester's /24 —
+ * evaluated first-to-last, so an explicit allow of that range followed by a
+ * catch-all block turns this into an allowlist. Masked to /24 rather than the
+ * exact address so a mobile carrier or router reassigning the client's IP
+ * mid-session doesn't cut playback. Returns undefined for IPv6 or unparseable
+ * input — fail open rather than block a real viewer over an edge case.
+ *
+ * Node's dual-stack listener (the default — `app.listen()` binds `::`, all
+ * interfaces) reports incoming IPv4 connections as `::ffff:a.b.c.d`, the
+ * IPv4-mapped IPv6 form — confirmed live against this server, not assumed.
+ * Without stripping that prefix, every real request looks unparseable and
+ * this silently never fires.
+ */
+export function ipAccessRules(ip: string | undefined): unknown[] | undefined {
+  const normalized = ip?.replace(/^::ffff:/, "");
+  const match = normalized ? IPV4_RE.exec(normalized) : null;
+  if (!match) return undefined;
+  const [, a, b, c] = match;
+  return [
+    { type: "ip.src", action: "allow", ip: [`${a}.${b}.${c}.0/24`] },
+    { type: "any", action: "block" },
+  ];
+}
 
 /**
  * Signs a Cloudflare Stream playback JWT locally — no API round-trip. This is
@@ -25,22 +59,28 @@ const b64url = (obj: unknown) =>
  *
  * `pem` is the RSA private key from Cloudflare's one-time `POST /stream/keys`.
  * `downloadable: false` blocks the MP4 download endpoint; `nbf`/`exp` bound the
- * window. `now` is injected so tests use a fixed clock.
+ * window; `ip` (when parseable) binds the token to the requester's /24 via
+ * `accessRules`, so a leaked token can't simply be replayed with a spoofed
+ * `Referer` header from elsewhere — see `ipAccessRules`. `now` is injected so
+ * tests use a fixed clock.
  */
 export function signStreamToken(
   uid: string,
   keyId: string,
   pem: string,
+  ip: string | undefined,
   now: Date = new Date(),
 ): string {
   const iat = Math.floor(now.getTime() / 1000);
   const header = { alg: "RS256", kid: keyId };
+  const rules = ipAccessRules(ip);
   const payload = {
     sub: uid,
     kid: keyId,
     nbf: iat - 5, // small skew tolerance
     exp: iat + TOKEN_TTL_SECONDS,
     downloadable: false,
+    ...(rules ? { accessRules: rules } : {}),
   };
   const data = `${b64url(header)}.${b64url(payload)}`;
   const signature = createSign("RSA-SHA256")
@@ -93,6 +133,7 @@ export class MediaService {
   async getPlayback(
     userId: string | undefined,
     lessonId: string,
+    ip: string | undefined,
   ): Promise<PlaybackDto> {
     const lesson = await this.repo.findLessonForPlayback(lessonId);
     if (!lesson) throw new NotFoundException("Lesson not found");
@@ -126,13 +167,14 @@ export class MediaService {
       };
     }
 
-    const token = await this.playbackToken(lesson.cfVideoUid);
+    const token = await this.playbackToken(lesson.cfVideoUid, ip);
+    const playerParams = new URLSearchParams({ primaryColor: PLAYER_PRIMARY_COLOR });
     return {
       lessonId,
       type: lesson.type,
       ready: true,
       hlsUrl: `https://videodelivery.net/${token}/manifest/video.m3u8`,
-      iframeUrl: `https://iframe.videodelivery.net/${token}`,
+      iframeUrl: `https://iframe.videodelivery.net/${token}?${playerParams}`,
       articleContent: null,
     };
   }
@@ -151,16 +193,17 @@ export class MediaService {
    * is configured (no network); otherwise falls back to Cloudflare's per-token
    * API so existing deployments keep working without a key.
    */
-  private async playbackToken(uid: string): Promise<string> {
+  private async playbackToken(uid: string, ip: string | undefined): Promise<string> {
     const key = this.localSigningKey();
-    if (key) return signStreamToken(uid, key.keyId, key.pem);
-    return this.signStreamTokenViaApi(uid);
+    if (key) return signStreamToken(uid, key.keyId, key.pem, ip);
+    return this.signStreamTokenViaApi(uid, ip);
   }
 
   /** Legacy fallback: ask Cloudflare to mint the token (one HTTPS call per play).
    *  Kept only for deployments that haven't provisioned a local signing key. */
-  private async signStreamTokenViaApi(uid: string): Promise<string> {
+  private async signStreamTokenViaApi(uid: string, ip: string | undefined): Promise<string> {
     const { accountId, token } = this.cf();
+    const rules = ipAccessRules(ip);
     const res = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${uid}/token`,
       {
@@ -172,6 +215,7 @@ export class MediaService {
         body: JSON.stringify({
           exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
           downloadable: false,
+          ...(rules ? { accessRules: rules } : {}),
         }),
       },
     );
