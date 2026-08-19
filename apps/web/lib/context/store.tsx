@@ -25,7 +25,6 @@ import { toast } from "sonner";
 import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
 import { useCatalog } from "@/lib/api/hooks";
-import { getApiErrorMessage } from "@/lib/api/errors";
 import { qk } from "@/lib/api/query-keys";
 import { ApiError, getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
