@@ -26,7 +26,7 @@ import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
 import { useCatalog } from "@/lib/api/hooks";
 import { qk } from "@/lib/api/query-keys";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { cartApi } from "@/lib/api/cart";
 import type {
