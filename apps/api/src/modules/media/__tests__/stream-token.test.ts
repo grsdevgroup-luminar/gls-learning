@@ -48,21 +48,19 @@ describe("signStreamToken", () => {
     expect(claims.exp).toBe(iat + 2 * 60 * 60);
   });
 
-  it("binds accessRules to the requester's /24 when the IP is a parseable IPv4", () => {
-    const claims = decode(
+  // IP-binding is disabled (see ipAccessRules) — Railway never exposes the
+  // real visitor IP to this app, so binding to it blocked every real viewer
+  // instead of just abusers. accessRules is omitted regardless of input
+  // until Railway exposes a header that actually carries the client IP.
+  it("omits accessRules for any IP, parseable or not", () => {
+    const withParseableIp = decode(
       signStreamToken("vid_123", "key_abc", pem, "203.0.113.42", now).split(".")[1],
     );
-    expect(claims.accessRules).toEqual([
-      { type: "ip.src", action: "allow", ip: ["203.0.113.0/24"] },
-      { type: "any", action: "block" },
-    ]);
-  });
-
-  it("omits accessRules when the IP is missing or unparseable (IPv6, fail open)", () => {
     const withoutIp = decode(signStreamToken("vid_123", "key_abc", pem, undefined, now).split(".")[1]);
     const withIpv6 = decode(
       signStreamToken("vid_123", "key_abc", pem, "2001:db8::1", now).split(".")[1],
     );
+    expect(withParseableIp.accessRules).toBeUndefined();
     expect(withoutIp.accessRules).toBeUndefined();
     expect(withIpv6.accessRules).toBeUndefined();
   });
@@ -78,26 +76,16 @@ describe("signStreamToken", () => {
 });
 
 describe("ipAccessRules", () => {
-  it("masks an IPv4 address to its /24", () => {
-    expect(ipAccessRules("203.0.113.42")).toEqual([
-      { type: "ip.src", action: "allow", ip: ["203.0.113.0/24"] },
-      { type: "any", action: "block" },
-    ]);
-  });
-
-  it("returns undefined for IPv6, malformed input, and undefined", () => {
+  // Disabled 2026-08-19: confirmed live on Railway that X-Forwarded-For/
+  // X-Real-Ip arrive already populated with Railway's own infra hops, never
+  // the real visitor — so IP-binding blocked every real viewer, not abusers.
+  // Returns undefined unconditionally until Railway exposes a header that
+  // actually carries the client IP for this deployment.
+  it("returns undefined regardless of input", () => {
+    expect(ipAccessRules("203.0.113.42")).toBeUndefined();
+    expect(ipAccessRules("::ffff:192.168.0.106")).toBeUndefined();
     expect(ipAccessRules("2001:db8::1")).toBeUndefined();
     expect(ipAccessRules("not-an-ip")).toBeUndefined();
     expect(ipAccessRules(undefined)).toBeUndefined();
-  });
-
-  // Regression: confirmed live against a real dev server that Node's
-  // dual-stack listener reports IPv4 clients this way — a plain IPv4 regex
-  // silently never matches a real request without this normalization.
-  it("strips the IPv4-mapped IPv6 prefix Node actually reports for real clients", () => {
-    expect(ipAccessRules("::ffff:192.168.0.106")).toEqual([
-      { type: "ip.src", action: "allow", ip: ["192.168.0.0/24"] },
-      { type: "any", action: "block" },
-    ]);
   });
 });

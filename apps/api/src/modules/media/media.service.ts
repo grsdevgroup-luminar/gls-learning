@@ -25,31 +25,23 @@ const PLAYER_PRIMARY_COLOR = "#4F46E5";
 const b64url = (obj: unknown) =>
   Buffer.from(JSON.stringify(obj)).toString("base64url");
 
-const IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-
 /**
- * Cloudflare Stream access rules binding a token to the requester's /24 —
- * evaluated first-to-last, so an explicit allow of that range followed by a
- * catch-all block turns this into an allowlist. Masked to /24 rather than the
- * exact address so a mobile carrier or router reassigning the client's IP
- * mid-session doesn't cut playback. Returns undefined for IPv6 or unparseable
- * input — fail open rather than block a real viewer over an edge case.
- *
- * Node's dual-stack listener (the default — `app.listen()` binds `::`, all
- * interfaces) reports incoming IPv4 connections as `::ffff:a.b.c.d`, the
- * IPv4-mapped IPv6 form — confirmed live against this server, not assumed.
- * Without stripping that prefix, every real request looks unparseable and
- * this silently never fires.
+ * Cloudflare Stream access rules binding a token to the requester's /24.
+ * Would evaluate first-to-last, so an explicit allow of that range followed
+ * by a catch-all block turns this into an allowlist; masked to /24 rather
+ * than the exact address so a mobile carrier or router reassigning the
+ * client's IP mid-session doesn't cut playback.
  */
-export function ipAccessRules(ip: string | undefined): unknown[] | undefined {
-  const normalized = ip?.replace(/^::ffff:/, "");
-  const match = normalized ? IPV4_RE.exec(normalized) : null;
-  if (!match) return undefined;
-  const [, a, b, c] = match;
-  return [
-    { type: "ip.src", action: "allow", ip: [`${a}.${b}.${c}.0/24`] },
-    { type: "any", action: "block" },
-  ];
+// Disabled 2026-08-19: on Railway, this app never sees the visitor's real IP.
+// Confirmed live — X-Forwarded-For/X-Real-Ip arrive already populated with
+// two of Railway's own infra hops (their CDN partner + their GCP backend),
+// never the client. Binding to that produced a token every real viewer
+// failed, not a per-abuser restriction. Restore the /24-allowlist logic
+// (see git history at this line) once Railway exposes a header that
+// actually carries the client IP for this deployment — filed with their
+// support along with the evidence.
+export function ipAccessRules(_ip: string | undefined): unknown[] | undefined {
+  return undefined;
 }
 
 /**
