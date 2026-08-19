@@ -35,6 +35,21 @@ export class MediaController {
     @Param("lessonId") lessonId: string,
     @Req() req: Request,
   ) {
+    // TEMPORARY: diagnosing why Railway's edge doesn't surface the real
+    // client IP in X-Forwarded-For (see clientIp() above). Reflects only the
+    // caller's own request headers back to them — remove once resolved.
+    if (req.query.ipdebug === "1") {
+      return {
+        xForwardedFor: req.headers["x-forwarded-for"] ?? null,
+        xRealIp: req.headers["x-real-ip"] ?? null,
+        xEnvoyExternalAddress: req.headers["x-envoy-external-address"] ?? null,
+        cfConnectingIp: req.headers["cf-connecting-ip"] ?? null,
+        trueClientIp: req.headers["true-client-ip"] ?? null,
+        reqIp: req.ip,
+        remoteAddress: req.socket?.remoteAddress ?? null,
+        allHeaders: req.headers,
+      };
+    }
     return this.media.getPlayback(user?.id, lessonId, clientIp(req));
   }
 }
