@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { OrganizationDto } from "@skillstream/shared";
 import { serverApiOptional } from "@/lib/api/server";
+
+export const metadata: Metadata = {
+  title: "Organization Portal",
+};
 
 /** Resolve the organization portal entry point for an authenticated org user. */
 export default async function OrganizationEntryPage() {

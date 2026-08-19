@@ -22,7 +22,10 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: 'GRS Learning — Learn anything, anywhere',
+  title: {
+    default: 'GRS Learning — Learn anything, anywhere',
+    template: '%s | GRS Learning',
+  },
   description:
     'A modern course platform: world-class courses, protected video, progress tracking, and region-fair pricing.',
 };

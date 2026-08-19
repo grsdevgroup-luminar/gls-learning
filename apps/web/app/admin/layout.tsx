@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import type { AuthUserDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
+
+export const metadata: Metadata = {
+  title: "Admin Portal",
+};
 
 const items: NavItem[] = [
   { href: "/admin", label: "Overview", icon: "LayoutDashboard", exact: true },

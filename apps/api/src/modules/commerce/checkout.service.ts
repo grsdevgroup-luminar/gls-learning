@@ -117,8 +117,13 @@ export class CheckoutService {
     if (quote.lines.length === 0)
       throw new BadRequestException("No purchasable courses in cart");
 
+    // Persist the resolved region on the order so admin revenue analytics can
+    // attribute the payment even when the user profile has no country set.
+    const region = await this.pricing.resolveRegion(quote.regionCode);
+
     const order = await this.orders.createPending({
       userId,
+      country: region.country,
       gateway: input.gateway,
       couponCode: quote.coupon?.valid ? quote.coupon.code : null,
       subtotalCents: quote.subtotalCents,

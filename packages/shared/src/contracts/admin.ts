@@ -23,9 +23,9 @@ export interface AdminOverviewDto {
 export interface AdminAnalyticsDto {
   /** Last 14 days, oldest first. */
   revenueTrend: { date: string; revenueCents: number; enrollments: number }[];
-  /** Top regions by revenue (all-time), by order country. */
+  /** All regions by paid revenue (all-time), using the checkout region. */
   revenueByRegion: { country: string; revenueCents: number }[];
-  /** Real conversion funnel from actual account/enrollment/order data. */
+  /** Course activity counts from actual account/enrollment/order data. */
   funnel: { stage: string; count: number }[];
   recentActivity: {
     type: "order" | "enrollment" | "review" | "signup";

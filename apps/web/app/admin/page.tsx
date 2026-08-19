@@ -198,7 +198,7 @@ export default function AdminOverview() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Conversion funnel</CardTitle>
+            <CardTitle className="text-base">Course conversion funnel</CardTitle>
           </CardHeader>
           <CardContent>
             {analytics?.funnel.length ? (

@@ -60,7 +60,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
     );
   }, [course]);
 
-  const [currentId, setCurrentId] = useState(flat[0].id);
+  const [currentId, setCurrentId] = useState<string | null>(null);
   const enrolled = mounted && isEnrolled(course.id);
   const completedIds = mounted
     ? new Set(flat.filter((lesson) => isLessonDone(course.id, lesson.id)).map((lesson) => lesson.id))
@@ -70,9 +70,19 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
     enrolled
       ? isLessonSequentiallyAccessible(orderedLessonIds, completedIds, lesson.id)
       : lesson.preview;
+  const firstLesson = flat[0];
+  // Resume on the furthest completed lesson in curriculum order. The
+  // enrollment query arrives after the first render, so this is derived
+  // rather than stored in an effect; manual lesson selection still wins
+  // once `currentId` is set.
+  const resumeLesson = !firstLesson
+    ? null
+    : !mounted
+      ? firstLesson
+      : [...flat].reverse().find((lesson) => completedIds.has(lesson.id)) ?? firstLesson;
   const firstAccessible = flat.find(canAccess) ?? flat[0];
-  const selected = flat.find((l) => l.id === currentId) ?? firstAccessible;
-  const current = canAccess(selected) ? selected : firstAccessible;
+  const selected = (flat.find((l) => l.id === currentId) ?? resumeLesson ?? firstAccessible)!;
+  const current = (canAccess(selected) ? selected : firstAccessible ?? selected)!;
   const currentAccessible = canAccess(current);
 
   // Server-side quiz result for the current lesson (grading lives in the API).

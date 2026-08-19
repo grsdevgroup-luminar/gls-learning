@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { AuthUserDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
@@ -6,6 +7,10 @@ import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/format";
 import { Megaphone } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Sales Agent Portal",
+};
 
 const items: NavItem[] = [
   { href: "/sales-agent", label: "Overview", icon: "LayoutDashboard", exact: true },

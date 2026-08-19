@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { SaleBanner } from "@/components/layout/sale-banner";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+
+export const metadata: Metadata = {
+  title: "GRS Learning — Learn anything, anywhere",
+};
 
 export default function StorefrontLayout({
   children,
