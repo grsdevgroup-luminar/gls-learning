@@ -161,6 +161,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Track whether we've already merged this login. Prevents a second merge if
   // the user object identity flips (e.g. a profile refetch) after login.
   const mergedForUserRef = useRef<string | null>(null);
+  // Tracks the previous authenticated user id so we can detect a logout
+  // transition (truthy → null) and wipe cart state from device storage.
+  // A first-load guest must NOT trigger the wipe — that would nuke a cart
+  // they built up while logged out.
+  const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Restore persisted client state after mount. Deferred to a task so the
@@ -294,12 +299,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     if (!user) {
       mergedForUserRef.current = null;
-      // Hydrate from localStorage for guest browsing.
+      // Logout transition: previous render had a signed-in user, now null.
+      // Wipe the persisted cart + coupon so the next visitor on this device
+      // (or the same user opening a new tab) doesn't inherit stale items.
+      if (prevUserIdRef.current) {
+        wipeGuestCart();
+        setCart([]);
+        setCouponState(null);
+        prevUserIdRef.current = null;
+        return;
+      }
+      // First-load guest — hydrate from localStorage.
       setCart(readGuestCart());
       setCouponState(readGuestCoupon());
       return;
     }
 
+    prevUserIdRef.current = user.id;
     if (mergedForUserRef.current === user.id) return;
     mergedForUserRef.current = user.id;
 
