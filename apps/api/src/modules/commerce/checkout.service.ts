@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException, ConflictException,
+  ForbiddenException,
+  Injectable,
+} from "@nestjs/common";
 import type {
   CheckoutQuoteInput,
   CheckoutSessionInput,
@@ -6,6 +10,8 @@ import type {
   QuoteDto,
   QuoteLineDto,
 } from "@skillstream/shared";
+import { UsersService } from "../users/users.service";
+import { GeoIpService } from "../geoip/geoip.service";
 import { PricingService } from "./pricing.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
@@ -26,6 +32,8 @@ export class CheckoutService {
     private readonly orders: OrdersService,
     private readonly payments: PaymentsService,
     private readonly salesAgents: SalesAgentService,
+    private readonly users: UsersService,
+    private readonly geoIp: GeoIpService,
   ) {}
 
   private async buildLines(
@@ -107,6 +115,7 @@ export class CheckoutService {
     userId: string,
     input: CheckoutSessionInput,
     idempotencyKey?: string,
+    clientIpAddress: string | null,
   ): Promise<CheckoutSessionDto> {
     await this.assertGatewayEnabled(input.gateway);
 
@@ -123,6 +132,7 @@ export class CheckoutService {
         return this.resurrectSession(existing);
       }
     }
+    await this.assertCheckoutLocation(userId, clientIpAddress);
 
     // Never sell a course the user already owns.
     const owned = await this.repo.findOwnedEnrollments(userId, input.courseIds);
@@ -226,5 +236,28 @@ export class CheckoutService {
     // call twice for the same order because the provider-side idempotency key
     // is derived from order.id.
     return this.payments.startPayment(order, order.gateway);
+  }
+
+  /** Block checkout when VPN/proxy is detected or GeoIP country ≠ profile country. */
+  private async assertCheckoutLocation(
+    userId: string,
+    clientIpAddress: string | null,
+  ): Promise<void> {
+    if (!this.geoIp.checkoutEnabled) return;
+
+    const user = await this.users.findById(userId);
+    const verdict = this.geoIp.verifyCheckout(
+      clientIpAddress,
+      user?.country ?? null,
+    );
+    if (verdict.allowed) return;
+
+    const message = this.geoIp.messageFor(verdict);
+    if (!message) return;
+
+    if (verdict.reason === "missing_profile_country") {
+      throw new BadRequestException(message);
+    }
+    throw new ForbiddenException(message);
   }
 }
