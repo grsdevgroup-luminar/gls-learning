@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
 import { ApiError } from '@/lib/api/errors';
 import { Logo } from '@/components/shared/logo';
@@ -11,15 +11,9 @@ import { FormField } from '@/components/shared/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { COUNTRIES, flagFor } from '@/lib/countries';
-import { useDebouncedSearch } from '@/lib/use-debounced-value';
+import { CountrySelect } from '@/components/shared/country-select';
 import { registerSchema } from '@skillstream/shared';
 
 const perks = [
@@ -40,23 +34,14 @@ function SignupForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState<string>('');
-  const [countryOpen, setCountryOpen] = useState(false);
-  const [countryQuery, setCountryQuery] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
-  const debouncedCountryQuery = useDebouncedSearch(countryQuery);
-
-  const filteredCountries = useMemo(() => {
-    const q = debouncedCountryQuery.trim().toLowerCase();
-    if (!q) return COUNTRIES;
-    return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
-  }, [debouncedCountryQuery]);
 
   async function create() {
     const result = registerSchema.safeParse({
       name,
       email,
       password,
-      country: country || undefined,
+      country,
     });
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Enter valid account details');
@@ -149,70 +134,13 @@ function SignupForm() {
                   />
                 </FormField>
                 <FormField label="Country">
-                  <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full justify-between font-normal"
-                        />
-                      }
-                    >
-                      {country ? (
-                        <span className="flex items-center gap-2 truncate">
-                          <span>
-                            {flagFor(
-                              COUNTRIES.find((c) => c.name === country)?.code ?? '',
-                            )}
-                          </span>
-                          <span className="truncate">{country}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Select your country</span>
-                      )}
-                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-[var(--anchor-width)] p-0">
-                      <div className="relative border-b p-2">
-                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          value={countryQuery}
-                          onChange={(e) => setCountryQuery(e.target.value)}
-                          placeholder="Search country…"
-                          className="h-8 pl-8"
-                          autoFocus
-                        />
-                      </div>
-                      <ul className="max-h-64 overflow-y-auto py-1">
-                        {filteredCountries.length === 0 ? (
-                          <li className="px-3 py-2 text-sm text-muted-foreground">
-                            No matches
-                          </li>
-                        ) : (
-                          filteredCountries.map((c) => (
-                            <li key={c.code}>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
-                                onClick={() => {
-                                  setCountry(c.name);
-                                  setCountryOpen(false);
-                                  setCountryQuery('');
-                                }}
-                              >
-                                <span>{flagFor(c.code)}</span>
-                                <span className="flex-1 truncate">{c.name}</span>
-                                {country === c.name && (
-                                  <Check className="h-4 w-4 text-primary" />
-                                )}
-                              </button>
-                            </li>
-                          ))
-                        )}
-                      </ul>
-                    </PopoverContent>
-                  </Popover>
+                  <CountrySelect
+                    value={country}
+                    onChange={(code) => {
+                      setCountry(code);
+                      setValidationError(null);
+                    }}
+                  />
                 </FormField>
                 <FormField label="Password" htmlFor="signup-password">
                   <div className="relative">

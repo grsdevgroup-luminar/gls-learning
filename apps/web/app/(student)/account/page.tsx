@@ -6,12 +6,14 @@ import {
   REMINDER_TRIGGERS,
   REMINDER_TRIGGER_COPY,
   DEFAULT_NOTIFICATION_PREFS,
+  isIsoCountryCode,
   type ReminderTrigger,
 } from '@skillstream/shared';
 import { api } from '@/lib/api/endpoints';
 import { useSession, SESSION_QUERY_KEY } from '@/lib/api/session';
 import { apiFetch } from '@/lib/api/client';
 import { initials } from '@/lib/format';
+import { CountrySelect } from '@/components/shared/country-select';
 import {
   Card,
   CardContent,
@@ -44,7 +46,9 @@ export default function AccountPage() {
   // Initialise form values from the session exactly once
   if (!profileReady && user) {
     setName(user.name ?? '');
-    setCountry(user.country ?? '');
+    setCountry(
+      user.country && isIsoCountryCode(user.country) ? user.country : '',
+    );
     setAvatar(user.avatar ?? '');
     setPhone(user.phone ?? '');
     setProfileReady(true);
@@ -79,7 +83,7 @@ export default function AccountPage() {
         method: 'PATCH',
         body: {
           name: name.trim(),
-          country: country.trim().toUpperCase() || null,
+          country: country || null,
           avatar: avatar.trim() || null,
           phone: phone.trim() || null,
         },
@@ -195,16 +199,8 @@ export default function AccountPage() {
                   type="tel"
                 />
               </FormField>
-              {/* The API stores an ISO-3166 alpha-2 code — a country *name*
-                  here used to fail validation. */}
-              <FormField label="Country code">
-                <Input
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
-                  placeholder="US"
-                  maxLength={2}
-                  className="uppercase"
-                />
+              <FormField label="Country">
+                <CountrySelect value={country} onChange={setCountry} />
               </FormField>
             </Stagger>
             <Magnetic strength={0.15}>

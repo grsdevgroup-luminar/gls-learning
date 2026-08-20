@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { countryCodeSchema } from "./auth.js";
 
 const levelEnum = z.enum([
   "BEGINNER",
@@ -124,7 +125,7 @@ export type UpdateQuizQuestionInput = z.infer<typeof updateQuizQuestionSchema>;
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   avatar: z.string().url().nullable().optional(),
-  country: z.string().min(2).max(2).nullable().optional(),
+  country: z.union([countryCodeSchema, z.null()]).optional(),
   /** E.164 — the SMS reminder channel has nowhere to send without it. */
   phone: z
     .string()
