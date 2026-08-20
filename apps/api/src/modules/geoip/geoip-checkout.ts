@@ -4,7 +4,8 @@ export type GeoIpCheckoutBlockReason =
   | "vpn_detected"
   | "country_mismatch"
   | "missing_profile_country"
-  | "location_unknown";
+  | "location_unknown"
+  | "verification_unavailable";
 
 export type GeoIpCheckoutVerdict =
   | { allowed: true }
@@ -72,4 +73,6 @@ export const CHECKOUT_GEO_MESSAGES: Record<GeoIpCheckoutBlockReason, string> = {
     "Add your country to your profile before checkout.",
   location_unknown:
     "We could not verify your location. Please try again from your home network.",
+  verification_unavailable:
+    "Location verification is temporarily unavailable. Please try again later.",
 };

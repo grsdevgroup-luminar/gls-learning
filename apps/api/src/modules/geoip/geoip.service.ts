@@ -36,20 +36,18 @@ export class GeoIpService implements OnModuleInit {
 
     const countryPath = this.config.get("MAXMIND_COUNTRY_DB_PATH", { infer: true });
     if (!countryPath) {
-      this.logger.warn(
-        "GEOIP_CHECKOUT_ENABLED is true but MAXMIND_COUNTRY_DB_PATH is unset — geo checks disabled",
+      throw new Error(
+        "GEOIP_CHECKOUT_ENABLED is true but MAXMIND_COUNTRY_DB_PATH is not set",
       );
-      return;
     }
 
     try {
       this.countryReader = await Reader.open(countryPath);
     } catch (err) {
-      this.logger.error(
-        `Failed to open MaxMind country database at ${countryPath}`,
-        err instanceof Error ? err.stack : String(err),
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `Failed to open MaxMind country database at ${countryPath}: ${detail}`,
       );
-      return;
     }
 
     const anonymousPath = this.config.get("MAXMIND_ANONYMOUS_IP_DB_PATH", {
@@ -79,15 +77,13 @@ export class GeoIpService implements OnModuleInit {
     profileCountry: string | null,
   ): GeoIpCheckoutVerdict {
     const nodeEnv = this.config.get("NODE_ENV", { infer: true });
-    if (!this.checkoutEnabled || !this.active || !this.countryReader) {
-      return evaluateCheckoutGeo({
-        enabled: false,
-        nodeEnv,
-        ip,
-        profileCountry,
-        geoCountry: null,
-        anonymous: null,
-      });
+
+    if (this.checkoutEnabled && (!this.active || !this.countryReader)) {
+      return { allowed: false, reason: "verification_unavailable" };
+    }
+
+    if (!this.checkoutEnabled) {
+      return { allowed: true };
     }
 
     const normalizedIp = ip?.trim() ?? null;

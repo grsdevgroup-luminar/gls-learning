@@ -2,6 +2,7 @@ import {
   BadRequestException, ConflictException,
   ForbiddenException,
   Injectable,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import type {
   CheckoutQuoteInput,
@@ -257,6 +258,9 @@ export class CheckoutService {
 
     if (verdict.reason === "missing_profile_country") {
       throw new BadRequestException(message);
+    }
+    if (verdict.reason === "verification_unavailable") {
+      throw new ServiceUnavailableException(message);
     }
     throw new ForbiddenException(message);
   }
