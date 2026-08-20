@@ -31,6 +31,7 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService<Env, true>);
 
   app.setGlobalPrefix("api");
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
   // crossOriginResourcePolicy: cross-site is disabled by default — this API is
   // consumed by a separate frontend origin (WEB_ORIGIN), so relax it there.
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));

@@ -1,5 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import {
+  parseLessonResources,
+  type LessonResourceInput,
+} from "@skillstream/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { COURSE_DETAIL_INCLUDE, COURSE_SUMMARY_INCLUDE } from "../courses/course.mapper";
 import type { Db } from "../../common/types";
@@ -125,6 +129,70 @@ export class AuthoringRepository {
 
   deleteLesson(lessonId: string) {
     return this.prisma.lesson.delete({ where: { id: lessonId } });
+  }
+
+  /** Reads the JSON resources column for a lesson via a lightweight select. */
+  findLessonResources(lessonId: string) {
+    return this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { id: true, resources: true },
+    });
+  }
+
+  /** Appends a resource to `Lesson.resources` inside a transaction so a
+   *  concurrent upload can't overwrite the other. Enforces the shared cap of
+   *  20 attachments per lesson. Returns the full resource list post-append. */
+  async appendLessonResource(
+    lessonId: string,
+    resource: LessonResourceInput,
+    limit: number,
+  ): Promise<LessonResourceInput[]> {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.lesson.findUnique({
+        where: { id: lessonId },
+        select: { resources: true },
+      });
+      if (!row) throw new NotFoundException("Lesson not found");
+      const existing = parseLessonResources(row.resources);
+      if (existing.length >= limit) {
+        // Surface the cap explicitly; callers translate to 400 for the client.
+        throw new Error("RESOURCE_LIMIT_REACHED");
+      }
+      const next = [...existing, resource];
+      await tx.lesson.update({
+        where: { id: lessonId },
+        data: { resources: next as unknown as Prisma.InputJsonValue },
+      });
+      return next;
+    });
+  }
+
+  /** Removes a resource by its storageKey. Returns the removed entry and the
+   *  updated list so the caller can `StorageDriver.delete(key)` after commit. */
+  async removeLessonResourceByStorageKey(
+    lessonId: string,
+    storageKey: string,
+  ): Promise<{
+    removed: LessonResourceInput | null;
+    remaining: LessonResourceInput[];
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.lesson.findUnique({
+        where: { id: lessonId },
+        select: { resources: true },
+      });
+      if (!row) throw new NotFoundException("Lesson not found");
+      const existing = parseLessonResources(row.resources);
+      const removed = existing.find((r) => r.storageKey === storageKey) ?? null;
+      const remaining = existing.filter((r) => r.storageKey !== storageKey);
+      if (removed) {
+        await tx.lesson.update({
+          where: { id: lessonId },
+          data: { resources: remaining as unknown as Prisma.InputJsonValue },
+        });
+      }
+      return { removed, remaining };
+    });
   }
 
   reorderSections(ids: string[]) {

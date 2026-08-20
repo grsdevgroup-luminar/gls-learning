@@ -9,7 +9,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Check, PlayCircle, FileText, HelpCircle, Lock, Users, BarChart3 } from "lucide-react";
+import {
+  Check,
+  PlayCircle,
+  FileText,
+  HelpCircle,
+  Lock,
+  Users,
+  BarChart3,
+  Download,
+  Link2,
+  ExternalLink,
+} from "lucide-react";
 import { courseDurationMin, courseLessonCount } from "@/lib/course-stats";
 import { compactNumber, formatHoursFromMin, lessonTime, initials } from "@/lib/format";
 
@@ -58,28 +69,67 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
                 <AccordionContent>
                   <ul className="space-y-1 pb-2">
                     {s.lessons.map((l) => (
-                      <li
-                        key={l.id}
-                        className="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
-                      >
-                        {l.type === "VIDEO" ? (
-                          <PlayCircle className="h-4 w-4 text-muted-foreground" />
-                        ) : l.type === "QUIZ" ? (
-                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+                      <li key={l.id} className="rounded-md">
+                        <div className="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50">
+                          {l.type === "VIDEO" ? (
+                            <PlayCircle className="h-4 w-4 text-muted-foreground" />
+                          ) : l.type === "QUIZ" ? (
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="flex-1">{l.title}</span>
+                          {l.preview ? (
+                            <Badge variant="outline" className="h-5 text-[10px]">
+                              Preview
+                            </Badge>
+                          ) : (
+                            <Lock className="h-3 w-3 text-muted-foreground/60" />
+                          )}
+                          <span className="tabular-nums text-xs text-muted-foreground">
+                            {lessonTime(l.durationSec)}
+                          </span>
+                        </div>
+                        {/* Preview lessons expose their resources to anyone
+                            browsing the catalog — the API only returns them
+                            for `preview === true`, so any items here are
+                            already cleared for public download. */}
+                        {l.preview && l.resources.length > 0 && (
+                          <ul className="ml-9 mt-1 space-y-1 border-l pl-3">
+                            {l.resources.map((r) => {
+                              const isFile = Boolean(r.storageKey);
+                              return (
+                                <li key={r.url} className="flex items-center gap-2 text-xs">
+                                  {isFile ? (
+                                    <FileText className="h-3.5 w-3.5 text-primary" />
+                                  ) : (
+                                    <Link2 className="h-3.5 w-3.5 text-primary" />
+                                  )}
+                                  <a
+                                    href={r.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    {...(isFile ? { download: true } : {})}
+                                    className="flex-1 truncate underline-offset-2 hover:underline"
+                                    title={r.name}
+                                  >
+                                    {r.name}
+                                  </a>
+                                  {isFile && r.sizeLabel && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {r.sizeLabel}
+                                    </span>
+                                  )}
+                                  {isFile ? (
+                                    <Download className="h-3 w-3 text-muted-foreground" />
+                                  ) : (
+                                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
                         )}
-                        <span className="flex-1">{l.title}</span>
-                        {l.preview ? (
-                          <Badge variant="outline" className="h-5 text-[10px]">
-                            Preview
-                          </Badge>
-                        ) : (
-                          <Lock className="h-3 w-3 text-muted-foreground/60" />
-                        )}
-                        <span className="tabular-nums text-xs text-muted-foreground">
-                          {lessonTime(l.durationSec)}
-                        </span>
                       </li>
                     ))}
                   </ul>

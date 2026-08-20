@@ -98,6 +98,54 @@ export function apiUrl(path: string): string {
 }
 
 /**
+ * Multipart upload wrapper. Uses the same 401-retry dance as apiFetch but lets
+ * the browser set the multipart boundary in Content-Type — hard-coding it here
+ * would strip the `boundary=...` suffix and every request would 400.
+ */
+export async function apiFetchMultipart<T>(
+  path: string,
+  formData: FormData,
+  init: Omit<RequestInit, "body" | "headers"> = {},
+): Promise<T> {
+  const send = () =>
+    fetch(`${BASE_URL}${path}`, {
+      ...init,
+      method: init.method ?? "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+  let res = await send();
+  if (
+    res.status === 401 &&
+    typeof window !== "undefined" &&
+    !path.startsWith("/auth/refresh") &&
+    (await refreshSession())
+  ) {
+    res = await send();
+  }
+
+  if (res.status === 204) return undefined as T;
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    const problem = data as ProblemDetail | null;
+    throw new ApiError(
+      res.status,
+      problem,
+      problem?.message
+        ? Array.isArray(problem.message)
+          ? problem.message.join(", ")
+          : problem.message
+        : res.statusText,
+    );
+  }
+  return data as T;
+}
+
+/**
  * Downloads a cookie-authenticated file. A plain <a href> would work only while
  * the API stays same-site; fetching with credentials and handing the browser a
  * blob works regardless, and surfaces API errors instead of rendering a JSON

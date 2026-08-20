@@ -39,10 +39,14 @@ export interface InstructorSummaryDto {
 /** A downloadable attachment on a lesson (slides, starter repo, cheat sheet). */
 export interface LessonResourceDto {
   name: string;
-  /** Absolute URL the learner downloads from. */
+  /** Absolute URL the learner downloads from. For platform-uploaded files this
+   *  is a short-lived signed URL — do not cache. */
   url: string;
   /** Optional human-readable size, e.g. "2.4 MB" — display only. */
   sizeLabel?: string;
+  /** Internal storage handle for platform-uploaded files. Present only for
+   *  files uploaded through the resource upload endpoint; absent for links. */
+  storageKey?: string;
 }
 
 export interface LessonPublicDto {

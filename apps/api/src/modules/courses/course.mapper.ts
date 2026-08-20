@@ -105,6 +105,15 @@ export function toCourseDetail(
     lessons: s.lessons.map((l) => {
       durationSec += l.durationSec;
       lessonCount += 1;
+      // Preview lessons are the course's marketing surface — their resources
+      // (slides, starter code) must be downloadable by anyone browsing the
+      // catalog, not just enrolled learners. So `preview === true` bypasses
+      // both the `includeLessonResources` gate (public catalog) and the
+      // sequential-access gate (enrolled but hasn't reached this lesson yet).
+      const exposeResources =
+        l.preview ||
+        (opts?.includeLessonResources === true &&
+          (!opts.accessibleLessonIds || opts.accessibleLessonIds.has(l.id)));
       return {
         id: l.id,
         title: l.title,
@@ -114,11 +123,7 @@ export function toCourseDetail(
         order: l.order,
         hasQuiz: l.quiz !== null,
         hasVideo: l.cfVideoUid !== null,
-        resources:
-          opts?.includeLessonResources &&
-          (!opts.accessibleLessonIds || opts.accessibleLessonIds.has(l.id))
-            ? parseLessonResources(l.resources)
-            : [],
+        resources: exposeResources ? parseLessonResources(l.resources) : [],
         ...(opts?.includeArticleContent
           ? { articleContent: l.articleContent }
           : {}),

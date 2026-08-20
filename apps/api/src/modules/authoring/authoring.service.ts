@@ -1,18 +1,20 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type {
-  CreateCourseInput,
-  CourseStatusInput,
-  CreateQuizInput,
-  CreateQuizQuestionInput,
-  LessonInput,
-  SectionInput,
-  UpdateCourseInput,
-  UpdateQuizInput,
-  UpdateQuizQuestionInput,
+import {
+  parseLessonResources,
+  type CreateCourseInput,
+  type CourseStatusInput,
+  type CreateQuizInput,
+  type CreateQuizQuestionInput,
+  type LessonInput,
+  type SectionInput,
+  type UpdateCourseInput,
+  type UpdateQuizInput,
+  type UpdateQuizQuestionInput,
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { AuthoringRepository } from "./authoring.repository";
@@ -20,6 +22,9 @@ import {
   toCourseDetail,
   toCourseSummary,
 } from "../courses/course.mapper";
+import { STORAGE_DRIVER } from "../storage/storage.constants";
+import type { StorageDriver } from "../storage/storage.driver";
+import { signCourseResourceUrls } from "../storage/sign-resources";
 
 function slugify(s: string): string {
   return s
@@ -32,7 +37,10 @@ function slugify(s: string): string {
 
 @Injectable()
 export class AuthoringService {
-  constructor(private readonly repo: AuthoringRepository) {}
+  constructor(
+    private readonly repo: AuthoringRepository,
+    @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
+  ) {}
 
   // ── ownership ──────────────────────────────────────────────────────────
   private async assertCourseAccess(courseId: string, user: RequestUser) {
@@ -72,7 +80,10 @@ export class AuthoringService {
           includeArticleContent: true,
           includeLessonResources: true,
         }),
-      );
+      )
+      // Owner builder needs working download links to preview attachments,
+      // same as the enrolled learner view — sign every uploaded resource.
+      .then((detail) => signCourseResourceUrls(detail, this.storage));
   }
 
   /** Owner-gated detail so the course builder can edit drafts. */
@@ -190,6 +201,26 @@ export class AuthoringService {
   async updateLesson(user: RequestUser, lessonId: string, input: LessonInput) {
     const courseId = await this.courseIdOfLesson(lessonId);
     await this.assertCourseAccess(courseId, user);
+
+    // If the caller sent a new `resources` array, any previously-uploaded
+    // resource (has `storageKey`) that no longer appears has been removed —
+    // best-effort delete from storage so we don't leak orphan objects.
+    let removedKeys: string[] = [];
+    if (input.resources !== undefined) {
+      const before = await this.repo.findLessonResources(lessonId);
+      if (before) {
+        const priorResources = parseLessonResources(before.resources);
+        const nextKeys = new Set(
+          (input.resources ?? [])
+            .map((r) => r.storageKey)
+            .filter((k): k is string => !!k),
+        );
+        removedKeys = priorResources
+          .map((r) => r.storageKey)
+          .filter((k): k is string => !!k && !nextKeys.has(k));
+      }
+    }
+
     await this.repo.updateLesson(lessonId, {
       title: input.title,
       type: input.type,
@@ -202,13 +233,31 @@ export class AuthoringService {
       // array clears them.
       resources: input.resources ?? undefined,
     });
+
+    // Post-commit: DB is authoritative, so a failed storage delete just leaks
+    // an object — never blocks the API response.
+    await Promise.all(
+      removedKeys.map((k) => this.storage.delete(k).catch(() => undefined)),
+    );
+
     return this.detail(courseId);
   }
 
   async removeLesson(user: RequestUser, lessonId: string) {
     const courseId = await this.courseIdOfLesson(lessonId);
     await this.assertCourseAccess(courseId, user);
+    // Collect uploaded resource keys BEFORE the row cascades away so we can
+    // clean up bucket objects — Prisma won't tell us the JSON contents after.
+    const before = await this.repo.findLessonResources(lessonId);
+    const keys = before
+      ? parseLessonResources(before.resources)
+          .map((r) => r.storageKey)
+          .filter((k): k is string => !!k)
+      : [];
     await this.repo.deleteLesson(lessonId);
+    await Promise.all(
+      keys.map((k) => this.storage.delete(k).catch(() => undefined)),
+    );
     return this.detail(courseId);
   }
 

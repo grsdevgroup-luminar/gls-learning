@@ -38,7 +38,7 @@ import {
 import {
   Check, PlayCircle, FileText, HelpCircle, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Download, ArrowLeft, Star, Trophy, ChevronDown,
-  Share2, MoreVertical, Sun, Moon, Link2, Save, Lock,
+  Share2, MoreVertical, Sun, Moon, Link2, Save, Lock, ExternalLink,
 } from "lucide-react";
 import { lessonTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -211,23 +211,40 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <TabsContent value="resources" className="pt-4">
                 {current.resources?.length ? (
                   <ul className="space-y-2">
-                    {current.resources.map((r) => (
-                      <li key={r.url} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span className="flex-1">{r.name}</span>
-                        {r.sizeLabel && (
-                          <span className="text-xs text-muted-foreground">{r.sizeLabel}</span>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={`Download ${r.name}`}
-                          render={<a href={r.url} target="_blank" rel="noopener noreferrer" download />}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </li>
-                    ))}
+                    {current.resources.map((r) => {
+                      const isFile = Boolean(r.storageKey);
+                      return (
+                        <li key={r.url} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                          {isFile ? (
+                            <FileText className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Link2 className="h-4 w-4 text-primary" />
+                          )}
+                          <span className="flex-1 truncate" title={r.name}>{r.name}</span>
+                          {isFile && r.sizeLabel && (
+                            <span className="text-xs text-muted-foreground">{r.sizeLabel}</span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={isFile ? `Download ${r.name}` : `Open ${r.name}`}
+                            render={
+                              isFile ? (
+                                <a href={r.url} target="_blank" rel="noopener noreferrer" download />
+                              ) : (
+                                <a href={r.url} target="_blank" rel="noopener noreferrer" />
+                              )
+                            }
+                          >
+                            {isFile ? (
+                              <Download className="h-4 w-4" />
+                            ) : (
+                              <ExternalLink className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground">No downloadable resources for this lesson.</p>

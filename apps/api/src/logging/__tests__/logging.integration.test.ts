@@ -12,6 +12,7 @@ import { createLoggingRuntime } from "../logging.runtime";
 const base = {
   DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
   JWT_ACCESS_SECRET: "0123456789abcdef",
+  STORAGE_DRIVER: "local",
 };
 
 const temporaryDirectories: string[] = [];

@@ -4,6 +4,9 @@ import { validateEnv } from "../../config/env";
 const base = {
   DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
   JWT_ACCESS_SECRET: "0123456789abcdef",
+  // Force local driver so the S3 credential refine doesn't fire for tests
+  // that only care about logging config.
+  STORAGE_DRIVER: "local",
 };
 
 describe("logging environment", () => {

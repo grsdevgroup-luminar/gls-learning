@@ -5,6 +5,12 @@ import type { Request } from "express";
 import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { MediaService } from "./media.service";
 
+function clientIp(req: Request): string | undefined {
+  const xff = req.headers["x-forwarded-for"];
+  const first = Array.isArray(xff) ? xff[0] : xff?.split(",")[0];
+  return first?.trim() || req.ip;
+}
+
 @ApiTags("media")
 @ApiBearerAuth()
 @Controller()
@@ -29,6 +35,6 @@ export class MediaController {
     @Param("lessonId") lessonId: string,
     @Req() req: Request,
   ) {
-    return this.media.getPlayback(user?.id, lessonId, req.ip);
+    return this.media.getPlayback(user?.id, lessonId, clientIp(req));
   }
 }

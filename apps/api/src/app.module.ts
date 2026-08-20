@@ -1,8 +1,11 @@
+import path from "node:path";
 import { type MiddlewareConsumer, Module, type NestModule } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ServeStaticModule } from "@nestjs/serve-static";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { validateEnv } from "./config/env";
+import { type Env, validateEnv } from "./config/env";
+import { StorageModule } from "./modules/storage/storage.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { EmailModule } from "./modules/email/email.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -39,6 +42,24 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
     }),
     LoggingModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // Mount /uploads only when the local storage driver is in use — production
+    // must never expose the API filesystem as static assets.
+    ServeStaticModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => {
+        if (config.get("STORAGE_DRIVER", { infer: true }) !== "local") return [];
+        const dir = config.get("STORAGE_LOCAL_DIR", { infer: true }) ?? "uploads";
+        return [
+          {
+            rootPath: path.resolve(process.cwd(), dir),
+            serveRoot: "/uploads",
+            serveStaticOptions: { index: false, fallthrough: false },
+          },
+        ];
+      },
+    }),
+    StorageModule,
     PrismaModule,
     EmailModule,
     UsersModule,
