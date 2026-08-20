@@ -101,7 +101,10 @@ export class CoursesService {
     );
     const row = rows.find((candidate) => candidate !== null);
     if (!row) throw new NotFoundException("Course not found");
-    return toCourseDetail(row);
+    const detail = toCourseDetail(row);
+    // Preview lessons expose resources publicly (see mapper); their uploaded
+    // files need fresh signed URLs just like the enrolled learning path.
+    return signCourseResourceUrls(detail, this.storage);
   }
 
   /** Enrolled learner view. Resource links are returned only for lessons the
