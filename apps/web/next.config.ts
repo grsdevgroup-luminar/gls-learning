@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const API_ORIGIN = process.env.API_ORIGIN ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@skillstream/shared"],
   async rewrites() {
     return [
       {

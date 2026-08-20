@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @skillstream/shared build",
     "dev": "next dev --webpack -p 3001",
     "build": "next build",
     "start": "next start",

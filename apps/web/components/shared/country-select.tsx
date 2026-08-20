@@ -31,6 +31,15 @@ export function CountrySelect({
     return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
   }, [debouncedQuery]);
 
+  if (COUNTRIES.length === 0) {
+    return (
+      <p className="text-sm text-destructive">
+        Country list unavailable. Rebuild shared:{" "}
+        <code className="text-xs">pnpm --filter @skillstream/shared build</code>
+      </p>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
