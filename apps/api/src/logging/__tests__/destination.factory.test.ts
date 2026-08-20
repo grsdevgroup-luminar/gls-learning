@@ -8,6 +8,7 @@ import { createLogDestination } from "../destination.factory";
 const base = {
   DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
   JWT_ACCESS_SECRET: "0123456789abcdef",
+  STORAGE_DRIVER: "local",
 };
 
 const validEnv = (overrides: Record<string, unknown>) =>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   isLessonSequentiallyAccessible,
@@ -10,6 +10,9 @@ import {
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import { STORAGE_DRIVER } from "../storage/storage.constants";
+import type { StorageDriver } from "../storage/storage.driver";
+import { signCourseResourceUrls } from "../storage/sign-resources";
 
 function slugCandidates(input: string): string[] {
   let normalized = input.trim().toLowerCase();
@@ -27,6 +30,7 @@ export class CoursesService {
   constructor(
     private readonly repo: CoursesRepository,
     private readonly enrollment: EnrollmentService,
+    @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
   private orderBy(
@@ -117,9 +121,12 @@ export class CoursesService {
       ),
     );
 
-    return toCourseDetail(row, {
+    const detail = toCourseDetail(row, {
       includeLessonResources: true,
       accessibleLessonIds,
     });
+    // Uploaded resources persist an object key; the URL served to the browser
+    // must be a fresh short-lived signed URL, not the one captured at upload.
+    return signCourseResourceUrls(detail, this.storage);
   }
 }

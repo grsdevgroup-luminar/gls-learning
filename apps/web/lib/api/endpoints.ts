@@ -47,12 +47,13 @@ import type {
   CheckoutSessionInput,
   CheckoutSessionDto,
   LessonNoteDto,
+  LessonResourceDto,
   NotificationPreferencesDto,
   UpdateNotificationPreferencesInput,
   ToggleLessonResultDto,
   WeeklyActivityDayDto,
 } from "@skillstream/shared";
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchMultipart } from "./client";
 
 // Re-exported so pages can import DTO types alongside the endpoint helpers.
 export type {
@@ -498,6 +499,22 @@ export const authoringApi = {
     }),
   mediaUploadUrl: () =>
     apiFetch<DirectUploadDto>("/media/upload-url", { method: "POST" }),
+
+  /** Uploads a single lesson resource. The backend enforces the 10 MB cap and
+   *  MIME whitelist; the UI is expected to pre-validate for a nicer UX. */
+  uploadLessonResource: (lessonId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return apiFetchMultipart<LessonResourceDto>(
+      `/authoring/lessons/${lessonId}/resources`,
+      form,
+    );
+  },
+  deleteLessonResource: (lessonId: string, storageKey: string) =>
+    apiFetch<{ ok: true }>(
+      `/authoring/lessons/${lessonId}/resources?storageKey=${encodeURIComponent(storageKey)}`,
+      { method: "DELETE" },
+    ),
 };
 
 // Grouped aliases so portal pages can import a namespaced client.

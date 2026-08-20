@@ -81,6 +81,39 @@ const rawEnvSchema = z.object({
   LOG_LEVEL: logLevelSchema.default("info"),
   LOG_DIR: z.string().trim().min(1).default("logs"),
   LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
+
+  // ── Storage (lesson resources) ─────────────────────────────────────────────
+  // Driver selection: falls back to `local` in dev/test and `s3` in production
+  // when unset. Override lets staging boxes point at the prod bucket safely.
+  STORAGE_DRIVER: z.enum(["local", "s3"]).optional(),
+  // Where LocalDriver writes files, relative to the API process cwd.
+  STORAGE_LOCAL_DIR: z.string().trim().min(1).default("uploads"),
+  // Per-file cap enforced by multer, also surfaced to the UI. 10 MB default.
+  STORAGE_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
+  // Signed-URL lifetime for private buckets. Learners re-request the lesson
+  // when they refresh, so ~1h is plenty and keeps leaked URLs short-lived.
+  STORAGE_SIGNED_URL_TTL_SEC: z.coerce.number().int().positive().default(3600),
+
+  // S3-compatible bucket (Railway, AWS S3, R2). All optional at parse time so
+  // dev boots without credentials; a superRefine below enforces them when the
+  // resolved driver is `s3`.
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("auto"),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  // Path-style URLs are required by most non-AWS S3 clones (Railway, MinIO).
+  S3_FORCE_PATH_STYLE: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
+  // Optional CDN or public base to serve objects from when the bucket is
+  // public-read. When set, drivers return `${base}/${key}` instead of signing.
+  S3_PUBLIC_BASE_URL: z.string().url().optional(),
 });
 
 export const envSchema = rawEnvSchema
@@ -89,6 +122,9 @@ export const envSchema = rawEnvSchema
     LOG_DESTINATION:
       env.LOG_DESTINATION ??
       (env.NODE_ENV === "production" ? ("stdout" as const) : ("file" as const)),
+    STORAGE_DRIVER:
+      env.STORAGE_DRIVER ??
+      (env.NODE_ENV === "production" ? ("s3" as const) : ("local" as const)),
   }))
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === "production" && env.LOG_DESTINATION === "file") {
@@ -97,6 +133,23 @@ export const envSchema = rawEnvSchema
         path: ["LOG_DESTINATION"],
         message: "LOG_DESTINATION must be stdout in production",
       });
+    }
+    if (env.STORAGE_DRIVER === "s3") {
+      const required = {
+        S3_ENDPOINT: env.S3_ENDPOINT,
+        S3_BUCKET: env.S3_BUCKET,
+        S3_ACCESS_KEY_ID: env.S3_ACCESS_KEY_ID,
+        S3_SECRET_ACCESS_KEY: env.S3_SECRET_ACCESS_KEY,
+      } as const;
+      for (const [key, value] of Object.entries(required)) {
+        if (!value) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `${key} is required when STORAGE_DRIVER=s3`,
+          });
+        }
+      }
     }
   });
 
