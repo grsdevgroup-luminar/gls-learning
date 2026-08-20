@@ -92,10 +92,13 @@ function LoginForm() {
                     type="email"
                     placeholder="you@example.com"
                     autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value);
+                      setEmail(e.target.value.toLowerCase());
                       setValidationError(null);
                     }}
                   />

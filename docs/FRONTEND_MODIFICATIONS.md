@@ -1,5 +1,100 @@
 # Changelog
 
+## 2026-08-20
+
+### Changed
+
+- Browser tab titles now update for every application route instead of inheriting only the broad module title.
+- Course detail pages continue to use their existing server-generated course titles.
+
+### Changed Files
+
+- `apps/web/components/shared/page-title.tsx`
+  - Added centralized, route-aware browser-title handling for storefront, student, admin, instructor, sales-agent, organization, and utility pages.
+
+- `apps/web/app/providers.tsx`
+  - Mounted the route-title manager once for the full application.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-20
+
+### Changed
+
+- Removed the unnecessary country dropdowns from the cart and checkout. Regional pricing continues to use the shopper's existing region setting.
+- Registration now saves the selected country as the storefront pricing region, so cart and checkout immediately use the same billing region after signup.
+
+### Changed Files
+
+- `apps/web/app/(storefront)/cart/page.tsx`
+  - Removed the Pricing region country selector while preserving the regional-pricing notice and cart totals.
+
+- `apps/web/app/(storefront)/checkout/page.tsx`
+  - Removed the Billing region country selector while preserving the static region and pricing information.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+- `apps/web/lib/context/store.tsx`
+  - Persist the registration country’s ISO code as the pricing region before redirecting to the storefront.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-19
+
+### Fixed
+
+- Fixed the header course search retaining a stale `q` URL parameter after users clear the input or reduce it below the two-character search threshold.
+- Clearing the header search now restores the full course catalog while preserving any other active catalog filters.
+
+### Added
+
+- Added reusable, layout-matched skeleton components for page headers, forms, course grids, tables, checkout, learning, discussion, and authentication screens.
+- Added route-level loading boundaries for course catalog navigation, course learning, and storefront authentication.
+- Replaced loading spinners, blank profile screens, and plain loading text in the catalog, checkout, learning flow, instructor workflows, team courses, admin settings, course discussions, and protected video player.
+- Added per-organization course-grid skeletons so team-course sections do not briefly render an empty state while their data is loading.
+
+### Changed Files
+
+- `apps/web/components/layout/site-header.tsx`
+  - Removes only the stale `q` parameter when an edited header search becomes empty or too short.
+
+- `apps/web/components/shared/loading-skeletons.tsx`
+  - Added shared skeleton layouts for common page and content patterns.
+
+- `apps/web/app/(storefront)/courses/loading.tsx`
+- `apps/web/app/learn/[slug]/loading.tsx`
+- `apps/web/app/(storefront)/(auth)/loading.tsx`
+  - Added route-level loading boundaries that match their destination layouts.
+
+- `apps/web/app/(storefront)/courses/_components/catalog-results.tsx`
+- `apps/web/app/(storefront)/checkout/page.tsx`
+- `apps/web/app/(storefront)/courses/[slug]/_components/course-comments.tsx`
+- `apps/web/app/(student)/dashboard/team/page.tsx`
+- `apps/web/app/instructor/profile/page.tsx`
+- `apps/web/app/instructor/_components/approval-gate.tsx`
+- `apps/web/app/admin/settings/page.tsx`
+- `apps/web/components/shared/course-builder.tsx`
+- `apps/web/components/player/protected-player.tsx`
+  - Replaced generic loading states with content-shaped skeletons.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `git diff --check`
+
+- Note:
+  - `pnpm --filter @skillstream/web lint` still reports pre-existing `react-hooks/set-state-in-effect` errors in billing, admin list pages, and the store context; the skeleton changes introduced no lint errors.
+
+### Notes
+
+- Skeleton screens improve perceived performance and reduce layout shift while requests resolve; they do not change backend/API response times.
+
 ## 2026-08-18
 
 ### Fixed

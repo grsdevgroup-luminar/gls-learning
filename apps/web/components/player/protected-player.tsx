@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/endpoints';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { gradientFor } from '@/lib/format';
-import { AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import { AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STREAM_ORIGIN = 'https://iframe.videodelivery.net';
@@ -46,7 +46,8 @@ export function ProtectedPlayer({
   if (isLoading) {
     return (
       <Frame seed={seed}>
-        <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+        <div className="h-8 w-8 animate-pulse rounded-full bg-white/30" />
+        <div className="mt-3 h-3 w-32 animate-pulse rounded bg-white/25" />
       </Frame>
     );
   }

@@ -187,6 +187,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (mounted) localStorage.setItem(REGION_KEY, regionCode);
   }, [regionCode, mounted]);
 
+  const setRegionCode = useCallback(
+    (code: string) => {
+      setRegionCodeState(code);
+      // Registration redirects immediately after success, so persist here as
+      // well as in the effect above. That makes its selected country available
+      // to cart and checkout on the very first page after signup.
+      if (mounted) localStorage.setItem(REGION_KEY, code);
+    },
+    [mounted],
+  );
+
   // Guest cart persists to localStorage. Skip while authenticated so the
   // server-owned cart isn't mirrored into device storage.
   useEffect(() => {
@@ -450,7 +461,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     regionCode,
     region,
     regions,
-    setRegionCode: setRegionCodeState,
+    setRegionCode,
     // cart
     cart,
     cartLoading,

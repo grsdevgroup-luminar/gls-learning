@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { instructorApi } from "@/lib/api/endpoints";
 import { Button } from "@/components/ui/button";
-import { Clock, ShieldCheck, XCircle, Mail, GraduationCap, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Clock, ShieldCheck, XCircle, Mail, GraduationCap } from "lucide-react";
 
 /**
  * Gates instructor tooling behind approval. Approved instructors see the
@@ -19,8 +20,12 @@ export function ApprovalGate({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="grid min-h-[40vh] place-items-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="mx-auto w-full max-w-md space-y-5 p-6 text-center">
+        <Skeleton className="mx-auto size-14 rounded-full" />
+        <Skeleton className="mx-auto h-7 w-52" />
+        <Skeleton className="mx-auto h-4 w-full" />
+        <Skeleton className="mx-auto h-4 w-4/5" />
+        <Skeleton className="mx-auto h-9 w-28" />
       </div>
     );
   }

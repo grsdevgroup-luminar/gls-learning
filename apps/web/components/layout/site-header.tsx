@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -30,14 +30,31 @@ export function SiteHeader() {
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const debouncedQ = useDebouncedSearch(q);
+  const hasEditedSearch = useRef(false);
   const isAuthed = !!user;
 
   useEffect(() => {
-    if (!debouncedQ) return;
-    router.replace(`/courses?q=${encodeURIComponent(debouncedQ)}`);
-  }, [debouncedQ, router]);
+    if (debouncedQ) {
+      router.replace(`/courses?q=${encodeURIComponent(debouncedQ)}`);
+      return;
+    }
+
+    // Once a header search has been cleared (or shortened below the minimum),
+    // remove its stale query from the catalog URL. Keeping the other params
+    // lets category and other filters continue to work as expected.
+    if (!hasEditedSearch.current || pathname !== "/courses" || !searchParams.has("q")) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("q");
+    const queryString = params.toString();
+    router.replace(queryString ? `/courses?${queryString}` : "/courses");
+  }, [debouncedQ, pathname, router, searchParams]);
 
   function search(e: React.FormEvent) {
     e.preventDefault();
@@ -85,7 +102,10 @@ export function SiteHeader() {
           <Input
             type="search"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              hasEditedSearch.current = true;
+              setQ(e.target.value);
+            }}
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
             minLength={2}

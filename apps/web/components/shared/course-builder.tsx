@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
 const MAX_THUMBNAIL_DIM = 800;
 const THUMBNAIL_JPEG_QUALITY = 0.82;
@@ -424,8 +425,12 @@ export function CourseBuilder({
 
   if (courseId && isLoading) {
     return (
-      <div className="grid min-h-[40vh] place-items-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6 p-6 md:p-8">
+        <PageHeaderSkeleton action />
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="rounded-xl border p-6"><FormSkeleton fields={5} /></div>
+          <div className="space-y-6"><div className="h-44 animate-pulse rounded-xl bg-muted" /><div className="h-52 animate-pulse rounded-xl bg-muted" /></div>
+        </div>
       </div>
     );
   }

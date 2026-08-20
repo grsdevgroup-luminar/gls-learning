@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
+import { useStore } from '@/lib/context/store';
 import { ApiError } from '@/lib/api/errors';
 import { Logo } from '@/components/shared/logo';
 import { Reveal, Stagger, StaggerItem, Magnetic } from '@/components/shared/motion';
@@ -31,6 +32,7 @@ const perks = [
 
 function SignupForm() {
   const register = useRegister();
+  const { setRegionCode } = useStore();
   const params = useSearchParams();
   // Carried from an org-invite link: prefill the invited email and return to
   // the join page (which auto-claims) after the account is created.
@@ -40,6 +42,7 @@ function SignupForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState<string>('');
+  const [countryCode, setCountryCode] = useState<string>('');
   const [countryOpen, setCountryOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -65,6 +68,10 @@ function SignupForm() {
     setValidationError(null);
     try {
       await register.mutateAsync(result.data);
+      // Pricing regions use ISO alpha-2 codes, which are carried alongside
+      // the country name in the signup selector. Persist it before redirecting
+      // so cart and checkout quote the same selected billing region.
+      if (countryCode) setRegionCode(countryCode);
       toast.success('Account created!', {
         description: 'Welcome to GRS Learning 🎉',
       });
@@ -140,10 +147,13 @@ function SignupForm() {
                     type="email"
                     placeholder="you@example.com"
                     autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value);
+                      setEmail(e.target.value.toLowerCase());
                       setValidationError(null);
                     }}
                   />
@@ -197,6 +207,7 @@ function SignupForm() {
                                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
                                 onClick={() => {
                                   setCountry(c.name);
+                                  setCountryCode(c.code);
                                   setCountryOpen(false);
                                   setCountryQuery('');
                                 }}
