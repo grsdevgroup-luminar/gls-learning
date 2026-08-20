@@ -47,15 +47,29 @@ export function readPosition(lessonId: string): number {
   }
 }
 
-/** Saves the position, or clears it when the lesson is effectively finished. */
-export function writePosition(lessonId: string, sec: number, durationSec: number) {
-  if (!Number.isFinite(sec) || !Number.isFinite(durationSec) || durationSec <= 0) {
-    return;
-  }
-  const finished = sec >= durationSec - END_MARGIN_SEC || sec / durationSec > END_RATIO;
-  if (sec < MIN_RESUME_SEC || finished) {
+/**
+ * Saves the position, or clears it when the lesson is effectively finished.
+ *
+ * `durationSec` is optional because the Stream SDK syncs `duration` over
+ * postMessage and reports 0 until that lands — gating the save on it would drop
+ * early positions entirely. Without a duration we just can't tell "near the
+ * end" from "in the middle", so we save and let the next save correct it.
+ */
+export function writePosition(lessonId: string, sec: number, durationSec?: number) {
+  if (!Number.isFinite(sec)) return;
+  if (sec < MIN_RESUME_SEC) {
     clearPosition(lessonId);
     return;
+  }
+  const dur = Number.isFinite(durationSec) ? Number(durationSec) : 0;
+  // Scale the margin on short lessons, where a flat 10s would swallow the
+  // middle of the video and clear a perfectly good resume point.
+  if (dur > 0) {
+    const margin = Math.min(END_MARGIN_SEC, dur * 0.1);
+    if (sec >= dur - margin || sec / dur > END_RATIO) {
+      clearPosition(lessonId);
+      return;
+    }
   }
   try {
     const stored: Stored = { sec: Math.floor(sec), at: Date.now() };
