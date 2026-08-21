@@ -1,14 +1,18 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Param, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { courseListQuerySchema, type CourseListQuery } from "@skillstream/shared";
 import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
 import { ZodQuery } from "../../common/utils/swagger";
 import { CoursesService } from "./courses.service";
+import { UsersService } from "../users/users.service";
 
 @ApiTags("catalog")
 @Controller()
 export class CatalogController {
-  constructor(private readonly courses: CoursesService) {}
+  constructor(
+    private readonly courses: CoursesService,
+    private readonly users: UsersService,
+  ) {}
 
   @Public()
   @Get("courses")
@@ -22,6 +26,15 @@ export class CatalogController {
   @Get("categories")
   categories() {
     return this.courses.categories();
+  }
+
+  @Get("me/recommendations")
+  async recommendations(
+    @CurrentUser() user: RequestUser,
+    @Query("limit") limit?: string,
+  ) {
+    const preferences = await this.users.learningPreferences(user.id);
+    return this.courses.recommendedFor(user.id, preferences.categories, Number(limit) || 8);
   }
 
   @Public()

@@ -48,8 +48,10 @@ import type {
   CheckoutSessionDto,
   LessonNoteDto,
   LessonResourceDto,
+  LearningPreferencesDto,
   NotificationPreferencesDto,
   UpdateNotificationPreferencesInput,
+  UpdateLearningPreferencesInput,
   ToggleLessonResultDto,
   WeeklyActivityDayDto,
 } from "@skillstream/shared";
@@ -114,6 +116,15 @@ export const api = {
   learningCourse: (courseId: string) =>
     apiFetch<CourseDetailDto>(`/me/courses/${courseId}/learning`),
   categories: () => apiFetch<string[]>("/categories"),
+  recommendations: (limit = 8) =>
+    apiFetch<CourseSummaryDto[]>(`/me/recommendations${qs({ limit })}`),
+  coursePreferences: () =>
+    apiFetch<LearningPreferencesDto>("/me/course-preferences"),
+  updateCoursePreferences: (input: UpdateLearningPreferencesInput) =>
+    apiFetch<LearningPreferencesDto>("/me/course-preferences", {
+      method: "PATCH",
+      body: input,
+    }),
 
   // pricing regions (public; FX rates refreshed daily by the API's fx job)
   regions: () => apiFetch<RegionRow[]>("/pricing/regions"),

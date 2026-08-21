@@ -10,9 +10,29 @@ export type CourseSort = z.infer<typeof courseSortSchema>;
  *  must use this — asking for more is a 400. */
 export const MAX_PAGE_SIZE = 48;
 
+/**
+ * The platform taxonomy is deliberately independent of the courses currently
+ * published.  That keeps every learning path available to new students even
+ * while a category is being prepared by instructors.
+ */
+export const LEARNING_CATEGORIES = [
+  "Cloud",
+  "Communication",
+  "Data Science",
+  "Design",
+  "Development",
+  "Finance",
+  "Health & Wellness",
+  "Language Learning",
+  "Marketing",
+  "Personal Development",
+] as const;
+export type LearningCategory = (typeof LEARNING_CATEGORIES)[number];
+export const learningCategorySchema = z.enum(LEARNING_CATEGORIES);
+
 export const courseListQuerySchema = z.object({
   q: z.string().trim().optional(),
-  category: z.string().optional(),
+  category: learningCategorySchema.optional(),
   level: z
     .enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ALL_LEVELS"])
     .optional(),

@@ -12,6 +12,7 @@ import { FormField } from '@/components/shared/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { CoursePreferencesModal } from '@/components/shared/course-preferences-modal';
 import {
   Popover,
   PopoverContent,
@@ -46,6 +47,7 @@ function SignupForm() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [preferenceOpen, setPreferenceOpen] = useState(false);
   const debouncedCountryQuery = useDebouncedSearch(countryQuery);
 
   const filteredCountries = useMemo(() => {
@@ -78,7 +80,7 @@ function SignupForm() {
       // Hard navigation, not router.push — see login/page.tsx for why: `next`
       // can point at a protected route (e.g. an org-invite join link) that may
       // already be sitting in the router cache as a stale pre-auth redirect.
-      window.location.href = next || '/courses';
+      setPreferenceOpen(true);
     } catch (err) {
       const message =
         err instanceof ApiError ? err.displayMessage : 'Sign up failed';
@@ -87,6 +89,7 @@ function SignupForm() {
   }
 
   return (
+    <>
     <div className="relative mx-auto grid min-h-[80vh] max-w-4xl items-center gap-10 overflow-hidden px-4 py-12 md:grid-cols-2">
       <div
         aria-hidden
@@ -282,6 +285,11 @@ function SignupForm() {
         </Card>
       </Reveal>
     </div>
+    <CoursePreferencesModal
+      open={preferenceOpen}
+      onSaved={() => { window.location.href = next || "/dashboard"; }}
+    />
+    </>
   );
 }
 

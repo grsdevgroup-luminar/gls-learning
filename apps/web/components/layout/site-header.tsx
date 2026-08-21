@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -22,44 +22,26 @@ import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { toast } from "sonner";
-import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
   const { cart, mounted } = useStore();
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
-  const router = useRouter();
+ const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [q, setQ] = useState("");
-  const debouncedQ = useDebouncedSearch(q);
-  const hasEditedSearch = useRef(false);
   const isAuthed = !!user;
-
-  useEffect(() => {
-    if (debouncedQ) {
-      router.replace(`/courses?q=${encodeURIComponent(debouncedQ)}`);
-      return;
-    }
-
-    // Once a header search has been cleared (or shortened below the minimum),
-    // remove its stale query from the catalog URL. Keeping the other params
-    // lets category and other filters continue to work as expected.
-    if (!hasEditedSearch.current || pathname !== "/courses" || !searchParams.has("q")) {
-      return;
-    }
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("q");
-    const queryString = params.toString();
-    router.replace(queryString ? `/courses?${queryString}` : "/courses");
-  }, [debouncedQ, pathname, router, searchParams]);
 
   function search(e: React.FormEvent) {
     e.preventDefault();
     const query = q.trim();
     if (query.length < 2) return;
+
+    const currentQuery = searchParams.get("q") ?? "";
+    if (pathname === "/courses" && currentQuery === query) return;
+
     router.push(`/courses?q=${encodeURIComponent(query)}`);
   }
 
@@ -102,10 +84,7 @@ export function SiteHeader() {
           <Input
             type="search"
             value={q}
-            onChange={(e) => {
-              hasEditedSearch.current = true;
-              setQ(e.target.value);
-            }}
+             onChange={(e) => setQ(e.target.value)}
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
             minLength={2}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { learningCategorySchema } from "./catalog.js";
 
 const levelEnum = z.enum([
   "BEGINNER",
@@ -16,9 +17,9 @@ export const createCourseSchema = z.object({
     .max(160)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by -")
     .optional(),
-  subtitle: z.string().max(240).default(""),
+  subtitle: z.string().max(240, "Subtitle cannot exceed 240 characters").default(""),
   description: z.string().default(""),
-  category: z.string().min(1),
+  category: learningCategorySchema,
   level: levelEnum.default("ALL_LEVELS"),
   thumbnail: z.string().default(""),
   language: z.string().default("English"),

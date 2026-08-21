@@ -39,6 +39,34 @@ export class UsersRepository {
     });
   }
 
+  findStudentInterests(userId: string) {
+    return this.prisma.studentProfile.findUnique({
+      where: { userId },
+      select: {
+        interestCategories: true,
+        interestKeywords: true,
+        interestsCompletedAt: true,
+      },
+    });
+  }
+
+  saveStudentInterests(userId: string, categories: string[], keywords: string[]) {
+    return this.prisma.studentProfile.upsert({
+      where: { userId },
+      update: {
+        interestCategories: categories,
+        interestKeywords: keywords,
+        interestsCompletedAt: new Date(),
+      },
+      create: {
+        userId,
+        interestCategories: categories,
+        interestKeywords: keywords,
+        interestsCompletedAt: new Date(),
+      },
+    });
+  }
+
   create(data: Prisma.UserCreateInput): Promise<User> {
     return this.prisma.user.create({ data });
   }

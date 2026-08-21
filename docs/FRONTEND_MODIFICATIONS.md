@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-08-21
+
+### Added
+
+- Added a reusable course-preference modal for new learners after registration and for students updating their preferences from the dashboard.
+- The modal presents all ten learning categories in a consistent five-column, two-row grid and requires exactly three selections before recommendations can be saved.
+- Category cards now include category-specific icons, larger labels, and larger icons while retaining fixed card sizes so multi-word categories remain contained.
+- The full-width modal preserves a wide desktop layout with two-inch side margins, a compact small-screen layout, loading states during saves, and a blurred page backdrop.
+- Saved preferences drive the signed-in learner's recommended-course sections on the dashboard and storefront homepage.
+
+### Changed
+
+- Course-builder save actions remain visible while course details and curriculum content scroll, reducing the need to return to the top before saving.
+- The sticky action bar is positioned below the mobile portal header and at the top of the workspace on desktop.
+
+### Changed Files
+
+- `apps/web/components/shared/course-preferences-modal.tsx`
+  - Provides the shared three-category selection interface, category icons, selection limit, save feedback, responsive sizing, and accessibility states.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+  - Opens the preference modal immediately after successful registration and redirects the learner after their selections are saved.
+
+- `apps/web/app/(student)/dashboard/page.tsx`
+  - Adds a learning-preferences summary and an Edit preferences action that reuses the shared modal.
+
+- `apps/web/app/(storefront)/_components/personalized-recommendations.tsx`
+- `apps/web/lib/api/hooks.ts`
+  - Loads and refreshes preference-based recommendations after preferences change.
+
+- `apps/web/components/ui/dialog.tsx`
+  - Applies the blurred overlay used behind the preference modal.
+
+- `apps/web/components/shared/course-builder.tsx`
+  - Moves Save, Save draft, and Submit for review into a responsive sticky action bar without changing their save behavior.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
 ## 2026-08-20
 
 ### Changed

@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest";
+import {
+  REQUIRED_INTEREST_CATEGORY_COUNT,
+  LEARNING_CATEGORIES,
+  updateLearningPreferencesSchema,
+} from "@skillstream/shared";
+
+describe("updateLearningPreferencesSchema", () => {
+  it("keeps the complete ten-category taxonomy available", () => {
+    expect(LEARNING_CATEGORIES).toEqual([
+      "Cloud",
+      "Communication",
+      "Data Science",
+      "Design",
+      "Development",
+      "Finance",
+      "Health & Wellness",
+      "Language Learning",
+      "Marketing",
+      "Personal Development",
+    ]);
+  });
+
+  it("accepts exactly three distinct areas and defaults optional keywords", () => {
+    const parsed = updateLearningPreferencesSchema.parse({
+      categories: ["Development", "Design", "Data Science"],
+    });
+
+    expect(parsed.categories).toHaveLength(REQUIRED_INTEREST_CATEGORY_COUNT);
+    expect(parsed.keywords).toEqual([]);
+  });
+
+  it("rejects a selection that is not exactly three areas", () => {
+    expect(
+      updateLearningPreferencesSchema.safeParse({
+        categories: ["Development", "Design"],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects duplicate areas and case-insensitive duplicate keywords", () => {
+    expect(
+      updateLearningPreferencesSchema.safeParse({
+        categories: ["Development", "Development", "Design"],
+      }).success,
+    ).toBe(false);
+    expect(
+      updateLearningPreferencesSchema.safeParse({
+        categories: ["Development", "Design", "Data Science"],
+        keywords: ["React", "react"],
+      }).success,
+    ).toBe(false);
+  });
+});

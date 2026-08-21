@@ -34,6 +34,20 @@ export class CoursesRepository {
     });
   }
 
+  findRecommendedForStudent(userId: string, categories: string[], take: number) {
+    return this.prisma.course.findMany({
+      where: {
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+        category: { in: categories },
+        enrollments: { none: { userId } },
+      },
+      include: COURSE_SUMMARY_INCLUDE,
+      orderBy: [{ bestseller: "desc" }, { studentCount: "desc" }, { ratingAvg: "desc" }],
+      take,
+    });
+  }
+
   findBySlug(slug: string) {
     return this.prisma.course.findUnique({
       where: { slug },
