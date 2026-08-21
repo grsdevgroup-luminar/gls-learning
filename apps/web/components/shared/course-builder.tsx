@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CourseDetailDto, LessonResourceDto } from "@skillstream/shared";
+import {
+  MAX_COURSE_DESCRIPTION_LENGTH,
+  type CourseDetailDto,
+  type LessonResourceDto,
+} from "@skillstream/shared";
 import { useCategories } from "@/lib/api/hooks";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -171,6 +175,7 @@ export function CourseBuilder({
   // Categories load async; fall back to the first once they arrive.
   const categoryValue = category || categories[0] || "";
   const subtitleTooLong = subtitle.length > MAX_SUBTITLE_LENGTH;
+  const descriptionTooLong = description.length > MAX_COURSE_DESCRIPTION_LENGTH;
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragSection, setDragSection] = useState<number | null>(null);
@@ -303,6 +308,10 @@ export function CourseBuilder({
       toast.error("Subtitle cannot exceed 240 characters");
       return;
     }
+    if (descriptionTooLong) {
+      toast.error(`Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`);
+      return;
+    }
     setSaving(true);
     try {
       const fields = {
@@ -432,11 +441,14 @@ export function CourseBuilder({
       setTimeout(() => router.push(backHref), 700);
     } catch (err) {
       const message = getApiErrorMessage(err);
-      toast.error(
-        message.toLowerCase().includes("subtitle") && message.includes("240")
+      const lowerMessage = message.toLowerCase();
+      const friendlyMessage =
+        lowerMessage.includes("subtitle") && message.includes("240")
           ? "Subtitle cannot exceed 240 characters"
-          : message,
-      );
+          : lowerMessage.includes("description") && message.includes(String(MAX_COURSE_DESCRIPTION_LENGTH))
+            ? `Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`
+            : message;
+      toast.error(friendlyMessage);
     } finally {
       setSaving(false);
     }
@@ -529,7 +541,28 @@ export function CourseBuilder({
                   </Select>
                 </div>
               </div>
-              <div className="space-y-1.5"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What will students learn?" className="min-h-28" /></div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="course-description">Description</Label>
+                  <span className={descriptionTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                    {description.length}/{MAX_COURSE_DESCRIPTION_LENGTH}
+                  </span>
+                </div>
+                <Textarea
+                  id="course-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What will students learn?"
+                  className="min-h-28"
+                  aria-invalid={descriptionTooLong}
+                  aria-describedby={descriptionTooLong ? "course-description-error" : undefined}
+                />
+                {descriptionTooLong && (
+                  <p id="course-description-error" className="text-xs font-medium text-destructive" role="alert">
+                    Description cannot exceed {MAX_COURSE_DESCRIPTION_LENGTH} characters
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 

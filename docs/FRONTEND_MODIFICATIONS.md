@@ -14,6 +14,8 @@
 
 - Course-builder save actions remain visible while course details and curriculum content scroll, reducing the need to return to the top before saving.
 - The sticky action bar is positioned below the mobile portal header and at the top of the workspace on desktop.
+- Course descriptions are limited to 2,000 characters. The editor shows a live count, an inline validation message, and blocks saves until the description is within the limit.
+- Description validation now returns `Description cannot exceed 2000 characters` instead of surfacing a generic internal-server error.
 
 ### Changed Files
 
@@ -35,6 +37,10 @@
 
 - `apps/web/components/shared/course-builder.tsx`
   - Moves Save, Save draft, and Submit for review into a responsive sticky action bar without changing their save behavior.
+  - Adds shared-limit description validation, an accessible inline error, character count, and friendly save-error fallback.
+
+- `packages/shared/src/contracts/authoring.ts`
+  - Defines and enforces the 2,000-character course-description limit for create and update API requests.
 
 ### Verification
 
