@@ -31,7 +31,9 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService<Env, true>);
 
   app.setGlobalPrefix("api");
-  app.getHttpAdapter().getInstance().set("trust proxy", 1);
+  // Railway (and the Next.js rewrite in front of it) appends hops; trust the
+  // whole chain so req.ip is the original client when headers survive.
+  app.getHttpAdapter().getInstance().set("trust proxy", true);
   // crossOriginResourcePolicy: cross-site is disabled by default — this API is
   // consumed by a separate frontend origin (WEB_ORIGIN), so relax it there.
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
