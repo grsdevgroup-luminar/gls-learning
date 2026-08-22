@@ -76,6 +76,14 @@ const rawEnvSchema = z.object({
   // from the same origin as the API.
   PUBLIC_API_URL: optionalUrl,
 
+  // MaxMind GeoIP — checkout location + VPN verification (see .env.example)
+  GEOIP_CHECKOUT_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+  MAXMIND_COUNTRY_DB_PATH: z.string().trim().min(1).optional(),
+  MAXMIND_ANONYMOUS_IP_DB_PATH: z.string().trim().min(1).optional(),
+
   // Logging
   LOG_DESTINATION: z.enum(["file", "stdout"]).optional(),
   LOG_LEVEL: logLevelSchema.default("info"),

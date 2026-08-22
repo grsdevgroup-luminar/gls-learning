@@ -17,13 +17,21 @@ import {
   ReviewAgentApplicationSchema,
   UpdateAgentSchema,
 } from "../contracts/sales-agent.js";
-import { emailSchema, normalizeEmail } from "../contracts/auth.js";
+import { emailSchema, normalizeEmail, countryCodeSchema } from "../contracts/auth.js";
 
 describe("email normalization", () => {
   it("canonicalizes validated email values", () => {
     expect(normalizeEmail("  Alice  @ Example.COM  ")).toBe("alice@example.com");
     expect(emailSchema.safeParse("  Alice  @ Example.COM  ").success).toBe(false);
     expect(emailSchema.parse("Alice@example.com")).toBe("Alice@example.com");
+  });
+});
+
+describe("countryCodeSchema", () => {
+  it("accepts known ISO codes and rejects unknown two-letter codes", () => {
+    expect(countryCodeSchema.safeParse("bd").success).toBe(true);
+    expect(countryCodeSchema.parse("us")).toBe("US");
+    expect(countryCodeSchema.safeParse("ZZ").success).toBe(false);
   });
 });
 

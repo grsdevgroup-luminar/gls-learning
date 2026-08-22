@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   Post,
+  Req,
   Res,
   StreamableFile,
 } from "@nestjs/common";
@@ -14,7 +15,7 @@ import {
   ApiProduces,
   ApiTags,
 } from "@nestjs/swagger";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import {
   checkoutQuoteSchema,
   checkoutSessionSchema,
@@ -25,6 +26,7 @@ import {
 } from "@skillstream/shared";
 import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
+import { clientIp } from "../../common/utils/client-ip";
 import { CheckoutService } from "./checkout.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
@@ -65,8 +67,9 @@ export class CheckoutController {
     // Optional during rollout; the web client sends it, but legacy clients
     // still work without. Format is validated inside the service.
     @Headers("idempotency-key") idempotencyKey?: string,
+    @Req() req: Request,
   ) {
-    return this.checkout.createSession(user.id, body, idempotencyKey);
+    return this.checkout.createSession(user.id, body, idempotencyKey, clientIp(req));
   }
 
   @Get("me/orders")
