@@ -75,6 +75,20 @@ async function proxyToApi(
   });
 
   const ip = edgeClientIp(request);
+  if (path.join("/") === "checkout/session") {
+    const incoming: string[] = [];
+    request.headers.forEach((value, key) => {
+      const lower = key.toLowerCase();
+      if (lower === "cookie" || lower === "authorization") {
+        incoming.push(`${key}=<redacted>`);
+        return;
+      }
+      incoming.push(`${key}=${value}`);
+    });
+    console.log(
+      `[api proxy] checkout/session edgeIp=${ip ?? "null"} dest=${dest} incoming ${incoming.join(" ")}`,
+    );
+  }
   if (ip) {
     headers.set("x-real-ip", ip);
     headers.set("x-forwarded-for", ip);
