@@ -31,6 +31,7 @@ import {
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { CommandPalette } from "@/components/shared/command-palette";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -151,6 +152,7 @@ export function PortalShell({
             {badge}
           </span>
         </div>
+        <NotificationBell />
         <ThemeToggle className="shrink-0" />
       </div>
       <div className="shrink-0 px-3 pt-3">
@@ -208,7 +210,8 @@ export function PortalShell({
             </SheetContent>
           </Sheet>
           <Logo />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
             <ThemeToggle />
           </div>
         </header>

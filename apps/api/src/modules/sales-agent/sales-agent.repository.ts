@@ -158,6 +158,7 @@ export class SalesAgentRepository {
   findReferralByOrderId(orderId: string) {
     return this.prisma.salesAgentReferral.findUnique({
       where: { orderId },
+      include: { agent: { select: { userId: true } } },
     });
   }
 

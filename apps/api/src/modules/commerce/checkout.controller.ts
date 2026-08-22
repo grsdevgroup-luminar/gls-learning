@@ -86,6 +86,13 @@ export class CheckoutController {
     return this.orders.myOrderStats(user.id);
   }
 
+  /** One of the caller's own orders — used by the checkout success page to
+   *  fast-poll for payment confirmation without paginating the full list. */
+  @Get("me/orders/:id")
+  myOrder(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.orders.myOrder(user.id, id);
+  }
+
   /** Receipt for one of the caller's own paid orders. */
   @Get("me/orders/:id/receipt")
   @Header("Content-Type", "application/pdf")

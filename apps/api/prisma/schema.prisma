@@ -148,6 +148,20 @@ enum ReminderStatus {
   BOUNCED
 }
 
+/// In-app notification events, Phase 1. Each maps to one write inside the same
+/// transaction as the state change it describes (see NOTIFICATION_SYSTEM_PLAN.md).
+enum NotificationEvent {
+  ORDER_PAID
+  CERTIFICATE_ISSUED
+  INSTRUCTOR_APPLICATION_APPROVED
+  INSTRUCTOR_APPLICATION_REJECTED
+  SALES_AGENT_APPLICATION_APPROVED
+  SALES_AGENT_APPLICATION_REJECTED
+  PAYOUT_APPROVED
+  PAYOUT_PAID
+  REFERRAL_CONFIRMED
+}
+
 // ─── Identity & roles ─────────────────────────────────────────────────────────
 
 model User {
@@ -183,6 +197,10 @@ model User {
   payoutAccount       PayoutAccount?
   payouts             Payout[]
   cart                Cart?
+  notifications       Notification[]
+  /// Denormalized — kept in sync transactionally on notification create/read,
+  /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
+  unreadNotificationCount Int @default(0)
 
   @@index([role])
 }
@@ -628,6 +646,27 @@ model ReminderLog {
   createdAt DateTime        @default(now())
 
   @@index([userId])
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+
+/// In-app notification feed, Phase 1. Plain table for now — see
+/// NOTIFICATION_SYSTEM_PLAN.md "Scale & retention" for when/how this converts to
+/// a partitioned table (not needed at current scale).
+model Notification {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     NotificationEvent
+  title     String
+  body      String
+  /// Deep link into the app, e.g. "/dashboard/billing". Optional — some events
+  /// (e.g. a rejection) may have nothing sensible to link to.
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime          @default(now())
+
+  @@index([userId, readAt])
 }
 
 // ─── Ops ──────────────────────────────────────────────────────────────────────

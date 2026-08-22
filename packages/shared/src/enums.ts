@@ -111,6 +111,21 @@ export const ReminderChannel = {
 export type ReminderChannel =
   (typeof ReminderChannel)[keyof typeof ReminderChannel];
 
+/** In-app notification events, Phase 1. Mirrors `NotificationEvent` in schema.prisma. */
+export const NotificationEvent = {
+  ORDER_PAID: "ORDER_PAID",
+  CERTIFICATE_ISSUED: "CERTIFICATE_ISSUED",
+  INSTRUCTOR_APPLICATION_APPROVED: "INSTRUCTOR_APPLICATION_APPROVED",
+  INSTRUCTOR_APPLICATION_REJECTED: "INSTRUCTOR_APPLICATION_REJECTED",
+  SALES_AGENT_APPLICATION_APPROVED: "SALES_AGENT_APPLICATION_APPROVED",
+  SALES_AGENT_APPLICATION_REJECTED: "SALES_AGENT_APPLICATION_REJECTED",
+  PAYOUT_APPROVED: "PAYOUT_APPROVED",
+  PAYOUT_PAID: "PAYOUT_PAID",
+  REFERRAL_CONFIRMED: "REFERRAL_CONFIRMED",
+} as const;
+export type NotificationEvent =
+  (typeof NotificationEvent)[keyof typeof NotificationEvent];
+
 export const ReminderStatus = {
   SENT: "SENT",
   OPENED: "OPENED",

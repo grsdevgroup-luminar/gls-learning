@@ -48,7 +48,9 @@ import type {
   CheckoutSessionDto,
   LessonNoteDto,
   LessonResourceDto,
+  NotificationDto,
   NotificationPreferencesDto,
+  UnreadCountDto,
   UpdateNotificationPreferencesInput,
   ToggleLessonResultDto,
   WeeklyActivityDayDto,
@@ -72,6 +74,8 @@ export type {
   InstructorProfileDto,
   InstructorRosterDto,
   MyOrderStatsDto,
+  NotificationDto,
+  UnreadCountDto,
   OrderDto,
   OrganizationDto,
   Paginated,
@@ -160,9 +164,20 @@ export const api = {
     }),
   myOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/me/orders${qs(params)}`),
+  myOrder: (orderId: string) => apiFetch<OrderDto>(`/me/orders/${orderId}`),
   myOrderStats: () => apiFetch<MyOrderStatsDto>("/me/orders/stats"),
   devSimulatePayment: (orderId: string) =>
     apiFetch<OrderDto>(`/payments/dev/simulate/${orderId}`, { method: "POST" }),
+
+  // notifications
+  myNotifications: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<NotificationDto>>(`/me/notifications${qs(params)}`),
+  unreadNotificationCount: () =>
+    apiFetch<UnreadCountDto>("/me/notifications/unread-count"),
+  markNotificationRead: (id: string) =>
+    apiFetch<void>(`/me/notifications/${id}/read`, { method: "PATCH" }),
+  markAllNotificationsRead: () =>
+    apiFetch<void>("/me/notifications/read-all", { method: "PATCH" }),
 
   // reviews
   courseReviews: (courseId: string, page = 1) =>

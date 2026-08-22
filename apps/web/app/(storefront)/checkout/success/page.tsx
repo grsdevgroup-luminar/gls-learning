@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/endpoints";
+import { qk } from "@/lib/api/query-keys";
 import { useStore } from "@/lib/context/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,17 +24,18 @@ function SuccessContent() {
     void qc.invalidateQueries({ queryKey: ["enrollments"] });
   }, [qc]);
 
-  const { data: ordersPage, isLoading } = useQuery({
-    queryKey: ["orders", "mine"],
-    queryFn: () => api.myOrders({ page: 1, pageSize: 10 }),
+  // This is the one screen in the app where payment confirmation needs to feel
+  // instant (see NOTIFICATION_SYSTEM_PLAN.md — tiered real-time delivery):
+  // fast-poll this order's own status directly rather than waiting on the
+  // ambient notification bell's slow 20-30s poll.
+  const { data: order, isLoading } = useQuery({
+    queryKey: qk.myOrder(orderId ?? ""),
+    queryFn: () => api.myOrder(orderId as string),
     enabled: !!orderId,
+    retry: false,
     // Stripe/PayPal webhooks may lag a moment behind the redirect.
-    refetchInterval: (q) => {
-      const found = q.state.data?.items.find((o) => o.id === orderId);
-      return found?.status === "PAID" ? false : 2000;
-    },
+    refetchInterval: (q) => (q.state.data?.status === "PAID" ? false : 2000),
   });
-  const order = ordersPage?.items.find((o) => o.id === orderId);
   const pending = !!orderId && order?.status !== "PAID";
 
   // Clear the cart only after the server confirms the order is PAID. This is

@@ -17,6 +17,7 @@ import {
 } from "@skillstream/shared";
 import { ConfigService } from "@nestjs/config";
 import { AdminAlertsService } from "../email/admin-alerts.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { Db } from "../../common/types";
 import { apiBaseUrl, certificatePdfUrl } from "../../common/utils/urls";
 import type { Env } from "../../config/env";
@@ -50,6 +51,7 @@ export class EnrollmentService {
     private readonly repo: EnrollmentRepository,
     private readonly config: ConfigService<Env, true>,
     private readonly alerts: AdminAlertsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private get apiBase(): string {
@@ -253,7 +255,7 @@ export class EnrollmentService {
       completed = true;
     }
 
-    return this.recompute(courseId, enrollment.id, lessonId, completed);
+    return this.recompute(userId, courseId, enrollment.id, lessonId, completed);
   }
 
   /** Mark a lesson complete (used when a quiz is passed). Idempotent. */
@@ -266,10 +268,11 @@ export class EnrollmentService {
     if (!enrollment) return;
     await this.assertLessonAccessible(userId, lessonId);
     await this.repo.upsertLessonProgress(enrollment.id, lessonId);
-    await this.recompute(courseId, enrollment.id, lessonId, true);
+    await this.recompute(userId, courseId, enrollment.id, lessonId, true);
   }
 
   private async recompute(
+    userId: string,
     courseId: string,
     enrollmentId: string,
     lessonId: string,
@@ -279,7 +282,7 @@ export class EnrollmentService {
       await this.repo.countLessonsAndCompleted(courseId, enrollmentId);
     const done = isCourseComplete(completedCount, lessonCount);
     await this.updateStatus(enrollmentId, done);
-    const certificate = await this.manageCertificate(enrollmentId, done);
+    const certificate = await this.manageCertificate(userId, enrollmentId, done);
     return this.buildResult(lessonId, completed, lessonCount, completedCount, done, certificate);
   }
 
@@ -293,6 +296,7 @@ export class EnrollmentService {
   }
 
   private async manageCertificate(
+    userId: string,
     enrollmentId: string,
     done: boolean,
   ): Promise<CertificateDto | null> {
@@ -304,6 +308,15 @@ export class EnrollmentService {
         // not collide — `serial` is unique).
         `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
       );
+      void this.notifications
+        .notify({
+          userId,
+          event: "CERTIFICATE_ISSUED",
+          title: "Certificate issued",
+          body: "You completed a course — your certificate is ready.",
+          href: "/dashboard/certificates",
+        })
+        .catch(() => undefined);
       return mapCertificate(cert, this.apiBase);
     }
     await this.repo

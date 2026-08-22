@@ -15,6 +15,7 @@ import { receiptPdf } from "../../common/utils/pdf";
 import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { CartService } from "./cart.service";
 
@@ -41,6 +42,7 @@ export class OrdersService {
     private readonly salesAgents: SalesAgentService,
     private readonly email: EmailService,
     private readonly cart: CartService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private toDto(row: OrderRow): OrderDto {
@@ -159,6 +161,15 @@ export class OrdersService {
     };
   }
 
+  /** A single order, scoped to its owner — 404 for another account's order,
+   *  never a leak. Powers the checkout success page's fast poll for
+   *  payment confirmation (see NOTIFICATION_SYSTEM_PLAN.md). */
+  async myOrder(userId: string, orderId: string): Promise<OrderDto> {
+    const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
+    if (!order) throw new NotFoundException("Order not found");
+    return this.toDto(order);
+  }
+
   async myOrderStats(userId: string): Promise<MyOrderStatsDto> {
     const agg = await this.repo.aggregatePaidByUser(userId);
     return {
@@ -193,6 +204,18 @@ export class OrdersService {
         tx,
         order.userId,
         order.items.map((i) => i.courseId),
+      );
+
+      const courseNames = order.items.map((i) => i.titleSnapshot).join(", ");
+      await this.notifications.notify(
+        {
+          userId: order.userId,
+          event: "ORDER_PAID",
+          title: "Payment confirmed",
+          body: `Your order for ${courseNames} is paid — you're enrolled.`,
+          href: "/dashboard/billing",
+        },
+        tx,
       );
 
       for (const item of order.items) {

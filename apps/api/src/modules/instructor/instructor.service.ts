@@ -14,6 +14,7 @@ import type {
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { InstructorRepository } from "./instructor.repository";
 
 @Injectable()
@@ -22,6 +23,7 @@ export class InstructorService {
     private readonly prisma: PrismaService,
     private readonly repo: InstructorRepository,
     private readonly email: EmailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Applicants are promised an emailed decision; a delivery failure must not
@@ -157,6 +159,18 @@ export class InstructorService {
           tx,
         );
       }
+      if (app.userId) {
+        await this.notifications.notify(
+          {
+            userId: app.userId,
+            event: "INSTRUCTOR_APPLICATION_APPROVED",
+            title: "Instructor application approved",
+            body: "You're approved as an instructor — you can start building courses.",
+            href: "/instructor",
+          },
+          tx,
+        );
+      }
       return a;
     });
     this.notifyDecision(updated, true, note);
@@ -170,6 +184,16 @@ export class InstructorService {
       note,
     });
     this.notifyDecision(app, false, note);
+    if (app.userId) {
+      void this.notifications
+        .notify({
+          userId: app.userId,
+          event: "INSTRUCTOR_APPLICATION_REJECTED",
+          title: "Instructor application update",
+          body: note ?? "Your instructor application was not approved this time.",
+        })
+        .catch(() => undefined);
+    }
     return this.toAppDto(app);
   }
 }

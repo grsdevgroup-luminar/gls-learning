@@ -125,6 +125,47 @@ export const useMyOrders = (
 export const useMyOrderStats = () =>
   useQuery({ queryKey: qk.myOrderStats, queryFn: api.myOrderStats });
 
+// ── notifications ───────────────────────────────────────────────────────────
+/** Ambient bell badge — cheap endpoint, polled slowly forever. Not "instant";
+ *  see the checkout success page for the one screen that needs that instead. */
+export const useUnreadNotificationCount = () =>
+  useQuery({
+    queryKey: qk.unreadNotificationCount,
+    queryFn: api.unreadNotificationCount,
+    refetchInterval: 25_000,
+  });
+
+export const useNotifications = (
+  params: { page: number; pageSize: number },
+  enabled = true,
+) =>
+  useQuery({
+    queryKey: qk.notifications(params),
+    queryFn: () => api.myNotifications(params),
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.markNotificationRead(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.markAllNotificationsRead,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
 // ── reviews ───────────────────────────────────────────────────────────────
 export const useCourseReviews = (courseId: string, page = 1) =>
   useQuery({

@@ -14,9 +14,15 @@ import {
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PayoutsRepository } from "./payouts.repository";
 
 const OPEN = ["REQUESTED", "APPROVED"] as const;
+
+/** Where a payout notification should deep-link, by payee role. */
+function payoutHref(payeeType: PayeeType): string {
+  return payeeType === "AGENT" ? "/sales-agent/earnings" : "/instructor/earnings";
+}
 
 /** Pure balance math, shared by the DTO builder and tested in isolation.
  *  available never goes negative; a payout can only be requested with an account,
@@ -46,6 +52,7 @@ export class PayoutsService {
   constructor(
     private readonly repo: PayoutsRepository,
     private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Maps a user's role to which earnings pool their payouts draw from.
@@ -148,11 +155,20 @@ export class PayoutsService {
   }
 
   async approve(admin: RequestUser, id: string): Promise<PayoutDto> {
-    await this.getInStatus(id, "REQUESTED");
+    const payout = await this.getInStatus(id, "REQUESTED");
     const updated = await this.repo.updatePayoutWithPayee(id, {
       status: "APPROVED",
       processedBy: admin.id,
     });
+    void this.notifications
+      .notify({
+        userId: payout.payeeUserId,
+        event: "PAYOUT_APPROVED",
+        title: "Payout approved",
+        body: `Your $${(payout.amountCents / 100).toFixed(2)} payout was approved and is being processed.`,
+        href: payoutHref(payout.payeeType),
+      })
+      .catch(() => undefined);
     return this.toDto(updated, updated.payee);
   }
 
@@ -176,11 +192,22 @@ export class PayoutsService {
           await this.repo.markAgentReferralsPaid(agent.id, tx);
         }
       }
-      return this.repo.updatePayoutWithPayee(
+      const paid = await this.repo.updatePayoutWithPayee(
         id,
         { status: "PAID", processedAt: new Date(), processedBy: admin.id },
         tx,
       );
+      await this.notifications.notify(
+        {
+          userId: payout.payeeUserId,
+          event: "PAYOUT_PAID",
+          title: "Payout sent",
+          body: `Your $${(payout.amountCents / 100).toFixed(2)} payout has been paid.`,
+          href: payoutHref(payout.payeeType),
+        },
+        tx,
+      );
+      return paid;
     });
     return this.toDto(updated, updated.payee);
   }
