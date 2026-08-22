@@ -64,12 +64,12 @@ export class CheckoutController {
     @CurrentUser() user: RequestUser,
     @ZodBody(checkoutSessionSchema)
     body: CheckoutSessionInput,
+    @Req() req: Request,
     // Optional during rollout; the web client sends it, but legacy clients
     // still work without. Format is validated inside the service.
     @Headers("idempotency-key") idempotencyKey?: string,
-    @Req() req: Request,
   ) {
-    return this.checkout.createSession(user.id, body, idempotencyKey, clientIp(req));
+    return this.checkout.createSession(user.id, body, clientIp(req), idempotencyKey);
   }
 
   @Get("me/orders")

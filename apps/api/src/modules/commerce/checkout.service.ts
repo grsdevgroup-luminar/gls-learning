@@ -115,8 +115,8 @@ export class CheckoutService {
   async createSession(
     userId: string,
     input: CheckoutSessionInput,
-    idempotencyKey?: string,
     clientIpAddress: string | null,
+    idempotencyKey?: string,
   ): Promise<CheckoutSessionDto> {
     await this.assertGatewayEnabled(input.gateway);
 

@@ -117,9 +117,14 @@ export class GeoIpService implements OnModuleInit {
       }
     }
 
+    const countryReader = this.countryReader;
+    if (!countryReader) {
+      return { allowed: false, reason: "verification_unavailable" };
+    }
+
     let geoCountry: string | null = null;
     try {
-      const record = this.countryReader.country(normalizedIp);
+      const record = countryReader.country(normalizedIp);
       geoCountry = record.country?.isoCode ?? null;
     } catch (err) {
       if (!(err instanceof AddressNotFoundError)) {
