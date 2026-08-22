@@ -180,7 +180,8 @@ export interface ReminderLogDto {
   userName: string | null;
   ruleId: string | null;
   channel: ReminderChannel;
-  trigger: ReminderTrigger;
+  /** A ReminderTrigger or NotificationEvent value — see ReminderLog in schema.prisma. */
+  trigger: string;
   subject: string;
   status: ReminderStatus;
   createdAt: string;

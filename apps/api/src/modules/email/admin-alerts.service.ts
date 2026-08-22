@@ -1,8 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { NotificationPreferencesService } from "../notifications/notification-preferences.service";
 import { AdminAlertsRepository } from "./admin-alerts.repository";
 import { EmailService } from "./email.service";
 
-/** Keys of the admin notification toggles in PlatformSettings.notifications. */
+/** Keys of the admin notification toggles in PlatformSettings.notifications —
+ *  also used as the NotificationPreference "event" for per-admin opt-in. */
 export type AdminAlertKey =
   | "newEnrollment"
   | "dailyRevenue"
@@ -23,14 +25,28 @@ export class AdminAlertsService {
   constructor(
     private readonly repo: AdminAlertsRepository,
     private readonly email: EmailService,
+    private readonly prefs: NotificationPreferencesService,
   ) {}
 
-  /** The support inbox, but only when this particular toggle is on. */
-  private async recipient(key: AdminAlertKey): Promise<string | null> {
+  /** Real admin users who get this alert: the platform-wide toggle is a kill
+   *  switch (unchanged from before — same Admin → Settings page), and each
+   *  admin additionally has their own independent opt-in on top of it,
+   *  defaulting to on. Replaces the single hardcoded `supportEmail` string. */
+  private async recipients(
+    key: AdminAlertKey,
+  ): Promise<{ id: string; name: string; email: string }[]> {
     const settings = await this.repo.findPlatformSettings();
-    if (!settings) return null;
-    const toggles = (settings.notifications ?? {}) as Record<string, boolean>;
-    return toggles[key] ? settings.supportEmail : null;
+    const toggles = (settings?.notifications ?? {}) as Record<string, boolean>;
+    if (!toggles[key]) return [];
+
+    const admins = await this.repo.findAdminUsers();
+    const allowed = await Promise.all(
+      admins.map(async (a) => ({
+        admin: a,
+        wants: await this.prefs.wantsChannel(a.id, key, "EMAIL"),
+      })),
+    );
+    return allowed.filter((a) => a.wants).map((a) => a.admin);
   }
 
   private async send(
@@ -39,9 +55,10 @@ export class AdminAlertsService {
     lines: string[],
   ): Promise<void> {
     try {
-      const to = await this.recipient(key);
-      if (!to) return;
-      await this.email.sendAdminAlert(to, subject, lines);
+      const admins = await this.recipients(key);
+      await Promise.all(
+        admins.map((a) => this.email.sendAdminAlert(a.email, subject, lines)),
+      );
     } catch (err) {
       this.logger.error(`admin alert "${key}" failed: ${(err as Error).message}`);
     }
@@ -66,8 +83,8 @@ export class AdminAlertsService {
 
   /** Yesterday's takings — the "daily revenue summary" toggle. */
   async dailyRevenue(now: Date = new Date()): Promise<void> {
-    const to = await this.recipient("dailyRevenue");
-    if (!to) return;
+    const admins = await this.recipients("dailyRevenue");
+    if (admins.length === 0) return;
 
     const end = new Date(now);
     end.setUTCHours(0, 0, 0, 0);
@@ -92,8 +109,8 @@ export class AdminAlertsService {
 
   /** Learners flagged AT_RISK — the "at-risk student digest" toggle. */
   async atRiskDigest(): Promise<void> {
-    const to = await this.recipient("atRiskDigest");
-    if (!to) return;
+    const admins = await this.recipients("atRiskDigest");
+    if (admins.length === 0) return;
 
     const students = await this.repo.findAtRiskStudents();
     if (students.length === 0) return; // nothing to report — stay quiet

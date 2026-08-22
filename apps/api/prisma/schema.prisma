@@ -232,12 +232,11 @@ model PasswordResetToken {
 }
 
 model StudentProfile {
-  userId            String        @id
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  streakDays        Int           @default(0)
-  status            StudentStatus @default(ACTIVE)
-  totalSpentCents   Int           @default(0)
-  notificationPrefs Json          @default("{}")
+  userId          String        @id
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  streakDays      Int           @default(0)
+  status          StudentStatus @default(ACTIVE)
+  totalSpentCents Int           @default(0)
 }
 
 model InstructorProfile {
@@ -640,7 +639,10 @@ model ReminderLog {
   user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   ruleId    String?
   channel   ReminderChannel
-  trigger   ReminderTrigger
+  /// A ReminderTrigger or NotificationEvent value — plain string so this log
+  /// covers both the marketing-automation sweep and Phase 1's transactional
+  /// events, not just the original 5 reminder triggers.
+  trigger   String
   subject   String
   status    ReminderStatus  @default(SENT)
   createdAt DateTime        @default(now())
@@ -667,6 +669,24 @@ model Notification {
   createdAt DateTime          @default(now())
 
   @@index([userId, readAt])
+}
+
+/// Generalized opt-in store, one row per (user, event). Covers three
+/// otherwise-separate universes under one flexible key: the 5 ReminderTrigger
+/// names (marketing automation), the 9 NotificationEvent names (Phase 1
+/// transactional/lifecycle events), and the 4 admin alert keys — `event` is a
+/// plain string rather than an enum specifically so it can hold any of them
+/// without a three-way enum union. `inApp` exists for a future "mute this in
+/// the bell" feature; nothing reads it yet — the in-app write is unconditional
+/// by design (opt-out, not opt-in).
+model NotificationPreference {
+  userId String
+  event  String
+  inApp  Boolean @default(true)
+  email  Boolean @default(true)
+  sms    Boolean @default(false)
+
+  @@id([userId, event])
 }
 
 // ─── Ops ──────────────────────────────────────────────────────────────────────

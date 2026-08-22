@@ -14,8 +14,19 @@ import type {
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
-import { NotificationsService } from "../notifications/notifications.service";
+import {
+  NotificationsService,
+  type NotifyInput,
+} from "../notifications/notifications.service";
 import { InstructorRepository } from "./instructor.repository";
+
+const approvedNotify = (userId: string): NotifyInput => ({
+  userId,
+  event: "INSTRUCTOR_APPLICATION_APPROVED",
+  title: "Instructor application approved",
+  body: "You're approved as an instructor — you can start building courses.",
+  href: "/instructor",
+});
 
 @Injectable()
 export class InstructorService {
@@ -160,20 +171,16 @@ export class InstructorService {
         );
       }
       if (app.userId) {
-        await this.notifications.notify(
-          {
-            userId: app.userId,
-            event: "INSTRUCTOR_APPLICATION_APPROVED",
-            title: "Instructor application approved",
-            body: "You're approved as an instructor — you can start building courses.",
-            href: "/instructor",
-          },
-          tx,
-        );
+        await this.notifications.notify(approvedNotify(app.userId), tx);
       }
       return a;
     });
     this.notifyDecision(updated, true, note);
+    if (app.userId) {
+      void this.notifications
+        .notifyEmailAfterCommit(approvedNotify(app.userId))
+        .catch(() => undefined);
+    }
     return this.toAppDto(updated);
   }
 

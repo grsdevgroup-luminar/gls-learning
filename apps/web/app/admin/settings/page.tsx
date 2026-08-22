@@ -210,8 +210,9 @@ export default function AdminSettings() {
             <Bell className="h-4 w-4 text-primary" /> Admin notifications
           </CardTitle>
           <CardDescription>
-            Sent to the support email above. Enrollment and review alerts go out
-            as they happen; the summaries are emailed once a day.
+            Emailed to every admin account (each can opt out individually in a
+            future update). Enrollment and review alerts go out as they happen;
+            the summaries are emailed once a day.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

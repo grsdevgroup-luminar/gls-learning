@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ReminderChannel, ReminderTrigger } from "@prisma/client";
+import { ReminderChannel } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -13,7 +13,6 @@ export class NotificationsRepository {
         email: true,
         name: true,
         phone: true,
-        studentProfile: { select: { notificationPrefs: true } },
       },
     });
   }
@@ -21,7 +20,7 @@ export class NotificationsRepository {
   createReminderLog(data: {
     userId: string;
     channel: ReminderChannel;
-    trigger: ReminderTrigger;
+    trigger: string;
     subject: string;
     ruleId?: string;
   }) {

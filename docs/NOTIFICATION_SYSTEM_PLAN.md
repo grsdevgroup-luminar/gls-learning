@@ -1,6 +1,6 @@
 # Notification System — Implementation Plan
 
-**Author:** Sarwar · **Date:** 2026-08-22 · **Status:** Phase 1 implemented and verified (2026-08-23)
+**Author:** Sarwar · **Date:** 2026-08-22 · **Status:** Phases 1 & 2 implemented and verified (2026-08-23)
 
 ## Goal
 
@@ -270,12 +270,25 @@ accounts) rather than converting the whole table's write pattern.
   state change it describes
 - Fast-poll order status on the checkout success/receipt page specifically
 
-### Phase 2 — email catches up
-- Extend `NotificationsProcessor`'s trigger set to the new `NotificationEvent` enum
-- Move `notificationPrefs` off `StudentProfile` onto every role
-  (`NotificationPreference` table above)
-- Fix admin-alert fan-out: replace `PlatformSettings.supportEmail` with real
-  per-admin preferences against `NotificationPreference`
+### Phase 2 — email catches up ✅ done (2026-08-23)
+- Extended `NotificationsProcessor`'s trigger set to `string`, covering both
+  `ReminderTrigger` and `NotificationEvent` — one worker, one preference check,
+  for reminders and Phase 1's transactional events alike
+- `NotificationPreference` table replaces `StudentProfile.notificationPrefs`
+  (data backfilled, zero loss); `/me/notification-preferences` keeps its exact
+  API shape, only the storage moved
+- `NotificationsService.notify()` now enqueues an email fan-out via the same
+  BullMQ queue reminders use — but only when called outside a transaction, or
+  via the new `notifyEmailAfterCommit()` once the caller's own transaction has
+  resolved (enqueuing inside an open transaction risked a send racing ahead of,
+  or surviving, a rollback — see `orders.service.ts`/`instructor.service.ts`/
+  `payouts.service.ts` for the pattern)
+- Admin-alert fan-out fixed: real `User` rows where `role: ADMIN`, each with
+  their own opt-in via `NotificationPreference`, layered under the existing
+  platform-wide toggle (which stays as the kill switch)
+- Verified live: a real purchase produced an in-app `Notification` row, a
+  queued `EMAIL` job, a `ReminderLog` entry, and the dev-mode email log line —
+  full pipeline, not just unit-level
 
 ### Phase 3 — social & ambient
 - Social events (new review, comment reply, new enrollment) — in-app only, no email

@@ -21,24 +21,6 @@ export class UsersRepository {
     });
   }
 
-  findStudentNotificationPrefs(userId: string) {
-    return this.prisma.studentProfile.findUnique({
-      where: { userId },
-      select: { notificationPrefs: true },
-    });
-  }
-
-  upsertStudentNotificationPrefs(
-    userId: string,
-    next: Prisma.InputJsonValue,
-  ) {
-    return this.prisma.studentProfile.upsert({
-      where: { userId },
-      update: { notificationPrefs: next },
-      create: { userId, notificationPrefs: next },
-    });
-  }
-
   create(data: Prisma.UserCreateInput): Promise<User> {
     return this.prisma.user.create({ data });
   }

@@ -14,7 +14,10 @@ import {
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
-import { NotificationsService } from "../notifications/notifications.service";
+import {
+  NotificationsService,
+  type NotifyInput,
+} from "../notifications/notifications.service";
 import { PayoutsRepository } from "./payouts.repository";
 
 const OPEN = ["REQUESTED", "APPROVED"] as const;
@@ -180,6 +183,14 @@ export class PayoutsService {
     if (payout.status !== "REQUESTED" && payout.status !== "APPROVED")
       throw new BadRequestException("Only open payouts can be marked paid");
 
+    const notifyInput: NotifyInput = {
+      userId: payout.payeeUserId,
+      event: "PAYOUT_PAID",
+      title: "Payout sent",
+      body: `Your $${(payout.amountCents / 100).toFixed(2)} payout has been paid.`,
+      href: payoutHref(payout.payeeType),
+    };
+
     const updated = await this.prisma.$transaction(async (tx) => {
       if (payout.payeeType === "AGENT") {
         const agent = await this.repo.findSalesAgentIdByUser(payout.payeeUserId, tx);
@@ -197,18 +208,10 @@ export class PayoutsService {
         { status: "PAID", processedAt: new Date(), processedBy: admin.id },
         tx,
       );
-      await this.notifications.notify(
-        {
-          userId: payout.payeeUserId,
-          event: "PAYOUT_PAID",
-          title: "Payout sent",
-          body: `Your $${(payout.amountCents / 100).toFixed(2)} payout has been paid.`,
-          href: payoutHref(payout.payeeType),
-        },
-        tx,
-      );
+      await this.notifications.notify(notifyInput, tx);
       return paid;
     });
+    void this.notifications.notifyEmailAfterCommit(notifyInput).catch(() => undefined);
     return this.toDto(updated, updated.payee);
   }
 

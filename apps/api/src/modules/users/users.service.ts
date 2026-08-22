@@ -1,15 +1,18 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, User } from "@prisma/client";
-import {
-  resolveNotificationPrefs,
-  type NotificationPreferencesDto,
-  type UpdateNotificationPreferencesInput,
+import type {
+  NotificationPreferencesDto,
+  UpdateNotificationPreferencesInput,
 } from "@skillstream/shared";
+import { NotificationPreferencesService } from "../notifications/notification-preferences.service";
 import { UsersRepository } from "./users.repository";
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly repo: UsersRepository) {}
+  constructor(
+    private readonly repo: UsersRepository,
+    private readonly prefs: NotificationPreferencesService,
+  ) {}
 
   findByEmail(email: string): Promise<User | null> {
     return this.repo.findByEmail(email);
@@ -24,28 +27,18 @@ export class UsersService {
     return this.repo.findWithProfiles(id);
   }
 
-  /** Reminder opt-ins, stored as JSON on the student profile. Missing profile
-   *  or missing keys fall back to the shared defaults, so every caller sees a
-   *  complete object. */
-  async notificationPrefs(userId: string): Promise<NotificationPreferencesDto> {
-    const profile = await this.repo.findStudentNotificationPrefs(userId);
-    return resolveNotificationPrefs(profile?.notificationPrefs);
+  /** Reminder opt-ins — same DTO shape as always; storage moved off
+   *  StudentProfile.notificationPrefs onto the generalized
+   *  NotificationPreference table (see NOTIFICATION_SYSTEM_PLAN.md). */
+  notificationPrefs(userId: string): Promise<NotificationPreferencesDto> {
+    return this.prefs.getReminderPrefs(userId);
   }
 
-  /** Sparse merge, then store the fully-resolved object so delivery-time reads
-   *  never have to reason about partial state. */
-  async updateNotificationPrefs(
+  updateNotificationPrefs(
     userId: string,
     patch: UpdateNotificationPreferencesInput,
   ): Promise<NotificationPreferencesDto> {
-    const current = await this.notificationPrefs(userId);
-    const next = { ...current };
-    for (const [trigger, channels] of Object.entries(patch)) {
-      const key = trigger as keyof NotificationPreferencesDto;
-      next[key] = { ...next[key], ...channels };
-    }
-    await this.repo.upsertStudentNotificationPrefs(userId, next);
-    return next;
+    return this.prefs.updateReminderPrefs(userId, patch);
   }
 
   create(data: Prisma.UserCreateInput): Promise<User> {
