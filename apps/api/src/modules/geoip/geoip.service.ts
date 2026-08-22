@@ -79,7 +79,10 @@ export class GeoIpService implements OnModuleInit {
     const nodeEnv = this.config.get("NODE_ENV", { infer: true });
 
     if (this.checkoutEnabled && (!this.active || !this.countryReader)) {
-      return { allowed: false, reason: "verification_unavailable" };
+      return this.finishVerify(
+        { allowed: false, reason: "verification_unavailable" },
+        { ip, profileCountry, geoCountry: null, anonymous: null },
+      );
     }
 
     if (!this.checkoutEnabled) {
@@ -88,14 +91,22 @@ export class GeoIpService implements OnModuleInit {
 
     const normalizedIp = ip?.trim() ?? null;
     if (!normalizedIp || isPrivateOrLocalIp(normalizedIp)) {
-      return evaluateCheckoutGeo({
-        enabled: true,
-        nodeEnv,
-        ip: normalizedIp,
-        profileCountry,
-        geoCountry: null,
-        anonymous: null,
-      });
+      return this.finishVerify(
+        evaluateCheckoutGeo({
+          enabled: true,
+          nodeEnv,
+          ip: normalizedIp,
+          profileCountry,
+          geoCountry: null,
+          anonymous: null,
+        }),
+        {
+          ip: normalizedIp,
+          profileCountry,
+          geoCountry: null,
+          anonymous: null,
+        },
+      );
     }
 
     let anonymous = null;
@@ -119,7 +130,10 @@ export class GeoIpService implements OnModuleInit {
 
     const countryReader = this.countryReader;
     if (!countryReader) {
-      return { allowed: false, reason: "verification_unavailable" };
+      return this.finishVerify(
+        { allowed: false, reason: "verification_unavailable" },
+        { ip: normalizedIp, profileCountry, geoCountry: null, anonymous },
+      );
     }
 
     let geoCountry: string | null = null;
@@ -134,14 +148,40 @@ export class GeoIpService implements OnModuleInit {
       }
     }
 
-    return evaluateCheckoutGeo({
-      enabled: true,
-      nodeEnv,
-      ip: normalizedIp,
-      profileCountry,
-      geoCountry,
-      anonymous,
-    });
+    return this.finishVerify(
+      evaluateCheckoutGeo({
+        enabled: true,
+        nodeEnv,
+        ip: normalizedIp,
+        profileCountry,
+        geoCountry,
+        anonymous,
+      }),
+      { ip: normalizedIp, profileCountry, geoCountry, anonymous },
+    );
+  }
+
+  private finishVerify(
+    verdict: GeoIpCheckoutVerdict,
+    ctx: {
+      ip: string | null;
+      profileCountry: string | null;
+      geoCountry: string | null;
+      anonymous: {
+        isAnonymousVpn: boolean;
+        isPublicProxy: boolean;
+        isTorExitNode: boolean;
+        isResidentialProxy: boolean;
+      } | null;
+    },
+  ): GeoIpCheckoutVerdict {
+    const anon = ctx.anonymous
+      ? ` vpn=${ctx.anonymous.isAnonymousVpn} proxy=${ctx.anonymous.isPublicProxy} tor=${ctx.anonymous.isTorExitNode} residential=${ctx.anonymous.isResidentialProxy}`
+      : " anonymousDb=unset";
+    this.logger.log(
+      `Checkout geo ip=${ctx.ip ?? "null"} profileCountry=${ctx.profileCountry ?? "null"} geoCountry=${ctx.geoCountry ?? "null"} allowed=${verdict.allowed}${verdict.allowed ? "" : ` reason=${verdict.reason}`}${anon}`,
+    );
+    return verdict;
   }
 
   messageFor(verdict: GeoIpCheckoutVerdict): string | null {

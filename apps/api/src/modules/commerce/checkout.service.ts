@@ -2,6 +2,7 @@ import {
   BadRequestException, ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import type {
@@ -26,6 +27,8 @@ const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 @Injectable()
 export class CheckoutService {
+  private readonly logger = new Logger(CheckoutService.name);
+
   constructor(
     private readonly repo: OrdersRepository,
     private readonly pricing: PricingService,
@@ -250,6 +253,9 @@ export class CheckoutService {
     const verdict = this.geoIp.verifyCheckout(
       clientIpAddress,
       user?.country ?? null,
+    );
+    this.logger.log(
+      `Checkout geo user=${userId} ip=${clientIpAddress ?? "null"} profileCountry=${user?.country ?? "null"} allowed=${verdict.allowed}${verdict.allowed ? "" : ` reason=${verdict.reason}`}`,
     );
     if (verdict.allowed) return;
 
