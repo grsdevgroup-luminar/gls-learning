@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import type {
   CheckoutQuoteInput,
   CheckoutSessionInput,
@@ -9,9 +9,13 @@ import type {
 import { PricingService } from "./pricing.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
-import { OrdersRepository } from "./orders.repository";
+import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { PaymentsService } from "../payment/payments.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
+
+/** Only `[A-Za-z0-9_-]{1,128}` allowed. Anything else is a client bug or an
+ *  attempt to abuse the unique index with pathological inputs. */
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 @Injectable()
 export class CheckoutService {
@@ -102,8 +106,23 @@ export class CheckoutService {
   async createSession(
     userId: string,
     input: CheckoutSessionInput,
+    idempotencyKey?: string,
   ): Promise<CheckoutSessionDto> {
     await this.assertGatewayEnabled(input.gateway);
+
+    // Idempotency: replayed requests with the same key resolve to the same
+    // Order, and — if we already spun up a gateway session — the same redirect
+    // URL. A payload mismatch means the client reused a key across two
+    // different carts; that's a bug on their side, refuse rather than leak a
+    // stale session.
+    const key = this.normalizeIdempotencyKey(idempotencyKey);
+    if (key) {
+      const existing = await this.repo.findOrderByIdempotencyKey(userId, key);
+      if (existing) {
+        this.assertSamePayload(existing, input);
+        return this.resurrectSession(existing);
+      }
+    }
 
     // Never sell a course the user already owns.
     const owned = await this.repo.findOwnedEnrollments(userId, input.courseIds);
@@ -130,6 +149,7 @@ export class CheckoutService {
       discountCents: quote.discountCents,
       totalCents: quote.totalCents,
       currency: quote.currency,
+      idempotencyKey: key,
       items: quote.lines.map((l) => ({
         courseId: l.courseId,
         title: l.title,
@@ -152,5 +172,59 @@ export class CheckoutService {
     }
 
     return this.payments.startPayment(order, input.gateway);
+  }
+
+  private normalizeIdempotencyKey(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    if (!IDEMPOTENCY_KEY_RE.test(trimmed))
+      throw new BadRequestException("Invalid Idempotency-Key");
+    return trimmed;
+  }
+
+  /** Guards against a client reusing an Idempotency-Key across different
+   *  carts. If we returned the stored session in that case, the user would
+   *  see prices/items they didn't ask for. */
+  private assertSamePayload(order: OrderRow, input: CheckoutSessionInput): void {
+    if (order.gateway !== input.gateway)
+      throw new ConflictException("Idempotency-Key reused with a different gateway");
+
+    const storedCourseIds = order.items.map((i) => i.courseId).sort().join(",");
+    const requestedCourseIds = [...input.courseIds].sort().join(",");
+    if (storedCourseIds !== requestedCourseIds)
+      throw new ConflictException("Idempotency-Key reused with different courses");
+
+    const storedCoupon = order.couponCode ?? "";
+    const requestedCoupon = input.couponCode?.trim().toUpperCase() ?? "";
+    if (storedCoupon !== requestedCoupon)
+      throw new ConflictException("Idempotency-Key reused with a different coupon");
+  }
+
+  /** For a replay, prefer the cached gateway URL so we don't open a second
+   *  session at Stripe/PayPal/SSLCommerz. When the order is already settled
+   *  (paid via webhook between the two client attempts), hand back the
+   *  success URL — the client's redirect logic will do the right thing. */
+  private async resurrectSession(order: OrderRow): Promise<CheckoutSessionDto> {
+    if (order.status !== "PENDING") {
+      return {
+        orderId: order.id,
+        gateway: order.gateway,
+        redirectUrl: this.payments.successUrl(order.id),
+      };
+    }
+    if (order.providerRedirectUrl) {
+      return {
+        orderId: order.id,
+        gateway: order.gateway,
+        redirectUrl: order.providerRedirectUrl,
+        providerRef: order.providerRef ?? undefined,
+      };
+    }
+    // First attempt never got as far as the gateway (e.g. crash between
+    // createPending and startPayment). Try again — startPayment is safe to
+    // call twice for the same order because the provider-side idempotency key
+    // is derived from order.id.
+    return this.payments.startPayment(order, order.gateway);
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -44,6 +44,9 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [method, setMethod] = useState("stripe");
   const [processing, setProcessing] = useState(false);
+  // Guards against duplicate submissions from StrictMode double-invoke, rapid
+  // clicks that outrun `processing` state flips, and unmount/remount races.
+  const inFlightRef = useRef<string | null>(null);
 
   const { data: catalog } = useQuery({
     queryKey: ["store", "courses"],
@@ -79,25 +82,45 @@ export default function CheckoutPage() {
   const discount = discountCents / 100;
   const total = totalCents / 100;
 
+  // Stable per-attempt key: rotates whenever the cart shape or payment choice
+  // changes, so a genuinely-different checkout is a new order, but a retry of
+  // the same intent collapses onto the same server-side Order via the
+  // Idempotency-Key header.
+  const idempotencyKey = useMemo(
+    () =>
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? `co_${crypto.randomUUID()}`
+        : `co_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    [cart.join(","), coupon, method, regionCode],
+  );
+
   async function pay() {
     if (!user) {
       router.push("/login?next=/checkout");
       return;
     }
+    // Belt-and-suspenders on top of `disabled={processing}`: a rage-click
+    // that fires two synchronous handlers before React commits state will be
+    // deduped here before hitting the network.
+    if (inFlightRef.current === idempotencyKey) return;
+    inFlightRef.current = idempotencyKey;
     setProcessing(true);
     try {
-      const session = await api.checkoutSession({
-        courseIds: cart,
-        couponCode: coupon ?? undefined,
-        regionCode,
-        gateway:
-          method === "paypal"
-            ? "PAYPAL"
-            : method === "sslcommerz"
-              ? "SSLCOMMERZ"
-              : "STRIPE",
-        referralCode: getReferralCode() ?? undefined,
-      });
+      const session = await api.checkoutSession(
+        {
+          courseIds: cart,
+          couponCode: coupon ?? undefined,
+          regionCode,
+          gateway:
+            method === "paypal"
+              ? "PAYPAL"
+              : method === "sslcommerz"
+                ? "SSLCOMMERZ"
+                : "STRIPE",
+          referralCode: getReferralCode() ?? undefined,
+        },
+        idempotencyKey,
+      );
       clearReferralCode();
       // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
       // Do NOT clear the cart here — payment isn't confirmed yet. If the user
@@ -119,6 +142,10 @@ export default function CheckoutPage() {
       router.push(`/checkout/success?order=${session.orderId}`);
     } catch (err) {
       toast.error(getApiErrorMessage(err));
+      // Release the in-flight lock only on failure; on success we're about to
+      // navigate away and re-locking would let StrictMode fire a duplicate
+      // request in that tiny window.
+      inFlightRef.current = null;
       setProcessing(false);
     }
   }

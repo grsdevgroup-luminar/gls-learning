@@ -28,6 +28,8 @@ export interface CreateOrderInput {
   totalCents: number;
   currency: string;
   items: { courseId: string; title: string; priceCents: number }[];
+  /** Client-supplied Idempotency-Key from POST /checkout/session, if any. */
+  idempotencyKey?: string | null;
 }
 
 @Injectable()
@@ -72,6 +74,7 @@ export class OrdersService {
       totalCents: input.totalCents,
       currency: input.currency,
       status: "PENDING",
+      idempotencyKey: input.idempotencyKey ?? null,
       items: {
         create: input.items.map((i) => ({
           courseId: i.courseId,

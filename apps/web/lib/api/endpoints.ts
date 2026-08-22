@@ -149,8 +149,15 @@ export const api = {
   // commerce
   quote: (body: CheckoutQuoteInput) =>
     apiFetch<QuoteDto>("/checkout/quote", { method: "POST", body }),
-  checkoutSession: (body: CheckoutSessionInput) =>
-    apiFetch<CheckoutSessionDto>("/checkout/session", { method: "POST", body }),
+  checkoutSession: (body: CheckoutSessionInput, idempotencyKey: string) =>
+    apiFetch<CheckoutSessionDto>("/checkout/session", {
+      method: "POST",
+      body,
+      // Collapses double-clicks and network retries onto a single Order on the
+      // server; also flows through to Stripe/PayPal so no duplicate provider
+      // session is opened. See docs/PAYMENT_IDEMPOTENCY_PLAN.md.
+      headers: { "Idempotency-Key": idempotencyKey },
+    }),
   myOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/me/orders${qs(params)}`),
   myOrderStats: () => apiFetch<MyOrderStatsDto>("/me/orders/stats"),
