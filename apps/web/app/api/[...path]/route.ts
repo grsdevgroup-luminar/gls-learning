@@ -90,6 +90,7 @@ async function proxyToApi(
     );
   }
   if (ip) {
+    headers.set("x-gls-client-ip", ip);
     headers.set("x-real-ip", ip);
     headers.set("x-forwarded-for", ip);
   }

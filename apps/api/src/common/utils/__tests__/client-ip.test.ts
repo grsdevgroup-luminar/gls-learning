@@ -19,6 +19,18 @@ describe("isPrivateOrLocalIp", () => {
 });
 
 describe("clientIp", () => {
+  it("prefers x-gls-client-ip over Railway-overwritten x-real-ip", () => {
+    expect(
+      clientIp(
+        req({
+          "x-gls-client-ip": "103.55.145.154",
+          "x-real-ip": "136.110.48.235",
+          "x-forwarded-for": "136.110.48.235, 152.233.15.120",
+        }),
+      ),
+    ).toBe("103.55.145.154");
+  });
+
   it("prefers Cloudflare connecting IP", () => {
     expect(
       clientIp(req({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-for": "9.9.9.9" })),

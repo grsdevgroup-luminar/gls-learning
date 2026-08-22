@@ -32,15 +32,22 @@ function firstPublicHop(header: string | string[] | undefined): string | null {
   return null;
 }
 
+export const GLS_CLIENT_IP_HEADER = "x-gls-client-ip";
+
 /**
- * Best-effort client IP for geo checks. Prefers edge-provided headers when the
- * API sits behind a reverse proxy (trust proxy is enabled in main.ts).
+ * Best-effort client IP for geo checks.
  *
- * Browser calls go Next.js (`/api` rewrite) → this API, so `req.socket` is
- * Railway/the web service. The web proxy copies the edge client IP onto
- * `x-real-ip` before the rewrite.
+ * Browser → Next `/api` proxy → this API. Railway's public edge overwrites
+ * `x-forwarded-for` / `x-real-ip` with the web service egress, so the Next
+ * proxy copies the real client onto `x-gls-client-ip`.
  */
 export function clientIp(req: Request): string | null {
+  const forwarded = req.headers[GLS_CLIENT_IP_HEADER];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    const ip = normalizeIp(forwarded);
+    if (ip && !isPrivateOrLocalIp(ip)) return ip;
+  }
+
   const cf = req.headers["cf-connecting-ip"];
   if (typeof cf === "string" && cf.trim()) {
     const ip = normalizeIp(cf);
