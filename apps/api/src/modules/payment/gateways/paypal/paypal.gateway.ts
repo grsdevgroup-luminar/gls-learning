@@ -77,6 +77,9 @@ export class PaypalGateway implements PaymentGateway {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        // PayPal returns the same order on retries with the same id, so a
+        // duplicated request never opens a second checkout.
+        "PayPal-Request-Id": `co_order_${order.id}`,
       },
       body: JSON.stringify({
         intent: "CAPTURE",
@@ -118,6 +121,7 @@ export class PaypalGateway implements PaymentGateway {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
+          "PayPal-Request-Id": `refund_${order.id}`,
         },
         body: "{}",
       },

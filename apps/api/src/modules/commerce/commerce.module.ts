@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { EnrollmentModule } from "../enrollment/enrollment.module";
 import { SalesAgentModule } from "../sales-agent/sales-agent.module";
+import { UsersModule } from "../users/users.module";
+import { GeoIpModule } from "../geoip/geoip.module";
 import { PaymentsService } from "../payment/payments.service";
 import { PaymentsController } from "../payment/payments.controller";
 import { PaymentsRepository } from "../payment/payments.repository";
@@ -27,7 +29,7 @@ import { CartRepository } from "./cart.repository";
 // orders, payments) to keep the order ↔ payment relationship free of circular
 // module dependencies.
 @Module({
-  imports: [EnrollmentModule, SalesAgentModule],
+  imports: [EnrollmentModule, SalesAgentModule, UsersModule, GeoIpModule],
   controllers: [
     CheckoutController,
     PricingController,

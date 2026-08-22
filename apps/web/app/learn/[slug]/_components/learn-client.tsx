@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   isLessonSequentiallyAccessible,
@@ -52,6 +53,18 @@ interface FlatLesson extends LessonPublicDto {
 export function LearnClient({ course }: { course: CourseDetailDto }) {
   const { isLessonDone, toggleLesson, completedCount, mounted, isEnrolled } = useStore();
   const { user } = useSession();
+  const router = useRouter();
+
+  // Return to whichever page opened the player (progress, dashboard, course
+  // detail, etc). Falls back to /dashboard when there is no in-app history,
+  // e.g. the learner landed on this URL directly.
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/dashboard");
+    }
+  };
 
   const flat: FlatLesson[] = useMemo(() => {
     let i = 0;
@@ -111,7 +124,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
     <div className="flex min-h-screen flex-col bg-background">
       {/* Top bar — course-player chrome (title left · learner actions right) */}
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/65 sm:px-4">
-        <Button variant="ghost" size="icon" render={<Link href="/dashboard" />} aria-label="Back to dashboard">
+        <Button variant="ghost" size="icon" onClick={goBack} aria-label="Go back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Logo className="hidden sm:flex" iconOnly />
@@ -125,7 +138,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
           <ProgressControl pct={pct} done={done} total={total} />
           <span aria-hidden className="mx-0.5 hidden h-6 w-px bg-border md:block" />
           <ShareControl title={course.title} />
-          <OverflowMenu slug={course.slug} />
+          <OverflowMenu slug={course.slug} onBack={goBack} />
         </div>
       </header>
 
@@ -566,7 +579,7 @@ function ShareControl({ title }: { title: string }) {
   );
 }
 
-function OverflowMenu({ slug }: { slug: string }) {
+function OverflowMenu({ slug, onBack }: { slug: string; onBack: () => void }) {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
   return (
@@ -587,8 +600,8 @@ function OverflowMenu({ slug }: { slug: string }) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href="/dashboard" />}>
-          <ArrowLeft /> Back to dashboard
+        <DropdownMenuItem onClick={onBack}>
+          <ArrowLeft /> Go back
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -15,6 +15,7 @@ import {
 import { Search, Users, UserCheck, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import { flagFor, formatCountry } from "@/lib/countries";
 
 type StatusKey = "ACTIVE" | "IDLE" | "AT_RISK";
 
@@ -208,7 +209,16 @@ function StudentRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className="text-sm">{student.country ?? "—"}</TableCell>
+      <TableCell className="text-sm">
+        {student.country ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span>{flagFor(student.country)}</span>
+            {formatCountry(student.country)}
+          </span>
+        ) : (
+          "—"
+        )}
+      </TableCell>
       <TableCell>{student.enrollments}</TableCell>
       <TableCell className="text-sm">{formatUsd(student.totalSpentCents / 100).replace(".00", "")}</TableCell>
       <TableCell className="text-sm text-muted-foreground">

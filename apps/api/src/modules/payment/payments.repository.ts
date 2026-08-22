@@ -6,10 +6,20 @@ import { PrismaService } from "../../prisma/prisma.service";
 export class PaymentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  updateOrderProviderRef(orderId: string, providerRef: string) {
+  updateOrderProviderRef(
+    orderId: string,
+    providerRef: string,
+    providerRedirectUrl?: string,
+  ) {
     return this.prisma.order.update({
       where: { id: orderId },
-      data: { providerRef },
+      data: {
+        providerRef,
+        // Cache the gateway URL so a replayed startPayment (client retry with
+        // the same Idempotency-Key) can short-circuit and return the original
+        // session URL instead of opening a second session at the provider.
+        ...(providerRedirectUrl !== undefined ? { providerRedirectUrl } : {}),
+      },
     });
   }
 

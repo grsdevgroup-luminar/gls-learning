@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { CourseCard } from "./_components/course-card";
 import { PersonalizedRecommendations } from "./_components/personalized-recommendations";
+import { HeroShowcase } from "./_components/hero-showcase";
 import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/shared/stars";
-import { CourseArt } from "@/components/shared/course-art";
 import { Section, SectionHeading } from "@/components/shared/section";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,7 +13,6 @@ import {
   Counter,
   Parallax,
   Magnetic,
-  SpotlightCard,
 } from "@/components/shared/motion";
 import { serverApi } from "@/lib/api/server";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
@@ -26,7 +25,7 @@ import type {
 import { compactNumber, initials } from "@/lib/format";
 import {
   ShieldCheck, Globe2, LineChart, BellRing, ArrowRight, Star,
-  PlayCircle, Code2, BrainCircuit, PenTool, Cloud, TrendingUp, Layers,
+  Sparkles, Code2, BrainCircuit, PenTool, Cloud, TrendingUp, Layers,
 } from "lucide-react";
 
 const features = [
@@ -92,7 +91,15 @@ export default async function HomePage() {
   const publishedCourses = coursePage.items;
   const bestsellers = publishedCourses.filter((c) => c.bestseller).slice(0, 4);
   const popular = publishedCourses.slice(0, 8);
-  const featured = publishedCourses[0];
+  // Course counts per category — feeds the neutral hero showcase and lets it
+  // rank categories by volume without promoting any single course.
+  const countByCategory = publishedCourses.reduce<Record<string, number>>(
+    (acc, c) => {
+      if (c.category) acc[c.category] = (acc[c.category] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   return (
     <>
@@ -133,13 +140,11 @@ export default async function HomePage() {
                 </Button>
               </Magnetic>
               <Button
-                render={
-                  <Link href={featured ? `/courses/${featured.slug}` : "/courses"} />
-                }
+                render={<Link href="#categories" />}
                 size="lg"
                 variant="outline"
               >
-                <PlayCircle /> Watch a preview
+                <Sparkles /> Explore categories
               </Button>
             </div>
 
@@ -163,13 +168,18 @@ export default async function HomePage() {
             </dl>
           </Reveal>
 
-          {/* Product shot — an elevated, calm preview panel that floats on scroll */}
-          <HeroPreview course={featured} />
+          {/* Neutral platform showcase — replaces the single-course preview so no
+              one course is elevated above the rest. Every number is real. */}
+          <HeroShowcase
+            categories={categories}
+            countByCategory={countByCategory}
+            totalCourses={coursePage.total || publishedCourses.length}
+          />
         </div>
       </section>
 
       {/* ── Category rail ──────────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 py-10">
+      <section id="categories" className="mx-auto max-w-7xl px-4 py-10">
         <Stagger className="flex flex-wrap gap-2.5" gap={0.04} amount={0.3}>
           {categories.map((cat) => {
             const entry = catIcons[cat];
@@ -363,64 +373,3 @@ function SectionGrid({
   );
 }
 
-function HeroPreview({ course: c }: { course: CourseSummaryDto | undefined }) {
-  if (!c) return null;
-  return (
-    <Parallax distance={50} className="relative hidden lg:block">
-      <Reveal y={32} delay={0.1}>
-        {/* Soft aurora glow lifts the card off the page — most visible in dark mode,
-            where a flat bg-card slab would otherwise read as a dim grey rectangle. */}
-        <div className="pointer-events-none absolute -inset-8 -z-10 rounded-[2rem] bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--aurora-2)_35%,transparent),transparent)] opacity-0 blur-2xl dark:opacity-40" />
-
-        <Link
-          href={`/courses/${c.slug}`}
-          className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          {/* Same spotlight surface as every CourseCard, so the hero preview matches
-              the rest of the course cards instead of being a one-off flat panel. */}
-          <SpotlightCard
-            lift={false}
-            className="rounded-2xl border border-border bg-card p-2 shadow-xl transition-transform duration-500 group-hover:rotate-[0.4deg]"
-          >
-            <div className="relative overflow-hidden rounded-xl border border-border">
-              <CourseArt
-                seed={c.thumbnail}
-                title={c.title}
-                category={c.category}
-                className="aspect-[16/10]"
-              />
-              <div className="absolute inset-0 grid place-items-center bg-black/15">
-                <span className="grid size-14 place-items-center rounded-full bg-background/90 text-primary shadow-lg backdrop-blur transition-transform duration-300 group-hover:scale-110">
-                  <PlayCircle className="size-7" />
-                </span>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">{c.category}</p>
-                
-              </div>
-              <h3 className="mt-1.5 font-semibold leading-snug text-foreground">{c.title}</h3>
-              {/* foreground/10 (not bg-secondary) so the track stays visible against
-                  bg-card in dark mode, where secondary and card are nearly the same lightness. */}
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-foreground/10">
-                <div className="h-full w-2/3 rounded-full bg-primary" />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">Lesson 12 of 18 · 68% complete</p>
-            </div>
-          </SpotlightCard>
-        </Link>
-      </Reveal>
-
-      {/* Metadata chip — anchored to the card's corner, rides along with its parallax */}
-      <div className="absolute -bottom-5 -left-5 hidden xl:block">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur">
-          <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
-            4.8 <Star className="size-4 fill-warning text-warning" />
-          </span>
-          <span className="text-xs text-muted-foreground">avg. rating</span>
-        </div>
-      </div>
-    </Parallax>
-  );
-}

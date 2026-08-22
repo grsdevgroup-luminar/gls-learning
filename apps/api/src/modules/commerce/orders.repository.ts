@@ -46,6 +46,18 @@ export class OrdersRepository {
     });
   }
 
+  /**
+   * Idempotency lookup for POST /checkout/session. Scoped to `userId` so two
+   * accounts submitting the same client-side key don't collide (the composite
+   * unique index enforces this at the DB level as well).
+   */
+  findOrderByIdempotencyKey(userId: string, idempotencyKey: string) {
+    return this.prisma.order.findUnique({
+      where: { user_idempotency_key: { userId, idempotencyKey } },
+      include: orderInclude,
+    });
+  }
+
   findById(orderId: string, tx?: Db) {
     return this.db(tx).order.findUnique({
       where: { id: orderId },

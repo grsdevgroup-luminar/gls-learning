@@ -1,14 +1,53 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/endpoints';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { gradientFor } from '@/lib/format';
 import { AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { clearPosition, readPosition, writePosition } from '@/lib/playback-position';
 
 const STREAM_ORIGIN = 'https://iframe.videodelivery.net';
+
+// Cloudflare's iframe posts event *names* to the parent but no playback time.
+// Their embed SDK wraps the same iframe and exposes currentTime/duration, so
+// it's the only way to know where the learner actually is.
+const SDK_SRC = 'https://embed.cloudflarestream.com/embed/sdk.latest.js';
+const SAVE_INTERVAL_MS = 10_000;
+
+interface StreamPlayer {
+  currentTime: number;
+  duration: number;
+  addEventListener: (type: string, listener: () => void) => void;
+  removeEventListener: (type: string, listener: () => void) => void;
+}
+
+declare global {
+  interface Window {
+    Stream?: (iframe: HTMLIFrameElement) => StreamPlayer;
+  }
+}
+
+let sdkPromise: Promise<void> | null = null;
+
+function loadStreamSdk(): Promise<void> {
+  if (window.Stream) return Promise.resolve();
+  sdkPromise ??= new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = SDK_SRC;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      sdkPromise = null;
+      script.remove();
+      reject(new Error('Failed to load the Cloudflare Stream SDK'));
+    };
+    document.head.appendChild(script);
+  });
+  return sdkPromise;
+}
 
 // Renders whatever the lesson actually is (video / article / not-yet-uploaded)
 // against the real, enrollment-gated `/lessons/:id/playback` endpoint. Video
@@ -20,19 +59,33 @@ export function ProtectedPlayer({
   watermark,
   seed = title,
   onComplete,
+  resume = true,
 }: {
   lessonId: string;
   title: string;
   watermark: string;
   seed?: string;
   onComplete?: () => void;
+  /** Set false to always start from the beginning. */
+  resume?: boolean;
 }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['playback', lessonId],
     queryFn: () => api.playback(lessonId),
   });
 
+  // Nothing prefetches the playback query, so `ready` is only ever true after a
+  // client-side fetch — which keeps this localStorage read out of SSR and out of
+  // the first hydrating render, and keys it to the lesson actually on screen.
+  const startAt = useMemo(
+    () => (data?.ready && resume ? readPosition(lessonId) : 0),
+    [data?.ready, resume, lessonId],
+  );
+
   // Cloudflare's signed iframe embed posts player events to the parent window.
+  // Completion stays on postMessage rather than the SDK so a blocked SDK can't
+  // stop a lesson from being marked done.
   useEffect(() => {
     if (!data?.ready || !data.iframeUrl) return;
     function onMessage(e: MessageEvent) {
@@ -42,6 +95,56 @@ export function ProtectedPlayer({
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [data?.ready, data?.iframeUrl, onComplete]);
+
+  // Track the position through the SDK, throttled — `timeupdate` fires ~4x/sec.
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    let player: StreamPlayer | null = null;
+    let lastSavedAt = 0;
+    let cancelled = false;
+
+    const save = () => {
+      if (!player) return;
+      lastSavedAt = Date.now();
+      writePosition(lessonId, player.currentTime, player.duration);
+    };
+    const onTimeUpdate = () => {
+      if (Date.now() - lastSavedAt >= SAVE_INTERVAL_MS) save();
+    };
+    const onEnded = () => clearPosition(lessonId);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') save();
+    };
+
+    void loadStreamSdk()
+      .then(() => {
+        if (cancelled || !window.Stream) return;
+        player = window.Stream(iframe);
+        player.addEventListener('timeupdate', onTimeUpdate);
+        player.addEventListener('pause', save);
+        player.addEventListener('seeked', save);
+        player.addEventListener('ended', onEnded);
+      })
+      .catch(() => {
+        /* Playback still works; only the resume point stops updating. */
+      });
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', save);
+
+    return () => {
+      cancelled = true;
+      save();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', save);
+      player?.removeEventListener('timeupdate', onTimeUpdate);
+      player?.removeEventListener('pause', save);
+      player?.removeEventListener('seeked', save);
+      player?.removeEventListener('ended', onEnded);
+    };
+  }, [lessonId, data?.iframeUrl]);
 
   if (isLoading) {
     return (
@@ -84,12 +187,16 @@ export function ProtectedPlayer({
     );
   }
 
+  // The signed URL always carries a query string, so `&` is safe here.
+  const src = startAt > 0 ? `${data.iframeUrl}&startTime=${startAt}` : data.iframeUrl;
+
   return (
     <div className="group relative w-full overflow-hidden rounded-xl bg-black">
       <div className="aspect-video">
         <iframe
           key={lessonId}
-          src={data.iframeUrl}
+          ref={iframeRef}
+          src={src}
           title={title}
           className="h-full w-full border-0"
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"

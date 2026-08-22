@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
 import { useStore } from '@/lib/context/store';
 import { ApiError } from '@/lib/api/errors';
@@ -20,8 +20,7 @@ import {
 } from '@/components/ui/popover';
 import { Check, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { COUNTRIES, flagFor } from '@/lib/countries';
-import { useDebouncedSearch } from '@/lib/use-debounced-value';
+import { CountrySelect } from '@/components/shared/country-select';
 import { registerSchema } from '@skillstream/shared';
 
 const perks = [
@@ -55,13 +54,14 @@ function SignupForm() {
     if (!q) return COUNTRIES;
     return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
   }, [debouncedCountryQuery]);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   async function create() {
     const result = registerSchema.safeParse({
       name,
       email,
       password,
-      country: country || undefined,
+      country,
     });
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Enter valid account details');
@@ -227,6 +227,13 @@ function SignupForm() {
                       </ul>
                     </PopoverContent>
                   </Popover>
+                  <CountrySelect
+                    value={country}
+                    onChange={(code) => {
+                      setCountry(code);
+                      setValidationError(null);
+                    }}
+                  />
                 </FormField>
                 <FormField label="Password" htmlFor="signup-password">
                   <div className="relative">

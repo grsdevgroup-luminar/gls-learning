@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UserRole } from "../enums.js";
+import { isIsoCountryCode } from "../countries.js";
 
 export const passwordSchema = z
   .string()
@@ -31,11 +32,23 @@ export function normalizeEmail(value: string): string {
   return value.replace(/\s+/g, "").toLowerCase();
 }
 
+/** ISO 3166-1 alpha-2 code from our supported country list, uppercased for storage. */
+export const countryCodeSchema = z
+  .string()
+  .min(1, "Country is required")
+  .transform((v) => v.trim().toUpperCase())
+  .pipe(
+    z
+      .string()
+      .length(2, "Select a valid country")
+      .refine(isIsoCountryCode, { message: "Select a valid country" }),
+  );
+
 export const registerSchema = z.object({
   name: z.string().min(1).max(120),
   email: emailSchema,
   password: passwordSchema,
-  country: z.string().min(2).max(80).optional(),
+  country: countryCodeSchema,
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

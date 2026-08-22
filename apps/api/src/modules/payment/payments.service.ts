@@ -54,13 +54,28 @@ export class PaymentsService {
       return { orderId: order.id, gateway, devSimulateToken };
     }
 
+    // Replay short-circuit: a prior successful startPayment for this order
+    // already cached the gateway URL. Return it unchanged so the client can
+    // resume the exact same provider session (Stripe/PayPal/SSLCommerz).
+    if (order.providerRedirectUrl && order.providerRef) {
+      return {
+        orderId: order.id,
+        gateway,
+        redirectUrl: order.providerRedirectUrl,
+        providerRef: order.providerRef,
+        devSimulateToken,
+      };
+    }
+
     const { redirectUrl, providerRef } = await impl.startPayment(order, {
       successUrl: this.successUrl(order.id),
       cancelUrl: this.cancelUrl(order.id),
     });
 
+    // Cache providerRef alongside redirectUrl so a subsequent replay hits the
+    // short-circuit above instead of opening a second provider session.
     if (providerRef)
-      await this.repo.updateOrderProviderRef(order.id, providerRef);
+      await this.repo.updateOrderProviderRef(order.id, providerRef, redirectUrl);
 
     return {
       orderId: order.id,

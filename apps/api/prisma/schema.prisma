@@ -490,21 +490,26 @@ model Comment {
 }
 
 model Order {
-  id                String         @id @default(cuid())
-  userId            String
-  user              User           @relation(fields: [userId], references: [id])
-  country           String?
-  subtotalCents     Int
-  discountCents     Int            @default(0)
-  totalCents        Int
-  currency          String         @default("USD")
-  couponCode        String?
-  gateway           PaymentGateway
-  status            OrderStatus    @default(PENDING)
-  providerPaymentId String?
-  providerRef       String?
-  createdAt         DateTime       @default(now())
-  paidAt            DateTime?
+  id                   String         @id @default(cuid())
+  userId               String
+  user                 User           @relation(fields: [userId], references: [id])
+  country              String?
+  subtotalCents        Int
+  discountCents        Int            @default(0)
+  totalCents           Int
+  currency             String         @default("USD")
+  couponCode           String?
+  gateway              PaymentGateway
+  status               OrderStatus    @default(PENDING)
+  providerPaymentId    String?
+  providerRef          String?
+  providerRedirectUrl  String?
+  /// Client-supplied Idempotency-Key for POST /checkout/session. Scoped per
+  /// user so two accounts can reuse the same client-side UUID without colliding.
+  /// Null on legacy rows; new rows created via the checkout flow always set it.
+  idempotencyKey       String?
+  createdAt            DateTime       @default(now())
+  paidAt               DateTime?
 
   agentReferralCode String?
   agentId           String?
@@ -513,6 +518,7 @@ model Order {
   redemptions   CouponRedemption[]
   agentReferral SalesAgentReferral?
 
+  @@unique([userId, idempotencyKey], name: "user_idempotency_key")
   @@index([userId])
   @@index([status])
   @@index([agentId])

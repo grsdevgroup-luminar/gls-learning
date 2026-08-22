@@ -41,21 +41,26 @@ export class StripeGateway implements PaymentGateway {
     urls: PaymentUrls,
   ): Promise<StartPaymentResult> {
     const stripe = this.requireClient();
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      success_url: urls.successUrl,
-      cancel_url: urls.cancelUrl,
-      client_reference_id: order.id,
-      metadata: { orderId: order.id },
-      line_items: order.items.map((i) => ({
-        quantity: 1,
-        price_data: {
-          currency: order.currency.toLowerCase(),
-          unit_amount: i.priceCents,
-          product_data: { name: i.titleSnapshot },
-        },
-      })),
-    });
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        success_url: urls.successUrl,
+        cancel_url: urls.cancelUrl,
+        client_reference_id: order.id,
+        metadata: { orderId: order.id },
+        line_items: order.items.map((i) => ({
+          quantity: 1,
+          price_data: {
+            currency: order.currency.toLowerCase(),
+            unit_amount: i.priceCents,
+            product_data: { name: i.titleSnapshot },
+          },
+        })),
+      },
+      // Stripe caches responses keyed by this value for 24h. Retries with the
+      // same key return the exact same Checkout Session — no duplicate charge.
+      { idempotencyKey: `co_session_${order.id}` },
+    );
     return {
       redirectUrl: session.url ?? undefined,
       providerRef: session.id,
@@ -66,7 +71,10 @@ export class StripeGateway implements PaymentGateway {
     if (!order.providerPaymentId || order.providerPaymentId === "dev_simulated")
       return;
     const stripe = this.requireClient();
-    await stripe.refunds.create({ payment_intent: order.providerPaymentId });
+    await stripe.refunds.create(
+      { payment_intent: order.providerPaymentId },
+      { idempotencyKey: `refund_${order.id}` },
+    );
   }
 
   async verifyWebhook(input: WebhookInput): Promise<WebhookResult> {
