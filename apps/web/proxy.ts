@@ -50,71 +50,12 @@ function roleFromToken(token: string | undefined): Role | null {
   }
 }
 
-function isPrivateOrLocalIp(ip: string): boolean {
-  if (ip === "::1" || ip === "127.0.0.1" || ip.startsWith("::ffff:127.")) {
-    return true;
-  }
-  if (ip.includes(":")) {
-    return ip.startsWith("fe80:") || ip.startsWith("fc") || ip.startsWith("fd");
-  }
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;
-  const [a, b] = parts;
-  if (a === 10) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  return false;
-}
-
-function normalizeIp(raw: string): string {
-  const ip = raw.trim();
-  return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
-}
-
-/** Client IP as seen by the Railway/Vercel edge in front of Next.js. */
-function edgeClientIp(request: NextRequest): string | null {
-  const cf = request.headers.get("cf-connecting-ip")?.trim();
-  if (cf) {
-    const ip = normalizeIp(cf);
-    if (ip && !isPrivateOrLocalIp(ip)) return ip;
-  }
-
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) {
-    for (const hop of xff.split(",")) {
-      const ip = normalizeIp(hop);
-      if (ip && !isPrivateOrLocalIp(ip)) return ip;
-    }
-  }
-
-  const real = request.headers.get("x-real-ip")?.trim();
-  if (real) {
-    const ip = normalizeIp(real);
-    if (ip && !isPrivateOrLocalIp(ip)) return ip;
-  }
-
-  return null;
-}
-
-function withClientIp(request: NextRequest): Headers {
-  const headers = new Headers(request.headers);
-  const ip = edgeClientIp(request);
-  if (ip) headers.set("x-real-ip", ip);
-  return headers;
-}
-
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const headers = withClientIp(request);
-
-  if (pathname === "/api" || pathname.startsWith("/api/")) {
-    return NextResponse.next({ request: { headers } });
-  }
-
   const needsAuth = PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
-  if (!needsAuth) return NextResponse.next({ request: { headers } });
+  if (!needsAuth) return NextResponse.next();
 
   const hasSession = request.cookies.has("refresh_token");
   if (!hasSession) {
@@ -135,12 +76,11 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next({ request: { headers } });
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    "/api/:path*",
     "/dashboard/:path*",
     "/account/:path*",
     "/learn/:path*",
