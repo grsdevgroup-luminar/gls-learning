@@ -53,7 +53,8 @@ import type {
   UpdateNotificationPreferencesInput,
   UpdateLearningPreferencesInput,
   ToggleLessonResultDto,
-  WeeklyActivityDayDto,
+  ActivityDayDto,
+  ActivityPeriod,
 } from "@skillstream/shared";
 import { apiFetch, apiFetchMultipart } from "./client";
 
@@ -131,8 +132,8 @@ export const api = {
 
   // enrollment / progress
   myEnrollments: () => apiFetch<EnrollmentDto[]>("/me/enrollments"),
-  myWeeklyActivity: () =>
-    apiFetch<WeeklyActivityDayDto[]>("/me/activity/weekly"),
+  myActivity: (period: ActivityPeriod = "weekly") =>
+    apiFetch<ActivityDayDto[]>(`/me/activity?period=${period}`),
   progress: (courseId: string) =>
     apiFetch<EnrollmentDto>(`/me/courses/${courseId}/progress`),
   enrollFree: (courseId: string) =>

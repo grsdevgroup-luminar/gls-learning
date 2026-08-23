@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
 import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
@@ -28,21 +29,48 @@ export function SiteHeader() {
   const { cart, mounted } = useStore();
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
- const router = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [q, setQ] = useState("");
+  const urlQ = pathname === "/courses" ? (searchParams.get("q") ?? "") : "";
+  const [q, setQ] = useState(urlQ);
+  const [syncedQ, setSyncedQ] = useState(urlQ);
+  const debouncedQ = useDebouncedSearch(q);
   const isAuthed = !!user;
 
-  function search(e: React.FormEvent) {
-    e.preventDefault();
-    const query = q.trim();
+  if (syncedQ !== urlQ) {
+    setSyncedQ(urlQ);
+    setQ(urlQ);
+  }
+
+  const search = useCallback((query: string) => {
+    if (pathname === "/courses") {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      if (query.length < 2) nextParams.delete("q");
+      else nextParams.set("q", query);
+
+      const nextQueryString = nextParams.toString();
+      const nextHref = nextQueryString ? `/courses?${nextQueryString}` : "/courses";
+      const currentQueryString = searchParams.toString();
+      const currentHref = currentQueryString ? `/courses?${currentQueryString}` : "/courses";
+      if (nextHref === currentHref) return;
+
+      router.push(nextHref);
+      return;
+    }
+
     if (query.length < 2) return;
 
-    const currentQuery = searchParams.get("q") ?? "";
-    if (pathname === "/courses" && currentQuery === query) return;
-
     router.push(`/courses?q=${encodeURIComponent(query)}`);
+  }, [pathname, router, searchParams]);
+
+  useEffect(() => {
+    search(debouncedQ);
+  }, [debouncedQ, search]);
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    search(q.trim());
   }
 
   async function logout() {
@@ -73,7 +101,7 @@ export function SiteHeader() {
           </Button>
         </nav>
 
-        <form onSubmit={search} className="relative ml-2 hidden flex-1 lg:block">
+        <form onSubmit={submitSearch} className="relative ml-2 hidden flex-1 lg:block">
           <button
             type="submit"
             aria-label="Search courses"
@@ -84,7 +112,7 @@ export function SiteHeader() {
           <Input
             type="search"
             value={q}
-             onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
             minLength={2}

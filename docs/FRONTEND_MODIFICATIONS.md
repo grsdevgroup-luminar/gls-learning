@@ -1,5 +1,95 @@
 # Changelog
 
+## 2026-08-22
+
+### Fixed
+
+- Fixed the profile/account menu hover cursor so the storefront header profile icon and shared portal account menu show a hand pointer.
+- Updated shared button and dropdown-menu item styling so other clickable dropdown triggers and menu actions also expose pointer cursor feedback consistently.
+- Fixed duplicate course-search requests when the top navigation search submitted while already on the courses page.
+- Navigation search now updates the course results dynamically after typing pauses, including removing the query when the search is cleared; Enter remains supported as an immediate submit.
+- Certificate PDF generation now stays in the current tab, and the print view Back action returns directly to the Certificates dashboard section.
+- Certificate print navigation now creates a reliable browser history entry, so the browser Back button returns to Certificates instead of skipping to My progress.
+- The certificate print view now inserts the Certificates section directly before its print entry, covering cases where the browser history previously contained another student dashboard page.
+- Removed forced new-tab navigation from certificate verification and PDF links so certificate actions remain in one tab.
+- Header-submitted course searches now apply immediately in the course filters without an intermediate old-query fetch, and hydrated course results stay fresh long enough to avoid an immediate client refetch.
+- The top navigation search field now syncs with the active `/courses?q=...` value and skips navigation when the submitted course-search URL is unchanged.
+- Fixed the My Progress completed-course Review action so it opens the public course page directly at the Write a review area instead of routing learners back into the course player.
+- Added a stable `write-a-review` anchor around the course review action so hash navigation scrolls to the exact review button location.
+- Fixed the review dialog layout so long title or review text stays inside the modal instead of expanding the text fields beyond the dialog width.
+- Added Daily, Weekly, and Monthly activity views to My Progress with a period selector.
+- Clarified that activity is calculated from completed lesson duration, and that course progress is completed lessons divided by total lessons.
+
+### Changed Files
+
+- `apps/web/components/layout/site-header.tsx`
+  - Syncs the header search input with the active course search URL and avoids same-URL course search navigations.
+
+- `apps/web/app/(storefront)/courses/_components/catalog-client.tsx`
+  - Applies URL-originated search terms immediately while preserving debounced search for direct course filter typing.
+
+- `apps/web/lib/api/query-keys.ts`
+  - Normalizes course query keys by removing empty and undefined params before React Query hashes them.
+
+- `apps/web/lib/api/hooks.ts`
+  - Reuses normalized course params for fetches and keeps course list data fresh briefly after server hydration.
+
+- `apps/web/components/ui/button.tsx`
+  - Added pointer cursor styling to the shared button primitive used by the storefront profile trigger and other button-based dropdown triggers.
+
+- `apps/web/components/ui/dropdown-menu.tsx`
+  - Changed enabled dropdown menu actions from default cursor to pointer cursor.
+
+- `apps/web/components/shared/portal-shell.tsx`
+  - Added pointer cursor styling to the shared sidebar profile/account menu trigger used across portal modules.
+
+- `apps/web/app/(student)/dashboard/certificates/page.tsx`
+  - Opens the certificate print/download view in the current tab and keeps verification navigation in the same tab.
+
+- `apps/web/app/certificates/[serial]/print/print-client.tsx`
+  - Routes the print view Back action directly to the student Certificates section.
+
+- `apps/web/app/(storefront)/verify/[serial]/page.tsx`
+  - Keeps the public certificate PDF action in the current tab.
+
+- `apps/web/app/(student)/dashboard/progress/page.tsx`
+  - Routes completed-course Review actions to `/courses/[slug]#write-a-review` while keeping incomplete courses on the existing Resume path.
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/reviews-section.tsx`
+  - Adds the `write-a-review` anchor and scroll margin around the enrolled learner review action.
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/review-dialog.tsx`
+  - Constrains the review modal and form controls, keeping long unbroken text wrapped or scrollable inside the title and review fields.
+
+- `apps/web/app/(student)/dashboard/progress/page.tsx`
+  - Adds the Daily, Weekly, and Monthly activity selector, period totals, active-day counts, and progress calculation guidance.
+
+- `apps/web/lib/api/hooks.ts`
+  - Loads activity for the selected time period and caches each period independently.
+
+- `apps/web/lib/api/endpoints.ts`
+  - Requests learner activity through the period-aware activity endpoint.
+
+- `apps/web/lib/api/query-keys.ts`
+  - Adds period-specific activity query keys.
+
+- `apps/api/src/modules/enrollment/enrollment.controller.ts`
+  - Exposes the learner activity endpoint with Daily, Weekly, and Monthly period selection.
+
+- `apps/api/src/modules/enrollment/enrollment.service.ts`
+  - Aggregates completed lesson duration across the selected 1-day, 7-day, or 30-day range.
+
+- `apps/api/src/modules/enrollment/enrollment.repository.ts`
+  - Generalizes lesson-progress lookup for period-based activity ranges.
+
+- `packages/shared/src/contracts/enrollment.ts`
+  - Adds shared activity period and day response types.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
 ## 2026-08-21
 
 ### Added

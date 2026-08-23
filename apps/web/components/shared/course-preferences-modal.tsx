@@ -161,7 +161,7 @@ export function CoursePreferencesModal({
                   aria-pressed={selected}
                   disabled={unavailable || savePreferences.isPending}
                   onClick={() => toggleCategory(category)}
-                  className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${selected
+                  className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${selected
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-card hover:border-primary hover:bg-accent"
                     }`}

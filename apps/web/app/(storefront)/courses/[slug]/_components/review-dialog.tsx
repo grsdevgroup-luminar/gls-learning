@@ -63,31 +63,32 @@ export function ReviewDialog({
         <PenLine className="h-3.5 w-3.5" />{" "}
         {existing ? "Edit your review" : "Write a review"}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] overflow-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{existing ? "Edit your review" : "Rate this course"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
+        <div className="min-w-0 space-y-4">
+          <div className="min-w-0">
             <div className="mb-1.5 text-sm font-medium">Your rating</div>
             <StarRatingInput value={rating} onChange={setRating} />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="mb-1.5 text-sm font-medium">Title</div>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Sum up your experience"
+              className="max-w-full"
               maxLength={80}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="mb-1.5 text-sm font-medium">Review</div>
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="What did you like or dislike? Would you recommend this course?"
-              className="min-h-28"
+              className="min-h-28 max-h-48 min-w-0 max-w-full resize-y overflow-auto break-all [field-sizing:fixed]"
               maxLength={1000}
             />
           </div>

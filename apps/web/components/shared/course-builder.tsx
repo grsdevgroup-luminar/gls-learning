@@ -36,6 +36,7 @@ import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-sk
 const MAX_THUMBNAIL_DIM = 800;
 const THUMBNAIL_JPEG_QUALITY = 0.82;
 const MAX_SUBTITLE_LENGTH = 240;
+const MAX_TITLE_LENGTH = 100;
 
 
 function readImageFile(file: File, maxDim = MAX_THUMBNAIL_DIM, quality = THUMBNAIL_JPEG_QUALITY): Promise<string> {
@@ -174,6 +175,7 @@ export function CourseBuilder({
   const thumbInputRef = useRef<HTMLInputElement>(null);
   // Categories load async; fall back to the first once they arrive.
   const categoryValue = category || categories[0] || "";
+  const titleTooLong = title.length > MAX_TITLE_LENGTH;
   const subtitleTooLong = subtitle.length > MAX_SUBTITLE_LENGTH;
   const descriptionTooLong = description.length > MAX_COURSE_DESCRIPTION_LENGTH;
   const [published, setPublished] = useState(false);
@@ -302,6 +304,10 @@ export function CourseBuilder({
   async function save(action: "draft" | "publish" | "review") {
     if (!title.trim()) {
       toast.error("Give your course a title first.");
+      return;
+    }
+    if (titleTooLong) {
+      toast.error(`Title cannot exceed ${MAX_TITLE_LENGTH} characters`);
       return;
     }
     if (subtitleTooLong) {
@@ -501,7 +507,27 @@ export function CourseBuilder({
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" /> Course details</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1.5"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Modern React Masterclass" /></div>
+             <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="course-subtitle">Title</Label>
+                  <span className={titleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                    {title.length}/{MAX_TITLE_LENGTH}
+                  </span>
+                </div>
+                <Input
+                  id="course-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="One-line value proposition"
+                  aria-invalid={titleTooLong}
+                  aria-describedby={titleTooLong ? "course-title-error" : undefined}
+                />
+                {titleTooLong && (
+                  <p id="course-title-error" className="text-xs font-medium text-destructive" role="alert">
+                    Title cannot exceed {MAX_TITLE_LENGTH} characters
+                  </p>
+                )}
+              </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-3">
                   <Label htmlFor="course-subtitle">Subtitle</Label>

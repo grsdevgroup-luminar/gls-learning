@@ -28,6 +28,11 @@ const SORT_TO_API: Record<string, CourseSort> = {
   price_high: "price_desc",
 };
 
+function activeSearch(value: string) {
+  const query = value.trim();
+  return query.length >= 2 ? query : "";
+}
+
 export function CatalogClient() {
   const { data: categories = [] } = useCategories();
   const { region } = useStore();
@@ -39,7 +44,8 @@ export function CatalogClient() {
   // the filter UI matches that instead of pretending to support multi-select
   // then silently only honoring the first pick.
   const [qInput, setQInput] = useState(urlQ);
-  const q = useDebouncedSearch(qInput);
+  const debouncedQ = useDebouncedSearch(qInput);
+  const [urlSearch, setUrlSearch] = useState(activeSearch(urlQ));
   const [cat, setCat] = useState<string | null>(urlCat);
   const [lvl, setLvl] = useState<CourseLevel | null>(null);
   const [price, setPrice] = useState("all");
@@ -54,11 +60,19 @@ export function CatalogClient() {
   // "sync state to a changing external value") instead of an effect, which
   // would cost an extra render pass and can cascade.
   const [syncedFromUrl, setSyncedFromUrl] = useState({ q: urlQ, cat: urlCat });
-  if (syncedFromUrl.q !== urlQ || syncedFromUrl.cat !== urlCat) {
+  const urlChanged = syncedFromUrl.q !== urlQ || syncedFromUrl.cat !== urlCat;
+  const nextUrlSearch = activeSearch(urlQ);
+  if (urlChanged) {
     setSyncedFromUrl({ q: urlQ, cat: urlCat });
     setQInput(urlQ);
+    setUrlSearch(nextUrlSearch);
     setCat(urlCat);
   }
+  const effectiveQInput = urlChanged ? urlQ : qInput;
+  const q =
+    activeSearch(effectiveQInput) === (urlChanged ? nextUrlSearch : urlSearch)
+      ? (urlChanged ? nextUrlSearch : urlSearch)
+      : debouncedQ;
 
   // Every filter is now server-backed (price/rating included), so any change
   // to any of them resets pagination — the fetched page is always the full,
@@ -116,7 +130,7 @@ export function CatalogClient() {
 
   const filterProps = {
     categories,
-    q: qInput,
+    q: effectiveQInput,
     onQChange: setQInput,
     cat,
     onCatChange: setCat,

@@ -30,6 +30,14 @@ export interface WeeklyActivityDayDto {
   minutes: number;
 }
 
+export type ActivityPeriod = "daily" | "weekly" | "monthly";
+
+export interface ActivityDayDto {
+  /** ISO date (YYYY-MM-DD), local to the server. */
+  date: string;
+  minutes: number;
+}
+
 export interface ToggleLessonResultDto {
   lessonId: string;
   completed: boolean;

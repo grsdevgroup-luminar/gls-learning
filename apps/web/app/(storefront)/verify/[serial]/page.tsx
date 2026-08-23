@@ -51,7 +51,7 @@ export default async function VerifyCertificatePage({
                 <Row label="Serial" value={cert.serial} mono />
               </dl>
               <div className="flex flex-wrap justify-center gap-2">
-                <Button render={<Link href={`/certificates/${cert.serial}/print`} target="_blank" />}>
+                <Button render={<Link href={`/certificates/${cert.serial}/print`} />}>
                   <Download className="mr-1.5 h-4 w-4" /> View PDF
                 </Button>
                 <Button variant="outline" render={<Link href={`/courses/${cert.courseSlug}`} />}>
