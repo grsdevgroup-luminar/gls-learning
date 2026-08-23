@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/format";
 import { Save, ShieldCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
 export default function InstructorProfile() {
   const qc = useQueryClient();
@@ -55,7 +56,14 @@ export default function InstructorProfile() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
-  if (isLoading || !profile) return null;
+  if (isLoading || !profile) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
+        <PageHeaderSkeleton />
+        <div className="rounded-xl border p-6"><FormSkeleton /></div>
+      </div>
+    );
+  }
   const status = profile.status;
 
   return (

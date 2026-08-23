@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CourseCard } from "./_components/course-card";
+import { PersonalizedRecommendations } from "./_components/personalized-recommendations";
 import { HeroShowcase } from "./_components/hero-showcase";
 import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/shared/stars";
@@ -208,6 +209,8 @@ export default async function HomePage() {
         sub="Loved by hundreds of thousands of learners"
         courses={bestsellers}
       />
+
+      <PersonalizedRecommendations />
 
       {/* ── Features (integrated panel, not floating cards) ─────── */}
       <Section tinted size="lg">

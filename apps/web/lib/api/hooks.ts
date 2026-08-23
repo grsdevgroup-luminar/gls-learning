@@ -16,6 +16,7 @@ import type {
   UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
+  UpdateLearningPreferencesInput,
 } from "@skillstream/shared";
 import { api } from "./endpoints";
 import { qk } from "./query-keys";
@@ -59,6 +60,31 @@ export const useCategories = () =>
     queryFn: api.categories,
     staleTime: 60 * 60 * 1000,
   });
+
+export const useRecommendedCourses = (limit = 8, enabled = true) =>
+  useQuery({
+    queryKey: qk.recommendations(limit),
+    queryFn: () => api.recommendations(limit),
+    enabled,
+  });
+
+export const useCoursePreferences = () =>
+  useQuery({
+    queryKey: qk.coursePreferences,
+    queryFn: api.coursePreferences,
+  });
+
+export function useSaveCoursePreferences() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateLearningPreferencesInput) =>
+      api.updateCoursePreferences(input),
+    onSuccess: (preferences) => {
+      qc.setQueryData(qk.coursePreferences, preferences);
+      void qc.invalidateQueries({ queryKey: ["me", "recommendations"] });
+    },
+  });
+}
 
 // ── enrollment / progress ─────────────────────────────────────────────────
 export const useMyEnrollments = () =>

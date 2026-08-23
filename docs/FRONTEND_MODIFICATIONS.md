@@ -1,5 +1,147 @@
 # Changelog
 
+## 2026-08-21
+
+### Added
+
+- Added a reusable course-preference modal for new learners after registration and for students updating their preferences from the dashboard.
+- The modal presents all ten learning categories in a consistent five-column, two-row grid and requires exactly three selections before recommendations can be saved.
+- Category cards now include category-specific icons, larger labels, and larger icons while retaining fixed card sizes so multi-word categories remain contained.
+- The full-width modal preserves a wide desktop layout with two-inch side margins, a compact small-screen layout, loading states during saves, and a blurred page backdrop.
+- Saved preferences drive the signed-in learner's recommended-course sections on the dashboard and storefront homepage.
+
+### Changed
+
+- Course-builder save actions remain visible while course details and curriculum content scroll, reducing the need to return to the top before saving.
+- The sticky action bar is positioned below the mobile portal header and at the top of the workspace on desktop.
+- Course descriptions are limited to 2,000 characters. The editor shows a live count, an inline validation message, and blocks saves until the description is within the limit.
+- Description validation now returns `Description cannot exceed 2000 characters` instead of surfacing a generic internal-server error.
+
+### Changed Files
+
+- `apps/web/components/shared/course-preferences-modal.tsx`
+  - Provides the shared three-category selection interface, category icons, selection limit, save feedback, responsive sizing, and accessibility states.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+  - Opens the preference modal immediately after successful registration and redirects the learner after their selections are saved.
+
+- `apps/web/app/(student)/dashboard/page.tsx`
+  - Adds a learning-preferences summary and an Edit preferences action that reuses the shared modal.
+
+- `apps/web/app/(storefront)/_components/personalized-recommendations.tsx`
+- `apps/web/lib/api/hooks.ts`
+  - Loads and refreshes preference-based recommendations after preferences change.
+
+- `apps/web/components/ui/dialog.tsx`
+  - Applies the blurred overlay used behind the preference modal.
+
+- `apps/web/components/shared/course-builder.tsx`
+  - Moves Save, Save draft, and Submit for review into a responsive sticky action bar without changing their save behavior.
+  - Adds shared-limit description validation, an accessible inline error, character count, and friendly save-error fallback.
+
+- `packages/shared/src/contracts/authoring.ts`
+  - Defines and enforces the 2,000-character course-description limit for create and update API requests.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-20
+
+### Changed
+
+- Browser tab titles now update for every application route instead of inheriting only the broad module title.
+- Course detail pages continue to use their existing server-generated course titles.
+
+### Changed Files
+
+- `apps/web/components/shared/page-title.tsx`
+  - Added centralized, route-aware browser-title handling for storefront, student, admin, instructor, sales-agent, organization, and utility pages.
+
+- `apps/web/app/providers.tsx`
+  - Mounted the route-title manager once for the full application.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-20
+
+### Changed
+
+- Removed the unnecessary country dropdowns from the cart and checkout. Regional pricing continues to use the shopper's existing region setting.
+- Registration now saves the selected country as the storefront pricing region, so cart and checkout immediately use the same billing region after signup.
+
+### Changed Files
+
+- `apps/web/app/(storefront)/cart/page.tsx`
+  - Removed the Pricing region country selector while preserving the regional-pricing notice and cart totals.
+
+- `apps/web/app/(storefront)/checkout/page.tsx`
+  - Removed the Billing region country selector while preserving the static region and pricing information.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+- `apps/web/lib/context/store.tsx`
+  - Persist the registration country’s ISO code as the pricing region before redirecting to the storefront.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-19
+
+### Fixed
+
+- Fixed the header course search retaining a stale `q` URL parameter after users clear the input or reduce it below the two-character search threshold.
+- Clearing the header search now restores the full course catalog while preserving any other active catalog filters.
+
+### Added
+
+- Added reusable, layout-matched skeleton components for page headers, forms, course grids, tables, checkout, learning, discussion, and authentication screens.
+- Added route-level loading boundaries for course catalog navigation, course learning, and storefront authentication.
+- Replaced loading spinners, blank profile screens, and plain loading text in the catalog, checkout, learning flow, instructor workflows, team courses, admin settings, course discussions, and protected video player.
+- Added per-organization course-grid skeletons so team-course sections do not briefly render an empty state while their data is loading.
+
+### Changed Files
+
+- `apps/web/components/layout/site-header.tsx`
+  - Removes only the stale `q` parameter when an edited header search becomes empty or too short.
+
+- `apps/web/components/shared/loading-skeletons.tsx`
+  - Added shared skeleton layouts for common page and content patterns.
+
+- `apps/web/app/(storefront)/courses/loading.tsx`
+- `apps/web/app/learn/[slug]/loading.tsx`
+- `apps/web/app/(storefront)/(auth)/loading.tsx`
+  - Added route-level loading boundaries that match their destination layouts.
+
+- `apps/web/app/(storefront)/courses/_components/catalog-results.tsx`
+- `apps/web/app/(storefront)/checkout/page.tsx`
+- `apps/web/app/(storefront)/courses/[slug]/_components/course-comments.tsx`
+- `apps/web/app/(student)/dashboard/team/page.tsx`
+- `apps/web/app/instructor/profile/page.tsx`
+- `apps/web/app/instructor/_components/approval-gate.tsx`
+- `apps/web/app/admin/settings/page.tsx`
+- `apps/web/components/shared/course-builder.tsx`
+- `apps/web/components/player/protected-player.tsx`
+  - Replaced generic loading states with content-shaped skeletons.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `git diff --check`
+
+- Note:
+  - `pnpm --filter @skillstream/web lint` still reports pre-existing `react-hooks/set-state-in-effect` errors in billing, admin list pages, and the store context; the skeleton changes introduced no lint errors.
+
+### Notes
+
+- Skeleton screens improve perceived performance and reduce layout shift while requests resolve; they do not change backend/API response times.
+
 ## 2026-08-18
 
 ### Fixed

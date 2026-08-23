@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMyEnrollments, useCourses } from "@/lib/api/hooks";
+import { useState } from "react";
+import { useCoursePreferences, useMyEnrollments, useRecommendedCourses } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
+import { CoursePreferencesModal } from "@/components/shared/course-preferences-modal";
 import { CourseArt } from "@/components/shared/course-art";
 import { Meter } from "@/components/shared/meter";
 import { CircularProgress } from "@/components/shared/circular-progress";
@@ -11,14 +13,18 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Clock, Award, PlayCircle, ArrowRight, Bell, ChevronRight, TrendingUp,
+  SlidersHorizontal,
 } from "lucide-react";
 import { formatHoursFromMin } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { LEARNING_CATEGORIES, type LearningCategory } from "@skillstream/shared";
 
 export default function DashboardPage() {
   const { user, isLoading: sessionLoading } = useSession();
   const { data: enrollments, isLoading: enrollLoading } = useMyEnrollments();
-  const { data: coursesPage, isLoading: coursesLoading } = useCourses({ page: 1, limit: 4 });
+  const { data: recommendedCourses, isLoading: coursesLoading } = useRecommendedCourses(4);
+  const { data: preferences, isLoading: preferencesLoading } = useCoursePreferences();
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   const isLoading = sessionLoading || enrollLoading;
 
@@ -54,10 +60,11 @@ export default function DashboardPage() {
 
   const totalMinutes = enrolled.reduce((sum, e) => sum + e.minutesWatched, 0);
 
-  const enrolledCourseIds = new Set(enrolled.map((e) => e.courseId));
-  const recommended = (coursesPage?.items ?? [])
-    .filter((c) => !enrolledCourseIds.has(c.id))
-    .slice(0, 4);
+  const recommended = recommendedCourses ?? [];
+  const savedCategories = (preferences?.categories ?? []).filter(
+    (category): category is LearningCategory =>
+      LEARNING_CATEGORIES.includes(category as LearningCategory),
+  );
 
   const stats = [
     { icon: BookOpen,    label: "Enrolled",    value: enrolled.length,              tint: "var(--tint-indigo)"  },
@@ -235,6 +242,41 @@ export default function DashboardPage() {
         </Button>
       </section>
 
+      {/* Learning preferences */}
+      <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <SlidersHorizontal className="size-4 text-primary" /> Learning preferences
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Choose the three areas used to personalize your recommendations.
+            </p>
+            {preferencesLoading ? (
+              <div className="mt-4 flex gap-2"><Skeleton className="h-7 w-24 rounded-full" /><Skeleton className="h-7 w-28 rounded-full" /><Skeleton className="h-7 w-20 rounded-full" /></div>
+            ) : savedCategories.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {savedCategories.map((category) => (
+                  <span key={category} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    {category}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-muted-foreground">No preferences saved yet.</p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            disabled={preferencesLoading}
+            onClick={() => setPreferencesOpen(true)}
+          >
+            <SlidersHorizontal /> Edit preferences
+          </Button>
+        </div>
+      </section>
+
       {/* Recommended for you */}
       {!coursesLoading && recommended.length > 0 && (
         <section>
@@ -269,6 +311,12 @@ export default function DashboardPage() {
           </div>
         </section>
       )}
+      <CoursePreferencesModal
+        open={preferencesOpen}
+        initialCategories={savedCategories}
+        onOpenChange={setPreferencesOpen}
+        onSaved={() => setPreferencesOpen(false)}
+      />
     </div>
   );
 }

@@ -220,6 +220,9 @@ model StudentProfile {
   status            StudentStatus @default(ACTIVE)
   totalSpentCents   Int           @default(0)
   notificationPrefs Json          @default("{}")
+  interestCategories String[]     @default([])
+  interestKeywords   String[]     @default([])
+  interestsCompletedAt DateTime?
 }
 
 model InstructorProfile {

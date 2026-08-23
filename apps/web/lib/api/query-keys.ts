@@ -23,6 +23,8 @@ export const qk = {
   instructorCourses: ["instructor-courses"] as const,
   salesAgents: ["sales-agents"] as const,
   categories: ["categories"] as const,
+  coursePreferences: ["me", "course-preferences"] as const,
+  recommendations: (limit?: number) => ["me", "recommendations", limit] as const,
   adminCoupons: (params?: unknown) => ["admin-coupons", params] as const,
   featuredCoupon: ["featured-coupon"] as const,
   adminSettings: ["admin-settings"] as const,

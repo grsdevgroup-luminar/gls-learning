@@ -15,8 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Building2, Users2, Bell, Check, Loader2 } from 'lucide-react';
+import { CreditCard, Building2, Users2, Bell, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormSkeleton, PageHeaderSkeleton } from '@/components/shared/loading-skeletons';
 
 /** Admin notification toggles. Keys are persisted in `settings.notifications`. */
 const NOTIFICATION_TOGGLES: { key: string; label: string }[] = [
@@ -61,8 +62,11 @@ export default function AdminSettings() {
 
   if (isLoading || !settings) {
     return (
-      <div className="grid min-h-[40vh] place-items-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6 p-6 md:p-8">
+        <PageHeaderSkeleton />
+        <div className="rounded-xl border p-6"><FormSkeleton /></div>
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <div className="h-48 animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }

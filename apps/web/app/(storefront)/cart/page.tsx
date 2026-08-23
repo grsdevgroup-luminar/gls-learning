@@ -12,13 +12,12 @@ import { formatLocal } from "@/lib/pricing";
 import { formatUsd } from "@/lib/format";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
-import { RegionSelect } from "@/components/shared/region-select";
 import { BestsellerBadge } from "@/components/shared/bestseller-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Tag, ShoppingCart, ArrowRight, Check, Globe2 } from "lucide-react";
+import { Trash2, Tag, ShoppingCart, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CartPage() {
@@ -179,16 +178,10 @@ export default function CartPage() {
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <Card>
             <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Globe2 className="h-4 w-4" /> Pricing region
-                </span>
-                <RegionSelect className="w-40" />
-              </div>
               <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground">
                 {region.multiplier < 1
                   ? `Regional pricing applied — ${Math.round((1 - region.multiplier) * 100)}% off for ${region.country}.`
-                  : "Standard global pricing for your region."}
+                  : `Standard global pricing applied for ${region.country}.`}
               </p>
 
               <Separator />

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building2, BookOpen, Play, Plus, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { CourseGridSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
 export default function TeamCoursesPage() {
   const qc = useQueryClient();
@@ -36,6 +37,10 @@ export default function TeamCoursesPage() {
     },
     onError: (err) => toast.error("Could not enroll", { description: getApiErrorMessage(err) }),
   });
+
+  if (isLoading) {
+    return <div className="space-y-8 p-6 md:p-8"><PageHeaderSkeleton /><CourseGridSkeleton count={3} /></div>;
+  }
 
   if (isLoading) return <div className="p-6 md:p-8 text-muted-foreground">Loading…</div>;
 
@@ -86,7 +91,7 @@ function OrgCourseList({
   onEnroll: (courseId: string) => void;
   enrolling?: string;
 }) {
-  const { data: courses } = useQuery({
+  const { data: courses, isLoading } = useQuery({
     queryKey: ["org", orgId, "courses"],
     queryFn: () => orgApi.courses(orgId),
   });
@@ -99,7 +104,9 @@ function OrgCourseList({
         <Badge variant="secondary" className="text-[10px]">{courses?.length ?? 0} courses</Badge>
       </div>
 
-      {!courses || courses.length === 0 ? (
+      {isLoading ? (
+        <CourseGridSkeleton count={3} />
+      ) : !courses || courses.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
           <BookOpen className="h-4 w-4" /> No courses assigned yet.
         </div>
