@@ -223,4 +223,23 @@ export class OrganizationsRepository {
       include: ORG_INCLUDE,
     });
   }
+
+  /** Real recipients for org-admin notifications — an org can have more than
+   *  one ADMIN member, and a still-pending admin invite has no `userId` yet. */
+  findOrgAdminUserIds(orgId: string, tx?: Db) {
+    return this.db(tx).orgMember.findMany({
+      where: { orgId, role: "ADMIN", userId: { not: null } },
+      select: { userId: true },
+    });
+  }
+
+  /** Invitations that expired since the last sweep and were never claimed —
+   *  the window (not a stored "already notified" flag) is what keeps a
+   *  nightly job from re-notifying the same expiry forever. */
+  findRecentlyExpiredUnclaimedInvitations(since: Date, now: Date) {
+    return this.prisma.orgInvitation.findMany({
+      where: { claimedAt: null, expiresAt: { gte: since, lt: now } },
+      include: { org: { select: { id: true, slug: true, name: true } } },
+    });
+  }
 }

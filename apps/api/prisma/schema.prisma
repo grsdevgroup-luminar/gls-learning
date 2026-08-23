@@ -160,6 +160,13 @@ enum NotificationEvent {
   PAYOUT_APPROVED
   PAYOUT_PAID
   REFERRAL_CONFIRMED
+  // Phase 3 — social & ambient
+  COURSE_NEW_REVIEW
+  COURSE_NEW_ENROLLMENT
+  ORG_MEMBER_JOINED
+  ORG_SEATS_LOW
+  ORG_INVITE_EXPIRED
+  TABLE_SIZE_WARNING
 }
 
 // ─── Identity & roles ─────────────────────────────────────────────────────────

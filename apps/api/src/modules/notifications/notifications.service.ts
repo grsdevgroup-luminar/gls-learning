@@ -20,6 +20,11 @@ export interface NotifyInput {
   title: string;
   body: string;
   href?: string | null;
+  /** Some events (the Phase 3 social/ambient ones — a new review, a new
+   *  enrollment, a member joining an org) are in-app only by design, per the
+   *  taxonomy in NOTIFICATION_SYSTEM_PLAN.md. Set true to skip the email
+   *  fan-out entirely rather than just deferring it. */
+  skipEmail?: boolean;
 }
 
 function toDto(row: Notification): NotificationDto {
@@ -58,9 +63,10 @@ export class NotificationsService {
   ) {}
 
   async notify(input: NotifyInput, tx?: Db): Promise<void> {
-    await this.repo.create(input, tx);
+    const { skipEmail, ...data } = input;
+    await this.repo.create(data, tx);
     await this.repo.incrementUnread(input.userId, tx);
-    if (!tx) await this.notifyEmailAfterCommit(input);
+    if (!tx && !skipEmail) await this.notifyEmailAfterCommit(input);
   }
 
   /** Enqueues the email fan-out for an event whose in-app write already
@@ -118,5 +124,42 @@ export class NotificationsService {
       await this.repo.markAllReadForUser(userId, tx);
       await this.repo.resetUnread(userId, tx);
     });
+  }
+
+  // ── scheduled (MaintenanceProcessor) ─────────────────────────────────────
+  /** Nightly purge — read notifications after 90 days, unread after 1 year.
+   *  Plain deletes for now; see Scale & retention for when this graduates to
+   *  partition drops instead. */
+  async pruneRead(): Promise<{ read: number; unread: number }> {
+    const now = Date.now();
+    const [read, unread] = await Promise.all([
+      this.repo.deleteOldRead(new Date(now - 90 * 86_400_000)),
+      this.repo.deleteOldUnread(new Date(now - 365 * 86_400_000)),
+    ]);
+    return { read: read.count, unread: unread.count };
+  }
+
+  /** Early-warning check ahead of the day the retention job's DELETE actually
+   *  starts hurting — see Scale & retention. Debounced to once a week so it
+   *  doesn't repeat every night once the threshold is crossed. */
+  async checkTableSize(): Promise<void> {
+    const alreadyWarned = await this.repo.hasRecentWarning(
+      new Date(Date.now() - 7 * 86_400_000),
+    );
+    if (alreadyWarned) return;
+
+    const rows = await this.repo.count();
+    const THRESHOLD = 5_000_000;
+    if (rows < THRESHOLD) return;
+
+    const admins = await this.repo.findAdminUserIds();
+    for (const admin of admins) {
+      await this.notify({
+        userId: admin.id,
+        event: "TABLE_SIZE_WARNING",
+        title: "Notification table is getting large",
+        body: `The Notification table has reached ${rows.toLocaleString()} rows — time to plan the partitioning conversion (see NOTIFICATION_SYSTEM_PLAN.md).`,
+      });
+    }
   }
 }

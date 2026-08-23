@@ -15,6 +15,10 @@ import type {
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import {
+  NotificationsService,
+  type NotifyInput,
+} from "../notifications/notifications.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import {
   OrganizationsRepository,
@@ -27,6 +31,7 @@ export class OrganizationsService {
     private readonly prisma: PrismaService,
     private readonly repo: OrganizationsRepository,
     private readonly email: EmailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private toDto(o: OrgRow): OrganizationDto {
@@ -168,6 +173,10 @@ export class OrganizationsService {
 
     const dbUser = await this.repo.findUserByIdOrThrow(user.id);
 
+    // Built inside the transaction, sent after it commits — see
+    // NotificationsService's notify()/notifyEmailAfterCommit() split.
+    const seatWarning: NotifyInput[] = [];
+
     await this.prisma.$transaction(async (tx) => {
       const org = await this.repo.findOrgByIdOrThrow(invite.orgId, tx);
       if (org.usedSeats >= org.seatCount)
@@ -185,7 +194,54 @@ export class OrganizationsService {
       await this.repo.markInvitationClaimed(token, tx);
       if (invite.role === "ADMIN")
         await this.repo.updateUserRole(user.id, "ORG_ADMIN", tx);
+
+      const admins = (await this.repo.findOrgAdminUserIds(invite.orgId, tx))
+        .map((m) => m.userId!)
+        .filter((id) => id !== user.id);
+
+      for (const adminId of admins) {
+        await this.notifications.notify(
+          {
+            userId: adminId,
+            event: "ORG_MEMBER_JOINED",
+            title: "New team member",
+            body: `${dbUser.name} joined ${org.name}.`,
+            href: `/org/${org.slug}/members`,
+            skipEmail: true, // in-app only, P2 — see Phase 3 taxonomy
+          },
+          tx,
+        );
+      }
+
+      // Notify once per threshold crossed by *this* join, not on every join
+      // once already over it.
+      const updatedSeats = org.usedSeats + 1;
+      const nearingAt = Math.ceil(org.seatCount * 0.8);
+      const justFilled = org.usedSeats < org.seatCount && updatedSeats >= org.seatCount;
+      const justNearing =
+        !justFilled && org.usedSeats < nearingAt && updatedSeats >= nearingAt;
+
+      if (justFilled || justNearing) {
+        const body = justFilled
+          ? `${org.name} is out of seats (${updatedSeats}/${org.seatCount} used).`
+          : `${org.name} is nearing its seat limit (${updatedSeats}/${org.seatCount} used).`;
+        for (const adminId of admins) {
+          const input: NotifyInput = {
+            userId: adminId,
+            event: "ORG_SEATS_LOW",
+            title: justFilled ? "Seats full" : "Seats running low",
+            body,
+            href: `/org/${org.slug}/members`,
+          };
+          await this.notifications.notify(input, tx);
+          seatWarning.push(input);
+        }
+      }
     });
+
+    for (const input of seatWarning) {
+      void this.notifications.notifyEmailAfterCommit(input).catch(() => undefined);
+    }
 
     return this.toDto(await this.getRow(invite.orgId));
   }
@@ -263,5 +319,29 @@ export class OrganizationsService {
       memberships.map((m) => m.orgId),
     );
     return rows.map((o) => this.toDto(o));
+  }
+
+  // ── scheduled ─────────────────────────────────────────────────────────────
+  /** Nightly sweep (MaintenanceProcessor) — invitations that expired unclaimed
+   *  since the last run. In-app only; no email, matching the Phase 3 taxonomy. */
+  async checkExpiredInvitations(sinceHoursAgo = 25): Promise<void> {
+    const now = new Date();
+    const since = new Date(now.getTime() - sinceHoursAgo * 3600_000);
+    const expired = await this.repo.findRecentlyExpiredUnclaimedInvitations(since, now);
+
+    for (const invite of expired) {
+      const admins = (await this.repo.findOrgAdminUserIds(invite.orgId))
+        .map((m) => m.userId!);
+      for (const adminId of admins) {
+        await this.notifications.notify({
+          userId: adminId,
+          event: "ORG_INVITE_EXPIRED",
+          title: "Invite expired",
+          body: `The invite to ${invite.email} for ${invite.org.name} expired unclaimed.`,
+          href: `/org/${invite.org.slug}/members`,
+          skipEmail: true,
+        });
+      }
+    }
   }
 }

@@ -4,8 +4,11 @@ import { Job } from "bullmq";
 import { AutomationService } from "./automation.service";
 import { FxService } from "./fx.service";
 import { AdminAlertsService } from "../email/admin-alerts.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { OrganizationsService } from "../organizations/organizations.service";
 import { MAINTENANCE_QUEUE } from "./jobs.constants";
 import { MaintenanceRepository } from "./maintenance.repository";
+import { NotificationsRepository } from "./notifications.repository";
 
 /**
  * Periodic consistency / analytics rollup. Recomputes enrollment completion
@@ -18,9 +21,12 @@ export class MaintenanceProcessor extends WorkerHost {
 
   constructor(
     private readonly repo: MaintenanceRepository,
+    private readonly reminderRepo: NotificationsRepository,
     private readonly automation: AutomationService,
     private readonly fx: FxService,
     private readonly alerts: AdminAlertsService,
+    private readonly notifications: NotificationsService,
+    private readonly organizations: OrganizationsService,
   ) {
     super();
   }
@@ -32,6 +38,22 @@ export class MaintenanceProcessor extends WorkerHost {
     if (job.name === "admin-digest") {
       await this.alerts.dailyRevenue();
       await this.alerts.atRiskDigest();
+      return { ok: true };
+    }
+    if (job.name === "org-invite-expiry") {
+      await this.organizations.checkExpiredInvitations();
+      return { ok: true };
+    }
+    if (job.name === "notification-retention") {
+      const notifications = await this.notifications.pruneRead();
+      const cutoff = new Date(Date.now() - 90 * 86_400_000);
+      const { count: reminderLogs } = await this.reminderRepo.deleteOldReminderLogs(cutoff);
+      const result = { ...notifications, reminderLogs };
+      this.logger.log(`notification retention: ${JSON.stringify(result)}`);
+      return result;
+    }
+    if (job.name === "table-size-check") {
+      await this.notifications.checkTableSize();
       return { ok: true };
     }
     if (job.name !== "rollup") return undefined;

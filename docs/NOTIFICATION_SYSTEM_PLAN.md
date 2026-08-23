@@ -1,6 +1,6 @@
 # Notification System — Implementation Plan
 
-**Author:** Sarwar · **Date:** 2026-08-22 · **Status:** Phases 1 & 2 implemented and verified (2026-08-23)
+**Author:** Sarwar · **Date:** 2026-08-22 · **Status:** Phases 1, 2 & 3 implemented and verified (2026-08-23) — plan complete
 
 ## Goal
 
@@ -290,15 +290,33 @@ accounts) rather than converting the whole table's write pattern.
   queued `EMAIL` job, a `ReminderLog` entry, and the dev-mode email log line —
   full pipeline, not just unit-level
 
-### Phase 3 — social & ambient
-- Social events (new review, comment reply, new enrollment) — in-app only, no email
-  by default
-- Org-admin seat/invite events
-- Nightly retention job (90d read / 1y unread), same policy applied to `ReminderLog`
-- Nightly table-size/row-count check (feeds the future partitioning decision — see
-  Scale & retention)
-- Revisit real-time delivery only if a new event outside the two P0 ones needs it —
-  extend the one-screen fast-poll pattern before reaching for push infra
+### Phase 3 — social & ambient ✅ done (2026-08-23)
+- Social events, in-app only (`skipEmail: true`), no email by default:
+  - `COURSE_NEW_REVIEW` → instructor, from `reviews.service.ts create()`
+  - `COURSE_NEW_ENROLLMENT` → instructor, from `orders.service.ts fulfill()`
+  - Comment replies dropped from scope — `Comment` is explicitly a flat,
+    non-threaded model (schema.prisma), so "replying to a comment" isn't a
+    real event this app can produce. Revisit only if threading gets built.
+- Org-admin events, from `organizations.service.ts claimInvitation()`:
+  - `ORG_MEMBER_JOINED` (in-app only) to every admin except the joiner
+  - `ORG_SEATS_LOW` (in-app + email) fired once per threshold actually
+    *crossed* by that join (80% "nearing", 100% "full") — not re-fired on
+    every subsequent join once already over it
+  - `ORG_INVITE_EXPIRED` (in-app only) via a new nightly `org-invite-expiry`
+    job — a rolling 25h window stands in for a stored "already notified"
+    flag, so the same expiry is never re-reported
+- `notification-retention` (nightly): purges `Notification` (90d read / 1y
+  unread) and `ReminderLog` (90d flat) — added to the existing
+  `MaintenanceProcessor`/`MaintenanceScheduler`, no new queue
+- `table-size-check` (nightly): counts `Notification` rows, notifies every
+  admin (in-app + email) past 5M rows, debounced to once a week internally so
+  it doesn't repeat every night once crossed
+- Real-time delivery unchanged — nothing in Phase 3 needed instant delivery,
+  so the tiered polling design from Phase 1 stands as-is
+- All of the above verified live: a real review/enrollment/org-join each
+  produced the exact expected `Notification` + (or not) `ReminderLog` rows;
+  the three new jobs were hand-enqueued and confirmed `completed`; the
+  retention job was proven against planted rows on both sides of both cutoffs
 
 ---
 
@@ -316,3 +334,199 @@ accounts) rather than converting the whole table's write pattern.
 Full narrative version with user-journey walkthroughs and the line-by-line plan
 review that led to these decisions: see the published artifacts from this session
 ("The Signal Room" and "The Review Thread").
+
+---
+
+## File-by-file changelog (all three phases)
+
+Every file touched building this system, grouped where the same kind of edit
+repeats across files rather than listed one-by-one. `apps/` unless noted.
+
+### Database
+
+- **`api/prisma/schema.prisma`** — added `Notification` (id, userId, event,
+  title, body, href, readAt, createdAt) and `NotificationPreference` (userId +
+  event string key, inApp/email/sms booleans) models; added the
+  `NotificationEvent` enum (9 values Phase 1, +6 Phase 3); added
+  `User.notifications` / `User.unreadNotificationCount`; widened
+  `ReminderLog.trigger` from the `ReminderTrigger` enum to plain `String`;
+  removed `StudentProfile.notificationPrefs` (superseded by
+  `NotificationPreference`).
+- **Three migrations**, one per phase:
+  - `20260822175000_add_notification_system` (Phase 1) — creates
+    `Notification` + the enum, plain Prisma-generated SQL.
+  - `20260823010000_generalize_notification_prefs` (Phase 2) — **hand-written**
+    (Prisma couldn't auto-generate it): creates `NotificationPreference`,
+    backfills it from every `StudentProfile.notificationPrefs` JSON blob, then
+    drops that column and widens `ReminderLog.trigger` to text.
+  - `20260822191203_phase3_social_events` (Phase 3) — adds the 6 new enum
+    values; plain Prisma-generated.
+
+### Shared package (`packages/shared/src`)
+
+- **`enums.ts`** — added the `NotificationEvent` enum (mirrors the Prisma one).
+- **`contracts/notifications.ts`** — added `NotificationDto` and
+  `UnreadCountDto` (the `GET /me/notifications` / unread-count response
+  shapes). The existing `NotificationPreferencesDto`/`resolveNotificationPrefs`
+  in this file were left untouched on purpose — Phase 2 changed where
+  preferences are stored, never the API shape the settings page depends on.
+- **`contracts/admin.ts`** — widened `ReminderLogDto.trigger` from
+  `ReminderTrigger` to `string`, matching the schema change above.
+
+### New module: `api/src/modules/notifications/` (the core of the system)
+
+- **`notifications.module.ts`** — the module itself. `@Global()`, like
+  `EmailModule`, since almost every other module needs to write a
+  notification. Registers `BullModule.registerQueue(NOTIFICATIONS_QUEUE)`
+  again here (a second, valid registration of the same named queue — the
+  standard BullMQ pattern for a queue with producers in more than one module).
+- **`notifications.service.ts`** — `NotificationsService`: `notify()` (the one
+  write path for every in-app notification — writes the row + increments the
+  denormalized unread counter, inside whatever transaction the caller passes),
+  `notifyEmailAfterCommit()` (the deferred email enqueue for callers inside a
+  transaction), `listForUser()`, `unreadCount()`, `markRead()`,
+  `markAllRead()`; Phase 3 added `pruneRead()` (retention) and
+  `checkTableSize()` (the scale-monitoring alert).
+- **`notifications.repository.ts`** — `NotificationFeedRepository`: the raw
+  Prisma calls behind all of the above, plus (Phase 3) `deleteOldRead`,
+  `deleteOldUnread`, `count`, `hasRecentWarning`, `findAdminUserIds`.
+- **`notifications.controller.ts`** — `GET /me/notifications`,
+  `GET /me/notifications/unread-count`, `PATCH /me/notifications/:id/read`,
+  `PATCH /me/notifications/read-all`.
+- **`notification-preferences.service.ts`** + **`notification-preferences.repository.ts`**
+  (Phase 2, new) — `NotificationPreferencesService`/`Repository`: the one
+  preference gate behind three call sites — the student settings API, the
+  delivery-time opt-out check in `NotificationsProcessor`, and the admin-alert
+  fan-out. `wantsChannel(userId, event, channel)` is the single method all
+  three end up calling.
+
+### Wiring a `notify()` call into an existing action (same pattern, 7 places)
+
+Each of these got: a `NotificationsService` (and sometimes
+`NotificationPreferencesService`) constructor injection, plus one `notify()`
+call placed at the exact point the state change it describes actually commits.
+Where the call sits inside an existing `$transaction`, a matching
+`notifyEmailAfterCommit()` call was added right after that transaction
+resolves (never inside it — see the Decisions log entry on this).
+
+- **`commerce/orders.service.ts`** (`fulfill()`) — `ORDER_PAID` (in-app +
+  email, post-commit) inside the fulfillment transaction; `COURSE_NEW_ENROLLMENT`
+  (in-app only) per line item, also inside the transaction. Also added
+  `myOrder()` — a new `GET`-single-order lookup scoped to its owner, purpose-
+  built for the checkout success page's fast poll.
+- **`instructor/instructor.service.ts`** (`approve()`/`reject()`) —
+  `INSTRUCTOR_APPLICATION_APPROVED` (inside the approval transaction, emailed
+  post-commit) / `INSTRUCTOR_APPLICATION_REJECTED` (not in a transaction, sent
+  directly).
+- **`sales-agent/sales-agent.service.ts`** (`reviewApplication()`,
+  `confirmReferral()`) — `SALES_AGENT_APPLICATION_APPROVED` /
+  `_REJECTED`, and `REFERRAL_CONFIRMED`. `sales-agent.repository.ts`'s
+  `findReferralByOrderId` gained an `include` for the agent's `userId` so the
+  notification has someone to address.
+- **`payouts/payouts.service.ts`** (`approve()`, `markPaid()`) —
+  `PAYOUT_APPROVED` / `PAYOUT_PAID`, the latter inside `markPaid()`'s
+  transaction with a post-commit email.
+- **`enrollment/enrollment.service.ts`** (`manageCertificate()`) —
+  `CERTIFICATE_ISSUED`. Required threading a `userId` parameter down through
+  `recompute()`/`manageCertificate()`, which previously only had `courseId`.
+- **`reviews/reviews.service.ts`** (`create()`) — `COURSE_NEW_REVIEW` (in-app
+  only) to the course's instructor. `reviews.repository.ts`'s
+  `findCourseTitle` gained `instructorId` in its select.
+- **`organizations/organizations.service.ts`** (`claimInvitation()`) —
+  `ORG_MEMBER_JOINED` (in-app only, every admin but the joiner) and
+  `ORG_SEATS_LOW` (in-app + email, only on the join that actually crosses the
+  80%/100% threshold). Also added `checkExpiredInvitations()`, called by the
+  new nightly job. `organizations.repository.ts` gained
+  `findOrgAdminUserIds()` and `findRecentlyExpiredUnclaimedInvitations()`.
+
+### Registering `NotificationsModule` as an import (same one-line pattern, 4 places)
+
+`commerce.module.ts`, `instructor.module.ts`, `payouts.module.ts`,
+`sales-agent.module.ts` — each added `NotificationsModule` to its `imports`
+array. (Technically redundant once the module is `@Global()`, but left in as
+documentation of the dependency, matching how explicit this codebase already
+is elsewhere.) `app.module.ts` registers `NotificationsModule` itself, once.
+
+### Jobs module (`api/src/modules/jobs/`) — generalized, then extended
+
+- **`notifications.processor.ts`** — `NotificationsProcessor`: widened
+  `ReminderJobData.trigger` from `ReminderTrigger` to `string` and added
+  optional `body`/`href` fields; the opt-out check now calls
+  `NotificationPreferencesService.wantsChannel()` instead of reading
+  `StudentProfile.notificationPrefs`; email sending branches between the
+  original plain `sendReminder()` template and the new richer
+  `sendNotificationEmail()` depending on whether `body` is present.
+- **`notifications.repository.ts`** (the jobs-module one, distinct from the
+  notifications-module one above) — dropped the now-gone
+  `studentProfile.notificationPrefs` select; added `deleteOldReminderLogs()`
+  (Phase 3 retention).
+- **`maintenance.processor.ts`** — added three job branches:
+  `org-invite-expiry` (calls `OrganizationsService.checkExpiredInvitations()`),
+  `notification-retention` (calls `NotificationsService.pruneRead()` +
+  `deleteOldReminderLogs()`), `table-size-check` (calls
+  `NotificationsService.checkTableSize()`). Gained `NotificationsService`,
+  `OrganizationsService`, and the jobs-module `NotificationsRepository` as
+  constructor dependencies.
+- **`maintenance.scheduler.ts`** — registered the three jobs above as daily
+  repeatables, same shape as the existing `admin-digest`/`fx-refresh` entries.
+- **`jobs.module.ts`** — added `OrganizationsModule` to `imports` (needed for
+  `OrganizationsService` in the processor above; every other new dependency
+  came from the already-global `NotificationsModule`).
+
+### Users module — delegated, not rewritten
+
+- **`users/users.service.ts`** — `notificationPrefs()` /
+  `updateNotificationPrefs()` now delegate to `NotificationPreferencesService`
+  instead of reading/writing `StudentProfile.notificationPrefs` JSON directly.
+  External shape (what `GET/PATCH /me/notification-preferences` returns)
+  didn't change.
+- **`users/users.repository.ts`** — removed the now-dead
+  `findStudentNotificationPrefs()`/`upsertStudentNotificationPrefs()` methods.
+
+### Email module
+
+- **`email/email.service.ts`** — added `sendNotificationEmail()` (title +
+  body + deep link, for Phase 1/2 events) and its private `notificationHtml()`
+  template, alongside the existing `sendReminder()` used for marketing
+  automation.
+- **`email/admin-alerts.repository.ts`** — added `findAdminUsers()` (real
+  `User` rows where `role: ADMIN`).
+- **`email/admin-alerts.service.ts`** — `recipient()` → `recipients()`
+  (singular email string → real admin list); each of the four alert methods
+  now fans out to every admin who has the platform-wide toggle *and* their own
+  `NotificationPreference` opt-in, instead of one hardcoded `supportEmail`.
+
+### Frontend (`apps/web`)
+
+- **`components/shared/notification-bell.tsx`** (new) — the bell icon, unread
+  badge, dropdown list, mark-read-on-click, "view all" link.
+- **`components/shared/notifications-page.tsx`** (new) — the full paginated
+  "view all" list, shared across every portal.
+- **Five thin page wrappers** (new) — `app/(student)/dashboard/notifications`,
+  `app/admin/notifications`, `app/instructor/notifications`,
+  `app/sales-agent/notifications`, `app/org/[slug]/notifications` — each just
+  renders `<NotificationsPage />`, since there's no single shared route across
+  the five portals.
+- **`components/shared/portal-shell.tsx`** — added `<NotificationBell />` next
+  to the theme toggle in both the desktop sidebar header and the mobile top
+  bar — the one shared shell behind all five portals, so this alone wires the
+  bell in everywhere.
+- **`lib/api/endpoints.ts`, `lib/api/hooks.ts`, `lib/api/query-keys.ts`** —
+  added the notification endpoints (`myNotifications`, `unreadNotificationCount`,
+  `markNotificationRead`, `markAllNotificationsRead`, `myOrder`) and their
+  React Query hooks/keys (`useNotifications`, `useUnreadNotificationCount`,
+  `useMarkNotificationRead`, `useMarkAllNotificationsRead`), following the
+  existing file conventions exactly.
+- **`app/(storefront)/checkout/success/page.tsx`** — swapped from paginating
+  `GET /me/orders` and filtering client-side to calling the new
+  `GET /me/orders/:id` directly — the fast-poll fix for the one screen that
+  needed to feel instant.
+- **`app/admin/settings/page.tsx`** — one copy fix: the admin-notifications
+  description no longer claims alerts go to "the support email above," since
+  Phase 2 changed the real recipients to every admin account.
+
+### Docs
+
+- **`docs/NOTIFICATION_SYSTEM_PLAN.md`** (this file) — created in Phase 1,
+  updated at the end of each phase with what shipped and why, plus this
+  changelog.

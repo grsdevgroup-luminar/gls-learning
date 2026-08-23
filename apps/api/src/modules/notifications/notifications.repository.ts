@@ -78,4 +78,40 @@ export class NotificationFeedRepository {
       data: { unreadNotificationCount: 0 },
     });
   }
+
+  // ── retention & scale monitoring ────────────────────────────────────────
+  /** Read notifications past the retention window — see Scale & retention in
+   *  NOTIFICATION_SYSTEM_PLAN.md (90d). Unread ones are handled separately
+   *  since they get a longer grace period (1y). */
+  deleteOldRead(cutoff: Date) {
+    return this.prisma.notification.deleteMany({
+      where: { readAt: { not: null, lt: cutoff } },
+    });
+  }
+
+  deleteOldUnread(cutoff: Date) {
+    return this.prisma.notification.deleteMany({
+      where: { readAt: null, createdAt: { lt: cutoff } },
+    });
+  }
+
+  count() {
+    return this.prisma.notification.count();
+  }
+
+  /** Debounce for the table-size warning — checked once, globally, rather
+   *  than per-admin, so admins don't get out of sync with each other. */
+  hasRecentWarning(since: Date) {
+    return this.prisma.notification.findFirst({
+      where: { event: "TABLE_SIZE_WARNING", createdAt: { gte: since } },
+      select: { id: true },
+    });
+  }
+
+  findAdminUserIds() {
+    return this.prisma.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true },
+    });
+  }
 }

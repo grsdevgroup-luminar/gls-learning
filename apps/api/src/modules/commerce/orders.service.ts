@@ -234,6 +234,19 @@ export class OrdersService {
           item.priceCents,
           tx,
         );
+        // In-app only (P3, no email) — see NOTIFICATION_SYSTEM_PLAN.md's
+        // Phase 3 taxonomy. Never fanned out post-commit, unlike ORDER_PAID.
+        await this.notifications.notify(
+          {
+            userId: course.instructorId,
+            event: "COURSE_NEW_ENROLLMENT",
+            title: "New enrollment",
+            body: `A student enrolled in "${item.titleSnapshot}".`,
+            href: `/instructor/courses/${item.courseId}`,
+            skipEmail: true,
+          },
+          tx,
+        );
       }
 
       await this.repo.incrementStudentTotalSpent(

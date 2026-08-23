@@ -122,6 +122,13 @@ export const NotificationEvent = {
   PAYOUT_APPROVED: "PAYOUT_APPROVED",
   PAYOUT_PAID: "PAYOUT_PAID",
   REFERRAL_CONFIRMED: "REFERRAL_CONFIRMED",
+  // Phase 3 — social & ambient
+  COURSE_NEW_REVIEW: "COURSE_NEW_REVIEW",
+  COURSE_NEW_ENROLLMENT: "COURSE_NEW_ENROLLMENT",
+  ORG_MEMBER_JOINED: "ORG_MEMBER_JOINED",
+  ORG_SEATS_LOW: "ORG_SEATS_LOW",
+  ORG_INVITE_EXPIRED: "ORG_INVITE_EXPIRED",
+  TABLE_SIZE_WARNING: "TABLE_SIZE_WARNING",
 } as const;
 export type NotificationEvent =
   (typeof NotificationEvent)[keyof typeof NotificationEvent];

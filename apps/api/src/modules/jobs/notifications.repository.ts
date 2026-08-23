@@ -28,4 +28,12 @@ export class NotificationsRepository {
       data: { ...data, status: "SENT" },
     });
   }
+
+  /** Same 90-day retention as read Notification rows — this is a delivery
+   *  audit trail, not a user-facing inbox, so there's no "unread" tier. */
+  deleteOldReminderLogs(cutoff: Date) {
+    return this.prisma.reminderLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+  }
 }
