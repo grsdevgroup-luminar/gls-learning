@@ -10,7 +10,7 @@ export function RatingBars({
 }) {
   const counts = [5, 4, 3, 2, 1].map((star) => ({
     star,
-    n: reviews.filter((r) => Math.round(r.rating) === star).length,
+    n: reviews?.filter((r) => Math.round(r.rating) === star).length ?? 0,
   }));
   const total = Math.max(1, reviews.length);
   return (
@@ -21,7 +21,7 @@ export function RatingBars({
         <div className="mt-1 text-xs text-muted-foreground">Course rating</div>
       </div>
       <div className="flex-1 space-y-1.5">
-        {counts.map((c) => (
+        {counts?.map((c) => (
           <div key={c.star} className="flex items-center gap-2 text-xs">
             <span className="w-8 text-muted-foreground">{c.star}★</span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">

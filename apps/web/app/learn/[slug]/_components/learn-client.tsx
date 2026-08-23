@@ -68,9 +68,9 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
 
   const flat: FlatLesson[] = useMemo(() => {
     let i = 0;
-    return course.sections.flatMap((s) =>
-      s.lessons.map((l) => ({ ...l, sectionTitle: s.title, index: i++ })),
-    );
+    return course.sections?.flatMap((s) =>
+      s.lessons?.map((l) => ({ ...l, sectionTitle: s.title, index: i++ })) ?? [],
+    ) ?? [];
   }, [course]);
 
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -224,7 +224,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <TabsContent value="resources" className="pt-4">
                 {current.resources?.length ? (
                   <ul className="space-y-2">
-                    {current.resources.map((r) => {
+                    {current.resources?.map((r) => {
                       const isFile = Boolean(r.storageKey);
                       return (
                         <li key={r.url} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
@@ -284,8 +284,8 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <span className="text-xs tabular-nums text-muted-foreground">{done}/{total}</span>
             </span>
           </div>
-          <Accordion defaultValue={course.sections.map((s) => s.id)} className="max-h-[calc(100vh-7rem)] overflow-y-auto">
-            {course.sections.map((s) => (
+          <Accordion defaultValue={course.sections?.map((s) => s.id) ?? []} className="max-h-[calc(100vh-7rem)] overflow-y-auto">
+            {course.sections?.map((s) => (
               <AccordionItem key={s.id} value={s.id} className="px-3">
                 <AccordionTrigger disabled={!s.lessons[0] || !canAccess({ ...s.lessons[0], sectionTitle: s.title, index: 0 })}>
                   <span className="flex items-center gap-2 text-sm font-medium">
@@ -295,7 +295,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <ul className="pb-1">
-                    {s.lessons.map((l) => {
+                    {s.lessons?.map((l) => {
                       const isCur = l.id === current.id;
                       const isDone = mounted && isLessonDone(course.id, l.id);
                       const accessible = canAccess({ ...l, sectionTitle: s.title, index: 0 });

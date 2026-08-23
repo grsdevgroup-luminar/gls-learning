@@ -64,7 +64,7 @@ export default function TeamCoursesPage() {
         <p className="text-muted-foreground">Courses your organization has made available to you — free to enroll.</p>
       </div>
 
-      {orgs.map((org) => (
+      {orgs?.map((org) => (
         <OrgCourseList
           key={org.id}
           orgId={org.id}
@@ -112,7 +112,7 @@ function OrgCourseList({
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => {
+          {courses?.map((c) => {
             const enrolled = enrolledIds.has(c.id);
             return (
               <Card key={c.id}>

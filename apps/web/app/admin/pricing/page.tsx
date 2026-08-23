@@ -80,7 +80,7 @@ export default function AdminPricing() {
 
       {/* Tiers */}
       <div className="grid gap-4 md:grid-cols-3">
-        {tiers.map((t) => (
+        {tiers?.map((t) => (
           <Card key={t.id}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-2">
@@ -139,7 +139,7 @@ export default function AdminPricing() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {regions.map((r) => (
+              {regions?.map((r) => (
                 <TableRow key={r.code}>
                   <TableCell className="pl-6"><span className="mr-2">{r.flag}</span>{r.country}</TableCell>
                   <TableCell>
@@ -149,7 +149,7 @@ export default function AdminPricing() {
                     >
                       <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Unassigned" /></SelectTrigger>
                       <SelectContent>
-                        {tiers.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                        {tiers?.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -200,7 +200,7 @@ export default function AdminPricing() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {regions.map((r) => {
+              {regions?.map((r) => {
                 const usdCents = regionalPriceCents(Math.round(baseNum * 100), r);
                 return (
                   <TableRow key={r.code}>

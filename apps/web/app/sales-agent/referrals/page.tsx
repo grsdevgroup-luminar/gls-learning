@@ -27,16 +27,16 @@ export default function AgentReferrals() {
   if (!agent) return null;
 
   const all = referrals ?? [];
-  const filtered = all.filter(
+  const filtered = all?.filter(
     (r) =>
       !q ||
       r.studentName.toLowerCase().includes(q.toLowerCase()) ||
       r.courseTitle.toLowerCase().includes(q.toLowerCase()),
   );
 
-  const paid = all.filter((r) => r.status === "paid");
-  const confirmed = all.filter((r) => r.status === "confirmed");
-  const pending = all.filter((r) => r.status === "pending");
+  const paid = all?.filter((r) => r.status === "paid") ?? [];
+  const confirmed = all?.filter((r) => r.status === "confirmed") ?? [];
+  const pending = all?.filter((r) => r.status === "pending") ?? [];
 
   const stats = [
     { icon: Link2, label: "Total referrals", value: all.length },
@@ -94,7 +94,7 @@ export default function AgentReferrals() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((r) => (
+                filtered?.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.studentName}</TableCell>
                     <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>

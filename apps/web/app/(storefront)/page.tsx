@@ -89,8 +89,8 @@ export default async function HomePage() {
   ]);
 
   const publishedCourses = coursePage.items;
-  const bestsellers = publishedCourses.filter((c) => c.bestseller).slice(0, 4);
-  const popular = publishedCourses.slice(0, 8);
+  const bestsellers = publishedCourses?.filter((c) => c.bestseller)?.slice(0, 4) ?? [];
+  const popular = publishedCourses?.slice(0, 8) ?? [];
   // Course counts per category — feeds the neutral hero showcase and lets it
   // rank categories by volume without promoting any single course.
   const countByCategory = publishedCourses.reduce<Record<string, number>>(
@@ -246,7 +246,7 @@ export default async function HomePage() {
             className="mb-10"
           />
           <Stagger className="grid gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5" gap={0.06}>
-            {instructors.slice(0, 5).map((i) => (
+          {instructors?.slice(0, 5)?.map((i) => (
               <StaggerItem key={i.id} className="group text-center" y={16}>
                 <Avatar className="mx-auto size-16 ring-1 ring-border transition-all duration-300 group-hover:-translate-y-1 group-hover:ring-2 group-hover:ring-primary/40">
                   <AvatarFallback className="brand-gradient text-lg text-white">
@@ -363,7 +363,7 @@ function SectionGrid({
         }
       />
       <Stagger className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4" gap={0.07}>
-        {courses.map((c) => (
+        {courses?.map((c) => (
           <StaggerItem key={c.id} className="h-full">
             <CourseCard course={c} />
           </StaggerItem>

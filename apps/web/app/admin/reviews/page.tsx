@@ -29,8 +29,8 @@ export default function AdminReviews() {
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 
-  const pending = reviews.filter((r) => r.status === "PENDING");
-  const approved = reviews.filter((r) => r.status === "APPROVED");
+  const pending = reviews?.filter((r) => r.status === "PENDING") ?? [];
+  const approved = reviews?.filter((r) => r.status === "APPROVED") ?? [];
   const avg = approved.length
     ? approved.reduce((s, r) => s + r.rating, 0) / approved.length
     : 0;
@@ -69,7 +69,7 @@ export default function AdminReviews() {
             Pending moderation <Badge className="bg-warning text-warning-foreground hover:bg-warning">{pending.length}</Badge>
           </h2>
           <div className="space-y-3">
-            {pending.map((r) => (
+        {pending?.map((r) => (
               <Card key={r.id} className="border-warning/30">
                 <CardContent className="pt-6">
                   <ReviewBody r={r} />

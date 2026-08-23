@@ -38,14 +38,14 @@ export default function ProgressPage() {
   }
 
   const courses = enrollments ?? [];
-  const totalLessons = courses.reduce((s, e) => s + e.completedCount, 0);
-  const totalMinutes = courses.reduce((s, e) => s + (e.minutesWatched ?? 0), 0);
+  const totalLessons = courses?.reduce((s, e) => s + e.completedCount, 0) ?? 0;
+  const totalMinutes = courses?.reduce((s, e) => s + (e.minutesWatched ?? 0), 0) ?? 0;
   const overall = courses.length
-    ? Math.round(courses.reduce((s, e) => s + e.progressPct, 0) / courses.length)
+    ? Math.round((courses?.reduce((s, e) => s + e.progressPct, 0) ?? 0) / courses.length)
     : 0;
-  const completed = courses.filter((e) => e.status === "COMPLETED").length;
-  const activityMinutes = (activity ?? []).reduce((total, day) => total + day.minutes, 0);
-  const activeDays = (activity ?? []).filter((day) => day.minutes > 0).length;
+  const completed = courses?.filter((e) => e.status === "COMPLETED").length ?? 0;
+  const activityMinutes = activity?.reduce((total, day) => total + day.minutes, 0) ?? 0;
+  const activeDays = activity?.filter((day) => day.minutes > 0).length ?? 0;
 
   const stats = [
     { icon: Target, label: "Overall completion", value: `${overall}%` },
@@ -100,12 +100,12 @@ export default function ProgressPage() {
         </CardHeader>
         <CardContent>
           <AreaTrend
-            data={(activity ?? []).map((d) => ({
+            data={activity?.map((d) => ({
               day: activityPeriod === "weekly"
                 ? WEEKDAY_LABEL[new Date(`${d.date}T00:00:00Z`).getUTCDay()]
                 : activityPeriod === "daily" ? "Today" : d.date.slice(5),
               minutes: d.minutes,
-            }))}
+            })) ?? []}
             xKey="day"
             yKey="minutes"
             prefix=""
@@ -115,7 +115,7 @@ export default function ProgressPage() {
             <span>{activityMinutes} minutes across {activeDays} active {activeDays === 1 ? "day" : "days"}</span>
             <span>Course progress = completed lessons ÷ total lessons.</span>
           </div>
-          {(activity ?? []).every((d) => d.minutes === 0) && (
+          {activity?.every((d) => d.minutes === 0) && (
             <p className="mt-2 text-center text-xs text-muted-foreground">
               Activity data will appear as you learn
             </p>
@@ -129,7 +129,7 @@ export default function ProgressPage() {
           <p className="text-sm text-muted-foreground">You haven&apos;t enrolled in any courses yet.</p>
         ) : (
           <div className="space-y-3">
-            {courses.map((enrollment) => {
+            {courses?.map((enrollment) => {
               const actionHref =
                 enrollment.progressPct === 100
                   ? `/courses/${enrollment.course.slug}#write-a-review`

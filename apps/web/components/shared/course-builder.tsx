@@ -121,7 +121,7 @@ const thumbSeeds = [
 ];
 
 function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
-  return detail.sections.map((s) => ({
+  return detail.sections?.map((s) => ({
     id: s.id,
     isNew: false,
     title: s.title,
@@ -235,8 +235,8 @@ export function CourseBuilder({
                             id: q.id,
                             prompt: q.prompt,
                             explanation: q.explanation ?? undefined,
-                            options: q.options.map((o) => ({ id: o.id, text: o.text })),
-                            correctOptionId: q.options.find((o) => o.isCorrect)?.id ?? "",
+                            options: q.options?.map((o) => ({ id: o.id, text: o.text })) ?? [],
+                            correctOptionId: q.options?.find((o) => o.isCorrect)?.id ?? "",
                           })),
                         },
                       }
@@ -250,7 +250,7 @@ export function CourseBuilder({
     }
   }, [detail]);
 
-  const totalLessons = sections.reduce((a, s) => a + s.lessons.length, 0);
+  const totalLessons = sections?.reduce((a, s) => a + s.lessons.length, 0) ?? 0;
 
   /** Drops the dragged section at `to`, keeping the rest in order. */
   function moveSection(to: number) {
@@ -335,8 +335,8 @@ export function CourseBuilder({
       const id = saved.id;
 
       // Deletions first (anything loaded from the server but no longer present).
-      const keptSections = new Set(sections.map((s) => s.id));
-      const keptLessons = new Set(sections.flatMap((s) => s.lessons.map((l) => l.id)));
+      const keptSections = new Set(sections?.map((s) => s.id) ?? []);
+      const keptLessons = new Set(sections?.flatMap((s) => s.lessons?.map((l) => l.id) ?? []) ?? []);
       for (const sid of loadedIds.current.sections) {
         if (!keptSections.has(sid)) await authoringApi.deleteSection(sid);
       }
@@ -355,11 +355,11 @@ export function CourseBuilder({
         let sectionServerId = s.id;
         if (isTemp(s.id)) {
           const before = new Set(
-            (await authoringApi.course(id)).sections.map((x) => x.id),
+            (await authoringApi.course(id)).sections?.map((x) => x.id) ?? [],
           );
           const after = await authoringApi.addSection(id, { title: s.title, order: si });
           sectionServerId =
-            after.sections.find((x) => !before.has(x.id))?.id ?? s.id;
+            after.sections?.find((x) => !before.has(x.id))?.id ?? s.id;
         } else {
           await authoringApi.updateSection(s.id, { title: s.title, order: si });
         }
@@ -376,7 +376,7 @@ export function CourseBuilder({
             ...(l.cfVideoUid ? { cfVideoUid: l.cfVideoUid } : {}),
             ...(l.type === "article" ? { articleContent: l.articleContent } : {}),
             // Only complete rows are sent; the API rejects a resource without a URL.
-            resources: l.resources.filter((r) => r.name.trim() && r.url.trim()),
+            resources: l.resources?.filter((r) => r.name.trim() && r.url.trim()) ?? [],
           };
           let lessonServerId = l.id;
           if (isTemp(l.id)) {
@@ -599,7 +599,7 @@ export function CourseBuilder({
               <Button size="sm" variant="outline" onClick={addSection}><Plus /> Add section</Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              {sections.map((s, si) => (
+      {sections?.map((s, si) => (
                 <div
                   key={s.id}
                   className={cn(
@@ -827,7 +827,7 @@ function LessonResources({
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const patch = (i: number, fields: Partial<LessonResourceDto>) =>
-    onChange(resources.map((r, x) => (x === i ? { ...r, ...fields } : r)));
+    onChange(resources?.map((r, x) => (x === i ? { ...r, ...fields } : r)) ?? []);
 
   async function handleUpload(file: File | undefined) {
     if (!file) return;
@@ -867,7 +867,7 @@ function LessonResources({
         return;
       }
     }
-    onChange(resources.filter((_, x) => x !== i));
+    onChange(resources?.filter((_, x) => x !== i) ?? []);
   }
 
   const canUpload = !isNew && !uploading && resources.length < RESOURCE_LIMIT;
@@ -881,7 +881,7 @@ function LessonResources({
         </span>
       </div>
 
-      {resources.map((r, i) =>
+      {resources?.map((r, i) =>
         r.storageKey ? (
           // Uploaded file — filename + size are frozen at upload time.
           <div key={i} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">

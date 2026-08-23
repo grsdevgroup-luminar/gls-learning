@@ -56,15 +56,15 @@ export default function AdminOrganizations() {
     onError: () => toast.error("Failed to create organization"),
   });
 
-  const filtered = orgs.filter(
+  const filtered = orgs?.filter(
     (o) => !q || `${o.name} ${o.domain ?? ""} ${o.adminEmail}`.toLowerCase().includes(q.toLowerCase()),
   );
 
   const stats = [
     { icon: Building2, label: "Total orgs", value: orgs.length },
-    { icon: Building2, label: "Active", value: orgs.filter((o) => o.status === "ACTIVE").length },
-    { icon: Users, label: "Total members", value: orgs.reduce((s, o) => s + o.usedSeats, 0) },
-    { icon: BookOpen, label: "Course assignments", value: orgs.reduce((s, o) => s + o.privateCourseCount, 0) },
+    { icon: Building2, label: "Active", value: orgs?.filter((o) => o.status === "ACTIVE").length ?? 0 },
+    { icon: Users, label: "Total members", value: orgs?.reduce((s, o) => s + o.usedSeats, 0) ?? 0 },
+    { icon: BookOpen, label: "Course assignments", value: orgs?.reduce((s, o) => s + o.privateCourseCount, 0) ?? 0 },
   ];
 
   if (isLoading) {
@@ -174,7 +174,7 @@ export default function AdminOrganizations() {
                   <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No organizations found.</TableCell>
                 </TableRow>
               ) : (
-                filtered.map((o) => (
+                filtered?.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell>
                       <div className="font-medium">{o.name}</div>

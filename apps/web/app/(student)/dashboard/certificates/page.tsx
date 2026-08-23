@@ -112,9 +112,18 @@ export default function CertificatesPage() {
   };
 
   const downloadCertificate = (cert: CertificateDto) => {
-    setDownloading(cert.serial);
-    window.location.assign(`/certificates/${encodeURIComponent(cert.serial)}/print`);
-  };
+  setDownloading(cert.serial);
+
+  try {
+    window.location.assign(
+      `/certificates/${encodeURIComponent(cert.serial)}/print`,
+    );
+  } catch {
+    toast.error("Could not open certificate PDF page");
+  } finally {
+    setDownloading(null);
+  }
+};
 
   return (
     <div className="space-y-8 p-6 md:p-8">

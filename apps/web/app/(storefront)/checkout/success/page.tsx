@@ -29,11 +29,11 @@ function SuccessContent() {
     enabled: !!orderId,
     // Stripe/PayPal webhooks may lag a moment behind the redirect.
     refetchInterval: (q) => {
-      const found = q.state.data?.items.find((o) => o.id === orderId);
+      const found = q.state.data?.items?.find((o) => o.id === orderId);
       return found?.status === "PAID" ? false : 2000;
     },
   });
-  const order = ordersPage?.items.find((o) => o.id === orderId);
+  const order = ordersPage?.items?.find((o) => o.id === orderId);
   const pending = !!orderId && order?.status !== "PAID";
 
   // Clear the cart only after the server confirms the order is PAID. This is
