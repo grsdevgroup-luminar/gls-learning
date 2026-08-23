@@ -2,11 +2,21 @@
 // so Server Components can import and call them directly when prefetching,
 // and have the resulting key match what a client useQuery call builds with
 // the same params.
+export type QueryParams = Record<string, string | number | undefined>;
+
+export function cleanParams(params: QueryParams = {}) {
+  const cleaned: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 export const qk = {
-  courses: (params?: unknown) => ["courses", params] as const,
+  courses: (params?: QueryParams) => ["courses", cleanParams(params)] as const,
   course: (slug: string) => ["course", slug] as const,
   enrollments: ["enrollments"] as const,
-  weeklyActivity: ["enrollments", "weekly-activity"] as const,
+  activity: (period: string) => ["enrollments", "activity", period] as const,
   progress: (courseId: string) => ["progress", courseId] as const,
   quiz: (lessonId: string) => ["quiz", lessonId] as const,
   quizResult: (lessonId: string) => ["quiz-result", lessonId] as const,

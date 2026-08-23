@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
 import { useStore } from '@/lib/context/store';
 import { ApiError } from '@/lib/api/errors';
@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/popover';
 import { Check, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { CountrySelect } from '@/components/shared/country-select';
-import { registerSchema } from '@skillstream/shared';
+import { useDebouncedSearch } from '@/lib/use-debounced-value';
+import { flagFor } from '@/lib/countries';
+import { COUNTRIES, registerSchema } from '@skillstream/shared';
 
 const perks = [
   '500,000+ learners',
@@ -42,7 +43,6 @@ function SignupForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState<string>('');
-  const [countryCode, setCountryCode] = useState<string>('');
   const [countryOpen, setCountryOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ function SignupForm() {
     if (!q) return COUNTRIES;
     return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
   }, [debouncedCountryQuery]);
-  const [validationError, setValidationError] = useState<string | null>(null);
+
 
   async function create() {
     const result = registerSchema.safeParse({
@@ -73,7 +73,7 @@ function SignupForm() {
       // Pricing regions use ISO alpha-2 codes, which are carried alongside
       // the country name in the signup selector. Persist it before redirecting
       // so cart and checkout quote the same selected billing region.
-      if (countryCode) setRegionCode(countryCode);
+      if (country) setRegionCode(country);
       toast.success('Account created!', {
         description: 'Welcome to GRS Learning 🎉',
       });
@@ -174,12 +174,10 @@ function SignupForm() {
                     >
                       {country ? (
                         <span className="flex items-center gap-2 truncate">
-                          <span>
-                            {flagFor(
-                              COUNTRIES.find((c) => c.name === country)?.code ?? '',
-                            )}
+                          <span>{flagFor(country)}</span>
+                          <span className="truncate">
+                            {COUNTRIES.find((c) => c.code === country)?.name ?? country}
                           </span>
-                          <span className="truncate">{country}</span>
                         </span>
                       ) : (
                         <span className="text-muted-foreground">Select your country</span>
@@ -209,15 +207,15 @@ function SignupForm() {
                                 type="button"
                                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
                                 onClick={() => {
-                                  setCountry(c.name);
-                                  setCountryCode(c.code);
+                                  setCountry(c.code);
                                   setCountryOpen(false);
                                   setCountryQuery('');
+                                  setValidationError(null);
                                 }}
                               >
                                 <span>{flagFor(c.code)}</span>
                                 <span className="flex-1 truncate">{c.name}</span>
-                                {country === c.name && (
+                                {country === c.code && (
                                   <Check className="h-4 w-4 text-primary" />
                                 )}
                               </button>
@@ -227,13 +225,6 @@ function SignupForm() {
                       </ul>
                     </PopoverContent>
                   </Popover>
-                  <CountrySelect
-                    value={country}
-                    onChange={(code) => {
-                      setCountry(code);
-                      setValidationError(null);
-                    }}
-                  />
                 </FormField>
                 <FormField label="Password" htmlFor="signup-password">
                   <div className="relative">

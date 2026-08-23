@@ -187,7 +187,7 @@ export class EnrollmentRepository {
     return this.prisma.certificate.delete({ where: { enrollmentId } });
   }
 
-  findWeeklyLessonProgress(userId: string, since: Date) {
+  findLessonProgressSince(userId: string, since: Date) {
     return this.prisma.lessonProgress.findMany({
       where: {
         completed: true,
