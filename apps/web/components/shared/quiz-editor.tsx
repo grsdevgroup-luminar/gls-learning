@@ -53,14 +53,14 @@ export function QuizEditor({
   function patchQuestion(qid: string, p: Partial<BuilderQuizQuestion>) {
     onChange({
       ...quiz,
-      questions: quiz.questions.map((q) => (q.id === qid ? { ...q, ...p } : q)),
+      questions: quiz.questions?.map((q) => (q.id === qid ? { ...q, ...p } : q)) ?? [],
     });
   }
   function patchOption(qId: string, oId: string, text: string) {
     onChange({
       ...quiz,
-      questions: quiz.questions.map((q) =>
-        q.id === qId ? { ...q, options: q.options.map((o) => (o.id === oId ? { ...o, text } : o)) } : q,
+      questions: quiz.questions?.map((q) =>
+        q.id === qId ? { ...q, options: q.options?.map((o) => (o.id === oId ? { ...o, text } : o)) ?? [] } : q,
       ),
     });
   }
@@ -68,7 +68,7 @@ export function QuizEditor({
     onChange({ ...quiz, questions: [...quiz.questions, emptyQuestion()] });
   }
   function removeQuestion(qId: string) {
-    onChange({ ...quiz, questions: quiz.questions.filter((q) => q.id !== qId) });
+    onChange({ ...quiz, questions: quiz.questions?.filter((q) => q.id !== qId) ?? [] });
   }
 
   return (
@@ -91,7 +91,7 @@ export function QuizEditor({
         </div>
       </div>
 
-      {quiz.questions.map((q, qi) => (
+      {quiz.questions?.map((q, qi) => (
         <div key={q.id} className="rounded-md border bg-card p-3">
           <div className="flex items-center gap-2">
             <Input
@@ -116,7 +116,7 @@ export function QuizEditor({
             value={q.correctOptionId}
             onValueChange={(v) => patchQuestion(q.id, { correctOptionId: v as string })}
           >
-            {q.options.map((o, oi) => (
+            {q.options?.map((o, oi) => (
               <div key={o.id} className="flex items-center gap-2">
                 <RadioGroupItem value={o.id} aria-label={`Mark option ${oi + 1} correct`} />
                 <Input

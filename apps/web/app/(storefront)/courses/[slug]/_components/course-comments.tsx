@@ -96,7 +96,7 @@ export function CourseComments({ courseId }: { courseId: string }) {
         </p>
       ) : (
         <ul className="space-y-5">
-          {comments.map((c) => (
+          {comments?.map((c) => (
             <li key={c.id} className="flex gap-3">
               <Avatar className="h-9 w-9 shrink-0">
                 {c.avatar && <AvatarImage src={c.avatar} alt="" />}

@@ -42,19 +42,19 @@ export default function AdminPayouts() {
   const reject = useMutation(mutationFor((id) => api.rejectPayout(id), "Payout rejected"));
 
   const rows = payouts ?? [];
-  const open = rows.filter((p) => p.status === "REQUESTED" || p.status === "APPROVED");
+  const open = rows?.filter((p) => p.status === "REQUESTED" || p.status === "APPROVED") ?? [];
   const stats = [
     { icon: Clock, label: "Awaiting action", value: open.length },
     {
       icon: Wallet,
       label: "Open amount",
-      value: formatUsd(open.reduce((s, p) => s + p.amountCents, 0) / 100),
+      value: formatUsd((open?.reduce((s, p) => s + p.amountCents, 0) ?? 0) / 100),
     },
     {
       icon: CheckCircle2,
       label: "Paid to date",
       value: formatUsd(
-        rows.filter((p) => p.status === "PAID").reduce((s, p) => s + p.amountCents, 0) / 100,
+        (rows?.filter((p) => p.status === "PAID")?.reduce((s, p) => s + p.amountCents, 0) ?? 0) / 100,
       ),
     },
   ];
@@ -110,7 +110,7 @@ export default function AdminPayouts() {
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((p) => (
+                rows?.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">

@@ -48,7 +48,7 @@ export function CatalogResults({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((c) => (
+            {items?.map((c) => (
               <CourseCard key={c.id} course={c} />
             ))}
           </div>

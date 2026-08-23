@@ -55,10 +55,10 @@ export default function DashboardPage() {
     .filter((e) => e.status === "IN_PROGRESS")
     .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
 
-  const completed = enrolled.filter((e) => e.status === "COMPLETED");
+  const completed = enrolled?.filter((e) => e.status === "COMPLETED") ?? [];
   const resume = inProgress[0] ?? null;
 
-  const totalMinutes = enrolled.reduce((sum, e) => sum + e.minutesWatched, 0);
+  const totalMinutes = enrolled?.reduce((sum, e) => sum + e.minutesWatched, 0) ?? 0;
 
   const recommended = recommendedCourses ?? [];
   const savedCategories = (preferences?.categories ?? []).filter(
@@ -169,7 +169,7 @@ export default function DashboardPage() {
             Your courses
           </h2>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {enrolled.map((e, i) => (
+          {enrolled?.map((e, i) => (
               <Link
                 key={e.id}
                 href={`/learn/${e.course.slug}`}
@@ -289,7 +289,7 @@ export default function DashboardPage() {
             </Button>
           </div>
           <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
-            {recommended.map((c) => (
+                {recommended?.map((c) => (
               <Link
                 key={c.id}
                 href={`/courses/${c.slug}`}

@@ -90,16 +90,16 @@ export default function AdminAgents() {
     },
   });
 
-  const filtered = agents.filter(
+  const filtered = agents?.filter(
     (a) => !q || `${a.name} ${a.email} ${a.referralCode}`.toLowerCase().includes(q.toLowerCase()),
   );
-  const pending = applications.filter((a) => a.status === "PENDING");
+  const pending = applications?.filter((a) => a.status === "PENDING") ?? [];
 
   const stats = [
-    { icon: Users, label: "Total agents", value: agents.filter((a) => a.status === "APPROVED").length },
-    { icon: Link2, label: "Total referrals", value: agents.reduce((s, a) => s + a.referralCount, 0) },
-    { icon: DollarSign, label: "Commissions paid", value: formatUsd(agents.reduce((s, a) => s + a.paidEarningsCents, 0) / 100) },
-    { icon: DollarSign, label: "Pending", value: formatUsd(agents.reduce((s, a) => s + a.pendingEarningsCents, 0) / 100) },
+    { icon: Users, label: "Total agents", value: agents?.filter((a) => a.status === "APPROVED").length ?? 0 },
+    { icon: Link2, label: "Total referrals", value: agents?.reduce((s, a) => s + a.referralCount, 0) ?? 0 },
+    { icon: DollarSign, label: "Commissions paid", value: formatUsd((agents?.reduce((s, a) => s + a.paidEarningsCents, 0) ?? 0) / 100) },
+    { icon: DollarSign, label: "Pending", value: formatUsd((agents?.reduce((s, a) => s + a.pendingEarningsCents, 0) ?? 0) / 100) },
   ];
 
   if (isLoading) {
@@ -144,7 +144,7 @@ export default function AdminAgents() {
             <Badge variant="outline" className="ml-1 text-warning">{pending.length} pending</Badge>
           </h2>
           <div className="space-y-3">
-            {pending.map((app) => (
+              {pending?.map((app) => (
               <Card key={app.id}>
                 <CardContent className="flex flex-wrap items-start gap-4 pt-4">
                   <div className="min-w-0 flex-1">
@@ -251,7 +251,7 @@ export default function AdminAgents() {
                     <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">No agents found.</TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((a) => (
+                  filtered?.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">

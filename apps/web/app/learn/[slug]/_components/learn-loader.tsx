@@ -29,7 +29,7 @@ export function LearnLoader({ slug }: { slug: string }) {
     learningError ||
     !data ||
     (user ? !learningCourse : false) ||
-    data.sections.every((s) => s.lessons.length === 0)
+    (data.sections?.every((s) => s.lessons?.length === 0) ?? false)
   ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">

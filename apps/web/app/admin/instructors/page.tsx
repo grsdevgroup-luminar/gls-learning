@@ -38,8 +38,8 @@ export default function AdminInstructors() {
     onSuccess: invalidate,
   });
 
-  const pending = applications.filter((a) => a.status === "PENDING");
-  const decided = applications.filter((a) => a.status !== "PENDING");
+  const pending = applications?.filter((a) => a.status === "PENDING") ?? [];
+  const decided = applications?.filter((a) => a.status !== "PENDING") ?? [];
 
   const { data: roster = [] } = useQuery({
     queryKey: ["admin", "instructors"],
@@ -56,7 +56,7 @@ export default function AdminInstructors() {
       <StatStrip className="grid-cols-2 lg:grid-cols-3">
         <Stat icon={Clock} label="Pending applications" value={pending.length} tint="var(--tint-amber)" />
         <Stat icon={GraduationCap} label="Active instructors" value={roster.length} tint="var(--tint-indigo)" />
-        <Stat icon={Users} label="Total students taught" value={compactNumber(roster.reduce((s, i) => s + i.studentCount, 0))} tint="var(--tint-sky)" />
+        <Stat icon={Users} label="Total students taught" value={compactNumber(roster?.reduce((s, i) => s + i.studentCount, 0) ?? 0)} tint="var(--tint-sky)" />
       </StatStrip>
 
       {/* Applications */}
@@ -66,7 +66,7 @@ export default function AdminInstructors() {
           <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No applications yet.</CardContent></Card>
         ) : (
           <div className="space-y-3">
-            {pending.map((a) => (
+            {pending?.map((a) => (
               <Card key={a.id} variant="elevated" className="gap-4 p-5">
                 <CardContent className="flex flex-col gap-4 px-0 md:flex-row md:items-start md:justify-between">
                   <div className="flex gap-3">
@@ -147,7 +147,7 @@ export default function AdminInstructors() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roster.map((i) => (
+                {roster?.map((i) => (
                   <TableRow key={i.id}>
                     <TableCell className="pl-6">
                       <div className="flex items-center gap-3">

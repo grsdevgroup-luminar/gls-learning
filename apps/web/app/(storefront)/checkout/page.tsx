@@ -56,7 +56,7 @@ export default function CheckoutPage() {
   const items = useMemo(
     () =>
       cart
-        .map((id) => catalog?.items.find((c) => c.id === id))
+        ?.map((id) => catalog?.items?.find((c) => c.id === id))
         .filter(Boolean) as NonNullable<typeof catalog>["items"],
     [cart, catalog],
   );
@@ -71,10 +71,10 @@ export default function CheckoutPage() {
   const lineUsd = (courseId: string) => {
     const line = quote?.lines.find((l) => l.courseId === courseId);
     if (line) return line.priceCents / 100;
-    const c = items.find((i) => i.id === courseId);
+    const c = items?.find((i) => i.id === courseId);
     return c ? c.basePriceCents / 100 : 0;
   };
-  const fallbackSubtotalCents = items.reduce((sum, c) => sum + c.basePriceCents, 0);
+  const fallbackSubtotalCents = items?.reduce((sum, c) => sum + c.basePriceCents, 0) ?? 0;
   const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
   const discountCents = quote?.discountCents ?? 0;
   const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents);
@@ -295,7 +295,7 @@ export default function CheckoutPage() {
                   <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
                 </div>
                 <div className="space-y-3">
-                  {items.map((c) => (
+                  {items?.map((c) => (
                     <div key={c.id} className="flex items-center gap-3">
                       <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
                       <div className="min-w-0 flex-1">

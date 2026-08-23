@@ -13,15 +13,15 @@ export function courseLessonCount(course: CourseSummaryDto) {
 }
 
 export function courseArticleCount(course: CourseDetailDto) {
-  return course.sections.reduce(
+  return course.sections?.reduce(
     (a, s) => a + s.lessons.filter((l) => l.type === "ARTICLE").length,
     0,
-  );
+  ) ?? 0;
 }
 
 export function courseResourceCount(course: CourseDetailDto) {
-  return course.sections.reduce(
+  return course.sections?.reduce(
     (a, s) => a + s.lessons.reduce((b, l) => b + l.resources.length, 0),
     0,
-  );
+  ) ?? 0;
 }

@@ -21,7 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const page = await serverApi<Paginated<CourseSummaryDto>>(
       `/courses?pageSize=${MAX_PAGE_SIZE}`,
     );
-    courseEntries = page.items.map((c) => ({
+    courseEntries = page.items?.map((c) => ({
       url: `${SITE_URL}/courses/${c.slug}`,
       changeFrequency: "weekly",
       priority: 0.9,

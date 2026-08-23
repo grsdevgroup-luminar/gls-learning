@@ -195,7 +195,7 @@ export default function OrgMembers() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((m) => (
+                filtered?.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">

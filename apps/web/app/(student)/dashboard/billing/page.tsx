@@ -181,7 +181,7 @@ export default function BillingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((o) => {
+                  {rows?.map((o) => {
                     const badge = STATUS_BADGE[o.status] ?? STATUS_BADGE.PENDING;
                     return (
                       <TableRow key={o.id}>

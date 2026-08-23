@@ -17,9 +17,9 @@ export default function AgentEarnings() {
   if (!agent) return null;
 
   const all = referrals ?? [];
-  const confirmed = all.filter((r) => r.status === "confirmed");
-  const paid = all.filter((r) => r.status === "paid");
-  const pending = all.filter((r) => r.status === "pending");
+  const confirmed = all?.filter((r) => r.status === "confirmed") ?? [];
+  const paid = all?.filter((r) => r.status === "paid") ?? [];
+  const pending = all?.filter((r) => r.status === "pending") ?? [];
 
   const summary = [
     {
@@ -62,7 +62,7 @@ export default function AgentEarnings() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {summary.map((s) => (
+        {summary?.map((s) => (
           <Card key={s.label}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -100,7 +100,7 @@ export default function AgentEarnings() {
                   </TableCell>
                 </TableRow>
               ) : (
-                paid.map((r) => (
+                paid?.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.studentName}</TableCell>
                     <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
@@ -132,7 +132,7 @@ export default function AgentEarnings() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pending.map((r) => (
+                {pending?.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.studentName}</TableCell>
                     <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>

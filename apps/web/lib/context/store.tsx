@@ -234,8 +234,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // matching `pricing.service.ts#resolveRegion` — falling back to regions[0]
   // would price the user as whoever sorts first while checkout charges them US.
   const region =
-    regions.find((r) => r.code === regionCode) ??
-    regions.find((r) => r.code === DEFAULT_REGION) ??
+    regions?.find((r) => r.code === regionCode) ??
+    regions?.find((r) => r.code === DEFAULT_REGION) ??
     FALLBACK_REGION;
 
   // ── catalog (published summaries) ──
@@ -298,7 +298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     serverCartFetchStatus !== "idle";
 
   const applyServerCart = useCallback((dto: CartDto) => {
-    setCart(dto.items.map((i) => i.courseId));
+    setCart(dto.items?.map((i) => i.courseId) ?? []);
     setCouponState(dto.couponCode);
   }, []);
 
@@ -484,11 +484,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addToCart,
     removeFromCart,
     clearCart,
-    inCart: (id) => cart.includes(id),
+    inCart: (id) => cart?.includes(id) ?? false,
     setCoupon,
     // enrollment + progress
     enrolled,
-    isEnrolled: (id) => enrolled.includes(id),
+    isEnrolled: (id) => enrolled?.includes(id) ?? false,
     toggleLesson: (courseId, lessonId) => {
       void api
         .toggleLesson(courseId, lessonId)

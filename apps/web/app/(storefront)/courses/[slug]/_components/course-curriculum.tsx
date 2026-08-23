@@ -36,7 +36,7 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
         <CardContent className="pt-6">
           <h2 className="mb-4 text-xl font-bold">What you&apos;ll learn</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {course.whatYouLearn.map((w) => (
+          {course.whatYouLearn?.map((w) => (
               <div key={w} className="flex gap-2 text-sm">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 <span>{w}</span>
@@ -56,7 +56,7 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
         </div>
         <Card className="p-0">
           <Accordion defaultValue={course.sections[0] ? [course.sections[0].id] : []}>
-            {course.sections.map((s) => (
+          {course.sections?.map((s) => (
               <AccordionItem key={s.id} value={s.id} className="px-4">
                 <AccordionTrigger>
                   <div className="flex w-full items-center justify-between pr-3">
@@ -68,7 +68,7 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <ul className="space-y-1 pb-2">
-                    {s.lessons.map((l) => (
+                    {s.lessons?.map((l) => (
                       <li key={l.id} className="rounded-md">
                         <div className="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50">
                           {l.type === "VIDEO" ? (
@@ -96,7 +96,7 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
                             already cleared for public download. */}
                         {l.preview && l.resources.length > 0 && (
                           <ul className="ml-9 mt-1 space-y-1 border-l pl-3">
-                            {l.resources.map((r) => {
+                            {l.resources?.map((r) => {
                               const isFile = Boolean(r.storageKey);
                               return (
                                 <li key={r.url} className="flex items-center gap-2 text-xs">
@@ -143,7 +143,7 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
       <div>
         <h2 className="mb-3 text-xl font-bold">Requirements</h2>
         <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
-          {course.requirements.map((r) => (
+          {course.requirements?.map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>

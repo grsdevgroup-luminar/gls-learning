@@ -40,7 +40,7 @@ export function PersonalizedRecommendations() {
         </Button>
       </div>
       <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-        {courses.map((course) => <CourseCard key={course.id} course={course} />)}
+        {courses?.map((course) => <CourseCard key={course.id} course={course} />)}
       </div>
       <p className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <Sparkles className="size-3.5 text-primary" /> Personalized using your three selected categories
