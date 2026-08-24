@@ -2,6 +2,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Env } from "../../config/env";
+import { OrganizationsModule } from "../organizations/organizations.module";
 import { AutomationService } from "./automation.service";
 import { FxService } from "./fx.service";
 import { MaintenanceProcessor } from "./maintenance.processor";
@@ -43,6 +44,7 @@ function parseRedis(url: string | undefined) {
       { name: MAINTENANCE_QUEUE },
       { name: NOTIFICATIONS_QUEUE },
     ),
+    OrganizationsModule,
   ],
   providers: [
     AutomationService,

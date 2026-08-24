@@ -1,5 +1,20 @@
 import { z } from "zod";
-import { ReminderTrigger } from "../enums.js";
+import { NotificationEvent, ReminderTrigger } from "../enums.js";
+
+/** One row in the in-app notification bell/inbox — `GET /me/notifications`. */
+export interface NotificationDto {
+  id: string;
+  event: NotificationEvent;
+  title: string;
+  body: string;
+  href: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface UnreadCountDto {
+  count: number;
+}
 
 /** Per-channel opt-in for one reminder trigger. */
 export const channelPrefsSchema = z.object({

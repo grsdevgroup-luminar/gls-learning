@@ -62,7 +62,7 @@ export class ReviewsRepository {
   findCourseTitle(courseId: string) {
     return this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { title: true },
+      select: { title: true, instructorId: true },
     });
   }
 

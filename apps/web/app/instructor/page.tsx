@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatUsd, compactNumber } from "@/lib/format";
 import {
   BookOpen, Users, Star, DollarSign, Plus, ArrowRight, Pencil, Sparkles, Rocket,
-  Clock, XCircle, ShieldCheck,
+  Clock, XCircle, ShieldCheck, GraduationCap,
 } from "lucide-react";
 
 export default function InstructorOverview() {
@@ -27,7 +27,29 @@ export default function InstructorOverview() {
 
   const isLoading = profileLoading || coursesLoading;
 
-  // Approval gate
+  // Approval gate — /instructor is reachable by any signed-in account (see
+  // proxy.ts and layout.tsx), since it also hosts the apply-status view for
+  // accounts that aren't INSTRUCTOR yet.
+  if (!profileLoading && !profile) {
+    return (
+      <div className="grid min-h-[60vh] place-items-center p-6">
+        <div className="max-w-md text-center" style={{ ["--tile" as string]: "var(--tint-amber)" } as React.CSSProperties}>
+          <span className="icon-tile mx-auto mb-5 grid size-14 place-items-center">
+            <GraduationCap className="size-7" />
+          </span>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">You&apos;re not an instructor yet</h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Apply to teach on GRS Learning — approved instructors unlock the full course builder, earnings and
+            analytics.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <Button render={<Link href="/teach" />}>Apply to teach</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!profileLoading && profile) {
     if (profile.status === "REJECTED") {
       return (

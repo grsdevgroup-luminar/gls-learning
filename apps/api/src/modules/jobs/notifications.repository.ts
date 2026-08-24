@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ReminderChannel, ReminderTrigger } from "@prisma/client";
+import { ReminderChannel } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -13,7 +13,6 @@ export class NotificationsRepository {
         email: true,
         name: true,
         phone: true,
-        studentProfile: { select: { notificationPrefs: true } },
       },
     });
   }
@@ -21,12 +20,20 @@ export class NotificationsRepository {
   createReminderLog(data: {
     userId: string;
     channel: ReminderChannel;
-    trigger: ReminderTrigger;
+    trigger: string;
     subject: string;
     ruleId?: string;
   }) {
     return this.prisma.reminderLog.create({
       data: { ...data, status: "SENT" },
+    });
+  }
+
+  /** Same 90-day retention as read Notification rows — this is a delivery
+   *  audit trail, not a user-facing inbox, so there's no "unread" tier. */
+  deleteOldReminderLogs(cutoff: Date) {
+    return this.prisma.reminderLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
     });
   }
 }

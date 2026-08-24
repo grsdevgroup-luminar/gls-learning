@@ -14,6 +14,7 @@ import type {
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { EmailService } from "../email/email.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import {
   SalesAgentRepository,
   type SalesAgentRow,
@@ -24,6 +25,7 @@ export class SalesAgentService {
   constructor(
     private readonly repo: SalesAgentRepository,
     private readonly email: EmailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private toDto(a: SalesAgentRow): SalesAgentDto {
@@ -93,6 +95,24 @@ export class SalesAgentService {
         result.note,
       )
       .catch(() => undefined);
+
+    if (app.userId) {
+      const approved = result.status === "APPROVED";
+      void this.notifications
+        .notify({
+          userId: app.userId,
+          event: approved
+            ? "SALES_AGENT_APPLICATION_APPROVED"
+            : "SALES_AGENT_APPLICATION_REJECTED",
+          title: approved ? "Sales agent application approved" : "Sales agent application update",
+          body: approved
+            ? "You're approved as a sales agent — your referral code is ready."
+            : (result.note ?? "Your sales agent application was not approved this time."),
+          href: approved ? "/sales-agent/referrals" : undefined,
+        })
+        .catch(() => undefined);
+    }
+
     return result;
   }
 
@@ -101,9 +121,31 @@ export class SalesAgentService {
   }
 
   // ── agent self ───────────────────────────────────────────────────────────
+  /** A SalesAgent row only exists once an application is approved, so a
+   *  pending or rejected applicant would otherwise see `null` here and the
+   *  frontend would show the apply form again instead of their status. */
   async me(user: RequestUser): Promise<SalesAgentDto | null> {
     const a = await this.repo.findAgentByUserId(user.id);
-    return a ? this.toDto(a) : null;
+    if (a) return this.toDto(a);
+
+    const app = await this.repo.findLatestApplicationByUser(user.id);
+    if (!app || app.status === "APPROVED") return null;
+
+    return {
+      id: app.id,
+      userId: user.id,
+      name: app.name,
+      email: app.email,
+      region: app.region,
+      referralCode: "",
+      commissionPercent: 0,
+      status: app.status,
+      totalEarningsCents: 0,
+      pendingEarningsCents: 0,
+      paidEarningsCents: 0,
+      referralCount: 0,
+      createdAt: app.appliedAt.toISOString(),
+    };
   }
 
   async myReferrals(user: RequestUser): Promise<SalesAgentReferralDto[]> {
@@ -178,5 +220,14 @@ export class SalesAgentService {
       referral.agentId,
       referral.commissionCents,
     );
+    void this.notifications
+      .notify({
+        userId: referral.agent.userId,
+        event: "REFERRAL_CONFIRMED",
+        title: "Referral confirmed",
+        body: `A referral you sent just converted — $${(referral.commissionCents / 100).toFixed(2)} commission pending.`,
+        href: "/sales-agent/referrals",
+      })
+      .catch(() => undefined);
   }
 }

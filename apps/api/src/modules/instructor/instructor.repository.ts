@@ -23,6 +23,16 @@ export class InstructorRepository {
     });
   }
 
+  /** Most recent application regardless of status — lets `myProfile()`
+   *  reflect a pending or rejected application before any InstructorProfile
+   *  row exists (that row is only created on approval). */
+  findLatestApplicationByUser(userId: string) {
+    return this.prisma.instructorApplication.findFirst({
+      where: { userId },
+      orderBy: { appliedAt: "desc" },
+    });
+  }
+
   createApplication(data: Prisma.InstructorApplicationUncheckedCreateInput) {
     return this.prisma.instructorApplication.create({ data });
   }

@@ -60,6 +60,42 @@ export class MaintenanceScheduler implements OnModuleInit {
           removeOnFail: 50,
         },
       );
+      // Org invites that expired unclaimed since the last sweep — notifies
+      // the org's own admins. See NOTIFICATION_SYSTEM_PLAN.md Phase 3.
+      await this.queue.add(
+        "org-invite-expiry",
+        {},
+        {
+          repeat: { every: 24 * 60 * 60 * 1000 },
+          jobId: "org-invite-expiry",
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+      // Notification/ReminderLog retention purge — see Scale & retention.
+      await this.queue.add(
+        "notification-retention",
+        {},
+        {
+          repeat: { every: 24 * 60 * 60 * 1000 },
+          jobId: "notification-retention",
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+      // Early-warning table-size check ahead of the eventual partitioning
+      // conversion — see Scale & retention. Cheap to run daily; debounced to
+      // a weekly admin alert internally once the threshold is crossed.
+      await this.queue.add(
+        "table-size-check",
+        {},
+        {
+          repeat: { every: 24 * 60 * 60 * 1000 },
+          jobId: "table-size-check",
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
       // Kick one off immediately so fresh deploys reconcile right away.
       await this.queue.add("rollup", {}, { removeOnComplete: true });
       // Ditto for FX: a repeatable's first run is one interval away, which would

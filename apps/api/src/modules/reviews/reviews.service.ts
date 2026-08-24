@@ -8,6 +8,7 @@ import type {
 } from "@skillstream/shared";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { ReviewsRepository, type ReviewRow } from "./reviews.repository";
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ReviewsService {
     private readonly repo: ReviewsRepository,
     private readonly enrollment: EnrollmentService,
     private readonly alerts: AdminAlertsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private toDto(r: ReviewRow): ReviewDto {
@@ -78,6 +80,19 @@ export class ReviewsService {
       review.rating,
       review.user.name,
     );
+    // In-app only (no email) — see NOTIFICATION_SYSTEM_PLAN.md's Phase 3 taxonomy.
+    if (course) {
+      void this.notifications
+        .notify({
+          userId: course.instructorId,
+          event: "COURSE_NEW_REVIEW",
+          title: "New review",
+          body: `${review.user.name} left a ${review.rating}-star review on "${course.title}".`,
+          href: `/instructor/courses/${courseId}`,
+          skipEmail: true,
+        })
+        .catch(() => undefined);
+    }
     return this.toDto(review);
   }
 

@@ -66,7 +66,11 @@ export default function JoinPage() {
     );
   }
 
-  if (!invite?.valid) {
+  // Once a claim has gone through (or is in flight), the invite record
+  // itself correctly flips to invalid on refetch — claimed invites aren't
+  // reusable. Don't let that refetch race the post-claim redirect and flash
+  // the "not valid" error over a join that actually succeeded.
+  if (!invite || (!invite.valid && !claim.isPending && !claim.isSuccess)) {
     return shell(
       <div className="flex flex-col items-center gap-4 py-4 text-center">
         <div className="grid h-14 w-14 place-items-center rounded-full bg-destructive/10 text-destructive">

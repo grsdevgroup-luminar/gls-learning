@@ -14,7 +14,19 @@ import type {
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import {
+  NotificationsService,
+  type NotifyInput,
+} from "../notifications/notifications.service";
 import { InstructorRepository } from "./instructor.repository";
+
+const approvedNotify = (userId: string): NotifyInput => ({
+  userId,
+  event: "INSTRUCTOR_APPLICATION_APPROVED",
+  title: "Instructor application approved",
+  body: "You're approved as an instructor — you can start building courses.",
+  href: "/instructor",
+});
 
 @Injectable()
 export class InstructorService {
@@ -22,6 +34,7 @@ export class InstructorService {
     private readonly prisma: PrismaService,
     private readonly repo: InstructorRepository,
     private readonly email: EmailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Applicants are promised an emailed decision; a delivery failure must not
@@ -88,23 +101,46 @@ export class InstructorService {
     }));
   }
 
+  /** An InstructorProfile row only exists once an application is approved,
+   *  so a pending or rejected applicant would otherwise see `null` here and
+   *  the frontend's ApprovalGate would show "not an instructor yet" instead
+   *  of their actual status. */
   async myProfile(user: RequestUser): Promise<InstructorProfileDto | null> {
     const u = await this.repo.findUserWithProfile(user.id);
-    if (!u || !u.instructorProfile) return null;
-    const p = u.instructorProfile;
+    if (u?.instructorProfile) {
+      const p = u.instructorProfile;
+      return {
+        userId: u.id,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        title: p.title,
+        bio: p.bio,
+        expertise: p.expertise,
+        ratingAvg: p.ratingAvg,
+        studentCount: p.studentCount,
+        courseCount: p.courseCount,
+        earningsCents: p.earningsCents,
+        status: p.status,
+      };
+    }
+
+    const app = await this.repo.findLatestApplicationByUser(user.id);
+    if (!app || app.status === "APPROVED") return null;
+
     return {
-      userId: u.id,
-      name: u.name,
-      email: u.email,
-      avatar: u.avatar,
-      title: p.title,
-      bio: p.bio,
-      expertise: p.expertise,
-      ratingAvg: p.ratingAvg,
-      studentCount: p.studentCount,
-      courseCount: p.courseCount,
-      earningsCents: p.earningsCents,
-      status: p.status,
+      userId: user.id,
+      name: app.name,
+      email: app.email,
+      avatar: null,
+      title: app.headline,
+      bio: app.bio,
+      expertise: app.expertise,
+      ratingAvg: 0,
+      studentCount: 0,
+      courseCount: 0,
+      earningsCents: 0,
+      status: app.status,
     };
   }
 
@@ -157,9 +193,17 @@ export class InstructorService {
           tx,
         );
       }
+      if (app.userId) {
+        await this.notifications.notify(approvedNotify(app.userId), tx);
+      }
       return a;
     });
     this.notifyDecision(updated, true, note);
+    if (app.userId) {
+      void this.notifications
+        .notifyEmailAfterCommit(approvedNotify(app.userId))
+        .catch(() => undefined);
+    }
     return this.toAppDto(updated);
   }
 
@@ -170,6 +214,16 @@ export class InstructorService {
       note,
     });
     this.notifyDecision(app, false, note);
+    if (app.userId) {
+      void this.notifications
+        .notify({
+          userId: app.userId,
+          event: "INSTRUCTOR_APPLICATION_REJECTED",
+          title: "Instructor application update",
+          body: note ?? "Your instructor application was not approved this time.",
+        })
+        .catch(() => undefined);
+    }
     return this.toAppDto(app);
   }
 }

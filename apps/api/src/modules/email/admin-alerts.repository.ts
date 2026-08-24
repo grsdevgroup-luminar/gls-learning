@@ -12,6 +12,15 @@ export class AdminAlertsRepository {
     });
   }
 
+  /** Real recipients for admin alerts — replaces the single `supportEmail`
+   *  string with the actual set of platform admins. */
+  findAdminUsers() {
+    return this.prisma.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true, name: true, email: true },
+    });
+  }
+
   findPaidOrdersBetween(start: Date, end: Date) {
     return this.prisma.order.findMany({
       where: { status: "PAID", paidAt: { gte: start, lt: end } },

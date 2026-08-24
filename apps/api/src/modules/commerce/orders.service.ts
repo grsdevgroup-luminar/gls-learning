@@ -15,6 +15,10 @@ import { receiptPdf } from "../../common/utils/pdf";
 import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
+import {
+  NotificationsService,
+  type NotifyInput,
+} from "../notifications/notifications.service";
 import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { CartService } from "./cart.service";
 
@@ -41,6 +45,7 @@ export class OrdersService {
     private readonly salesAgents: SalesAgentService,
     private readonly email: EmailService,
     private readonly cart: CartService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private toDto(row: OrderRow): OrderDto {
@@ -159,6 +164,15 @@ export class OrdersService {
     };
   }
 
+  /** A single order, scoped to its owner — 404 for another account's order,
+   *  never a leak. Powers the checkout success page's fast poll for
+   *  payment confirmation (see NOTIFICATION_SYSTEM_PLAN.md). */
+  async myOrder(userId: string, orderId: string): Promise<OrderDto> {
+    const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
+    if (!order) throw new NotFoundException("Order not found");
+    return this.toDto(order);
+  }
+
   async myOrderStats(userId: string): Promise<MyOrderStatsDto> {
     const agg = await this.repo.aggregatePaidByUser(userId);
     return {
@@ -178,6 +192,15 @@ export class OrdersService {
     if (!order) throw new NotFoundException("Order not found");
     if (order.status === "PAID") return this.toDto(order);
 
+    const courseNames = order.items.map((i) => i.titleSnapshot).join(", ");
+    const notifyInput: NotifyInput = {
+      userId: order.userId,
+      event: "ORDER_PAID",
+      title: "Payment confirmed",
+      body: `Your order for ${courseNames} is paid — you're enrolled.`,
+      href: "/dashboard/billing",
+    };
+
     await this.prisma.$transaction(async (tx) => {
       await this.repo.updateOrder(
         orderId,
@@ -195,6 +218,11 @@ export class OrdersService {
         order.items.map((i) => i.courseId),
       );
 
+      // In-app write only — enqueuing the email here (inside the transaction)
+      // risks a send before/without a commit, since BullMQ writes to Redis
+      // immediately. The email fan-out happens after this block resolves.
+      await this.notifications.notify(notifyInput, tx);
+
       for (const item of order.items) {
         const course = await this.repo.incrementCourseRevenue(
           item.courseId,
@@ -204,6 +232,19 @@ export class OrdersService {
         await this.repo.incrementInstructorEarnings(
           course.instructorId,
           item.priceCents,
+          tx,
+        );
+        // In-app only (P3, no email) — see NOTIFICATION_SYSTEM_PLAN.md's
+        // Phase 3 taxonomy. Never fanned out post-commit, unlike ORDER_PAID.
+        await this.notifications.notify(
+          {
+            userId: course.instructorId,
+            event: "COURSE_NEW_ENROLLMENT",
+            title: "New enrollment",
+            body: `A student enrolled in "${item.titleSnapshot}".`,
+            href: `/instructor/courses/${item.courseId}`,
+            skipEmail: true,
+          },
           tx,
         );
       }
@@ -236,9 +277,12 @@ export class OrdersService {
 
     const updated = await this.findById(orderId);
 
-    // Receipt email — fire-and-forget: the purchase is already complete and a
-    // mail failure must not turn a paid order into an error response.
+    // Receipt email and the ORDER_PAID notification email — both fire-and-
+    // forget now that the transaction has actually committed: the purchase is
+    // already complete and neither send failing should turn a paid order into
+    // an error response.
     void this.emailReceipt(orderId).catch(() => undefined);
+    void this.notifications.notifyEmailAfterCommit(notifyInput).catch(() => undefined);
 
     return this.toDto(updated!);
   }

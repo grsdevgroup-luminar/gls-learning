@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import { type MiddlewareConsumer, Module, type NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
@@ -25,6 +26,7 @@ import { AdminModule } from "./modules/admin/admin.module";
 import { SalesAgentModule } from "./modules/sales-agent/sales-agent.module";
 import { PayoutsModule } from "./modules/payouts/payouts.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { JobsModule } from "./modules/jobs/jobs.module";
 import { HealthController } from "./modules/health/health.controller";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
@@ -79,6 +81,7 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
     SalesAgentModule,
     PayoutsModule,
     OrganizationsModule,
+    NotificationsModule,
     JobsModule,
   ],
   controllers: [HealthController],
