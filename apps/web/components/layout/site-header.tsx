@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,8 @@ import {
 import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
-import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
 export function SiteHeader() {
@@ -30,20 +30,47 @@ export function SiteHeader() {
   const { user, role, isLoading } = useSession();
   const logoutMut = useLogout();
   const router = useRouter();
-  const [q, setQ] = useState("");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlQ = pathname === "/courses" ? (searchParams.get("q") ?? "") : "";
+  const [q, setQ] = useState(urlQ);
+  const [syncedQ, setSyncedQ] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(q);
   const isAuthed = !!user;
 
-  useEffect(() => {
-    if (!debouncedQ) return;
-    router.replace(`/courses?q=${encodeURIComponent(debouncedQ)}`);
-  }, [debouncedQ, router]);
+  if (syncedQ !== urlQ) {
+    setSyncedQ(urlQ);
+    setQ(urlQ);
+  }
 
-  function search(e: React.FormEvent) {
-    e.preventDefault();
-    const query = q.trim();
+  const search = useCallback((query: string) => {
+    if (pathname === "/courses") {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      if (query.length < 2) nextParams.delete("q");
+      else nextParams.set("q", query);
+
+      const nextQueryString = nextParams.toString();
+      const nextHref = nextQueryString ? `/courses?${nextQueryString}` : "/courses";
+      const currentQueryString = searchParams.toString();
+      const currentHref = currentQueryString ? `/courses?${currentQueryString}` : "/courses";
+      if (nextHref === currentHref) return;
+
+      router.push(nextHref);
+      return;
+    }
+
     if (query.length < 2) return;
+
     router.push(`/courses?q=${encodeURIComponent(query)}`);
+  }, [pathname, router, searchParams]);
+
+  useEffect(() => {
+    search(debouncedQ);
+  }, [debouncedQ, search]);
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    search(q.trim());
   }
 
   async function logout() {
@@ -74,7 +101,7 @@ export function SiteHeader() {
           </Button>
         </nav>
 
-        <form onSubmit={search} className="relative ml-2 hidden flex-1 lg:block">
+        <form onSubmit={submitSearch} className="relative ml-2 hidden flex-1 lg:block">
           <button
             type="submit"
             aria-label="Search courses"

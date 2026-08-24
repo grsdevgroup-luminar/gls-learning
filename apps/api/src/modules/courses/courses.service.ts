@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
+  LEARNING_CATEGORIES,
   isLessonSequentiallyAccessible,
   type CourseDetailDto,
   type CourseListQuery,
@@ -91,8 +92,17 @@ export class CoursesService {
   }
 
   async categories(): Promise<string[]> {
-    const rows = await this.repo.findDistinctCategories();
-    return rows.map((r) => r.category);
+    return [...LEARNING_CATEGORIES];
+  }
+
+  async recommendedFor(userId: string, categories: string[], limit = 8) {
+    if (categories.length === 0) return [];
+    const rows = await this.repo.findRecommendedForStudent(
+      userId,
+      categories,
+      Math.min(Math.max(limit, 1), 24),
+    );
+    return rows.map(toCourseSummary);
   }
 
   async bySlug(slug: string): Promise<CourseDetailDto> {

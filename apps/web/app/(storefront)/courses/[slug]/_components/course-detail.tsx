@@ -20,7 +20,7 @@ export function CourseDetail({
 }) {
   // Curriculum arrives a tick after the summary, so sections can still be empty.
   const previewLesson =
-    course.sections.flatMap((s) => s.lessons).find((l) => l.preview) ??
+    course.sections?.flatMap((s) => s.lessons ?? [])?.find((l) => l.preview) ??
     course.sections[0]?.lessons[0];
 
   return (

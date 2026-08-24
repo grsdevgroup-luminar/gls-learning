@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DiscussionSkeleton } from "@/components/shared/loading-skeletons";
 
 const MAX = 2000;
 
@@ -23,6 +24,15 @@ export function CourseComments({ courseId }: { courseId: string }) {
   const [body, setBody] = useState("");
 
   const comments = data?.items ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="max-w-full border-t border-border pt-8">
+        <div className="mb-5 flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary" /><h2 className="text-xl font-bold">Discussion</h2></div>
+        <DiscussionSkeleton />
+      </div>
+    );
+  }
 
   function submit() {
     const trimmed = body.trim();
@@ -86,7 +96,7 @@ export function CourseComments({ courseId }: { courseId: string }) {
         </p>
       ) : (
         <ul className="space-y-5">
-          {comments.map((c) => (
+          {comments?.map((c) => (
             <li key={c.id} className="flex gap-3">
               <Avatar className="h-9 w-9 shrink-0">
                 {c.avatar && <AvatarImage src={c.avatar} alt="" />}

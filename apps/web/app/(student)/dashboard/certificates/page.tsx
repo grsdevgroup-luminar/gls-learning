@@ -111,20 +111,19 @@ export default function CertificatesPage() {
     toast.error('Sharing is not available in this browser');
   };
 
-  const downloadCertificate = async (cert: CertificateDto) => {
-    setDownloading(cert.serial);
-    try {
-      window.open(
-        `/certificates/${encodeURIComponent(cert.serial)}/print`,
-        '_blank',
-        'noopener,noreferrer',
-      );
-    } catch {
-      toast.error('Could not open certificate PDF page');
-    } finally {
-      setDownloading(null);
-    }
-  };
+  const downloadCertificate = (cert: CertificateDto) => {
+  setDownloading(cert.serial);
+
+  try {
+    window.location.assign(
+      `/certificates/${encodeURIComponent(cert.serial)}/print`,
+    );
+  } catch {
+    toast.error("Could not open certificate PDF page");
+  } finally {
+    setDownloading(null);
+  }
+};
 
   return (
     <div className="space-y-8 p-6 md:p-8">
@@ -171,7 +170,7 @@ export default function CertificatesPage() {
                   <Button
                     size="sm"
                     className="flex-1"
-                    onClick={() => void downloadCertificate(cert)}
+                    onClick={() => downloadCertificate(cert)}
                     disabled={downloading === cert.serial}
                   >
                     <Download className="mr-1 h-3.5 w-3.5" />
@@ -213,7 +212,7 @@ export default function CertificatesPage() {
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  render={<a href={`/verify/${active.serial}`} target="_blank" rel="noopener noreferrer" />}
+                  render={<a href={`/verify/${active.serial}`} />}
                 >
                   <ShieldCheck className="mr-1.5 h-4 w-4" /> Verify
                 </Button>
@@ -221,7 +220,7 @@ export default function CertificatesPage() {
                   <Share2 className="mr-1.5 h-4 w-4" /> Share
                 </Button>
                 <Button
-                  onClick={() => void downloadCertificate(active)}
+                  onClick={() => downloadCertificate(active)}
                   disabled={downloading === active.serial}
                 >
                   <Download className="mr-1.5 h-4 w-4" />

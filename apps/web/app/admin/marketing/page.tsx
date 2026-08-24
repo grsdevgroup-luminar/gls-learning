@@ -77,16 +77,16 @@ export default function AdminMarketing() {
 
   // Derived from the send log rather than stored — the log is the source of truth.
   const [weekAgo] = useState(() => Date.now() - 7 * 86400_000);
-  const sent7d = logs.filter((l) => Date.parse(l.createdAt) >= weekAgo).length;
-  const opened = logs.filter((l) => l.status === "OPENED" || l.status === "CLICKED").length;
-  const clicked = logs.filter((l) => l.status === "CLICKED").length;
+  const sent7d = logs?.filter((l) => Date.parse(l.createdAt) >= weekAgo).length ?? 0;
+  const opened = logs?.filter((l) => l.status === "OPENED" || l.status === "CLICKED").length ?? 0;
+  const clicked = logs?.filter((l) => l.status === "CLICKED").length ?? 0;
   const pct = (n: number) => (logs.length ? Math.round((n / logs.length) * 100) : 0);
 
   const stats = [
     { icon: Send, label: "Sent (7 days)", value: sent7d.toLocaleString() },
     { icon: MailOpen, label: "Open rate", value: `${pct(opened)}%` },
     { icon: MousePointerClick, label: "Click rate", value: `${pct(clicked)}%` },
-    { icon: ListChecks, label: "Active rules", value: rules.filter((r) => r.active).length },
+    { icon: ListChecks, label: "Active rules", value: rules?.filter((r) => r.active).length ?? 0 },
   ];
 
   return (
@@ -133,7 +133,7 @@ export default function AdminMarketing() {
           <p className="text-sm text-muted-foreground">No automation rules yet.</p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            {rules.map((r) => {
+            {rules?.map((r) => {
               const Icon = triggerIcon[r.trigger];
               return (
                 <Card key={r.id} className={r.active ? "" : "opacity-70"}>
@@ -207,7 +207,7 @@ export default function AdminMarketing() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs.map((l) => (
+                {logs?.map((l) => (
                   <TableRow key={l.id}>
                     <TableCell className="pl-6 text-xs text-muted-foreground">
                       {relativeDate(l.createdAt)}

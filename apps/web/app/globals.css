@@ -57,6 +57,13 @@
   animation: sparkle-twinkle 1.6s ease-in-out infinite;
 }
 
+:root {
+  /* Local copies of the original brand fonts. This prevents cache rebuilds
+     from falling back to system fonts during local development. */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

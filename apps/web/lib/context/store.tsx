@@ -191,6 +191,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (mounted) localStorage.setItem(REGION_KEY, regionCode);
   }, [regionCode, mounted]);
 
+  const setRegionCode = useCallback(
+    (code: string) => {
+      setRegionCodeState(code);
+      // Registration redirects immediately after success, so persist here as
+      // well as in the effect above. That makes its selected country available
+      // to cart and checkout on the very first page after signup.
+      if (mounted) localStorage.setItem(REGION_KEY, code);
+    },
+    [mounted],
+  );
+
   // Guest cart persists to localStorage. Skip while authenticated so the
   // server-owned cart isn't mirrored into device storage.
   useEffect(() => {
@@ -223,8 +234,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // matching `pricing.service.ts#resolveRegion` — falling back to regions[0]
   // would price the user as whoever sorts first while checkout charges them US.
   const region =
-    regions.find((r) => r.code === regionCode) ??
-    regions.find((r) => r.code === DEFAULT_REGION) ??
+    regions?.find((r) => r.code === regionCode) ??
+    regions?.find((r) => r.code === DEFAULT_REGION) ??
     FALLBACK_REGION;
 
   // ── catalog (published summaries) ──
@@ -287,7 +298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     serverCartFetchStatus !== "idle";
 
   const applyServerCart = useCallback((dto: CartDto) => {
-    setCart(dto.items.map((i) => i.courseId));
+    setCart(dto.items?.map((i) => i.courseId) ?? []);
     setCouponState(dto.couponCode);
   }, []);
 
@@ -465,7 +476,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     regionCode,
     region,
     regions,
-    setRegionCode: setRegionCodeState,
+    setRegionCode,
     // cart
     cart,
     cartLoading,
@@ -473,11 +484,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addToCart,
     removeFromCart,
     clearCart,
-    inCart: (id) => cart.includes(id),
+    inCart: (id) => cart?.includes(id) ?? false,
     setCoupon,
     // enrollment + progress
     enrolled,
-    isEnrolled: (id) => enrolled.includes(id),
+    isEnrolled: (id) => enrolled?.includes(id) ?? false,
     toggleLesson: (courseId, lessonId) => {
       void api
         .toggleLesson(courseId, lessonId)

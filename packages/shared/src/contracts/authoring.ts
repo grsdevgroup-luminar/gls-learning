@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { learningCategorySchema } from "./catalog.js";
+
+export const MAX_COURSE_DESCRIPTION_LENGTH = 2000;
 import { countryCodeSchema } from "./auth.js";
 
 const levelEnum = z.enum([
@@ -17,9 +20,15 @@ export const createCourseSchema = z.object({
     .max(160)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by -")
     .optional(),
-  subtitle: z.string().max(240).default(""),
-  description: z.string().default(""),
-  category: z.string().min(1),
+  subtitle: z.string().max(240, "Subtitle cannot exceed 240 characters").default(""),
+  description: z
+    .string()
+    .max(
+      MAX_COURSE_DESCRIPTION_LENGTH,
+      `Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`,
+    )
+    .default(""),
+  category: learningCategorySchema,
   level: levelEnum.default("ALL_LEVELS"),
   thumbnail: z.string().default(""),
   language: z.string().default("English"),

@@ -16,9 +16,10 @@ import type {
   UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
+  UpdateLearningPreferencesInput,
 } from "@skillstream/shared";
 import { api } from "./endpoints";
-import { qk } from "./query-keys";
+import { cleanParams, qk } from "./query-keys";
 
 // Re-exported for existing importers — the canonical definition lives in
 // query-keys.ts (no "use client") so Server Components can also use it when
@@ -28,8 +29,14 @@ import { qk } from "./query-keys";
 export { qk };
 
 // ── catalog ──────────────────────────────────────────────────────────────
-export const useCourses = (params: Record<string, string | number | undefined>) =>
-  useQuery({ queryKey: qk.courses(params), queryFn: () => api.courses(params) });
+export const useCourses = (params: Record<string, string | number | undefined>) => {
+  const cleanedParams = cleanParams(params);
+  return useQuery({
+    queryKey: qk.courses(cleanedParams),
+    queryFn: () => api.courses(cleanedParams),
+    staleTime: 30_000,
+  });
+};
 
 /** The full published catalog at once — used wherever a page needs to look up
  *  courses by id/slug from an already-fetched list (store, cart) rather than
@@ -60,12 +67,37 @@ export const useCategories = () =>
     staleTime: 60 * 60 * 1000,
   });
 
+export const useRecommendedCourses = (limit = 8, enabled = true) =>
+  useQuery({
+    queryKey: qk.recommendations(limit),
+    queryFn: () => api.recommendations(limit),
+    enabled,
+  });
+
+export const useCoursePreferences = () =>
+  useQuery({
+    queryKey: qk.coursePreferences,
+    queryFn: api.coursePreferences,
+  });
+
+export function useSaveCoursePreferences() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateLearningPreferencesInput) =>
+      api.updateCoursePreferences(input),
+    onSuccess: (preferences) => {
+      qc.setQueryData(qk.coursePreferences, preferences);
+      void qc.invalidateQueries({ queryKey: ["me", "recommendations"] });
+    },
+  });
+}
+
 // ── enrollment / progress ─────────────────────────────────────────────────
 export const useMyEnrollments = () =>
   useQuery({ queryKey: qk.enrollments, queryFn: api.myEnrollments });
 
-export const useWeeklyActivity = () =>
-  useQuery({ queryKey: qk.weeklyActivity, queryFn: api.myWeeklyActivity });
+export const useActivity = (period: "daily" | "weekly" | "monthly") =>
+  useQuery({ queryKey: qk.activity(period), queryFn: () => api.myActivity(period) });
 
 export const useProgress = (courseId: string, enabled = true) =>
   useQuery({

@@ -3,6 +3,7 @@ import {
   Get,
   Header,
   Headers,
+  Logger,
   Param,
   Post,
   Req,
@@ -31,10 +32,32 @@ import { CheckoutService } from "./checkout.service";
 import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
 
+const REDACT_HEADERS = new Set([
+  "cookie",
+  "authorization",
+  "proxy-authorization",
+  "set-cookie",
+]);
+
+function formatRequestHeaders(req: Request): string {
+  const parts: string[] = [];
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (REDACT_HEADERS.has(name.toLowerCase())) {
+      parts.push(`${name}=<redacted>`);
+      continue;
+    }
+    const text = Array.isArray(value) ? value.join(" | ") : (value ?? "");
+    parts.push(`${name}=${text}`);
+  }
+  return parts.join(" ");
+}
+
 @ApiTags("checkout")
 @ApiBearerAuth()
 @Controller()
 export class CheckoutController {
+  private readonly logger = new Logger(CheckoutController.name);
+
   constructor(
     private readonly checkout: CheckoutService,
     private readonly orders: OrdersService,
@@ -69,6 +92,9 @@ export class CheckoutController {
     // still work without. Format is validated inside the service.
     @Headers("idempotency-key") idempotencyKey?: string,
   ) {
+    this.logger.log(
+      `Checkout session headers resolvedIp=${clientIp(req)} req.ip=${req.ip ?? "null"} socket=${req.socket?.remoteAddress ?? "null"} ${formatRequestHeaders(req)}`,
+    );
     return this.checkout.createSession(user.id, body, clientIp(req), idempotencyKey);
   }
 

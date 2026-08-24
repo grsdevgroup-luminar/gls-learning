@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useRegister } from '@/lib/api/session';
+import { useStore } from '@/lib/context/store';
 import { ApiError } from '@/lib/api/errors';
 import { Logo } from '@/components/shared/logo';
 import { Reveal, Stagger, StaggerItem, Magnetic } from '@/components/shared/motion';
@@ -11,10 +12,17 @@ import { FormField } from '@/components/shared/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Check, Eye, EyeOff } from 'lucide-react';
+import { CoursePreferencesModal } from '@/components/shared/course-preferences-modal';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Check, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { CountrySelect } from '@/components/shared/country-select';
-import { registerSchema } from '@skillstream/shared';
+import { useDebouncedSearch } from '@/lib/use-debounced-value';
+import { flagFor } from '@/lib/countries';
+import { COUNTRIES, registerSchema } from '@skillstream/shared';
 
 const perks = [
   '500,000+ learners',
@@ -25,6 +33,7 @@ const perks = [
 
 function SignupForm() {
   const register = useRegister();
+  const { setRegionCode } = useStore();
   const params = useSearchParams();
   // Carried from an org-invite link: prefill the invited email and return to
   // the join page (which auto-claims) after the account is created.
@@ -34,7 +43,18 @@ function SignupForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState<string>('');
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [countryQuery, setCountryQuery] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [preferenceOpen, setPreferenceOpen] = useState(false);
+  const debouncedCountryQuery = useDebouncedSearch(countryQuery);
+
+  const filteredCountries = useMemo(() => {
+    const q = debouncedCountryQuery.trim().toLowerCase();
+    if (!q) return COUNTRIES;
+    return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
+  }, [debouncedCountryQuery]);
+
 
   async function create() {
     const result = registerSchema.safeParse({
@@ -50,13 +70,17 @@ function SignupForm() {
     setValidationError(null);
     try {
       await register.mutateAsync(result.data);
+      // Pricing regions use ISO alpha-2 codes, which are carried alongside
+      // the country name in the signup selector. Persist it before redirecting
+      // so cart and checkout quote the same selected billing region.
+      if (country) setRegionCode(country);
       toast.success('Account created!', {
         description: 'Welcome to GRS Learning 🎉',
       });
       // Hard navigation, not router.push — see login/page.tsx for why: `next`
       // can point at a protected route (e.g. an org-invite join link) that may
       // already be sitting in the router cache as a stale pre-auth redirect.
-      window.location.href = next || '/courses';
+      setPreferenceOpen(true);
     } catch (err) {
       const message =
         err instanceof ApiError ? err.displayMessage : 'Sign up failed';
@@ -65,6 +89,7 @@ function SignupForm() {
   }
 
   return (
+    <>
     <div className="relative mx-auto grid min-h-[80vh] max-w-4xl items-center gap-10 overflow-hidden px-4 py-12 md:grid-cols-2">
       <div
         aria-hidden
@@ -125,22 +150,81 @@ function SignupForm() {
                     type="email"
                     placeholder="you@example.com"
                     autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value);
+                      setEmail(e.target.value.toLowerCase());
                       setValidationError(null);
                     }}
                   />
                 </FormField>
                 <FormField label="Country">
-                  <CountrySelect
-                    value={country}
-                    onChange={(code) => {
-                      setCountry(code);
-                      setValidationError(null);
-                    }}
-                  />
+                  <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-between font-normal"
+                        />
+                      }
+                    >
+                      {country ? (
+                        <span className="flex items-center gap-2 truncate">
+                          <span>{flagFor(country)}</span>
+                          <span className="truncate">
+                            {COUNTRIES.find((c) => c.code === country)?.name ?? country}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select your country</span>
+                      )}
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-[var(--anchor-width)] p-0">
+                      <div className="relative border-b p-2">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={countryQuery}
+                          onChange={(e) => setCountryQuery(e.target.value)}
+                          placeholder="Search country…"
+                          className="h-8 pl-8"
+                          autoFocus
+                        />
+                      </div>
+                      <ul className="max-h-64 overflow-y-auto py-1">
+                        {filteredCountries.length === 0 ? (
+                          <li className="px-3 py-2 text-sm text-muted-foreground">
+                            No matches
+                          </li>
+                        ) : (
+                          filteredCountries.map((c) => (
+                            <li key={c.code}>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
+                                onClick={() => {
+                                  setCountry(c.code);
+                                  setCountryOpen(false);
+                                  setCountryQuery('');
+                                  setValidationError(null);
+                                }}
+                              >
+                                <span>{flagFor(c.code)}</span>
+                                <span className="flex-1 truncate">{c.name}</span>
+                                {country === c.code && (
+                                  <Check className="h-4 w-4 text-primary" />
+                                )}
+                              </button>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
                 </FormField>
                 <FormField label="Password" htmlFor="signup-password">
                   <div className="relative">
@@ -199,6 +283,11 @@ function SignupForm() {
         </Card>
       </Reveal>
     </div>
+    <CoursePreferencesModal
+      open={preferenceOpen}
+      onSaved={() => { window.location.href = next || "/dashboard"; }}
+    />
+    </>
   );
 }
 

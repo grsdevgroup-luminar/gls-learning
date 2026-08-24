@@ -57,13 +57,19 @@ export function ReviewsSection({
             </span>
           </span>
         </div>
-        {enrolled && (
-          <ReviewDialog courseId={course.id} existing={myReview} onSubmit={submitReview} />
-        )}
+        <div id="write-a-review" className="scroll-mt-24">
+          {enrolled && (
+            <ReviewDialog
+              courseId={course.id}
+              existing={myReview ?? undefined}
+              onSubmit={submitReview}
+            />
+          )}
+        </div>
       </div>
       <RatingBars reviews={reviews} rating={course.ratingAvg} />
       <div className="mt-6 space-y-5">
-        {reviews.slice(0, 6).map((r) => (
+        {reviews?.slice(0, 6).map((r) => (
           <div key={r.id} className="border-b pb-5 last:border-0">
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9">

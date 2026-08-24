@@ -239,11 +239,15 @@ model PasswordResetToken {
 }
 
 model StudentProfile {
-  userId          String        @id
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  streakDays      Int           @default(0)
-  status          StudentStatus @default(ACTIVE)
-  totalSpentCents Int           @default(0)
+  userId            String        @id
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  streakDays        Int           @default(0)
+  status            StudentStatus @default(ACTIVE)
+  totalSpentCents   Int           @default(0)
+  notificationPrefs Json          @default("{}")
+  interestCategories String[]     @default([])
+  interestKeywords   String[]     @default([])
+  interestsCompletedAt DateTime?
 }
 
 model InstructorProfile {

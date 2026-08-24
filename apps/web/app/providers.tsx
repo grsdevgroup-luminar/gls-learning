@@ -7,6 +7,7 @@ import { AuroraField } from "@/components/shared/motion";
 import { QueryProvider } from "@/lib/api/query-provider";
 import { SessionProvider } from "@/lib/api/session";
 import { StoreProvider } from "@/lib/context/store";
+import { PageTitle } from "@/components/shared/page-title";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <StoreProvider>
             <TooltipProvider delay={150}>
               <AuroraField />
+              <PageTitle />
               {children}
               <Toaster richColors position="top-center" />
             </TooltipProvider>

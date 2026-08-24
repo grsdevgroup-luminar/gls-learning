@@ -39,7 +39,7 @@ export function RegionSelect({
         align="end"
         className="w-auto min-w-56"
       >
-        {regions.map((r) => (
+        {regions?.map((r) => (
           <SelectItem key={r.code} value={r.code}>
             <span className="mr-1">{r.flag}</span> {r.country}{" "}
             <span className="text-muted-foreground">· {r.currency}</span>

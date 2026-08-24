@@ -13,7 +13,6 @@ import { formatLocal } from "@/lib/pricing";
 import { getReferralCode, clearReferralCode } from "@/lib/referral";
 import { formatUsd } from "@/lib/format";
 import { toast } from "sonner";
-import { RegionSelect } from "@/components/shared/region-select";
 import { CourseArt } from "@/components/shared/course-art";
 import { Reveal, Stagger, StaggerItem, Magnetic } from "@/components/shared/motion";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ import {
   ChevronRight, BadgeCheck, Infinity as InfinityIcon, Award, ArrowLeft,
 } from "lucide-react";
 import { StripeIcon, PaypalIcon } from "@/components/shared/payment-icons";
+import { CheckoutSkeleton } from "@/components/shared/loading-skeletons";
 
 const methods = [
   { id: "stripe", label: "Credit / debit card", sub: "Visa, Mastercard, Amex", icon: StripeIcon },
@@ -56,7 +56,7 @@ export default function CheckoutPage() {
   const items = useMemo(
     () =>
       cart
-        .map((id) => catalog?.items.find((c) => c.id === id))
+        ?.map((id) => catalog?.items?.find((c) => c.id === id))
         .filter(Boolean) as NonNullable<typeof catalog>["items"],
     [cart, catalog],
   );
@@ -71,10 +71,10 @@ export default function CheckoutPage() {
   const lineUsd = (courseId: string) => {
     const line = quote?.lines.find((l) => l.courseId === courseId);
     if (line) return line.priceCents / 100;
-    const c = items.find((i) => i.id === courseId);
+    const c = items?.find((i) => i.id === courseId);
     return c ? c.basePriceCents / 100 : 0;
   };
-  const fallbackSubtotalCents = items.reduce((sum, c) => sum + c.basePriceCents, 0);
+  const fallbackSubtotalCents = items?.reduce((sum, c) => sum + c.basePriceCents, 0) ?? 0;
   const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
   const discountCents = quote?.discountCents ?? 0;
   const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents);
@@ -161,11 +161,7 @@ export default function CheckoutPage() {
   // (cart ∩ catalog), so an in-flight catalog with a populated cart would
   // also render as empty.
   if (!mounted || cartLoading || (cart.length > 0 && !catalog)) {
-    return (
-      <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-24">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <CheckoutSkeleton />;
   }
 
   if (items.length === 0) {
@@ -200,7 +196,7 @@ export default function CheckoutPage() {
           <Reveal y={20}>
             <Card variant="elevated">
               <CardContent className="space-y-4 pt-6">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-3">
                     <span className="icon-tile grid size-9 place-items-center" style={{ ["--tile" as string]: "var(--tint-sky)" }}>
                       <Globe2 className="size-4" />
@@ -210,7 +206,6 @@ export default function CheckoutPage() {
                       <p className="text-xs text-muted-foreground">{region.country} · {region.currency}</p>
                     </div>
                   </div>
-                  <RegionSelect className="w-40 shrink-0" />
                 </div>
                 <Separator />
                 <p className="text-sm text-muted-foreground">
@@ -300,7 +295,7 @@ export default function CheckoutPage() {
                   <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
                 </div>
                 <div className="space-y-3">
-                  {items.map((c) => (
+                  {items?.map((c) => (
                     <div key={c.id} className="flex items-center gap-3">
                       <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
                       <div className="min-w-0 flex-1">

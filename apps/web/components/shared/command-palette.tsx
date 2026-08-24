@@ -39,13 +39,13 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
   }, []);
 
   const commands: Cmd[] = useMemo(() => {
-    const nav: Cmd[] = items.map((it) => ({
+    const nav: Cmd[] = items?.map((it) => ({
       id: it.href,
       label: it.label,
       href: it.href,
       icon: getNavIcon(it.icon),
       group: "Navigation",
-    }));
+    })) ?? [];
     const courseCmds: Cmd[] = courses
       .filter((c) => c.status === "PUBLISHED")
       .slice(0, 8)
@@ -63,7 +63,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
   const results = useMemo(() => {
     const needle = debouncedQ.trim().toLowerCase();
     if (!needle) return commands;
-    return commands.filter((c) => c.label.toLowerCase().includes(needle));
+    return commands?.filter((c) => c.label.toLowerCase().includes(needle)) ?? [];
   }, [debouncedQ, commands]);
 
   // Reset the highlight whenever the query changes — adjusting state during
@@ -138,7 +138,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
                 No results for “{q}”
               </p>
             )}
-            {results.map((cmd, i) => {
+            {results?.map((cmd, i) => {
               const showGroup = cmd.group !== lastGroup;
               lastGroup = cmd.group;
               return (

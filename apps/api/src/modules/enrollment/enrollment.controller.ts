@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post } from "@nestjs/common";
+import { Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
 import { EnrollmentService } from "./enrollment.service";
@@ -19,9 +19,12 @@ export class EnrollmentController {
     return this.enrollment.myCertificates(user.id);
   }
 
-  @Get("me/activity/weekly")
-  weeklyActivity(@CurrentUser() user: RequestUser) {
-    return this.enrollment.weeklyActivity(user.id);
+  @Get("me/activity")
+  activity(
+    @CurrentUser() user: RequestUser,
+    @Query("period") period?: "daily" | "weekly" | "monthly",
+  ) {
+    return this.enrollment.activity(user.id, period);
   }
 
   @Get("me/courses/:courseId/progress")

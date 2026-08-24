@@ -49,11 +49,14 @@ import type {
   LessonNoteDto,
   LessonResourceDto,
   NotificationDto,
+  LearningPreferencesDto,
   NotificationPreferencesDto,
   UnreadCountDto,
   UpdateNotificationPreferencesInput,
+  UpdateLearningPreferencesInput,
   ToggleLessonResultDto,
-  WeeklyActivityDayDto,
+  ActivityDayDto,
+  ActivityPeriod,
 } from "@skillstream/shared";
 import { apiFetch, apiFetchMultipart } from "./client";
 
@@ -118,14 +121,23 @@ export const api = {
   learningCourse: (courseId: string) =>
     apiFetch<CourseDetailDto>(`/me/courses/${courseId}/learning`),
   categories: () => apiFetch<string[]>("/categories"),
+  recommendations: (limit = 8) =>
+    apiFetch<CourseSummaryDto[]>(`/me/recommendations${qs({ limit })}`),
+  coursePreferences: () =>
+    apiFetch<LearningPreferencesDto>("/me/course-preferences"),
+  updateCoursePreferences: (input: UpdateLearningPreferencesInput) =>
+    apiFetch<LearningPreferencesDto>("/me/course-preferences", {
+      method: "PATCH",
+      body: input,
+    }),
 
   // pricing regions (public; FX rates refreshed daily by the API's fx job)
   regions: () => apiFetch<RegionRow[]>("/pricing/regions"),
 
   // enrollment / progress
   myEnrollments: () => apiFetch<EnrollmentDto[]>("/me/enrollments"),
-  myWeeklyActivity: () =>
-    apiFetch<WeeklyActivityDayDto[]>("/me/activity/weekly"),
+  myActivity: (period: ActivityPeriod = "weekly") =>
+    apiFetch<ActivityDayDto[]>(`/me/activity?period=${period}`),
   progress: (courseId: string) =>
     apiFetch<EnrollmentDto>(`/me/courses/${courseId}/progress`),
   enrollFree: (courseId: string) =>

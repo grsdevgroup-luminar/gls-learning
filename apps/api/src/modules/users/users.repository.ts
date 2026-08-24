@@ -21,6 +21,52 @@ export class UsersRepository {
     });
   }
 
+  findStudentNotificationPrefs(userId: string) {
+    return this.prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { notificationPrefs: true },
+    });
+  }
+
+  upsertStudentNotificationPrefs(
+    userId: string,
+    next: Prisma.InputJsonValue,
+  ) {
+    return this.prisma.studentProfile.upsert({
+      where: { userId },
+      update: { notificationPrefs: next },
+      create: { userId, notificationPrefs: next },
+    });
+  }
+
+  findStudentInterests(userId: string) {
+    return this.prisma.studentProfile.findUnique({
+      where: { userId },
+      select: {
+        interestCategories: true,
+        interestKeywords: true,
+        interestsCompletedAt: true,
+      },
+    });
+  }
+
+  saveStudentInterests(userId: string, categories: string[], keywords: string[]) {
+    return this.prisma.studentProfile.upsert({
+      where: { userId },
+      update: {
+        interestCategories: categories,
+        interestKeywords: keywords,
+        interestsCompletedAt: new Date(),
+      },
+      create: {
+        userId,
+        interestCategories: categories,
+        interestKeywords: keywords,
+        interestsCompletedAt: new Date(),
+      },
+    });
+  }
+
   create(data: Prisma.UserCreateInput): Promise<User> {
     return this.prisma.user.create({ data });
   }

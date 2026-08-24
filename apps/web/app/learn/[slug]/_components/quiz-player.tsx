@@ -81,12 +81,12 @@ export function QuizPlayer({
     );
   }
 
-  const allAnswered = quiz.questions.every((q) => answers[q.id]);
+  const allAnswered = quiz.questions?.every((q) => answers[q.id]) ?? false;
 
   if (attempt) {
     const passed = attempt.passed;
-    const correctCount = attempt.results.filter((r) => r.correct).length;
-    const feedbackByQuestion = new Map(attempt.results.map((r) => [r.questionId, r]));
+  const correctCount = attempt.results?.filter((r) => r.correct).length ?? 0;
+  const feedbackByQuestion = new Map(attempt.results?.map((r) => [r.questionId, r]) ?? []);
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
         <div
@@ -103,7 +103,7 @@ export function QuizPlayer({
         </p>
 
         <div className="mt-6 space-y-3 text-left">
-          {quiz.questions.map((q, i) => {
+          {quiz.questions?.map((q, i) => {
             const fb = feedbackByQuestion.get(q.id);
             const correct = !!fb?.correct;
             return (
@@ -120,7 +120,7 @@ export function QuizPlayer({
                     </p>
                     {!correct && fb && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Correct answer: {q.options.find((o) => o.id === fb.correctOptionId)?.text}
+                        Correct answer: {q.options?.find((o) => o.id === fb.correctOptionId)?.text}
                       </p>
                     )}
                     {fb?.explanation && (
@@ -157,7 +157,7 @@ export function QuizPlayer({
       )}
 
       <div className="mt-6 space-y-6">
-        {quiz.questions.map((q, i) => (
+        {quiz.questions?.map((q, i) => (
           <div key={q.id}>
             <p className="text-sm font-medium">
               {i + 1}. {q.prompt}
@@ -167,7 +167,7 @@ export function QuizPlayer({
               value={answers[q.id] ?? ""}
               onValueChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v as string }))}
             >
-              {q.options.map((o) => (
+              {q.options?.map((o) => (
                 <Label
                   key={o.id}
                   className="flex items-center gap-2.5 rounded-lg border p-3 text-sm font-normal hover:bg-secondary/40"

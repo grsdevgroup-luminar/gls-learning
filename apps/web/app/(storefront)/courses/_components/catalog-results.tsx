@@ -3,6 +3,7 @@
 import { CourseCard } from "../../_components/course-card";
 import { Button } from "@/components/ui/button";
 import { SortSelect } from "./sort-select";
+import { CourseGridSkeleton } from "@/components/shared/loading-skeletons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Paginated, CourseSummaryDto } from "@skillstream/shared";
 
@@ -34,11 +35,7 @@ export function CatalogResults({
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-64 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
+        <CourseGridSkeleton />
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
           No courses match your filters.
@@ -51,7 +48,7 @@ export function CatalogResults({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((c) => (
+            {items?.map((c) => (
               <CourseCard key={c.id} course={c} />
             ))}
           </div>

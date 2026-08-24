@@ -81,7 +81,7 @@ export default function AdminCourses() {
   const publishMutation = useMutation({
     mutationFn: (id: string) => authoringApi.setCourseStatus(id, "PUBLISHED"),
     onSuccess: (_, id) => {
-      const c = courses.find((x) => x.id === id);
+      const c = courses?.find((x) => x.id === id);
       toast.success("Course approved & published 🚀", { description: c?.title });
       invalidate();
     },
@@ -91,7 +91,7 @@ export default function AdminCourses() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => authoringApi.deleteCourse(id),
     onSuccess: (_, id) => {
-      const c = courses.find((x) => x.id === id);
+      const c = courses?.find((x) => x.id === id);
       toast.success("Course deleted", { description: c?.title });
       invalidate();
     },
@@ -172,7 +172,7 @@ export default function AdminCourses() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {courses.map((c: InstructorCourseDto) => (
+              {courses?.map((c: InstructorCourseDto) => (
                 <TableRow key={c.id}>
                   <TableCell className="pl-6">
                     <div className="flex items-center gap-3">

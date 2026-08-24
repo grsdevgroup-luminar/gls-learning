@@ -12,13 +12,12 @@ import { formatLocal } from "@/lib/pricing";
 import { formatUsd } from "@/lib/format";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
-import { RegionSelect } from "@/components/shared/region-select";
 import { BestsellerBadge } from "@/components/shared/bestseller-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Tag, ShoppingCart, ArrowRight, Check, Globe2 } from "lucide-react";
+import { Trash2, Tag, ShoppingCart, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CartPage() {
@@ -56,7 +55,7 @@ export default function CartPage() {
   const items = useMemo(
     () =>
       cart
-        .map((id) => catalog?.items.find((c) => c.id === id))
+        ?.map((id) => catalog?.items?.find((c) => c.id === id))
         .filter(Boolean) as NonNullable<typeof catalog>["items"],
     [cart, catalog],
   );
@@ -74,20 +73,20 @@ export default function CartPage() {
   const lineUsd = (courseId: string) => {
     const line = quote?.lines.find((l) => l.courseId === courseId);
     if (line) return line.priceCents / 100;
-    const c = items.find((i) => i.id === courseId);
+    const c = items?.find((i) => i.id === courseId);
     return c ? c.basePriceCents / 100 : 0;
   };
-  const fallbackSubtotalCents = items.reduce((sum, c) => sum + c.basePriceCents, 0);
+  const fallbackSubtotalCents = items?.reduce((sum, c) => sum + c.basePriceCents, 0) ?? 0;
   const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
   const discountCents = quote?.discountCents ?? 0;
   const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents);
   const subtotal = subtotalCents / 100;
   const discount = discountCents / 100;
   const total = totalCents / 100;
-  const originalTotal = items.reduce(
+  const originalTotal = items?.reduce(
     (sum, c) => sum + (c.originalPriceCents ?? c.basePriceCents) / 100,
     0,
-  );
+  ) ?? 0;
   const couponValid = !!quote?.coupon?.valid;
 
   async function apply() {
@@ -137,7 +136,7 @@ export default function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
-          {items.map((c) => {
+          {items?.map((c) => {
             const price = lineUsd(c.id);
             const original = c.originalPriceCents ? c.originalPriceCents / 100 : undefined;
             return (
@@ -179,16 +178,10 @@ export default function CartPage() {
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <Card>
             <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Globe2 className="h-4 w-4" /> Pricing region
-                </span>
-                <RegionSelect className="w-40" />
-              </div>
               <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground">
                 {region.multiplier < 1
                   ? `Regional pricing applied — ${Math.round((1 - region.multiplier) * 100)}% off for ${region.country}.`
-                  : "Standard global pricing for your region."}
+                  : `Standard global pricing applied for ${region.country}.`}
               </p>
 
               <Separator />

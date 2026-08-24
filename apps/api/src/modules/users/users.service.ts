@@ -1,8 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, User } from "@prisma/client";
-import type {
-  NotificationPreferencesDto,
-  UpdateNotificationPreferencesInput,
+import {
+  LEARNING_CATEGORIES,
+  type LearningPreferencesDto,
+  type NotificationPreferencesDto,
+  type UpdateNotificationPreferencesInput,
 } from "@skillstream/shared";
 import { NotificationPreferencesService } from "../notifications/notification-preferences.service";
 import { UsersRepository } from "./users.repository";
@@ -39,6 +41,27 @@ export class UsersService {
     patch: UpdateNotificationPreferencesInput,
   ): Promise<NotificationPreferencesDto> {
     return this.prefs.updateReminderPrefs(userId, patch);
+  }
+
+  async learningPreferences(userId: string): Promise<LearningPreferencesDto> {
+    const profile = await this.repo.findStudentInterests(userId);
+    return {
+      categories: profile?.interestCategories ?? [],
+      keywords: profile?.interestKeywords ?? [],
+      completed: Boolean(profile?.interestsCompletedAt),
+    };
+  }
+
+  async updateLearningPreferences(
+    userId: string,
+    input: { categories: string[]; keywords: string[] },
+  ): Promise<LearningPreferencesDto> {
+    await this.repo.saveStudentInterests(userId, input.categories, input.keywords);
+    return { ...input, completed: true };
+  }
+
+  availableLearningCategories() {
+    return LEARNING_CATEGORIES;
   }
 
   create(data: Prisma.UserCreateInput): Promise<User> {

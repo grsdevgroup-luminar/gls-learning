@@ -1,5 +1,237 @@
 # Changelog
 
+## 2026-08-22
+
+### Fixed
+
+- Fixed the profile/account menu hover cursor so the storefront header profile icon and shared portal account menu show a hand pointer.
+- Updated shared button and dropdown-menu item styling so other clickable dropdown triggers and menu actions also expose pointer cursor feedback consistently.
+- Fixed duplicate course-search requests when the top navigation search submitted while already on the courses page.
+- Navigation search now updates the course results dynamically after typing pauses, including removing the query when the search is cleared; Enter remains supported as an immediate submit.
+- Certificate PDF generation now stays in the current tab, and the print view Back action returns directly to the Certificates dashboard section.
+- Certificate print navigation now creates a reliable browser history entry, so the browser Back button returns to Certificates instead of skipping to My progress.
+- The certificate print view now inserts the Certificates section directly before its print entry, covering cases where the browser history previously contained another student dashboard page.
+- Removed forced new-tab navigation from certificate verification and PDF links so certificate actions remain in one tab.
+- Header-submitted course searches now apply immediately in the course filters without an intermediate old-query fetch, and hydrated course results stay fresh long enough to avoid an immediate client refetch.
+- The top navigation search field now syncs with the active `/courses?q=...` value and skips navigation when the submitted course-search URL is unchanged.
+- Fixed the My Progress completed-course Review action so it opens the public course page directly at the Write a review area instead of routing learners back into the course player.
+- Added a stable `write-a-review` anchor around the course review action so hash navigation scrolls to the exact review button location.
+- Fixed the review dialog layout so long title or review text stays inside the modal instead of expanding the text fields beyond the dialog width.
+- Added Daily, Weekly, and Monthly activity views to My Progress with a period selector.
+- Clarified that activity is calculated from completed lesson duration, and that course progress is completed lessons divided by total lessons.
+
+### Changed Files
+
+- `apps/web/components/layout/site-header.tsx`
+  - Syncs the header search input with the active course search URL and avoids same-URL course search navigations.
+
+- `apps/web/app/(storefront)/courses/_components/catalog-client.tsx`
+  - Applies URL-originated search terms immediately while preserving debounced search for direct course filter typing.
+
+- `apps/web/lib/api/query-keys.ts`
+  - Normalizes course query keys by removing empty and undefined params before React Query hashes them.
+
+- `apps/web/lib/api/hooks.ts`
+  - Reuses normalized course params for fetches and keeps course list data fresh briefly after server hydration.
+
+- `apps/web/components/ui/button.tsx`
+  - Added pointer cursor styling to the shared button primitive used by the storefront profile trigger and other button-based dropdown triggers.
+
+- `apps/web/components/ui/dropdown-menu.tsx`
+  - Changed enabled dropdown menu actions from default cursor to pointer cursor.
+
+- `apps/web/components/shared/portal-shell.tsx`
+  - Added pointer cursor styling to the shared sidebar profile/account menu trigger used across portal modules.
+
+- `apps/web/app/(student)/dashboard/certificates/page.tsx`
+  - Opens the certificate print/download view in the current tab and keeps verification navigation in the same tab.
+
+- `apps/web/app/certificates/[serial]/print/print-client.tsx`
+  - Routes the print view Back action directly to the student Certificates section.
+
+- `apps/web/app/(storefront)/verify/[serial]/page.tsx`
+  - Keeps the public certificate PDF action in the current tab.
+
+- `apps/web/app/(student)/dashboard/progress/page.tsx`
+  - Routes completed-course Review actions to `/courses/[slug]#write-a-review` while keeping incomplete courses on the existing Resume path.
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/reviews-section.tsx`
+  - Adds the `write-a-review` anchor and scroll margin around the enrolled learner review action.
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/review-dialog.tsx`
+  - Constrains the review modal and form controls, keeping long unbroken text wrapped or scrollable inside the title and review fields.
+
+- `apps/web/app/(student)/dashboard/progress/page.tsx`
+  - Adds the Daily, Weekly, and Monthly activity selector, period totals, active-day counts, and progress calculation guidance.
+
+- `apps/web/lib/api/hooks.ts`
+  - Loads activity for the selected time period and caches each period independently.
+
+- `apps/web/lib/api/endpoints.ts`
+  - Requests learner activity through the period-aware activity endpoint.
+
+- `apps/web/lib/api/query-keys.ts`
+  - Adds period-specific activity query keys.
+
+- `apps/api/src/modules/enrollment/enrollment.controller.ts`
+  - Exposes the learner activity endpoint with Daily, Weekly, and Monthly period selection.
+
+- `apps/api/src/modules/enrollment/enrollment.service.ts`
+  - Aggregates completed lesson duration across the selected 1-day, 7-day, or 30-day range.
+
+- `apps/api/src/modules/enrollment/enrollment.repository.ts`
+  - Generalizes lesson-progress lookup for period-based activity ranges.
+
+- `packages/shared/src/contracts/enrollment.ts`
+  - Adds shared activity period and day response types.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-21
+
+### Added
+
+- Added a reusable course-preference modal for new learners after registration and for students updating their preferences from the dashboard.
+- The modal presents all ten learning categories in a consistent five-column, two-row grid and requires exactly three selections before recommendations can be saved.
+- Category cards now include category-specific icons, larger labels, and larger icons while retaining fixed card sizes so multi-word categories remain contained.
+- The full-width modal preserves a wide desktop layout with two-inch side margins, a compact small-screen layout, loading states during saves, and a blurred page backdrop.
+- Saved preferences drive the signed-in learner's recommended-course sections on the dashboard and storefront homepage.
+
+### Changed
+
+- Course-builder save actions remain visible while course details and curriculum content scroll, reducing the need to return to the top before saving.
+- The sticky action bar is positioned below the mobile portal header and at the top of the workspace on desktop.
+- Course descriptions are limited to 2,000 characters. The editor shows a live count, an inline validation message, and blocks saves until the description is within the limit.
+- Description validation now returns `Description cannot exceed 2000 characters` instead of surfacing a generic internal-server error.
+
+### Changed Files
+
+- `apps/web/components/shared/course-preferences-modal.tsx`
+  - Provides the shared three-category selection interface, category icons, selection limit, save feedback, responsive sizing, and accessibility states.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+  - Opens the preference modal immediately after successful registration and redirects the learner after their selections are saved.
+
+- `apps/web/app/(student)/dashboard/page.tsx`
+  - Adds a learning-preferences summary and an Edit preferences action that reuses the shared modal.
+
+- `apps/web/app/(storefront)/_components/personalized-recommendations.tsx`
+- `apps/web/lib/api/hooks.ts`
+  - Loads and refreshes preference-based recommendations after preferences change.
+
+- `apps/web/components/ui/dialog.tsx`
+  - Applies the blurred overlay used behind the preference modal.
+
+- `apps/web/components/shared/course-builder.tsx`
+  - Moves Save, Save draft, and Submit for review into a responsive sticky action bar without changing their save behavior.
+  - Adds shared-limit description validation, an accessible inline error, character count, and friendly save-error fallback.
+
+- `packages/shared/src/contracts/authoring.ts`
+  - Defines and enforces the 2,000-character course-description limit for create and update API requests.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-20
+
+### Changed
+
+- Browser tab titles now update for every application route instead of inheriting only the broad module title.
+- Course detail pages continue to use their existing server-generated course titles.
+
+### Changed Files
+
+- `apps/web/components/shared/page-title.tsx`
+  - Added centralized, route-aware browser-title handling for storefront, student, admin, instructor, sales-agent, organization, and utility pages.
+
+- `apps/web/app/providers.tsx`
+  - Mounted the route-title manager once for the full application.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-20
+
+### Changed
+
+- Removed the unnecessary country dropdowns from the cart and checkout. Regional pricing continues to use the shopper's existing region setting.
+- Registration now saves the selected country as the storefront pricing region, so cart and checkout immediately use the same billing region after signup.
+
+### Changed Files
+
+- `apps/web/app/(storefront)/cart/page.tsx`
+  - Removed the Pricing region country selector while preserving the regional-pricing notice and cart totals.
+
+- `apps/web/app/(storefront)/checkout/page.tsx`
+  - Removed the Billing region country selector while preserving the static region and pricing information.
+
+- `apps/web/app/(storefront)/(auth)/signup/page.tsx`
+- `apps/web/lib/context/store.tsx`
+  - Persist the registration country’s ISO code as the pricing region before redirecting to the storefront.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-19
+
+### Fixed
+
+- Fixed the header course search retaining a stale `q` URL parameter after users clear the input or reduce it below the two-character search threshold.
+- Clearing the header search now restores the full course catalog while preserving any other active catalog filters.
+
+### Added
+
+- Added reusable, layout-matched skeleton components for page headers, forms, course grids, tables, checkout, learning, discussion, and authentication screens.
+- Added route-level loading boundaries for course catalog navigation, course learning, and storefront authentication.
+- Replaced loading spinners, blank profile screens, and plain loading text in the catalog, checkout, learning flow, instructor workflows, team courses, admin settings, course discussions, and protected video player.
+- Added per-organization course-grid skeletons so team-course sections do not briefly render an empty state while their data is loading.
+
+### Changed Files
+
+- `apps/web/components/layout/site-header.tsx`
+  - Removes only the stale `q` parameter when an edited header search becomes empty or too short.
+
+- `apps/web/components/shared/loading-skeletons.tsx`
+  - Added shared skeleton layouts for common page and content patterns.
+
+- `apps/web/app/(storefront)/courses/loading.tsx`
+- `apps/web/app/learn/[slug]/loading.tsx`
+- `apps/web/app/(storefront)/(auth)/loading.tsx`
+  - Added route-level loading boundaries that match their destination layouts.
+
+- `apps/web/app/(storefront)/courses/_components/catalog-results.tsx`
+- `apps/web/app/(storefront)/checkout/page.tsx`
+- `apps/web/app/(storefront)/courses/[slug]/_components/course-comments.tsx`
+- `apps/web/app/(student)/dashboard/team/page.tsx`
+- `apps/web/app/instructor/profile/page.tsx`
+- `apps/web/app/instructor/_components/approval-gate.tsx`
+- `apps/web/app/admin/settings/page.tsx`
+- `apps/web/components/shared/course-builder.tsx`
+- `apps/web/components/player/protected-player.tsx`
+  - Replaced generic loading states with content-shaped skeletons.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `git diff --check`
+
+- Note:
+  - `pnpm --filter @skillstream/web lint` still reports pre-existing `react-hooks/set-state-in-effect` errors in billing, admin list pages, and the store context; the skeleton changes introduced no lint errors.
+
+### Notes
+
+- Skeleton screens improve perceived performance and reduce layout shift while requests resolve; they do not change backend/API response times.
+
 ## 2026-08-18
 
 ### Fixed
