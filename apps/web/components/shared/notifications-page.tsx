@@ -8,6 +8,7 @@ import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
+  useUnreadNotificationCount,
 } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -79,6 +80,7 @@ function Row({ n }: { n: NotificationDto }) {
 export function NotificationsPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useNotifications({ page, pageSize: PAGE_SIZE });
+  const { data: unread } = useUnreadNotificationCount();
   const markAllRead = useMarkAllNotificationsRead();
 
   return (
@@ -88,9 +90,11 @@ export function NotificationsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
           <p className="text-muted-foreground">Everything that&apos;s happened on your account.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()}>
-          <CheckCheck className="size-4" /> Mark all read
-        </Button>
+        {(unread?.count ?? 0) > 0 && (
+          <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()}>
+            <CheckCheck className="size-4" /> Mark all read
+          </Button>
+        )}
       </div>
 
       {isLoading ? (

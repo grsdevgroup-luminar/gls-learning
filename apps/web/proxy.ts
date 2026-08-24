@@ -17,11 +17,13 @@ const PROTECTED_PREFIXES = [
 type Role = "STUDENT" | "INSTRUCTOR" | "ADMIN" | "SALES_AGENT" | "ORG_ADMIN";
 
 // Role-portal prefixes → who may enter. ADMIN is treated as a superuser.
-// /sales-agent is deliberately NOT here: it also hosts the apply form any
-// logged-in user (of any role) submits before becoming a SALES_AGENT.
+// /sales-agent and /instructor are deliberately NOT here: both also host the
+// apply form / application-status view any logged-in user (of any role)
+// uses before becoming a SALES_AGENT or INSTRUCTOR — role-gating them would
+// bounce a pending or rejected applicant away before they can see their
+// status (the page itself renders the right view for each role/status).
 const ROLE_PREFIXES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/admin", roles: ["ADMIN"] },
-  { prefix: "/instructor", roles: ["INSTRUCTOR", "ADMIN"] },
   // Instructors can also be learners, so they may use the student dashboard
   // and progress pages without being redirected back to the instructor portal.
   { prefix: "/dashboard", roles: ["STUDENT", "INSTRUCTOR", "ORG_ADMIN"] },

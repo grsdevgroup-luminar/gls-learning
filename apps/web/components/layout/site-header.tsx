@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Logo } from "@/components/shared/logo";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +123,12 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-3">
           <div className="hidden items-center gap-0.5 rounded-full border border-border bg-muted/40 p-1 sm:flex">
             <ThemeToggle size="icon-sm" className="rounded-full" />
+            {isAuthed && (
+              <>
+                <span aria-hidden className="h-4 w-px bg-border" />
+                <NotificationBell />
+              </>
+            )}
             <span aria-hidden className="h-4 w-px bg-border" />
             <Button
               render={<Link href="/cart" />}
@@ -141,6 +148,7 @@ export function SiteHeader() {
 
           <div className="flex items-center gap-1 sm:hidden">
             <ThemeToggle />
+            {isAuthed && <NotificationBell />}
             <Button
               render={<Link href="/cart" />}
               variant="ghost"

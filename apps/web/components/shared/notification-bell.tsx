@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRef } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import type { NotificationDto } from "@skillstream/shared";
 import {
@@ -47,7 +48,6 @@ function timeAgo(iso: string): string {
 }
 
 function NotificationRow({ n }: { n: NotificationDto }) {
-  const markRead = useMarkNotificationRead();
   const unread = !n.readAt;
 
   const content = (
@@ -74,9 +74,6 @@ function NotificationRow({ n }: { n: NotificationDto }) {
     <DropdownMenuItem
       className="items-start py-2"
       render={n.href ? <Link href={n.href} /> : <button type="button" />}
-      onClick={() => {
-        if (unread) markRead.mutate(n.id);
-      }}
     >
       {content}
     </DropdownMenuItem>
@@ -87,11 +84,26 @@ export function NotificationBell() {
   const pathname = usePathname();
   const { data: unread } = useUnreadNotificationCount();
   const { data: page, isLoading } = useNotifications({ page: 1, pageSize: 8 });
+  const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const count = unread?.count ?? 0;
+  const viewedIds = useRef(new Set<string>());
+
+  // "Viewed" counts as read here: once the dropdown is opened and the list is
+  // on screen, whatever's unread in it gets marked read — no extra click
+  // needed. viewedIds guards against re-firing while the read-state refetch
+  // is still in flight (open/close/reopen before the list updates).
+  function markVisibleAsRead(open: boolean) {
+    if (!open || !page) return;
+    for (const n of page.items) {
+      if (n.readAt || viewedIds.current.has(n.id)) continue;
+      viewedIds.current.add(n.id);
+      markRead.mutate(n.id);
+    }
+  }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={markVisibleAsRead}>
       <DropdownMenuTrigger
         render={
           <Button variant="ghost" size="icon" className="relative shrink-0" />

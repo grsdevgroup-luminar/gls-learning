@@ -101,23 +101,46 @@ export class InstructorService {
     }));
   }
 
+  /** An InstructorProfile row only exists once an application is approved,
+   *  so a pending or rejected applicant would otherwise see `null` here and
+   *  the frontend's ApprovalGate would show "not an instructor yet" instead
+   *  of their actual status. */
   async myProfile(user: RequestUser): Promise<InstructorProfileDto | null> {
     const u = await this.repo.findUserWithProfile(user.id);
-    if (!u || !u.instructorProfile) return null;
-    const p = u.instructorProfile;
+    if (u?.instructorProfile) {
+      const p = u.instructorProfile;
+      return {
+        userId: u.id,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        title: p.title,
+        bio: p.bio,
+        expertise: p.expertise,
+        ratingAvg: p.ratingAvg,
+        studentCount: p.studentCount,
+        courseCount: p.courseCount,
+        earningsCents: p.earningsCents,
+        status: p.status,
+      };
+    }
+
+    const app = await this.repo.findLatestApplicationByUser(user.id);
+    if (!app || app.status === "APPROVED") return null;
+
     return {
-      userId: u.id,
-      name: u.name,
-      email: u.email,
-      avatar: u.avatar,
-      title: p.title,
-      bio: p.bio,
-      expertise: p.expertise,
-      ratingAvg: p.ratingAvg,
-      studentCount: p.studentCount,
-      courseCount: p.courseCount,
-      earningsCents: p.earningsCents,
-      status: p.status,
+      userId: user.id,
+      name: app.name,
+      email: app.email,
+      avatar: null,
+      title: app.headline,
+      bio: app.bio,
+      expertise: app.expertise,
+      ratingAvg: 0,
+      studentCount: 0,
+      courseCount: 0,
+      earningsCents: 0,
+      status: app.status,
     };
   }
 

@@ -36,6 +36,16 @@ export class SalesAgentRepository {
     });
   }
 
+  /** Most recent application regardless of status — lets `me()` reflect a
+   *  pending or rejected application before any SalesAgent row exists (that
+   *  row is only created on approval). */
+  findLatestApplicationByUser(userId: string) {
+    return this.prisma.salesAgentApplication.findFirst({
+      where: { userId },
+      orderBy: { appliedAt: "desc" },
+    });
+  }
+
   createApplication(
     data: Prisma.SalesAgentApplicationUncheckedCreateInput,
   ) {
