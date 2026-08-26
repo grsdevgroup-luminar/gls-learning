@@ -23,6 +23,7 @@ export interface BuilderQuizQuestion {
 }
 export interface BuilderQuiz {
   passScore: number;
+  minutesPerQuestion: number;
   questions: BuilderQuizQuestion[];
 }
 
@@ -40,7 +41,7 @@ function emptyQuestion(): BuilderQuizQuestion {
 }
 
 export function emptyQuiz(): BuilderQuiz {
-  return { passScore: 70, questions: [emptyQuestion()] };
+  return { passScore: 70, minutesPerQuestion: 1, questions: [emptyQuestion()] };
 }
 
 export function QuizEditor({
@@ -77,17 +78,32 @@ export function QuizEditor({
         <div className="flex items-center gap-1.5 text-sm font-medium">
           <HelpCircle className="h-3.5 w-3.5 text-primary" /> Quiz questions
         </div>
-        <div className="flex items-center gap-1.5">
-          <Label className="text-xs text-muted-foreground">Pass score</Label>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={quiz.passScore}
-            onChange={(e) => onChange({ ...quiz, passScore: Number(e.target.value) || 0 })}
-            className="h-7 w-16"
-          />
-          <span className="text-xs text-muted-foreground">%</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground">Pass score</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={quiz.passScore}
+              onChange={(e) => onChange({ ...quiz, passScore: Number(e.target.value) || 0 })}
+              className="h-7 w-16"
+            />
+            <span className="text-xs text-muted-foreground">%</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground">Time / question</Label>
+            <Input
+              type="number"
+              min={1}
+              value={quiz.minutesPerQuestion}
+              onChange={(e) => onChange({ ...quiz, minutesPerQuestion: Math.max(1, Number(e.target.value) || 1) })}
+              className="h-7 w-16"
+            />
+            <span className="text-xs text-muted-foreground">
+              min · {quiz.questions.length * quiz.minutesPerQuestion} min total
+            </span>
+          </div>
         </div>
       </div>
 

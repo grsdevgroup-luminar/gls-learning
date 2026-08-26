@@ -115,6 +115,19 @@ let uid = 1000;
 const nid = (p: string) => `new_${p}${uid++}`;
 const isTemp = (id: string) => id.startsWith("new_");
 
+// Average adult silent-reading speed, used to suggest an article lesson's
+// duration from its word count. Floor keeps a near-empty draft from reading
+// as instant.
+const ARTICLE_WORDS_PER_MINUTE = 200;
+const ARTICLE_MIN_DURATION_SEC = 30;
+function articleDurationSec(content: string): number {
+  const words = content.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(ARTICLE_MIN_DURATION_SEC, Math.round((words / ARTICLE_WORDS_PER_MINUTE) * 60));
+}
+function quizDurationSec(quiz: Pick<BuilderQuiz, "questions" | "minutesPerQuestion">): number {
+  return quiz.questions.length * quiz.minutesPerQuestion * 60;
+}
+
 const thumbSeeds = [
   "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
   "speaking", "social", "finance", "mindfulness", "language",
@@ -182,7 +195,7 @@ export function CourseBuilder({
   const [saving, setSaving] = useState(false);
   const [dragSection, setDragSection] = useState<number | null>(null);
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 300, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ courseId: string | null; sections: Set<string>; lessons: Set<string> }>({
@@ -231,6 +244,14 @@ export function CourseBuilder({
                         ...pl,
                         quiz: {
                           passScore: qz.passScore,
+                          // No dedicated schema field for this yet — infer a
+                          // starting per-question minute from the lesson's
+                          // saved total so existing quizzes have a sane value
+                          // to edit going forward.
+                          minutesPerQuestion:
+                            qz.questions.length > 0
+                              ? Math.max(1, Math.round(l.durationSec / qz.questions.length / 60))
+                              : 1,
                           questions: qz.questions.map((q) => ({
                             id: q.id,
                             prompt: q.prompt,
@@ -274,13 +295,16 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 300, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
   }
   function setLessonType(sid: string, lid: string, type: BuilderLessonType) {
-    patchLesson(sid, lid, { type, quiz: type === "quiz" ? emptyQuiz() : undefined, quizDirty: type === "quiz" });
+    const quiz = type === "quiz" ? emptyQuiz() : undefined;
+    const durationSec =
+      type === "quiz" ? quizDurationSec(quiz!) : type === "article" ? articleDurationSec("") : 0;
+    patchLesson(sid, lid, { type, quiz, quizDirty: type === "quiz", durationSec });
   }
   function removeLesson(sid: string, lid: string) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
@@ -648,18 +672,31 @@ export function CourseBuilder({
                           {l.type === "quiz" ? (
                             <QuizEditor
                               quiz={l.quiz ?? emptyQuiz()}
-                              onChange={(quiz) => patchLesson(s.id, l.id, { quiz, quizDirty: true })}
+                              onChange={(quiz) =>
+                                patchLesson(s.id, l.id, { quiz, quizDirty: true, durationSec: quizDurationSec(quiz) })
+                              }
                             />
                           ) : l.type === "video" ? (
                             <VideoUpload
                               compact
                               initiallyUploaded={l.hasVideo}
-                              onReady={(uid) => patchLesson(s.id, l.id, { cfVideoUid: uid, hasVideo: true })}
+                              onReady={(uid, durationSec) =>
+                                patchLesson(s.id, l.id, {
+                                  cfVideoUid: uid,
+                                  hasVideo: true,
+                                  ...(durationSec ? { durationSec } : {}),
+                                })
+                              }
                             />
                           ) : (
                             <Textarea
                               value={l.articleContent}
-                              onChange={(e) => patchLesson(s.id, l.id, { articleContent: e.target.value })}
+                              onChange={(e) =>
+                                patchLesson(s.id, l.id, {
+                                  articleContent: e.target.value,
+                                  durationSec: articleDurationSec(e.target.value),
+                                })
+                              }
                               placeholder="Write the article content students will read for this lesson…"
                               className="min-h-32 text-sm"
                             />

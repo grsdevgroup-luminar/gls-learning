@@ -15,6 +15,30 @@ type Phase = "idle" | "uploading" | "ready" | "error";
 
 const MAX_BYTES = 5 * 1024 * 1024 * 1024; // Cloudflare direct_upload cap
 
+/** Reads the real length of a video file straight from its container metadata
+ *  via a hidden <video> element — instant, and doesn't depend on Cloudflare's
+ *  async transcode (which takes time to expose `duration` on its own API). */
+function readVideoDurationSec(file: File): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    try {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      const url = URL.createObjectURL(file);
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        resolve(Number.isFinite(video.duration) && video.duration > 0 ? Math.round(video.duration) : undefined);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(undefined);
+      };
+      video.src = url;
+    } catch {
+      resolve(undefined);
+    }
+  });
+}
+
 export function VideoUpload({
   compact = false,
   initiallyUploaded = false,
@@ -22,7 +46,7 @@ export function VideoUpload({
 }: {
   compact?: boolean;
   initiallyUploaded?: boolean;
-  onReady?: (uid: string) => void;
+  onReady?: (uid: string, durationSec?: number) => void;
 }) {
   const [phase, setPhase] = useState<Phase>(initiallyUploaded ? "ready" : "idle");
   const [progress, setProgress] = useState(initiallyUploaded ? 100 : 0);
@@ -46,7 +70,10 @@ export function VideoUpload({
     setPhase("uploading");
     setProgress(0);
     try {
-      const { uploadUrl, uid } = await authoringApi.mediaUploadUrl();
+      const [{ uploadUrl, uid }, durationSec] = await Promise.all([
+        authoringApi.mediaUploadUrl(),
+        readVideoDurationSec(file),
+      ]);
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhrRef.current = xhr;
@@ -65,7 +92,7 @@ export function VideoUpload({
         xhr.send(form);
       });
       setPhase("ready");
-      onReady?.(uid);
+      onReady?.(uid, durationSec);
     } catch (e) {
       setError(getApiErrorMessage(e));
       setPhase("error");
