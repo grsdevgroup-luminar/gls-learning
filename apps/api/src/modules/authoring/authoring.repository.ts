@@ -139,6 +139,13 @@ export class AuthoringRepository {
     });
   }
 
+  findLessonCfVideoUid(lessonId: string) {
+    return this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { cfVideoUid: true },
+    });
+  }
+
   /** Appends a resource to `Lesson.resources` inside a transaction so a
    *  concurrent upload can't overwrite the other. Enforces the shared cap of
    *  20 attachments per lesson. Returns the full resource list post-append. */

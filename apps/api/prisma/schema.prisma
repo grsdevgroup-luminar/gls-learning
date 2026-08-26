@@ -80,6 +80,15 @@ enum LessonType {
   ARTICLE
 }
 
+enum UploadStatus {
+  CREATED
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  ABANDONED
+}
+
 enum InstructorStatus {
   PENDING
   APPROVED
@@ -212,6 +221,7 @@ model User {
   /// Denormalized — kept in sync transactionally on notification create/read,
   /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
   unreadNotificationCount Int @default(0)
+  uploads                 Upload[]
 
   @@index([role])
 }
@@ -324,6 +334,7 @@ model Course {
   orderItems  OrderItem[]
   coupons     Coupon[]
   cartItems   CartItem[]
+  uploads     Upload[]
 
   @@index([status])
   @@index([instructorId])
@@ -361,8 +372,36 @@ model Lesson {
   quizResults    QuizResult[]
   quizAttempts   QuizAttempt[]
   notes          LessonNote[]
+  upload         Upload?
 
   @@index([sectionId])
+}
+
+/// Application-owned Cloudflare Stream upload reservation. Source of truth for
+/// ownership, attachability, and playback readiness (see video-upload-tus-plan).
+model Upload {
+  id              String       @id @default(cuid())
+  ownerUserId     String
+  owner           User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  cloudflareUid   String?      @unique
+  courseId        String?
+  course          Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lessonId        String?      @unique
+  lesson          Lesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  filename        String
+  bytes           BigInt
+  fileFingerprint String?
+  status          UploadStatus @default(CREATED)
+  failureReason   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  expiresAt       DateTime
+  completedAt     DateTime?
+  readyAt         DateTime?
+
+  @@index([ownerUserId, status])
+  @@index([status, expiresAt])
+  @@index([courseId])
 }
 
 model Quiz {

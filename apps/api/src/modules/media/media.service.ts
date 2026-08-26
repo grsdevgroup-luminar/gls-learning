@@ -9,6 +9,11 @@ import { ConfigService } from "@nestjs/config";
 import type { DirectUploadDto, PlaybackDto } from "@skillstream/shared";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { MediaRepository } from "./media.repository";
+import { UploadRepository } from "./upload.repository";
+import {
+  assertAttachableUpload,
+  type AssertAttachableUploadInput,
+} from "./upload-validation";
 import type { Env } from "../../config/env";
 
 /** How long a signed playback token stays valid. Long enough to watch and
@@ -86,6 +91,7 @@ export class MediaService {
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly repo: MediaRepository,
+    private readonly uploads: UploadRepository,
     private readonly enrollment: EnrollmentService,
   ) {}
 
@@ -118,6 +124,31 @@ export class MediaService {
     if (!json.success || !json.result)
       throw new ServiceUnavailableException("Failed to create upload URL");
     return { uploadUrl: json.result.uploadURL, uid: json.result.uid };
+  }
+
+  /**
+   * Ensures a Cloudflare UID may be persisted on a lesson. Centralizes ownership,
+   * status, and exclusivity rules for authoring create/update paths.
+   */
+  async assertAttachableUpload(input: AssertAttachableUploadInput): Promise<void> {
+    const upload = await this.uploads.findByCloudflareUid(input.uid);
+    assertAttachableUpload(upload, input);
+  }
+
+  /** Links an upload record to the lesson row after a successful attach. */
+  async attachUploadToLesson(
+    cloudflareUid: string,
+    lessonId: string,
+    courseId: string,
+  ): Promise<void> {
+    await this.uploads.attachToLesson(cloudflareUid, lessonId, courseId);
+  }
+
+  /** Clears lesson association when a video is removed from a lesson. */
+  async detachUploadFromLesson(cloudflareUid: string): Promise<void> {
+    const upload = await this.uploads.findByCloudflareUid(cloudflareUid);
+    if (!upload) return;
+    await this.uploads.detachFromLesson(cloudflareUid);
   }
 
   /** Returns signed playback for an enrolled (or preview) lesson. `userId` is

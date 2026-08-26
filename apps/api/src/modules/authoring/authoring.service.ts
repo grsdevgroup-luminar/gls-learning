@@ -25,6 +25,7 @@ import {
 import { STORAGE_DRIVER } from "../storage/storage.constants";
 import type { StorageDriver } from "../storage/storage.driver";
 import { signCourseResourceUrls } from "../storage/sign-resources";
+import { MediaService } from "../media/media.service";
 
 function slugify(s: string): string {
   return s
@@ -40,6 +41,7 @@ export class AuthoringService {
   constructor(
     private readonly repo: AuthoringRepository,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
+    private readonly media: MediaService,
   ) {}
 
   // ── ownership ──────────────────────────────────────────────────────────
@@ -183,8 +185,15 @@ export class AuthoringService {
   async addLesson(user: RequestUser, sectionId: string, input: LessonInput) {
     const courseId = await this.courseIdOfSection(sectionId);
     await this.assertCourseAccess(courseId, user);
+    if (input.cfVideoUid) {
+      await this.media.assertAttachableUpload({
+        uid: input.cfVideoUid,
+        userId: user.id,
+        courseId,
+      });
+    }
     const count = await this.repo.countLessons(sectionId);
-    await this.repo.createLesson({
+    const lesson = await this.repo.createLesson({
       sectionId,
       title: input.title,
       type: input.type,
@@ -195,12 +204,29 @@ export class AuthoringService {
       cfVideoUid: input.cfVideoUid ?? null,
       resources: input.resources ?? [],
     });
+    if (input.cfVideoUid) {
+      await this.media.attachUploadToLesson(input.cfVideoUid, lesson.id, courseId);
+    }
     return this.detail(courseId);
   }
 
   async updateLesson(user: RequestUser, lessonId: string, input: LessonInput) {
     const courseId = await this.courseIdOfLesson(lessonId);
     await this.assertCourseAccess(courseId, user);
+
+    const priorVideo = await this.repo.findLessonCfVideoUid(lessonId);
+    const priorUid = priorVideo?.cfVideoUid ?? null;
+
+    if (input.cfVideoUid) {
+      if (input.cfVideoUid !== priorUid) {
+        await this.media.assertAttachableUpload({
+          uid: input.cfVideoUid,
+          userId: user.id,
+          courseId,
+          lessonId,
+        });
+      }
+    }
 
     // If the caller sent a new `resources` array, any previously-uploaded
     // resource (has `storageKey`) that no longer appears has been removed —
@@ -233,6 +259,15 @@ export class AuthoringService {
       // array clears them.
       resources: input.resources ?? undefined,
     });
+
+    if (input.cfVideoUid !== undefined) {
+      if (input.cfVideoUid && input.cfVideoUid !== priorUid) {
+        await this.media.attachUploadToLesson(input.cfVideoUid, lessonId, courseId);
+      }
+      if (!input.cfVideoUid && priorUid) {
+        await this.media.detachUploadFromLesson(priorUid);
+      }
+    }
 
     // Post-commit: DB is authoritative, so a failed storage delete just leaks
     // an object — never blocks the API response.

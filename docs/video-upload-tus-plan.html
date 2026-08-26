@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillStream — Resumable Video Upload Architecture</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #171b26;
+      --surface-2: #1e2433;
+      --border: #2a3144;
+      --text: #e8ecf4;
+      --muted: #9aa3b8;
+      --primary: #6366f1;
+      --primary-dim: #4f46e5;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+      --mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+      --sans: "Inter", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1.5rem 4rem;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    h1 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+    }
+    .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+    h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      color: #c7d2fe;
+    }
+    h3 { font-size: 0.95rem; font-weight: 600; margin: 1.25rem 0 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    p, li { color: var(--muted); font-size: 0.92rem; }
+    p { margin-bottom: 0.75rem; }
+    ul { margin: 0.5rem 0 1rem 1.25rem; }
+    li { margin-bottom: 0.35rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card h3 { margin-top: 0; color: var(--text); text-transform: none; letter-spacing: 0; font-size: 1rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin: 0.75rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface-2); color: var(--text); font-weight: 600; }
+    td code, th code {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: var(--surface-2);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      color: #a5b4fc;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-decision { background: #312e81; color: #c7d2fe; }
+    .badge-api { background: #164e63; color: #a5f3fc; }
+    .badge-db { background: #365314; color: #bef264; }
+    .badge-ui { background: #713f12; color: #fde68a; }
+    .badge-infra { background: #4c1d95; color: #ddd6fe; }
+    .flow {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      overflow-x: auto;
+      white-space: pre;
+      color: #cbd5e1;
+      margin: 0.75rem 0;
+    }
+    .state-machine {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+    .state {
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .state-transport { background: #1e3a5f; color: #93c5fd; }
+    .state-encoding { background: #3b2f1e; color: #fcd34d; }
+    .state-db { background: #1a3a2a; color: #86efac; }
+    .arrow { color: var(--muted); font-size: 0.85rem; align-self: center; }
+    .phase-list { counter-reset: phase; list-style: none; margin-left: 0; }
+    .phase-list li {
+      counter-increment: phase;
+      padding: 0.75rem 0 0.75rem 2.5rem;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    .phase-list li::before {
+      content: counter(phase);
+      position: absolute;
+      left: 0;
+      top: 0.7rem;
+      width: 1.6rem;
+      height: 1.6rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+    }
+    .phase-list li strong { color: var(--text); display: block; margin-bottom: 0.2rem; }
+    .gap {
+      border-left: 3px solid var(--warning);
+      padding-left: 0.85rem;
+      margin: 0.75rem 0;
+    }
+    .gap strong { color: var(--warning); }
+    .toc a { color: #a5b4fc; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .toc li { margin-bottom: 0.25rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Resumable Video Upload Architecture</h1>
+    <p class="subtitle">SkillStream · Cloudflare Stream tus migration · Decision log &amp; flow reference · 2026-08-25</p>
+
+    <div class="card">
+      <h3>Summary</h3>
+      <p>Replace the 200&nbsp;MB basic multipart direct upload with <strong style="color:var(--text)">tus resumable uploads</strong> for all video sizes up to 30&nbsp;GiB. Introduce an application-owned <code>Upload</code> record as the source of truth for ownership, attachability, and playback readiness. Only initiation and completion handshakes pass through Nest; all file bytes go browser → Cloudflare.</p>
+    </div>
+
+    <h2 id="toc">Contents</h2>
+    <ul class="toc">
+      <li><a href="#decisions">Decision log</a></li>
+      <li><a href="#gaps">Gap analysis (minor items to close)</a></li>
+      <li><a href="#schema">Database: Upload table</a></li>
+      <li><a href="#states">State machines (transport vs encoding)</a></li>
+      <li><a href="#api">API surface</a></li>
+      <li><a href="#upload-flow">End-to-end upload flow</a></li>
+      <li><a href="#resume">Resume &amp; remount recovery</a></li>
+      <li><a href="#ownership">Ownership &amp; lesson attach</a></li>
+      <li><a href="#webhook">Cloudflare webhook</a></li>
+      <li><a href="#playback">Playback readiness</a></li>
+      <li><a href="#cleanup">Replacement &amp; orphan cleanup</a></li>
+      <li><a href="#phases">Implementation phases</a></li>
+    </ul>
+
+    <h2 id="decisions">Decision log</h2>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Decision</th><th>Rationale</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-decision">D1</span></td>
+          <td>Structured <code>POST /media/tus</code> with JSON body — not raw header proxy</td>
+          <td>Server controls metadata, validation, rate limits, and Cloudflare API shape.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D2</span></td>
+          <td>Create <code>Upload</code> DB row <em>before</em> calling Cloudflare</td>
+          <td>Every CF reservation has an application owner from birth; enables cleanup on partial failure.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D3</span></td>
+          <td><code>uid</code> from <code>stream-media-id</code> header, not URL parsing</td>
+          <td>Cloudflare-documented best practice.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D4</span></td>
+          <td>Tus for <em>all</em> uploads; remove <code>/media/upload-url</code> once proven</td>
+          <td>One code path; resumability even for small files; no misleading 200&nbsp;MB ceiling.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D5</span></td>
+          <td>Separate transport UI state from encoding/server state</td>
+          <td>A paused upload ≠ a Cloudflare encoding failure.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D6</span></td>
+          <td><code>POST /media/uploads/:id/complete</code> after tus <code>onSuccess</code></td>
+          <td>Lessons attach only <code>PROCESSING</code> or <code>READY</code> — never <code>UPLOADING</code>.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D7</span></td>
+          <td>Persist <code>uploadId</code> + <code>uploadUrl</code> in app draft storage, not only tus-js-client fingerprint store</td>
+          <td>Cross-tab recovery, server-side cleanup correlation, no duplicate CF reservations on remount.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D8</span></td>
+          <td>Centralize attach validation in <code>media.assertAttachableUpload()</code></td>
+          <td>Single policy for <code>addLesson</code> / <code>updateLesson</code>; admin cannot accidentally bypass ownership.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D9</span></td>
+          <td><code>getPlayback()</code> gates on local <code>Upload.status === READY</code></td>
+          <td>No per-play Cloudflare API call; honest “processing” UX.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D10</span></td>
+          <td>CF webhook: inspect video payload (<code>readyToStream</code>, <code>status.state</code>), verify <code>Webhook-Signature</code></td>
+          <td>Not Stripe-style named events; account-level infra config.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D11</span></td>
+          <td>Admins follow same ownership rules unless explicit future policy adds impersonation</td>
+          <td>Prevents accidental cross-instructor UID attachment.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-decision">D12</span></td>
+          <td>Backfill legacy lessons: synthetic <code>Upload</code> rows marked <code>READY</code></td>
+          <td>Existing <code>cfVideoUid</code> values keep playing without CF round-trip.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="gaps">Gap analysis — no blockers, four items to specify in implementation</h2>
+    <div class="card gap">
+      <strong>1. Legacy playback</strong>
+      <p>Lessons with <code>cfVideoUid</code> but no <code>Upload</code> row must not break. Migration backfills <code>READY</code> records; <code>getPlayback</code> treats missing row + existing UID as grandfathered <code>READY</code> until backfill completes.</p>
+    </div>
+    <div class="card gap">
+      <strong>2. Initiation partial failure</strong>
+      <p>If Cloudflare succeeds but DB update fails, a maintenance sweep deletes unattached CF videos whose <code>Upload</code> row is stuck in <code>CREATED</code> without <code>cloudflareUid</code> or whose CF uid was written but row rolled back (reconcile via expiry).</p>
+    </div>
+    <div class="card gap">
+      <strong>3. Complete ↔ webhook race</strong>
+      <p>Both paths idempotently advance status. Allowed transitions are monotonic: <code>UPLOADING → PROCESSING → READY</code> or <code>→ FAILED</code>. Duplicate calls are no-ops.</p>
+    </div>
+    <div class="card gap">
+      <strong>4. New-course drafts</strong>
+      <p><code>courseId</code> is optional at initiation (course may not exist yet). <code>lessonId</code> stays null until save. Attach validation uses <code>ownerUserId</code> + status; optional <code>courseId</code> constraint applies only when provided and course exists.</p>
+    </div>
+
+    <h2 id="schema">Database: Upload table</h2>
+    <div class="card">
+      <pre style="font-family:var(--mono);font-size:0.8rem;color:#cbd5e1;overflow-x:auto">model Upload {
+  id            String       @id @default(cuid())
+  ownerUserId   String
+  owner         User         @relation(fields: [ownerUserId], references: [id])
+  cloudflareUid String?      @unique
+  courseId      String?      // optional draft association
+  course        Course?      @relation(...)
+  lessonId      String?      @unique  // one upload → one lesson max
+  lesson        Lesson?      @relation(...)
+  filename      String
+  bytes         BigInt
+  fileFingerprint String?    // name+size+lastModified hash for resume
+  status        UploadStatus @default(CREATED)
+  failureReason String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  expiresAt     DateTime
+  completedAt   DateTime?    // tus bytes complete
+  readyAt       DateTime?    // webhook: readyToStream
+
+  @@index([ownerUserId, status])
+  @@index([status, expiresAt])
+  @@index([courseId])
+}
+
+enum UploadStatus {
+  CREATED
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  ABANDONED
+}</pre>
+    </div>
+    <table>
+      <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>uploadId</code> (PK)</td><td>Application identity returned to client; never changes.</td></tr>
+        <tr><td><code>cloudflareUid</code></td><td>From <code>stream-media-id</code>; becomes <code>Lesson.cfVideoUid</code>.</td></tr>
+        <tr><td><code>lessonId</code> unique</td><td>Prevents two lessons sharing one upload; set transactionally on attach.</td></tr>
+        <tr><td><code>fileFingerprint</code></td><td>Resume key: <code>sha256(name|size|lastModified)</code> — no full-file hash.</td></tr>
+        <tr><td><code>expiresAt</code></td><td>CF reservation expiry + app policy; stale <code>UPLOADING</code> swept after grace window.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="states">State machines (kept separate)</h2>
+    <h3>Server / encoding (Upload.status)</h3>
+    <div class="state-machine">
+      <span class="state state-db">CREATED</span><span class="arrow">→</span>
+      <span class="state state-db">UPLOADING</span><span class="arrow">→</span>
+      <span class="state state-db">PROCESSING</span><span class="arrow">→</span>
+      <span class="state state-db">READY</span>
+    </div>
+    <div class="state-machine" style="margin-top:0.25rem">
+      <span class="state state-db">UPLOADING</span><span class="arrow">→</span>
+      <span class="state state-db">ABANDONED</span>
+      <span style="margin:0 0.5rem;color:var(--muted)">|</span>
+      <span class="state state-db">PROCESSING</span><span class="arrow">→</span>
+      <span class="state state-db">FAILED</span>
+    </div>
+
+    <h3>Client transport (VideoUpload component)</h3>
+    <div class="state-machine">
+      <span class="state state-transport">idle</span><span class="arrow">→</span>
+      <span class="state state-transport">uploading</span><span class="arrow">⇄</span>
+      <span class="state state-transport">paused</span><span class="arrow">→</span>
+      <span class="state state-transport">retrying</span><span class="arrow">→</span>
+      <span class="state state-transport">uploaded</span>
+    </div>
+    <div class="state-machine" style="margin-top:0.25rem">
+      <span class="state state-encoding">encoding: unknown</span><span class="arrow">→</span>
+      <span class="state state-encoding">processing</span><span class="arrow">→</span>
+      <span class="state state-encoding">playable</span>
+      <span style="margin:0 0.5rem;color:var(--muted)">|</span>
+      <span class="state state-encoding">failed</span>
+    </div>
+    <p style="margin-top:0.75rem"><code>onUploaded({ uploadId, uid })</code> fires at transport <strong style="color:var(--text)">uploaded</strong> (after <code>/complete</code> returns). Encoding state comes from polling upload status or webhook-driven cache.</p>
+
+    <h2 id="api">API surface</h2>
+    <table>
+      <thead><tr><th>Method</th><th>Route</th><th>Auth</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-api">POST</span></td>
+          <td><code>/media/tus</code></td>
+          <td>Bearer</td>
+          <td>INSTRUCTOR, ADMIN (same owner rules)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-api">POST</span></td>
+          <td><code>/media/uploads/:uploadId/complete</code></td>
+          <td>Bearer</td>
+          <td>Owner only</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-api">GET</span></td>
+          <td><code>/media/uploads/:uploadId</code></td>
+          <td>Bearer</td>
+          <td>Owner only — encoding status for UI</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-api">DELETE</span></td>
+          <td><code>/media/uploads/:uploadId</code></td>
+          <td>Bearer</td>
+          <td>Owner — mark ABANDONED + queue CF delete</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-api">POST</span></td>
+          <td><code>/webhooks/cloudflare-stream</code></td>
+          <td>Public + signature</td>
+          <td>Infra — account-level webhook</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-api" style="opacity:0.5">POST</span></td>
+          <td><code>/media/upload-url</code> <em>(removed phase 4)</em></td>
+          <td>—</td>
+          <td>Deprecated basic multipart path</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>POST /media/tus — request &amp; response</h3>
+    <div class="flow">Request:
+  { filename, bytes, maxDurationSeconds?, courseId? }
+
+Validation:
+  • extension in [.mp4, .mov, .webm, ...]
+  • 0 &lt; bytes ≤ 30 GiB
+  • maxDurationSeconds ≤ server cap (7200)
+  • courseId → assertCourseAccess if present
+  • rate limit + max N outstanding UPLOADING per user
+
+Server:
+  1. INSERT Upload (CREATED)
+  2. POST CF .../stream?direct_user=true
+     Headers: Tus-Resumable, Upload-Length, Upload-Metadata, Upload-Creator
+  3. UPDATE Upload → UPLOADING, cloudflareUid, expiresAt
+  4. Return TusUploadDto
+
+Response:
+  { uploadId, uploadUrl, uid, expiresAt }</div>
+
+    <h2 id="upload-flow">End-to-end upload flow</h2>
+    <div class="flow">┌─────────┐     POST /media/tus      ┌──────────┐    POST ?direct_user=true    ┌────────────┐
+│ Browser │ ────────────────────────► │ Nest API │ ───────────────────────────► │ Cloudflare │
+└─────────┘                           └──────────┘                              └────────────┘
+     │                                       │                                        │
+     │◄──── { uploadId, uploadUrl, uid } ───│◄──── Location + stream-media-id ───────│
+     │                                       │                                        │
+     │  tus-js-client PATCH chunks (50 MiB) ────────────────────────────────────────►│
+     │◄────────────────────────────── 206 / offset ───────────────────────────────────│
+     │                                                                                 │
+     │  tus onSuccess                                                                  │
+     │     POST /media/uploads/:uploadId/complete ──► Nest ──► optional CF GET verify │
+     │                                       │         UPDATE status → PROCESSING      │
+     │◄──── { uploadId, uid, status } ─────│                                        │
+     │  onUploaded({ uploadId, uid })      │                                        │
+     │                                       │                                        │
+     │  (later) CF webhook ─────────────────► Nest updates → READY or FAILED        │
+     │                                       │                                        │
+     │  Save course: cfVideoUid + assertAttachableUpload (PROCESSING|READY)          │
+     └─────────────────────────────────────────────────────────────────────────────────┘</div>
+
+    <h2 id="resume">Resume &amp; remount recovery</h2>
+    <div class="card">
+      <p><strong style="color:var(--text)">Draft storage key:</strong> <code>skillstream:upload-draft:{courseId|new}:{lessonId}</code></p>
+      <p>Stored JSON: <code>{ uploadId, uploadUrl, uid, fileFingerprint, expiresAt }</code></p>
+    </div>
+    <div class="flow">On file select:
+  1. fingerprint = hash(name + size + lastModified)
+  2. read draft storage for this lesson slot
+  3. IF draft exists AND fingerprint matches AND now &lt; expiresAt:
+       → tus.Upload({ uploadUrl, ... }) + resume
+     ELSE IF draft expired:
+       → DELETE /media/uploads/:uploadId (best effort) + clear draft
+  4. ELSE:
+       → POST /media/tus → save draft → start tus
+
+On remount (page reload):
+  → restore draft from localStorage
+  → if file re-selected with same fingerprint, resume without new POST /media/tus
+
+Browser close:
+  → do NOT mark ABANDONED (resume window remains open)</div>
+
+    <h2 id="ownership">Ownership &amp; lesson attach</h2>
+    <div class="flow">authoring.addLesson / updateLesson
+        │
+        ▼
+  media.assertAttachableUpload({ uid, user, courseId, lessonId? })
+        │
+        ├─ Upload.cloudflareUid === uid
+        ├─ Upload.ownerUserId === user.id        (admins: same rule — no cross-owner)
+        ├─ Upload.status IN (PROCESSING, READY)
+        ├─ Upload.lessonId IS NULL OR === lessonId being edited
+        └─ Upload.courseId IS NULL OR === courseId (when provided)
+        │
+        ▼
+  $transaction:
+    write Lesson.cfVideoUid
+    UPDATE Upload SET lessonId = :lessonId
+        │
+        ▼
+  if replacing old cfVideoUid:
+    queue async CF delete if old uid unreferenced</div>
+
+    <h2 id="webhook">Cloudflare webhook handler</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Verification</h3>
+        <ul>
+          <li>Read raw body (existing <code>rawBody: true</code> in main.ts)</li>
+          <li>Parse <code>Webhook-Signature</code>: <code>t=&lt;ts&gt;,sig1=&lt;hmac&gt;</code></li>
+          <li>HMAC-SHA256 over <code>&lt;ts&gt;.&lt;rawBody&gt;</code></li>
+          <li>Reject stale timestamps (e.g. &gt; 5 min)</li>
+          <li>Constant-time compare</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Payload handling</h3>
+        <ul>
+          <li>Extract <code>uid</code> from video object</li>
+          <li>If <code>readyToStream</code> → <code>READY</code></li>
+          <li>If <code>status.state</code> indicates error → <code>FAILED</code></li>
+          <li>Lookup Upload by <code>cloudflareUid</code></li>
+          <li>Idempotent status update (sync, fast)</li>
+          <li>Queue: notify instructor, no blocking work</li>
+        </ul>
+      </div>
+    </div>
+    <p><span class="badge badge-infra">Infra</span> Configure webhook URL once per Cloudflare account. Add <code>CLOUDFLARE_STREAM_WEBHOOK_SECRET</code> to env.</p>
+
+    <h2 id="playback">Playback readiness</h2>
+    <div class="flow">getPlayback(lessonId):
+  lesson = findLesson(...)
+  uid = lesson.cfVideoUid
+  upload = findUploadByCloudflareUid(uid)
+
+  if upload exists:
+    ready = (upload.status === READY)
+  else:
+    ready = !!uid   // grandfathered pre-migration
+
+  if !ready:
+    return { ready: false, hlsUrl: null, iframeUrl: null, ... }
+
+  return signed playback URLs</div>
+
+    <h2 id="cleanup">Replacement &amp; orphan cleanup</h2>
+    <table>
+      <thead><tr><th>Trigger</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>User clicks “Discard upload”</td><td><code>DELETE /media/uploads/:id</code> → ABANDONED → queue CF delete</td></tr>
+        <tr><td>Lesson cfVideoUid replaced</td><td>Commit lesson → if old UID unreferenced → queue CF delete</td></tr>
+        <tr><td>Lesson deleted</td><td>Same as replacement for attached UID</td></tr>
+        <tr><td>Scheduled sweep</td><td>Expired CREATED; stale UPLOADING (&gt; 48h); ABANDONED; unattached FAILED (after 7d retention)</td></tr>
+      </tbody>
+    </table>
+    <p>All Cloudflare deletions are <strong style="color:var(--text)">best-effort async</strong> via BullMQ — never block lesson saves.</p>
+
+    <h2 id="phases">Implementation phases</h2>
+    <ol class="phase-list">
+      <li>
+        <strong>Phase 1 — Upload schema &amp; ownership</strong>
+        Prisma model + migration + backfill script for existing <code>cfVideoUid</code>. <code>UploadRepository</code>. <code>assertAttachableUpload()</code> wired into authoring. Shared contracts in <code>@skillstream/shared</code>.
+      </li>
+      <li>
+        <strong>Phase 2 — Tus initiation &amp; completion</strong>
+        <code>POST /media/tus</code>, <code>POST /complete</code>, <code>GET</code>, <code>DELETE</code>. Env vars. Rate limits. E2E auth tests.
+      </li>
+      <li>
+        <strong>Phase 3 — Frontend tus-js-client</strong>
+        Rewrite <code>VideoUpload</code>. Draft localStorage. Pause / Discard UX. <code>onUploaded</code> contract. Course builder stores <code>uploadId</code>. Add <code>tus-js-client</code> dependency. 30&nbsp;GiB cap.
+      </li>
+      <li>
+        <strong>Phase 4 — Remove basic upload</strong>
+        Delete <code>createDirectUpload</code>, <code>/media/upload-url</code>, update e2e + docs.
+      </li>
+      <li>
+        <strong>Phase 5 — Playback gate</strong>
+        <code>getPlayback()</code> checks Upload status. Optional <code>GET /media/uploads/:id</code> poll in builder “processing” UI.
+      </li>
+      <li>
+        <strong>Phase 6 — Webhook</strong>
+        <code>POST /webhooks/cloudflare-stream</code> with signature verification. Status sync. Instructor notification job (optional).
+      </li>
+      <li>
+        <strong>Phase 7 — Cleanup jobs</strong>
+        Replacement delete on lesson update/delete. Maintenance sweep for orphans. FAILED retention policy.
+      </li>
+    </ol>
+
+    <h2>Files touched (expected)</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Files</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-db">DB</span></td><td><code>schema.prisma</code>, migration, backfill script</td></tr>
+        <tr><td><span class="badge badge-api">API</span></td><td><code>media.service.ts</code>, <code>media.controller.ts</code>, <code>media.repository.ts</code>, <code>upload.repository.ts</code>, <code>authoring.service.ts</code>, webhook controller</td></tr>
+        <tr><td><span class="badge badge-ui">Web</span></td><td><code>video-upload.tsx</code>, <code>course-builder.tsx</code>, <code>endpoints.ts</code>, upload draft util</td></tr>
+        <tr><td><span class="badge badge-infra">Infra</span></td><td><code>env.ts</code>, <code>.env.example</code>, CF dashboard webhook, maintenance scheduler</td></tr>
+        <tr><td>Shared</td><td><code>packages/shared/src/contracts/media.ts</code>, enums</td></tr>
+      </tbody>
+    </table>
+
+    <footer>
+      Open this file in a browser for the full reference. Source: gls-learning docs · generated 2026-08-25.
+    </footer>
+  </div>
+</body>
+</html>
