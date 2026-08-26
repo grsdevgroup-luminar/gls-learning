@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { UploadStatus } from "@prisma/client";
-import { assertAttachableUpload } from "../upload-validation";
+import { assertAttachableUpload, assertDiscardableUpload } from "../upload-validation";
 
 const baseUpload = {
   ownerUserId: "user_1",
@@ -72,5 +72,17 @@ describe("assertAttachableUpload", () => {
         baseInput,
       ),
     ).toThrow("different course");
+  });
+});
+
+describe("assertDiscardableUpload", () => {
+  it("rejects discard when linked to a lesson", () => {
+    expect(() =>
+      assertDiscardableUpload({ lessonId: "lesson_1" }),
+    ).toThrow("attached to a lesson");
+  });
+
+  it("allows discard when unattached", () => {
+    expect(() => assertDiscardableUpload({ lessonId: null })).not.toThrow();
   });
 });

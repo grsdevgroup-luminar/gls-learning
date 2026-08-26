@@ -54,6 +54,10 @@ const rawEnvSchema = z.object({
   // once via `POST /accounts/:id/stream/keys`; store the returned id + base64 PEM.
   CLOUDFLARE_STREAM_KEY_ID: z.string().optional(),
   CLOUDFLARE_STREAM_KEY_PEM: z.string().optional(),
+  // Stream upload policy (tus). Defaults match Cloudflare + product limits.
+  STREAM_MAX_DURATION_SECONDS: z.coerce.number().int().positive().default(7200),
+  STREAM_MAX_OUTSTANDING_UPLOADS: z.coerce.number().int().positive().default(3),
+  STREAM_UPLOAD_RESERVATION_HOURS: z.coerce.number().int().positive().default(24),
   // USD-base FX feed for the daily `Region.fxRate` refresh. The default is a
   // free, keyless endpoint covering the emerging-market currencies (BDT, NGN,
   // PKR) that ECB-sourced feeds like frankfurter.app omit.

@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException } from "@nestjs/common";
 import { UploadStatus } from "@prisma/client";
 
 /** Upload statuses a lesson may reference when saving cfVideoUid. */
@@ -55,4 +55,13 @@ export function assertAttachableUpload(
 
 export function isAttachableStatus(status: UploadStatus): boolean {
   return ATTACHABLE_UPLOAD_STATUSES.includes(status);
+}
+
+/** Rejects discard when an upload is already linked to a lesson row. */
+export function assertDiscardableUpload(upload: { lessonId: string | null }): void {
+  if (upload.lessonId) {
+    throw new ConflictException(
+      "Cannot discard an upload attached to a lesson — remove or replace the lesson video first",
+    );
+  }
 }

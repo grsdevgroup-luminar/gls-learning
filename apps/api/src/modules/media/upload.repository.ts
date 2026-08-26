@@ -21,6 +21,61 @@ export class UploadRepository {
     });
   }
 
+  updateAfterCfInit(
+    uploadId: string,
+    data: {
+      cloudflareUid: string;
+      tusUploadUrl: string;
+      expiresAt: Date;
+    },
+    tx?: Db,
+  ) {
+    return this.db(tx).upload.update({
+      where: { id: uploadId },
+      data: {
+        cloudflareUid: data.cloudflareUid,
+        tusUploadUrl: data.tusUploadUrl,
+        expiresAt: data.expiresAt,
+        status: UploadStatus.UPLOADING,
+      },
+    });
+  }
+
+  markFailed(uploadId: string, reason: string, tx?: Db) {
+    return this.db(tx).upload.update({
+      where: { id: uploadId },
+      data: { status: UploadStatus.FAILED, failureReason: reason },
+    });
+  }
+
+  markProcessing(uploadId: string, tx?: Db) {
+    return this.db(tx).upload.update({
+      where: { id: uploadId },
+      data: {
+        status: UploadStatus.PROCESSING,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  markReady(uploadId: string, tx?: Db) {
+    return this.db(tx).upload.update({
+      where: { id: uploadId },
+      data: {
+        status: UploadStatus.READY,
+        completedAt: new Date(),
+        readyAt: new Date(),
+      },
+    });
+  }
+
+  markAbandoned(uploadId: string, tx?: Db) {
+    return this.db(tx).upload.update({
+      where: { id: uploadId },
+      data: { status: UploadStatus.ABANDONED },
+    });
+  }
+
   countOutstandingByOwner(ownerUserId: string) {
     return this.prisma.upload.count({
       where: {

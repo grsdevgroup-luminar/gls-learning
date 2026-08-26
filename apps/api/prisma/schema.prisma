@@ -384,6 +384,7 @@ model Upload {
   ownerUserId     String
   owner           User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   cloudflareUid   String?      @unique
+  tusUploadUrl    String?
   courseId        String?
   course          Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
   lessonId        String?      @unique

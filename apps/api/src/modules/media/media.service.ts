@@ -1,17 +1,44 @@
 import { createPrivateKey, createSign } from "node:crypto";
 import {
+  BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { DirectUploadDto, PlaybackDto } from "@skillstream/shared";
+import { UploadStatus, type Upload } from "@prisma/client";
+import type {
+  CreateTusUploadInput,
+  DirectUploadDto,
+  PlaybackDto,
+  TusUploadDto,
+  UploadCompleteDto,
+  UploadStatusDto,
+} from "@skillstream/shared";
+import { MAX_VIDEO_BYTES } from "@skillstream/shared";
+import type { RequestUser } from "../../common/decorators/decorators";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import {
+  CloudflareTusInitError,
+  encodeTusMetadata,
+  fetchTusUploadProgress,
+  isCloudflareEncodingFailed,
+  isSupportedVideoFilename,
+  parseCloudflareTusInitResponse,
+  parseCloudflareVideoStatus,
+  readCloudflareErrorMessage,
+  tusUploadIsComplete,
+  type CloudflareVideoStatus,
+} from "./cloudflare-tus";
 import { MediaRepository } from "./media.repository";
 import { UploadRepository } from "./upload.repository";
 import {
   assertAttachableUpload,
+  assertDiscardableUpload,
   type AssertAttachableUploadInput,
 } from "./upload-validation";
 import type { Env } from "../../config/env";
@@ -88,6 +115,8 @@ export function signStreamToken(
 
 @Injectable()
 export class MediaService {
+  private readonly logger = new Logger(MediaService.name);
+
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly repo: MediaRepository,
@@ -124,6 +153,184 @@ export class MediaService {
     if (!json.success || !json.result)
       throw new ServiceUnavailableException("Failed to create upload URL");
     return { uploadUrl: json.result.uploadURL, uid: json.result.uid };
+  }
+
+  /** Creates a tus resumable upload reservation (DB row first, then Cloudflare). */
+  async createTusUpload(
+    user: RequestUser,
+    input: CreateTusUploadInput,
+  ): Promise<TusUploadDto> {
+    if (!isSupportedVideoFilename(input.filename)) {
+      throw new BadRequestException(
+        "Unsupported video format — use MP4, MOV, WebM, MKV, or M4V",
+      );
+    }
+    if (input.bytes > MAX_VIDEO_BYTES) {
+      throw new BadRequestException("Video exceeds the 30 GB maximum size");
+    }
+
+    const maxDurationCap = this.config.get("STREAM_MAX_DURATION_SECONDS", {
+      infer: true,
+    });
+    const maxDurationSeconds = Math.min(
+      input.maxDurationSeconds ?? maxDurationCap,
+      maxDurationCap,
+    );
+
+    if (input.courseId) {
+      await this.assertCourseAccess(input.courseId, user);
+    }
+
+    const maxOutstanding = this.config.get("STREAM_MAX_OUTSTANDING_UPLOADS", {
+      infer: true,
+    });
+    const outstanding = await this.uploads.countOutstandingByOwner(user.id);
+    if (outstanding >= maxOutstanding) {
+      throw new HttpException(
+        "Too many in-progress uploads — finish or discard one before starting another",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const reservationHours = this.config.get("STREAM_UPLOAD_RESERVATION_HOURS", {
+      infer: true,
+    });
+    const expiresAt = new Date(Date.now() + reservationHours * 3_600_000);
+
+    const upload = await this.uploads.create({
+      ownerUserId: user.id,
+      courseId: input.courseId ?? null,
+      filename: input.filename,
+      bytes: BigInt(input.bytes),
+      status: UploadStatus.CREATED,
+      expiresAt,
+    });
+
+    let cf: { uploadUrl: string; uid: string } | null = null;
+    try {
+      cf = await this.initiateCloudflareTus({
+        bytes: input.bytes,
+        filename: input.filename,
+        maxDurationSeconds,
+        expiry: expiresAt.toISOString(),
+        creatorId: user.id,
+      });
+
+      const updated = await this.uploads.updateAfterCfInit(upload.id, {
+        cloudflareUid: cf.uid,
+        tusUploadUrl: cf.uploadUrl,
+        expiresAt,
+      });
+
+      return {
+        uploadId: updated.id,
+        uploadUrl: cf.uploadUrl,
+        uid: cf.uid,
+        expiresAt: updated.expiresAt.toISOString(),
+      };
+    } catch (err) {
+      if (cf?.uid) {
+        await this.deleteCloudflareVideo(cf.uid).catch(() => undefined);
+      }
+      const reason =
+        err instanceof CloudflareTusInitError
+          ? err.providerMessage
+          : (err as Error).message;
+      if (err instanceof CloudflareTusInitError) {
+        this.logger.warn(
+          `Cloudflare tus init failed for upload ${upload.id}: ${err.httpStatus} ${err.providerMessage}`,
+        );
+      }
+      await this.uploads.markFailed(upload.id, reason).catch(() => undefined);
+      if (err instanceof CloudflareTusInitError) {
+        throw new ServiceUnavailableException(
+          "Failed to create tus upload with Cloudflare",
+        );
+      }
+      throw err;
+    }
+  }
+
+  /** Owner reports tus byte completion; advances upload to PROCESSING (or READY). */
+  async completeUpload(
+    user: RequestUser,
+    uploadId: string,
+  ): Promise<UploadCompleteDto> {
+    const upload = await this.requireOwnedUpload(uploadId, user.id);
+
+    if (upload.status === UploadStatus.PROCESSING || upload.status === UploadStatus.READY) {
+      return this.toUploadCompleteDto(upload);
+    }
+
+    if (upload.status !== UploadStatus.UPLOADING) {
+      throw new BadRequestException(
+        `Upload cannot be completed (status: ${upload.status})`,
+      );
+    }
+
+    if (!upload.cloudflareUid) {
+      throw new BadRequestException("Upload has no Cloudflare video id");
+    }
+
+    if (!upload.tusUploadUrl) {
+      throw new BadRequestException(
+        "Upload is missing its tus endpoint — cannot verify byte completion",
+      );
+    }
+
+    const progress = await fetchTusUploadProgress(upload.tusUploadUrl);
+    if (!progress || !tusUploadIsComplete(progress, upload.bytes)) {
+      throw new BadRequestException(
+        "Upload is incomplete — not all bytes have been received by Cloudflare",
+      );
+    }
+
+    const cfStatus = await this.fetchCloudflareVideo(upload.cloudflareUid);
+    if (!cfStatus) {
+      throw new BadRequestException(
+        "Cloudflare has not received this upload yet — retry shortly",
+      );
+    }
+
+    if (isCloudflareEncodingFailed(cfStatus.state)) {
+      const updated = await this.uploads.markFailed(
+        upload.id,
+        cfStatus.errorReasonText ?? "Cloudflare reported an encoding error",
+      );
+      throw new BadRequestException(
+        updated.failureReason ?? "Video encoding failed on Cloudflare",
+      );
+    }
+
+    const updated = cfStatus.readyToStream
+      ? await this.uploads.markReady(upload.id)
+      : await this.uploads.markProcessing(upload.id);
+
+    return this.toUploadCompleteDto(updated);
+  }
+
+  async getUploadStatus(
+    user: RequestUser,
+    uploadId: string,
+  ): Promise<UploadStatusDto> {
+    let upload = await this.requireOwnedUpload(uploadId, user.id);
+    if (upload.status === UploadStatus.PROCESSING) {
+      upload = await this.refreshEncodingStatus(upload);
+    }
+    return this.toUploadStatusDto(upload);
+  }
+
+  /** Permanently abandons an in-progress upload and best-effort deletes CF video. */
+  async discardUpload(user: RequestUser, uploadId: string): Promise<void> {
+    const upload = await this.requireOwnedUpload(uploadId, user.id);
+    if (upload.status === UploadStatus.ABANDONED) return;
+
+    assertDiscardableUpload(upload);
+
+    await this.uploads.markAbandoned(upload.id);
+    if (upload.cloudflareUid) {
+      await this.deleteCloudflareVideo(upload.cloudflareUid);
+    }
   }
 
   /**
@@ -256,5 +463,142 @@ export class MediaService {
     if (!json.success || !json.result)
       throw new ServiceUnavailableException("Failed to sign playback token");
     return json.result.token;
+  }
+
+  private async assertCourseAccess(courseId: string, user: RequestUser) {
+    const course = await this.repo.findCourseInstructor(courseId);
+    if (!course) throw new NotFoundException("Course not found");
+    if (user.role !== "ADMIN" && course.instructorId !== user.id) {
+      throw new ForbiddenException("Not your course");
+    }
+  }
+
+  private async requireOwnedUpload(uploadId: string, ownerUserId: string) {
+    const upload = await this.uploads.findByIdAndOwner(uploadId, ownerUserId);
+    if (!upload) throw new NotFoundException("Upload not found");
+    return upload;
+  }
+
+  private toUploadStatusDto(upload: {
+    id: string;
+    cloudflareUid: string | null;
+    status: UploadStatus;
+    failureReason: string | null;
+    readyAt: Date | null;
+  }): UploadStatusDto {
+    return {
+      uploadId: upload.id,
+      uid: upload.cloudflareUid,
+      status: upload.status,
+      failureReason: upload.failureReason,
+      readyAt: upload.readyAt?.toISOString() ?? null,
+    };
+  }
+
+  private toUploadCompleteDto(upload: {
+    id: string;
+    cloudflareUid: string | null;
+    status: UploadStatus;
+  }): UploadCompleteDto {
+    if (!upload.cloudflareUid) {
+      throw new ServiceUnavailableException("Upload is missing a Cloudflare video id");
+    }
+    return {
+      uploadId: upload.id,
+      uid: upload.cloudflareUid,
+      status: upload.status,
+    };
+  }
+
+  private async initiateCloudflareTus(input: {
+    bytes: number;
+    filename: string;
+    maxDurationSeconds: number;
+    expiry: string;
+    creatorId: string;
+  }): Promise<{ uploadUrl: string; uid: string }> {
+    const { accountId, token } = this.cf();
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream?direct_user=true`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Tus-Resumable": "1.0.0",
+          "Upload-Length": String(input.bytes),
+          "Upload-Metadata": encodeTusMetadata({
+            name: input.filename,
+            maxDurationSeconds: input.maxDurationSeconds,
+            requireSignedUrls: true,
+            expiry: input.expiry,
+          }),
+          "Upload-Creator": input.creatorId,
+        },
+      },
+    );
+
+    const parsed = parseCloudflareTusInitResponse(res);
+    if (!parsed) {
+      const providerMessage = await readCloudflareErrorMessage(res);
+      throw new CloudflareTusInitError(res.status, providerMessage);
+    }
+    return parsed;
+  }
+
+  private async fetchCloudflareVideo(
+    uid: string,
+  ): Promise<CloudflareVideoStatus | null> {
+    try {
+      const { accountId, token } = this.cf();
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${uid}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const json = (await res.json()) as Parameters<typeof parseCloudflareVideoStatus>[0];
+      return parseCloudflareVideoStatus(json);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Poll Cloudflare while PROCESSING until READY/FAILED (until webhooks ship). */
+  private async refreshEncodingStatus(upload: Upload): Promise<Upload> {
+    if (!upload.cloudflareUid || upload.status !== UploadStatus.PROCESSING) {
+      return upload;
+    }
+
+    const cfStatus = await this.fetchCloudflareVideo(upload.cloudflareUid);
+    if (!cfStatus) return upload;
+
+    if (isCloudflareEncodingFailed(cfStatus.state)) {
+      await this.uploads.markFailed(
+        upload.id,
+        cfStatus.errorReasonText ?? "Cloudflare reported an encoding error",
+      );
+    } else if (cfStatus.readyToStream) {
+      await this.uploads.markReady(upload.id);
+    } else {
+      return upload;
+    }
+
+    return (
+      (await this.uploads.findByIdAndOwner(upload.id, upload.ownerUserId)) ??
+      upload
+    );
+  }
+
+  private async deleteCloudflareVideo(uid: string): Promise<void> {
+    try {
+      const { accountId, token } = this.cf();
+      await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${uid}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+    } catch {
+      /* Best-effort — orphan sweeps handle failures in Phase 7. */
+    }
   }
 }

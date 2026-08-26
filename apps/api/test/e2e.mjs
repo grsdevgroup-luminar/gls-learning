@@ -337,6 +337,37 @@ async function media() {
   check("media upload-url reachable by instructor (503 expected: no CF creds)", r.status === 503 || r.status === 201 || r.status === 200, `${r.status} ${msg(r)}`);
   r = await req("POST", "/media/upload-url", { token: state.student.token });
   check("student blocked from media upload-url", r.status === 403, `${r.status}`);
+
+  r = await req("POST", "/media/tus", {
+    token: state.instructor.token,
+    body: { filename: "lesson.mp4", bytes: 1_048_576 },
+  });
+  check(
+    "media tus reachable by instructor (503 expected: no CF creds)",
+    r.status === 503 || r.status === 201 || r.status === 200,
+    `${r.status} ${msg(r)}`,
+  );
+  if (r.status === 200 && r.json?.uploadId) state.uploadId = r.json.uploadId;
+
+  r = await req("POST", "/media/tus", {
+    token: state.student.token,
+    body: { filename: "lesson.mp4", bytes: 1_048_576 },
+  });
+  check("student blocked from media tus", r.status === 403, `${r.status}`);
+
+  r = await req("POST", "/media/tus", {
+    token: state.instructor.token,
+    body: { filename: "notes.pdf", bytes: 1024 },
+  });
+  check("unsupported tus filename rejected", r.status === 400, `${r.status}`);
+
+  if (state.uploadId) {
+    r = await req("GET", `/media/uploads/${state.uploadId}`, { token: state.instructor.token });
+    check("upload status readable by owner", r.status === 200, `${r.status} ${msg(r)}`);
+    r = await req("GET", `/media/uploads/${state.uploadId}`, { token: state.student.token });
+    check("upload status hidden from other users", r.status === 404, `${r.status}`);
+  }
+
   r = await req("GET", `/lessons/${state.lessonVideo}/playback`);
   check("playback endpoint responds (no CF signing key configured)", [200, 403, 404, 503].includes(r.status), `${r.status} ${msg(r)}`);
 }
