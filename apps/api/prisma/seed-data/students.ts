@@ -17,7 +17,7 @@ function enroll(
     courseId,
     completedLessonIds: allLessons.slice(0, n).map((l) => l.id),
     lastActivity: d.toISOString().slice(0, 10),
-    minutesWatched: minutes,
+    watchTimeSec: minutes * 60,
   };
 }
 

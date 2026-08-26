@@ -6,7 +6,10 @@ import type { Db } from "../../common/types";
 
 export const ENROLLMENT_INCLUDE = {
   course: { include: COURSE_SUMMARY_INCLUDE },
-  lessonProgress: { where: { completed: true }, select: { lessonId: true } },
+  lessonProgress: {
+    where: { completed: true },
+    select: { lessonId: true, lesson: { select: { durationSec: true } } },
+  },
   certificate: true,
 } satisfies Prisma.EnrollmentInclude;
 
@@ -100,6 +103,25 @@ export class EnrollmentRepository {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
       select: { section: { select: { courseId: true } } },
+    });
+  }
+
+  /** Type + owning course, for validating a watch-time report before it's trusted. */
+  findLessonForWatchTime(lessonId: string) {
+    return this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { type: true, section: { select: { courseId: true } } },
+    });
+  }
+
+  incrementWatchTime(enrollmentId: string, deltaSec: number) {
+    return this.prisma.enrollment.update({
+      where: { id: enrollmentId },
+      data: {
+        watchTimeSec: { increment: deltaSec },
+        lastActivityAt: new Date(),
+      },
+      select: { watchTimeSec: true },
     });
   }
 

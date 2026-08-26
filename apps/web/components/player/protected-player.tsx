@@ -17,6 +17,18 @@ const STREAM_ORIGIN = 'https://iframe.videodelivery.net';
 const SDK_SRC = 'https://embed.cloudflarestream.com/embed/sdk.latest.js';
 const SAVE_INTERVAL_MS = 10_000;
 
+// How often accumulated watch time is flushed to the server, and the most
+// wall-clock time a single `timeupdate` gap is allowed to contribute. The cap
+// is what keeps a paused/backgrounded/buffering gap between ticks from being
+// counted as watched — `timeupdate` only fires while actually playing, so a
+// gap bigger than this means something other than continuous playback
+// happened in between.
+const WATCH_HEARTBEAT_INTERVAL_MS = 15_000;
+const MAX_TICK_GAP_SEC = 2;
+// Matches the server's recordWatchTimeSchema cap — never send more than one
+// heartbeat interval's worth even if flush timing lands unusually late.
+const MAX_HEARTBEAT_SEC = 30;
+
 interface StreamPlayer {
   currentTime: number;
   duration: number;
@@ -54,6 +66,7 @@ function loadStreamSdk(): Promise<void> {
 // plays through Cloudflare Stream's own signed iframe embed, so we don't own
 // any transcoding, HLS, or DRM logic here — just the enrollment-gated URL.
 export function ProtectedPlayer({
+  courseId,
   lessonId,
   title,
   watermark,
@@ -61,6 +74,9 @@ export function ProtectedPlayer({
   onComplete,
   resume = true,
 }: {
+  /** Omitted for logged-out/pre-enrollment course previews — there's no
+   *  enrollment yet to attribute watch time to, so the heartbeat is skipped. */
+  courseId?: string;
   lessonId: string;
   title: string;
   watermark: string;
@@ -97,6 +113,7 @@ export function ProtectedPlayer({
   }, [data?.ready, data?.iframeUrl, onComplete]);
 
   // Track the position through the SDK, throttled — `timeupdate` fires ~4x/sec.
+  // The same ticks drive the watch-time heartbeat below.
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -105,46 +122,96 @@ export function ProtectedPlayer({
     let lastSavedAt = 0;
     let cancelled = false;
 
+    // Watch-time heartbeat state. `lastTickAt` is the wall-clock time of the
+    // previous `timeupdate`; resetting it on `play` (and after any pause/seek)
+    // stops the gap since playback last stopped from being credited as watched.
+    let lastTickAt: number | null = null;
+    let lastFlushedAt = Date.now();
+    let pendingWatchedSec = 0;
+
     const save = () => {
       if (!player) return;
       lastSavedAt = Date.now();
       writePosition(lessonId, player.currentTime, player.duration);
     };
-    const onTimeUpdate = () => {
-      if (Date.now() - lastSavedAt >= SAVE_INTERVAL_MS) save();
+
+    const flushWatchTime = (keepalive = false) => {
+      if (!courseId) return; // preview playback — no enrollment to attribute to
+      const sec = Math.min(MAX_HEARTBEAT_SEC, Math.floor(pendingWatchedSec));
+      if (sec < 1) return;
+      pendingWatchedSec -= sec;
+      lastFlushedAt = Date.now();
+      void api.recordWatchTime(courseId, lessonId, sec, keepalive).catch(() => {
+        /* Best-effort — a dropped heartbeat just under-counts slightly. */
+      });
     };
-    const onEnded = () => clearPosition(lessonId);
+
+    const onPlay = () => {
+      lastTickAt = null;
+    };
+    const onTimeUpdate = () => {
+      const now = Date.now();
+      if (lastTickAt !== null) {
+        const deltaSec = (now - lastTickAt) / 1000;
+        // A gap bigger than this means paused/buffering/backgrounded in
+        // between, not continuous playback — don't credit it.
+        if (deltaSec > 0 && deltaSec <= MAX_TICK_GAP_SEC) pendingWatchedSec += deltaSec;
+      }
+      lastTickAt = now;
+      if (now - lastFlushedAt >= WATCH_HEARTBEAT_INTERVAL_MS) flushWatchTime();
+      if (now - lastSavedAt >= SAVE_INTERVAL_MS) save();
+    };
+    const onPauseOrSeek = () => {
+      save();
+      flushWatchTime();
+      lastTickAt = null;
+    };
+    const onEnded = () => {
+      clearPosition(lessonId);
+      flushWatchTime();
+      lastTickAt = null;
+    };
+    const onPageHide = () => {
+      save();
+      flushWatchTime(true);
+    };
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') save();
+      if (document.visibilityState === 'hidden') {
+        save();
+        flushWatchTime(true);
+      }
     };
 
     void loadStreamSdk()
       .then(() => {
         if (cancelled || !window.Stream) return;
         player = window.Stream(iframe);
+        player.addEventListener('play', onPlay);
         player.addEventListener('timeupdate', onTimeUpdate);
-        player.addEventListener('pause', save);
-        player.addEventListener('seeked', save);
+        player.addEventListener('pause', onPauseOrSeek);
+        player.addEventListener('seeked', onPauseOrSeek);
         player.addEventListener('ended', onEnded);
       })
       .catch(() => {
-        /* Playback still works; only the resume point stops updating. */
+        /* Playback still works; only the resume point and watch time stop updating. */
       });
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('pagehide', save);
+    window.addEventListener('pagehide', onPageHide);
 
     return () => {
       cancelled = true;
       save();
+      flushWatchTime(true);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('pagehide', save);
+      window.removeEventListener('pagehide', onPageHide);
+      player?.removeEventListener('play', onPlay);
       player?.removeEventListener('timeupdate', onTimeUpdate);
-      player?.removeEventListener('pause', save);
-      player?.removeEventListener('seeked', save);
+      player?.removeEventListener('pause', onPauseOrSeek);
+      player?.removeEventListener('seeked', onPauseOrSeek);
       player?.removeEventListener('ended', onEnded);
     };
-  }, [lessonId, data?.iframeUrl]);
+  }, [courseId, lessonId, data?.iframeUrl]);
 
   if (isLoading) {
     return (

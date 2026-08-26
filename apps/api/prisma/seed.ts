@@ -283,7 +283,7 @@ async function main() {
         create: {
           userId: s.id,
           courseId: e.courseId,
-          minutesWatched: e.minutesWatched,
+          watchTimeSec: e.watchTimeSec,
           lastActivityAt: new Date(e.lastActivity),
           enrolledAt: new Date(e.lastActivity),
         },
