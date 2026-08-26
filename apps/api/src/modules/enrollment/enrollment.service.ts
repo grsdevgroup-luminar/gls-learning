@@ -15,6 +15,7 @@ import {
   type ToggleLessonResultDto,
   type ActivityDayDto,
   type ActivityPeriod,
+  type WatchTimeResultDto,
 } from "@skillstream/shared";
 import { ConfigService } from "@nestjs/config";
 import { AdminAlertsService } from "../email/admin-alerts.service";
@@ -63,6 +64,10 @@ export class EnrollmentService {
     const lessonCount = countLessons(row.course);
     const completedLessonIds = row.lessonProgress.map((p) => p.lessonId);
     const completedCount = completedLessonIds.length;
+    const timeLearnedSec = row.lessonProgress.reduce(
+      (sum, p) => sum + p.lesson.durationSec,
+      0,
+    );
     return {
       id: row.id,
       courseId: row.courseId,
@@ -72,7 +77,8 @@ export class EnrollmentService {
       lessonCount,
       completedCount,
       progressPct: completionPct(completedCount, lessonCount),
-      minutesWatched: row.minutesWatched,
+      timeLearnedSec,
+      watchTimeSec: row.watchTimeSec,
       enrolledAt: row.enrolledAt.toISOString(),
       lastActivityAt: row.lastActivityAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
@@ -258,6 +264,30 @@ export class EnrollmentService {
     }
 
     return this.recompute(userId, courseId, enrollment.id, lessonId, completed);
+  }
+
+  /**
+   * Records a player heartbeat's worth of actively-watched video time.
+   * Additive and never deduplicated by position — rewatching a segment
+   * reports again, by design (this is "watch time", not "coverage").
+   */
+  async recordWatchTime(
+    userId: string,
+    courseId: string,
+    lessonId: string,
+    watchedSec: number,
+  ): Promise<WatchTimeResultDto> {
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
+    if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+
+    const lesson = await this.repo.findLessonForWatchTime(lessonId);
+    if (!lesson || lesson.section.courseId !== courseId)
+      throw new BadRequestException("Lesson does not belong to this course");
+    if (lesson.type !== "VIDEO")
+      throw new BadRequestException("Only video lessons accrue watch time");
+
+    const { watchTimeSec } = await this.repo.incrementWatchTime(enrollment.id, watchedSec);
+    return { watchTimeSec };
   }
 
   /** Mark a lesson complete (used when a quiz is passed). Idempotent. */

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Target, Clock, TrendingUp, PlayCircle, Award } from "lucide-react";
-import { formatHoursFromMin } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const WEEKDAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -39,7 +39,7 @@ export default function ProgressPage() {
 
   const courses = enrollments ?? [];
   const totalLessons = courses?.reduce((s, e) => s + e.completedCount, 0) ?? 0;
-  const totalMinutes = courses?.reduce((s, e) => s + (e.minutesWatched ?? 0), 0) ?? 0;
+  const timeLearnedSec = courses?.reduce((s, e) => s + e.timeLearnedSec, 0) ?? 0;
   const overall = courses.length
     ? Math.round((courses?.reduce((s, e) => s + e.progressPct, 0) ?? 0) / courses.length)
     : 0;
@@ -50,7 +50,7 @@ export default function ProgressPage() {
   const stats = [
     { icon: Target, label: "Overall completion", value: `${overall}%` },
     { icon: PlayCircle, label: "Lessons completed", value: totalLessons },
-    { icon: Clock, label: "Time learned", value: formatHoursFromMin(totalMinutes) },
+    { icon: Clock, label: "Time learned", value: formatDuration(timeLearnedSec) },
     { icon: Award, label: "Courses completed", value: completed },
   ];
 

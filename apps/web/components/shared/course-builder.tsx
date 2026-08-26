@@ -27,7 +27,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2, FileText, Upload, Link2, ExternalLink,
+  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2, FileText, Upload, Link2, ExternalLink, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -115,6 +115,19 @@ let uid = 1000;
 const nid = (p: string) => `new_${p}${uid++}`;
 const isTemp = (id: string) => id.startsWith("new_");
 
+// Average adult silent-reading speed, used to suggest an article lesson's
+// duration from its word count. Floor keeps a near-empty draft from reading
+// as instant.
+const ARTICLE_WORDS_PER_MINUTE = 200;
+const ARTICLE_MIN_DURATION_SEC = 30;
+function articleDurationSec(content: string): number {
+  const words = content.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(ARTICLE_MIN_DURATION_SEC, Math.round((words / ARTICLE_WORDS_PER_MINUTE) * 60));
+}
+function quizDurationSec(quiz: Pick<BuilderQuiz, "questions" | "minutesPerQuestion">): number {
+  return quiz.questions.length * quiz.minutesPerQuestion * 60;
+}
+
 const thumbSeeds = [
   "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
   "speaking", "social", "finance", "mindfulness", "language",
@@ -181,8 +194,18 @@ export function CourseBuilder({
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragSection, setDragSection] = useState<number | null>(null);
+  // Collapsed-by-id, UI-only — not persisted. Sections start expanded.
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  function toggleSectionCollapsed(id: string) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 300, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ courseId: string | null; sections: Set<string>; lessons: Set<string> }>({
@@ -231,6 +254,14 @@ export function CourseBuilder({
                         ...pl,
                         quiz: {
                           passScore: qz.passScore,
+                          // No dedicated schema field for this yet — infer a
+                          // starting per-question minute from the lesson's
+                          // saved total so existing quizzes have a sane value
+                          // to edit going forward.
+                          minutesPerQuestion:
+                            qz.questions.length > 0
+                              ? Math.max(1, Math.round(l.durationSec / qz.questions.length / 60))
+                              : 1,
                           questions: qz.questions.map((q) => ({
                             id: q.id,
                             prompt: q.prompt,
@@ -274,13 +305,16 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 300, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
   }
   function setLessonType(sid: string, lid: string, type: BuilderLessonType) {
-    patchLesson(sid, lid, { type, quiz: type === "quiz" ? emptyQuiz() : undefined, quizDirty: type === "quiz" });
+    const quiz = type === "quiz" ? emptyQuiz() : undefined;
+    const durationSec =
+      type === "quiz" ? quizDurationSec(quiz!) : type === "article" ? articleDurationSec("") : 0;
+    patchLesson(sid, lid, { type, quiz, quizDirty: type === "quiz", durationSec });
   }
   function removeLesson(sid: string, lid: string) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
@@ -474,7 +508,7 @@ export function CourseBuilder({
 
   return (
     <div className="space-y-6 p-6 md:p-8">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="sticky top-[calc(3.5rem+0.75rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur md:top-0">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
           <div>
@@ -482,9 +516,7 @@ export function CourseBuilder({
             <p className="text-sm text-muted-foreground">{totalLessons} lessons · {sections.length} sections</p>
           </div>
         </div>
-      </div>
 
-      <div className="sticky top-[calc(3.5rem+0.75rem)] z-20 flex justify-end rounded-xl border bg-background/95 p-2 shadow-sm backdrop-blur md:top-4">
         <div className="flex flex-wrap justify-end gap-2">
           {mode === "instructor" ? (
             <>
@@ -624,9 +656,27 @@ export function CourseBuilder({
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </span>
                     <Input value={s.title} onChange={(e) => patchSection(s.id, { title: e.target.value })} className="h-8 font-medium" />
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {s.lessons.length} lesson{s.lessons.length === 1 ? "" : "s"}
+                    </span>
                     <Button size="icon-sm" variant="ghost" onClick={() => removeSection(s.id)} aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => toggleSectionCollapsed(s.id)}
+                      aria-label={collapsedSections.has(s.id) ? "Expand section" : "Collapse section"}
+                      aria-expanded={!collapsedSections.has(s.id)}
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          collapsedSections.has(s.id) && "-rotate-90",
+                        )}
+                      />
+                    </Button>
                   </div>
 
+                  {!collapsedSections.has(s.id) && (
                   <div className="mt-3 space-y-3 pl-6">
                     {s.lessons.map((l) => (
                       <div key={l.id} className="rounded-lg border bg-card p-3">
@@ -648,18 +698,31 @@ export function CourseBuilder({
                           {l.type === "quiz" ? (
                             <QuizEditor
                               quiz={l.quiz ?? emptyQuiz()}
-                              onChange={(quiz) => patchLesson(s.id, l.id, { quiz, quizDirty: true })}
+                              onChange={(quiz) =>
+                                patchLesson(s.id, l.id, { quiz, quizDirty: true, durationSec: quizDurationSec(quiz) })
+                              }
                             />
                           ) : l.type === "video" ? (
                             <VideoUpload
                               compact
                               initiallyUploaded={l.hasVideo}
-                              onReady={(uid) => patchLesson(s.id, l.id, { cfVideoUid: uid, hasVideo: true })}
+                              onReady={(uid, durationSec) =>
+                                patchLesson(s.id, l.id, {
+                                  cfVideoUid: uid,
+                                  hasVideo: true,
+                                  ...(durationSec ? { durationSec } : {}),
+                                })
+                              }
                             />
                           ) : (
                             <Textarea
                               value={l.articleContent}
-                              onChange={(e) => patchLesson(s.id, l.id, { articleContent: e.target.value })}
+                              onChange={(e) =>
+                                patchLesson(s.id, l.id, {
+                                  articleContent: e.target.value,
+                                  durationSec: articleDurationSec(e.target.value),
+                                })
+                              }
                               placeholder="Write the article content students will read for this lesson…"
                               className="min-h-32 text-sm"
                             />
@@ -675,6 +738,7 @@ export function CourseBuilder({
                     ))}
                     <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus /> Add lesson</Button>
                   </div>
+                  )}
                 </div>
               ))}
               {sections.length === 0 && (

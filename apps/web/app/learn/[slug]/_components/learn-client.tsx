@@ -156,6 +156,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <div className="mx-auto w-full max-w-4xl">
                 <ProtectedPlayer
                   key={current.id}
+                  courseId={course.id}
                   lessonId={current.id}
                   title={current.title}
                   watermark={user?.email ?? ""}

@@ -15,7 +15,7 @@ import {
   BookOpen, Clock, Award, PlayCircle, ArrowRight, Bell, ChevronRight, TrendingUp,
   SlidersHorizontal,
 } from "lucide-react";
-import { formatHoursFromMin } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { LEARNING_CATEGORIES, type LearningCategory } from "@skillstream/shared";
 
@@ -58,7 +58,8 @@ export default function DashboardPage() {
   const completed = enrolled?.filter((e) => e.status === "COMPLETED") ?? [];
   const resume = inProgress[0] ?? null;
 
-  const totalMinutes = enrolled?.reduce((sum, e) => sum + e.minutesWatched, 0) ?? 0;
+  const timeLearnedSec = enrolled?.reduce((sum, e) => sum + e.timeLearnedSec, 0) ?? 0;
+  const watchTimeSec = enrolled?.reduce((sum, e) => sum + e.watchTimeSec, 0) ?? 0;
 
   const recommended = recommendedCourses ?? [];
   const savedCategories = (preferences?.categories ?? []).filter(
@@ -68,7 +69,7 @@ export default function DashboardPage() {
 
   const stats = [
     { icon: BookOpen,    label: "Enrolled",    value: enrolled.length,              tint: "var(--tint-indigo)"  },
-    { icon: Clock,       label: "Time learned", value: formatHoursFromMin(totalMinutes), tint: "var(--tint-sky)" },
+    { icon: Clock,       label: "Time learned", value: formatDuration(timeLearnedSec), tint: "var(--tint-sky)" },
     { icon: TrendingUp,  label: "In progress",  value: inProgress.length,            tint: "var(--tint-amber)"  },
     { icon: Award,       label: "Certificates", value: completed.length,             tint: "var(--tint-emerald)" },
   ];
@@ -120,7 +121,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-2xl font-bold tabular-nums">{formatHoursFromMin(totalMinutes)}</span>
+            <span className="text-2xl font-bold tabular-nums">{formatDuration(watchTimeSec)}</span>
             <span className="text-xs text-muted-foreground">total watch time</span>
           </div>
         </div>

@@ -57,6 +57,7 @@ import type {
   ToggleLessonResultDto,
   ActivityDayDto,
   ActivityPeriod,
+  WatchTimeResultDto,
 } from "@skillstream/shared";
 import { apiFetch, apiFetchMultipart } from "./client";
 
@@ -146,6 +147,12 @@ export const api = {
     apiFetch<ToggleLessonResultDto>(
       `/enrollments/${courseId}/lessons/${lessonId}/toggle`,
       { method: "POST" },
+    ),
+  // `keepalive` lets this survive a pagehide/unmount flush after the tab starts unloading.
+  recordWatchTime: (courseId: string, lessonId: string, watchedSec: number, keepalive = false) =>
+    apiFetch<WatchTimeResultDto>(
+      `/enrollments/${courseId}/lessons/${lessonId}/watch-time`,
+      { method: "POST", body: { watchedSec }, keepalive },
     ),
 
   // media

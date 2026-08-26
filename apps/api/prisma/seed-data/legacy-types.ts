@@ -155,8 +155,7 @@ export interface EnrollmentProgress {
   courseId: string;
   completedLessonIds: string[];
   lastActivity: string; // ISO
-  // minutes watched
-  minutesWatched: number;
+  watchTimeSec: number;
 }
 
 export interface Student {

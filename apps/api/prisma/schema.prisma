@@ -401,7 +401,11 @@ model Enrollment {
   courseId       String
   course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
   status         EnrollmentStatus @default(IN_PROGRESS)
-  minutesWatched Int              @default(0)
+  // Actual video-playback seconds reported by the player, accumulated on every
+  // heartbeat — replaying the same segment counts again. Distinct from "time
+  // learned" (sum of durationSec for completed lessons), computed on read in
+  // EnrollmentService.toDto rather than stored.
+  watchTimeSec   Int              @default(0)
   enrolledAt     DateTime         @default(now())
   lastActivityAt DateTime         @default(now())
   completedAt    DateTime?

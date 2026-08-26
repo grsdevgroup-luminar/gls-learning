@@ -17,7 +17,12 @@ export interface EnrollmentDto {
   lessonCount: number;
   completedCount: number;
   progressPct: number;
-  minutesWatched: number;
+  /** Sum of durationSec across completed lessons (any type) — "course time" credited. */
+  timeLearnedSec: number;
+  /** Actual video-playback seconds reported by the player. Accumulates on every
+   *  watch, so replaying a segment counts again — not the same number as
+   *  `timeLearnedSec` above. */
+  watchTimeSec: number;
   enrolledAt: string;
   lastActivityAt: string;
   completedAt: string | null;
@@ -70,3 +75,15 @@ export const saveLessonNoteSchema = z.object({
   body: z.string().max(20_000),
 });
 export type SaveLessonNoteInput = z.infer<typeof saveLessonNoteSchema>;
+
+/** A single player heartbeat's worth of actively-watched wall-clock time.
+ *  Capped well above the client's flush interval so a slow network batching a
+ *  couple of ticks together still gets through, but a forged huge value can't. */
+export const recordWatchTimeSchema = z.object({
+  watchedSec: z.number().int().positive().max(30),
+});
+export type RecordWatchTimeInput = z.infer<typeof recordWatchTimeSchema>;
+
+export interface WatchTimeResultDto {
+  watchTimeSec: number;
+}

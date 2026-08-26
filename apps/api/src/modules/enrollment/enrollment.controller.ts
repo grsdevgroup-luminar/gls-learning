@@ -1,6 +1,11 @@
 import { Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import {
+  recordWatchTimeSchema,
+  type RecordWatchTimeInput,
+} from "@skillstream/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
+import { ZodBody } from "../../common/utils/swagger";
 import { EnrollmentService } from "./enrollment.service";
 
 @ApiTags("enrollment")
@@ -50,5 +55,15 @@ export class EnrollmentController {
     @Param("lessonId") lessonId: string,
   ) {
     return this.enrollment.toggleLesson(user.id, courseId, lessonId);
+  }
+
+  @Post("enrollments/:courseId/lessons/:lessonId/watch-time")
+  recordWatchTime(
+    @CurrentUser() user: RequestUser,
+    @Param("courseId") courseId: string,
+    @Param("lessonId") lessonId: string,
+    @ZodBody(recordWatchTimeSchema) body: RecordWatchTimeInput,
+  ) {
+    return this.enrollment.recordWatchTime(user.id, courseId, lessonId, body.watchedSec);
   }
 }
