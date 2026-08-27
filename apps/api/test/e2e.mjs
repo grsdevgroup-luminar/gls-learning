@@ -333,12 +333,7 @@ async function quizAuthoring() {
 // ─────────────────────────── 9. MEDIA ───────────────────────────
 async function media() {
   G("media");
-  let r = await req("POST", "/media/upload-url", { token: state.instructor.token });
-  check("media upload-url reachable by instructor (503 expected: no CF creds)", r.status === 503 || r.status === 201 || r.status === 200, `${r.status} ${msg(r)}`);
-  r = await req("POST", "/media/upload-url", { token: state.student.token });
-  check("student blocked from media upload-url", r.status === 403, `${r.status}`);
-
-  r = await req("POST", "/media/tus", {
+  let r = await req("POST", "/media/tus", {
     token: state.instructor.token,
     body: { filename: "lesson.mp4", bytes: 1_048_576 },
   });

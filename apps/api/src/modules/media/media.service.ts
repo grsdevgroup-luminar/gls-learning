@@ -13,7 +13,6 @@ import { ConfigService } from "@nestjs/config";
 import { UploadStatus, type Upload } from "@prisma/client";
 import type {
   CreateTusUploadInput,
-  DirectUploadDto,
   PlaybackDto,
   TusUploadDto,
   UploadCompleteDto,
@@ -130,29 +129,6 @@ export class MediaService {
     if (!accountId || !token)
       throw new ServiceUnavailableException("Cloudflare Stream not configured");
     return { accountId, token };
-  }
-
-  /** Creates a one-time direct-creator-upload URL for an instructor. */
-  async createDirectUpload(): Promise<DirectUploadDto> {
-    const { accountId, token } = this.cf();
-    const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ maxDurationSeconds: 7200, requireSignedURLs: true }),
-      },
-    );
-    const json = (await res.json()) as {
-      success: boolean;
-      result?: { uploadURL: string; uid: string };
-    };
-    if (!json.success || !json.result)
-      throw new ServiceUnavailableException("Failed to create upload URL");
-    return { uploadUrl: json.result.uploadURL, uid: json.result.uid };
   }
 
   /** Creates a tus resumable upload reservation (DB row first, then Cloudflare). */

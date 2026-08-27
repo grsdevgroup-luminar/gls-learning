@@ -31,12 +31,6 @@ export class MediaController {
   constructor(private readonly media: MediaService) {}
 
   @Roles("INSTRUCTOR", "ADMIN")
-  @Post("media/upload-url")
-  createUploadUrl() {
-    return this.media.createDirectUpload();
-  }
-
-  @Roles("INSTRUCTOR", "ADMIN")
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("media/tus")
   createTusUpload(

@@ -30,13 +30,6 @@ export interface TusInitiationMetadata {
   expiry: string;
 }
 
-export interface DirectUploadDto {
-  /** One-time URL the client uploads the video file to. */
-  uploadUrl: string;
-  /** Cloudflare Stream video UID to persist on the lesson. */
-  uid: string;
-}
-
 /** Returned when a tus upload reservation is created (Phase 2). */
 export interface TusUploadDto {
   uploadId: string;

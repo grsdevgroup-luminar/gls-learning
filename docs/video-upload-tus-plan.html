@@ -209,7 +209,7 @@
         </tr>
         <tr>
           <td><span class="badge badge-decision">D4</span></td>
-          <td>Tus for <em>all</em> uploads; remove <code>/media/upload-url</code> once proven</td>
+          <td>Tus for <em>all</em> uploads; legacy <code>/media/upload-url</code> removed (phase 4)</td>
           <td>One code path; resumability even for small files; no misleading 200&nbsp;MB ceiling.</td>
         </tr>
         <tr>
@@ -387,12 +387,6 @@ enum UploadStatus {
           <td>Public + signature</td>
           <td>Infra — account-level webhook</td>
         </tr>
-        <tr>
-          <td><span class="badge badge-api" style="opacity:0.5">POST</span></td>
-          <td><code>/media/upload-url</code> <em>(removed phase 4)</em></td>
-          <td>—</td>
-          <td>Deprecated basic multipart path</td>
-        </tr>
       </tbody>
     </table>
 
@@ -550,8 +544,8 @@ Browser close:
         Rewrite <code>VideoUpload</code>. Draft localStorage. Pause / Discard UX. <code>onUploaded</code> contract. Course builder stores <code>uploadId</code>. Add <code>tus-js-client</code> dependency. 30&nbsp;GiB cap.
       </li>
       <li>
-        <strong>Phase 4 — Remove basic upload</strong>
-        Delete <code>createDirectUpload</code>, <code>/media/upload-url</code>, update e2e + docs.
+        <strong>Phase 4 — Remove basic upload</strong> ✓
+        Deleted <code>createDirectUpload</code>, <code>/media/upload-url</code>; updated e2e + docs.
       </li>
       <li>
         <strong>Phase 5 — Playback gate</strong>

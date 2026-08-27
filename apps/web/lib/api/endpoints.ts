@@ -25,7 +25,6 @@ import type {
   InstructorRosterDto,
   MyOrderStatsDto,
   OrderDto,
-  DirectUploadDto,
   TusUploadDto,
   UploadCompleteDto,
   UploadStatusDto,
@@ -542,9 +541,6 @@ export const authoringApi = {
     apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
       method: "DELETE",
     }),
-  mediaUploadUrl: () =>
-    apiFetch<DirectUploadDto>("/media/upload-url", { method: "POST" }),
-
   createTusUpload: (body: CreateTusUploadInput) =>
     apiFetch<TusUploadDto>("/media/tus", { method: "POST", body }),
 

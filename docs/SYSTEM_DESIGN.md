@@ -17,15 +17,15 @@
            │                                                               │
            ▼                                                               ▼
    Cloudflare Stream            Stripe / PayPal            PostgreSQL 16 (Prisma 6)
-   (direct upload +             (checkout + webhooks)      Redis 7 (BullMQ queues)
+   (tus upload +                 (checkout + webhooks)      Redis 7 (BullMQ queues)
    signed HLS playback)                                    Resend (email) / Twilio (SMS)
 ```
 
 - **`apps/web`** never talks to Postgres, Stripe, or Cloudflare directly — every
   read/write goes through the NestJS API (`lib/api` is the one typed fetch client).
   The one exception is video *bytes*: the browser uploads the raw file straight to
-  Cloudflare Stream after the API hands it a one-time upload URL, so large media
-  never transits the SkillStream server.
+  Cloudflare Stream via tus after the API creates a resumable upload reservation,
+  so large media never transits the SkillStream server.
 - **`apps/api`** is the only thing that talks to the database, the payment
   gateways, and Cloudflare's management API. It is the single source of truth and
   the only place authorization is actually enforced (see §3).
