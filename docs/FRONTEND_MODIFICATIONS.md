@@ -1,5 +1,112 @@
 # Changelog
 
+## 2026-08-25
+
+### Fixed
+
+- Fixed main navigation course search redirecting back to the search results when a student opened a selected course.
+- Prevented stale debounced header search state from replaying after navigation to a course details page.
+
+### Changed Files
+
+`apps\web\components\layout\site-header.tsx`
+- Added a route-transition guard so only the current header query can trigger automatic search navigation.
+- Course cards selected from main search results now remain on their `/courses/[slug]` details page.
+
+### Verification
+
+- Passed: `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-23
+
+### Fixed
+
+- Fixed an issue where text in the course builder would bleed underneath the sticky header during scrolling by separating the header and content areas and applying a solid background.
+
+-Fixed the Orders table scrolling behavior so that column headers remain sticky and fixed at the top while only the table data scrolls vertically underneath them.
+
+### Changed Files
+`apps\web\components\shared\course-builder.tsx`
+- Updated the course builder top navigation into a unified, full-width header that groups the course title context and save actions together.
+
+-Restructured the desktop course builder into a fixed-height, dual-scroll layout, allowing the main curriculum editor (left column) and the publishing/settings sidebar (right column) to scroll independently.
+
+-Adjusted layout constraints so the independent scrolling panes apply only to large screens, preserving standard full-page scrolling for mobile and tablet devices.
+
+-Improved spacing and padding within the scrollable content wrapper so scrollbars align perfectly with the screen edge without overlapping the form cards.
+
+`apps\web\app\admin\orders\page.tsx`
+-Restructured the Orders page layout into a fixed-height container with an internal scrollable table container to support data-heavy viewing seamlessly.
+
+-Upgraded the bottom pagination bar to a standard multi-page pattern featuring numerical page buttons, ellipsis handling for large page ranges, and clear current-page indicators.
+
+-Ensured rows-per-page selections and search filters work reliably alongside the newly integrated sticky layout and pagination controls.
+
+`apps\web\app\admin\_components\admin-pagination.tsx`
+- Added shared admin pagination controls with `Previous`, numbered pages, ellipsis ranges, and `Next`.
+
+- Added a shared `Rows per page` selector with consistent options across admin lists.
+
+- Added an option for list pages to show pagination even when there is only one page.
+
+`apps\web\app\admin\_components\admin-table.tsx`
+- Added a shared scrollable admin table wrapper so table data can scroll independently while headers remain visible.
+
+- Added shared sticky table header classes for consistent admin table behavior.
+
+- Added full-height scroll support so fixed-height portal pages can make the table region fill the remaining space and scroll internally.
+
+`apps\web\app\admin\courses\page.tsx`
+- Updated course list pagination and rows-per-page controls to use the shared admin pattern.
+
+- Made course table headers sticky while table rows scroll.
+
+- Aligned the courses list page shell with the Orders table layout so controls, table scrolling, and pagination behave consistently.
+
+`apps\web\app\admin\students\page.tsx`
+- Added rows-per-page support to the students query and list controls.
+
+- Updated students pagination to the shared numbered admin pattern.
+
+- Made student table headers sticky while table rows scroll.
+
+- Removed the nested table scroll wrapper so the students table has a single vertical scrollbar.
+
+`apps\web\app\admin\coupons\page.tsx`
+- Updated coupon list pagination and rows-per-page controls to use the shared admin pattern.
+
+- Aligned coupon pagination with the same numbered controls used by other admin lists.
+
+`apps\web\app\admin\agents\page.tsx`
+- Added rows-per-page and numbered pagination controls to the All agents table.
+
+- Aligned the Sales Agents page structure with the Students page: fixed-height portal layout, stats at the top, search/rows controls above the table, table card, and pagination footer.
+
+- Made the All agents table header cells sticky inside the table scroll container while agent rows scroll.
+
+- Reordered the Sales Agents controls to follow the Students pattern with search on the left and rows-per-page on the right.
+
+- Made the All agents table card fill the remaining page height and scroll internally.
+
+- Kept the All agents pagination visible even when the filtered result fits on one page.
+
+`apps\web\app\sales-agent\referrals\page.tsx`
+- Added rows-per-page and numbered pagination controls to the referrals table.
+
+- Made the referrals table header sticky while referral rows scroll.
+
+`apps\web\app\sales-agent\earnings\page.tsx`
+- Added rows-per-page and numbered pagination controls to paid and pending commission tables.
+
+- Made earnings table headers sticky while commission rows scroll.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+
+
 ## 2026-08-22
 
 ### Fixed
@@ -588,3 +695,77 @@
 - Lint status:
   - `pnpm --filter @skillstream/web lint` completed and failed because of an existing unrelated issue in `apps/web/app/admin/students/page.tsx`.
   - The reported lint error is `react-hooks/set-state-in-effect` at line 37 and was not introduced by this navigation fix.
+
+## 2026-08-26
+
+### Changed
+
+- Consolidated Admin category selection and category management into the Course Builder category dropdown.
+- Admins can now search, select, add, approve, edit, and remove categories from one unified category list.
+- Active categories remain selectable, while pending categories can be approved directly from the same list.
+- Removed the separate Admin Categories page and its sidebar navigation entry because category operations are now handled inside the course category selector.
+- Kept the category API operations because they are still required by the embedded Admin controls.
+- Restricted the course preference modal on the dashboard to Student accounts only.
+- Signup can still display the course preference modal so new learners can choose their interests.
+
+### Changed Files
+
+- `apps/web/components/shared/category-picker.tsx`
+  - Added Admin category loading and management actions to the existing picker.
+  - Unified category selection and management into one scrollable list.
+  - Added inline add, approve, edit, and remove operations for Admin users.
+
+- `apps/web/components/shared/course-builder.tsx`
+  - Enables category management when the builder is used in Admin mode.
+
+- `apps/web/components/shared/course-preferences-modal.tsx`
+  - Added Student-only visibility support through the `studentOnly` prop and session-role validation.
+
+- `apps/web/app/(student)/dashboard/dashboard-client.tsx`
+  - Marks the dashboard preference modal as Student-only.
+
+- `apps/web/app/admin/layout.tsx`
+  - Removed the separate Categories sidebar item.
+
+- `apps/web/app/admin/categories/page.tsx`
+- `apps/web/app/admin/categories/page-client.tsx`
+  - Removed the redundant Admin Categories route and page implementation.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @skillstream/web build`
+
+## 2026-08-26
+
+### Changed
+
+- Added confirmation prompts before destructive actions throughout the frontend.
+- Users must confirm before deleting courses, coupons, automation rules, pricing tiers, quiz questions, or removing categories, organization members, organization courses, cart items, course sections, lessons, resources, and course images.
+- Added a reusable confirmation dialog for category removal inside the unified Admin course category picker.
+- Kept the existing mutation behavior unchanged after confirmation is accepted.
+
+### Changed Files
+
+- `apps/web/components/shared/confirm-dialog.tsx`
+  - Added a reusable confirmation dialog component with Cancel and Delete actions.
+
+- `apps/web/components/shared/category-picker.tsx`
+  - Added confirmation before removing a category.
+
+- `apps/web/components/shared/course-builder.tsx`
+- `apps/web/components/shared/quiz-editor.tsx`
+- `apps/web/app/admin/courses/page-client.tsx`
+- `apps/web/app/admin/coupons/page-client.tsx`
+- `apps/web/app/admin/marketing/page-client.tsx`
+- `apps/web/app/admin/pricing/page-client.tsx`
+- `apps/web/app/org/[slug]/courses/page-client.tsx`
+- `apps/web/app/org/[slug]/members/page-client.tsx`
+- `apps/web/app/(storefront)/cart/page.tsx`
+  - Added confirmation prompts before destructive actions.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`

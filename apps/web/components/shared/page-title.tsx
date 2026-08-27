@@ -6,6 +6,12 @@ import { useEffect } from "react";
 const BRAND = "GRS Learning";
 const DEFAULT_TITLE = "GRS Learning — Learn anything, anywhere";
 
+export function setPageTitle(title: string) {
+  if (typeof document !== "undefined") {
+    document.title = title === DEFAULT_TITLE ? title : `${title} | ${BRAND}`;
+  }
+}
+
 /**
  * Returns a human-readable title for routes that otherwise inherit their
  * module layout title. Dynamic course detail pages are intentionally omitted:
@@ -79,7 +85,23 @@ export function PageTitle() {
 
   useEffect(() => {
     const title = pageTitleForPathname(pathname);
-    if (title) document.title = title === DEFAULT_TITLE ? title : `${title} | ${BRAND}`;
+    if (!title) return;
+
+    setPageTitle(title);
+    const expectedTitle = title === DEFAULT_TITLE ? title : `${title} | ${BRAND}`;
+
+    // Next can replace the title element after this effect during navigation.
+    // Keep the route-specific title when that head refresh completes.
+    const observer = new MutationObserver(() => {
+      if (document.title !== expectedTitle) setPageTitle(title);
+    });
+    observer.observe(document.head, { childList: true, subtree: true });
+
+    const timer = window.setTimeout(() => setPageTitle(title), 0);
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
   }, [pathname]);
 
   return null;

@@ -1,9 +1,8 @@
-"use client";
+import type { Metadata } from "next";
+import EditCourseClient from "./page-client";
 
-import { useParams } from "next/navigation";
-import { CourseBuilder } from "@/components/shared/course-builder";
+export const metadata: Metadata = { title: "Edit course" };
 
 export default function EditCoursePage() {
-  const { id } = useParams<{ id: string }>();
-  return <CourseBuilder courseId={id} />;
+  return <EditCourseClient />;
 }

@@ -27,8 +27,13 @@ export const LEARNING_CATEGORIES = [
   "Marketing",
   "Personal Development",
 ] as const;
-export type LearningCategory = (typeof LEARNING_CATEGORIES)[number];
-export const learningCategorySchema = z.enum(LEARNING_CATEGORIES);
+/** Categories are managed in the API. This alias remains for UI compatibility. */
+export type LearningCategory = string;
+export const learningCategorySchema = z
+  .string()
+  .trim()
+  .min(1, "Category is required")
+  .max(80, "Category cannot exceed 80 characters");
 
 export const courseListQuerySchema = z.object({
   q: z.string().trim().optional(),

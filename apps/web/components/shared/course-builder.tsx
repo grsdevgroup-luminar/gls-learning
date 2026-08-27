@@ -8,7 +8,6 @@ import {
   type CourseDetailDto,
   type LessonResourceDto,
 } from "@skillstream/shared";
-import { useCategories } from "@/lib/api/hooks";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatBytes } from "@/lib/format";
@@ -16,6 +15,7 @@ import { VideoUpload } from "@/components/shared/video-upload";
 import { QuizEditor, emptyQuiz, type BuilderQuiz } from "@/components/shared/quiz-editor";
 import { CourseArt, isImageThumbnail } from "@/components/shared/course-art";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
+import { CategoryPicker } from "@/components/shared/category-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -174,8 +174,6 @@ export function CourseBuilder({
     // server snapshot while the author is editing.
     refetchOnWindowFocus: false,
   });
-  const { data: categories = [] } = useCategories();
-
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [category, setCategory] = useState("");
@@ -186,8 +184,7 @@ export function CourseBuilder({
   const [thumbDrag, setThumbDrag] = useState(false);
   const [thumbError, setThumbError] = useState("");
   const thumbInputRef = useRef<HTMLInputElement>(null);
-  // Categories load async; fall back to the first once they arrive.
-  const categoryValue = category || categories[0] || "";
+  const categoryValue = category;
   const titleTooLong = title.length > MAX_TITLE_LENGTH;
   const subtitleTooLong = subtitle.length > MAX_SUBTITLE_LENGTH;
   const descriptionTooLong = description.length > MAX_COURSE_DESCRIPTION_LENGTH;
@@ -302,6 +299,7 @@ export function CourseBuilder({
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
   }
   function removeSection(id: string) {
+    if (!window.confirm("Remove this section and all of its lessons?")) return;
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
@@ -317,6 +315,7 @@ export function CourseBuilder({
     patchLesson(sid, lid, { type, quiz, quizDirty: type === "quiz", durationSec });
   }
   function removeLesson(sid: string, lid: string) {
+    if (!window.confirm("Remove this lesson?")) return;
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
   }
 
@@ -507,10 +506,14 @@ export function CourseBuilder({
   }
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
-      <div className="sticky top-[calc(3.5rem+0.75rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur md:top-0">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
+    <div className="flex w-full flex-col lg:h-screen lg:overflow-hidden">
+      
+      {/* HEADER: Shrinks to fit, sticky on mobile, static on desktop */}
+      <div className="shrink-0 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-4 border-b bg-background px-6 py-4 shadow-sm md:px-8 lg:static">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{courseId ? "Edit course" : "Create a course"}</h1>
             <p className="text-sm text-muted-foreground">{totalLessons} lessons · {sections.length} sections</p>
@@ -520,339 +523,314 @@ export function CourseBuilder({
         <div className="flex flex-wrap justify-end gap-2">
           {mode === "instructor" ? (
             <>
-              <Button variant="outline" onClick={() => save("draft")} disabled={saving}><Save /> Save draft</Button>
+              <Button variant="outline" onClick={() => save("draft")} disabled={saving}>
+                <Save className="mr-2 h-4 w-4" /> Save draft
+              </Button>
               <Button onClick={() => save("review")} disabled={saving}>
-                {saving ? <Loader2 className="animate-spin" /> : <Rocket />} Submit for review
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />} 
+                Submit for review
               </Button>
             </>
           ) : (
             <Button onClick={() => save(published ? "publish" : "draft")} disabled={saving}>
-              {saving ? <Loader2 className="animate-spin" /> : <Save />} Save
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+              Save
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
-          {/* Details */}
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" /> Course details</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-             <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="course-subtitle">Title</Label>
-                  <span className={titleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
-                    {title.length}/{MAX_TITLE_LENGTH}
-                  </span>
-                </div>
-                <Input
-                  id="course-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="One-line value proposition"
-                  aria-invalid={titleTooLong}
-                  aria-describedby={titleTooLong ? "course-title-error" : undefined}
-                />
-                {titleTooLong && (
-                  <p id="course-title-error" className="text-xs font-medium text-destructive" role="alert">
-                    Title cannot exceed {MAX_TITLE_LENGTH} characters
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="course-subtitle">Subtitle</Label>
-                  <span className={subtitleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
-                    {subtitle.length}/{MAX_SUBTITLE_LENGTH}
-                  </span>
-                </div>
-                <Input
-                  id="course-subtitle"
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  placeholder="One-line value proposition"
-                  aria-invalid={subtitleTooLong}
-                  aria-describedby={subtitleTooLong ? "course-subtitle-error" : undefined}
-                />
-                {subtitleTooLong && (
-                  <p id="course-subtitle-error" className="text-xs font-medium text-destructive" role="alert">
-                    Subtitle cannot exceed 240 characters
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Category</Label>
-                  <Select value={categoryValue} onValueChange={(v) => v && setCategory(v)}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Level</Label>
-                  <Select value={level} onValueChange={(v) => v && setLevel(v as keyof typeof LEVEL_TO_API)}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(LEVEL_TO_API) as (keyof typeof LEVEL_TO_API)[]).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="course-description">Description</Label>
-                  <span className={descriptionTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
-                    {description.length}/{MAX_COURSE_DESCRIPTION_LENGTH}
-                  </span>
-                </div>
-                <Textarea
-                  id="course-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What will students learn?"
-                  className="min-h-28"
-                  aria-invalid={descriptionTooLong}
-                  aria-describedby={descriptionTooLong ? "course-description-error" : undefined}
-                />
-                {descriptionTooLong && (
-                  <p id="course-description-error" className="text-xs font-medium text-destructive" role="alert">
-                    Description cannot exceed {MAX_COURSE_DESCRIPTION_LENGTH} characters
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Curriculum builder */}
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle className="text-base">Curriculum</CardTitle>
-              <Button size="sm" variant="outline" onClick={addSection}><Plus /> Add section</Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-      {sections?.map((s, si) => (
-                <div
-                  key={s.id}
-                  className={cn(
-                    "rounded-xl border bg-muted/20 p-3",
-                    dragSection === si && "opacity-50",
-                  )}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => moveSection(si)}
-                >
-                  <div className="flex items-center gap-2">
-                    {/* The grip was decorative; native DnD reorders the list and
-                        the save loop writes the new `order` on each section. */}
-                    <span
-                      draggable
-                      onDragStart={() => setDragSection(si)}
-                      onDragEnd={() => setDragSection(null)}
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Drag to reorder section"
-                      className="shrink-0 cursor-grab"
-                    >
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    </span>
-                    <Input value={s.title} onChange={(e) => patchSection(s.id, { title: e.target.value })} className="h-8 font-medium" />
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {s.lessons.length} lesson{s.lessons.length === 1 ? "" : "s"}
-                    </span>
-                    <Button size="icon-sm" variant="ghost" onClick={() => removeSection(s.id)} aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => toggleSectionCollapsed(s.id)}
-                      aria-label={collapsedSections.has(s.id) ? "Expand section" : "Collapse section"}
-                      aria-expanded={!collapsedSections.has(s.id)}
-                    >
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 text-muted-foreground transition-transform",
-                          collapsedSections.has(s.id) && "-rotate-90",
-                        )}
-                      />
-                    </Button>
-                  </div>
-
-                  {!collapsedSections.has(s.id) && (
-                  <div className="mt-3 space-y-3 pl-6">
-                    {s.lessons.map((l) => (
-                      <div key={l.id} className="rounded-lg border bg-card p-3">
-                        <div className="flex items-center gap-2">
-                          <Input value={l.title} onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })} className="h-8" placeholder="Lesson title" />
-                          <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as BuilderLessonType)}>
-                            <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {lessonTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                            <Eye className="h-3.5 w-3.5" /> Preview
-                            <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
-                          </label>
-                          <Button size="icon-sm" variant="ghost" onClick={() => removeLesson(s.id, l.id)} aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
-                        </div>
-                        <div className="mt-2">
-                          {l.type === "quiz" ? (
-                            <QuizEditor
-                              quiz={l.quiz ?? emptyQuiz()}
-                              onChange={(quiz) =>
-                                patchLesson(s.id, l.id, { quiz, quizDirty: true, durationSec: quizDurationSec(quiz) })
-                              }
-                            />
-                          ) : l.type === "video" ? (
-                            <VideoUpload
-                              compact
-                              initiallyUploaded={l.hasVideo}
-                              onReady={(uid, durationSec) =>
-                                patchLesson(s.id, l.id, {
-                                  cfVideoUid: uid,
-                                  hasVideo: true,
-                                  ...(durationSec ? { durationSec } : {}),
-                                })
-                              }
-                            />
-                          ) : (
-                            <Textarea
-                              value={l.articleContent}
-                              onChange={(e) =>
-                                patchLesson(s.id, l.id, {
-                                  articleContent: e.target.value,
-                                  durationSec: articleDurationSec(e.target.value),
-                                })
-                              }
-                              placeholder="Write the article content students will read for this lesson…"
-                              className="min-h-32 text-sm"
-                            />
-                          )}
-                        </div>
-                        <LessonResources
-                          lessonId={l.id}
-                          isNew={isTemp(l.id)}
-                          resources={l.resources}
-                          onChange={(resources) => patchLesson(s.id, l.id, { resources })}
-                        />
-                      </div>
-                    ))}
-                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus /> Add lesson</Button>
-                  </div>
-                  )}
-                </div>
-              ))}
-              {sections.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">No sections yet. Add your first section to get started.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          {mode === "instructor" ? (
+      {/* CONTENT WRAPPER: Takes up remaining height */}
+      <div className="flex-1 p-6 md:p-8 lg:overflow-hidden">
+        
+        {/* GRID: Extends to full height on desktop */}
+        <div className="grid gap-6 lg:h-full lg:grid-cols-[1fr_320px]">
+          
+          {/* LEFT COLUMN: Independently scrollable */}
+          <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">
+            
+            {/* Details */}
             <Card>
-              <CardHeader><CardTitle className="text-base">Review status</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">Current</div>
-                  <CourseStatusBadge status={detail?.status ?? "DRAFT"} />
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Save a draft any time. When you&apos;re ready, <span className="font-medium text-foreground">Submit for review</span> — our team approves new courses before they go live to keep quality high.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader><CardTitle className="text-base">Publish</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" /> Course details</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium">Status</div>
-                    <div className="text-xs text-muted-foreground">{published ? "Visible to students" : "Hidden — draft"}</div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="course-title">Title</Label>
+                    <span className={titleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                      {title.length}/{MAX_TITLE_LENGTH}
+                    </span>
                   </div>
-                  <Badge variant="outline" className={published ? "text-success" : "text-muted-foreground"}>{published ? "Published" : "Draft"}</Badge>
+                  <Input
+                    id="course-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="One-line value proposition"
+                    aria-invalid={titleTooLong}
+                    aria-describedby={titleTooLong ? "course-title-error" : undefined}
+                  />
+                  {titleTooLong && (
+                    <p id="course-title-error" className="text-xs font-medium text-destructive" role="alert">
+                      Title cannot exceed {MAX_TITLE_LENGTH} characters
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="pub">Publish course</Label>
-                  <Switch id="pub" checked={published} onCheckedChange={setPublished} />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="course-subtitle">Subtitle</Label>
+                    <span className={subtitleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                      {subtitle.length}/{MAX_SUBTITLE_LENGTH}
+                    </span>
+                  </div>
+                  <Input
+                    id="course-subtitle"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    placeholder="One-line value proposition"
+                    aria-invalid={subtitleTooLong}
+                    aria-describedby={subtitleTooLong ? "course-subtitle-error" : undefined}
+                  />
+                  {subtitleTooLong && (
+                    <p id="course-subtitle-error" className="text-xs font-medium text-destructive" role="alert">
+                      Subtitle cannot exceed 240 characters
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Category</Label>
+                    <CategoryPicker value={categoryValue} onChange={setCategory} canManage={mode === "admin"} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Level</Label>
+                    <Select value={level} onValueChange={(v) => v && setLevel(v as keyof typeof LEVEL_TO_API)}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(LEVEL_TO_API) as (keyof typeof LEVEL_TO_API)[]).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="course-description">Description</Label>
+                    <span className={descriptionTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                      {description.length}/{MAX_COURSE_DESCRIPTION_LENGTH}
+                    </span>
+                  </div>
+                  <Textarea
+                    id="course-description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="What will students learn?"
+                    className="min-h-28"
+                    aria-invalid={descriptionTooLong}
+                    aria-describedby={descriptionTooLong ? "course-description-error" : undefined}
+                  />
+                  {descriptionTooLong && (
+                    <p id="course-description-error" className="text-xs font-medium text-destructive" role="alert">
+                      Description cannot exceed {MAX_COURSE_DESCRIPTION_LENGTH} characters
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Pricing</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <Label>Base price (USD)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input value={price} onChange={(e) => setPrice(e.target.value)} className="pl-7" inputMode="decimal" />
-              </div>
-              <p className="text-xs text-muted-foreground">Regional & per-country pricing is applied automatically from your Pricing rules.</p>
-            </CardContent>
-          </Card>
+            {/* Curriculum builder */}
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle className="text-base">Curriculum</CardTitle>
+                <Button size="sm" variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4"/> Add section</Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sections?.map((s, si) => (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      "rounded-xl border bg-muted/20 p-3",
+                      dragSection === si && "opacity-50",
+                    )}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => moveSection(si)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        draggable
+                        onDragStart={() => setDragSection(si)}
+                        onDragEnd={() => setDragSection(null)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Drag to reorder section"
+                        className="shrink-0 cursor-grab"
+                      >
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <Input value={s.title} onChange={(e) => patchSection(s.id, { title: e.target.value })} className="h-8 font-medium" />
+                      <Button size="icon-sm" variant="ghost" onClick={() => removeSection(s.id)} aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                    </div>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Course thumbnail</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <CourseArt seed={thumbnail} title={title || "Course title"} category={categoryValue} className="h-32 rounded-lg" />
-
-              <input
-                ref={thumbInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  handleThumbnailFile(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => thumbInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setThumbDrag(true); }}
-                onDragLeave={() => setThumbDrag(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setThumbDrag(false);
-                  handleThumbnailFile(e.dataTransfer.files?.[0]);
-                }}
-                className={cn(
-                  "flex w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-4 text-center transition-colors",
-                  thumbDrag ? "border-primary bg-primary/5" : "hover:border-primary/50 hover:bg-muted/40",
+                    <div className="mt-3 space-y-3 pl-6">
+                      {s.lessons.map((l) => (
+                        <div key={l.id} className="rounded-lg border bg-card p-3">
+                          <div className="flex items-center gap-2">
+                            <Input value={l.title} onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })} className="h-8" placeholder="Lesson title" />
+                            <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as BuilderLessonType)}>
+                              <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {lessonTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                              <Eye className="h-3.5 w-3.5" /> Preview
+                              <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
+                            </label>
+                            <Button size="icon-sm" variant="ghost" onClick={() => removeLesson(s.id, l.id)} aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                          </div>
+                          <div className="mt-2">
+                            {l.type === "quiz" ? (
+                              <QuizEditor
+                                quiz={l.quiz ?? emptyQuiz()}
+                                onChange={(quiz) => patchLesson(s.id, l.id, { quiz, quizDirty: true })}
+                              />
+                            ) : l.type === "video" ? (
+                              <VideoUpload
+                                compact
+                                initiallyUploaded={l.hasVideo}
+                                onReady={(uid) => patchLesson(s.id, l.id, { cfVideoUid: uid, hasVideo: true })}
+                              />
+                            ) : (
+                              <Textarea
+                                value={l.articleContent}
+                                onChange={(e) => patchLesson(s.id, l.id, { articleContent: e.target.value })}
+                                placeholder="Write the article content students will read for this lesson…"
+                                className="min-h-32 text-sm"
+                              />
+                            )}
+                          </div>
+                          <LessonResources
+                            lessonId={l.id}
+                            isNew={isTemp(l.id)}
+                            resources={l.resources}
+                            onChange={(resources) => patchLesson(s.id, l.id, { resources })}
+                          />
+                        </div>
+                      ))}
+                      <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus className="mr-2 h-4 w-4"/> Add lesson</Button>
+                    </div>
+                  </div>
+                ))}
+                {sections.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No sections yet. Add your first section to get started.</p>
                 )}
-              >
-                <ImagePlus className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-medium">Drag & drop an image, or click to upload</span>
-                <span className="text-[11px] text-muted-foreground">PNG or JPG · recommended 1280×720</span>
-              </button>
-              {thumbError && <p className="text-xs text-destructive">{thumbError}</p>}
-              {isImageThumbnail(thumbnail) && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs text-muted-foreground"
-                  onClick={() => setThumbnail(thumbSeeds[0])}
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Remove image
-                </Button>
-              )}
+              </CardContent>
+            </Card>
+          </div>
 
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground">Or pick a color theme</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {thumbSeeds.map((t) => (
-                    <button key={t} type="button" onClick={() => setThumbnail(t)} className={`h-7 w-7 rounded-md border-2 ${thumbnail === t ? "border-primary" : "border-transparent"}`}>
-                      <CourseArt seed={t} title="" className="h-full w-full rounded" iconSize={12} />
-                    </button>
-                  ))}
+          {/* RIGHT COLUMN: Independently scrollable */}
+          <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">
+            {mode === "instructor" ? (
+              <Card>
+                <CardHeader><CardTitle className="text-base">Review status</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Current</div>
+                    <CourseStatusBadge status={detail?.status ?? "DRAFT"} />
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Save a draft any time. When you&apos;re ready, <span className="font-medium text-foreground">Submit for review</span> — our team approves new courses before they go live to keep quality high.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader><CardTitle className="text-base">Publish</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium">Status</div>
+                      <div className="text-xs text-muted-foreground">{published ? "Visible to students" : "Hidden — draft"}</div>
+                    </div>
+                    <Badge variant="outline" className={published ? "text-success" : "text-muted-foreground"}>{published ? "Published" : "Draft"}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="pub">Publish course</Label>
+                    <Switch id="pub" checked={published} onCheckedChange={setPublished} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">Pricing</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <Label>Base price (USD)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <Input value={price} onChange={(e) => setPrice(e.target.value)} className="pl-7" inputMode="decimal" />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-xs text-muted-foreground">Regional & per-country pricing is applied automatically from your Pricing rules.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">Course thumbnail</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <CourseArt seed={thumbnail} title={title || "Course title"} category={categoryValue} className="h-32 rounded-lg" />
+
+                <input
+                  ref={thumbInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleThumbnailFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => thumbInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setThumbDrag(true); }}
+                  onDragLeave={() => setThumbDrag(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setThumbDrag(false);
+                    handleThumbnailFile(e.dataTransfer.files?.[0]);
+                  }}
+                  className={cn(
+                    "flex w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-4 text-center transition-colors",
+                    thumbDrag ? "border-primary bg-primary/5" : "hover:border-primary/50 hover:bg-muted/40",
+                  )}
+                >
+                  <ImagePlus className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-medium">Drag & drop an image, or click to upload</span>
+                  <span className="text-[11px] text-muted-foreground">PNG or JPG · recommended 1280×720</span>
+                </button>
+                {thumbError && <p className="text-xs text-destructive">{thumbError}</p>}
+                {isImageThumbnail(thumbnail) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={() => { if (window.confirm("Remove this course image?")) setThumbnail(thumbSeeds[0]); }}
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove image
+                  </Button>
+                )}
+
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Or pick a color theme</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {thumbSeeds.map((t) => (
+                      <button key={t} type="button" onClick={() => setThumbnail(t)} className={`h-7 w-7 rounded-md border-2 ${thumbnail === t ? "border-primary" : "border-transparent"}`}>
+                        <CourseArt seed={t} title="" className="h-full w-full rounded" iconSize={12} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
@@ -922,6 +900,7 @@ function LessonResources({
   }
 
   async function handleRemove(i: number) {
+    if (!window.confirm("Remove this resource?")) return;
     const r = resources[i];
     if (r.storageKey) {
       try {
@@ -1018,7 +997,7 @@ function LessonResources({
           disabled={!canUpload}
           title={isNew ? "Save the lesson to attach files" : undefined}
         >
-          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          {uploading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
           Upload file
         </Button>
         <Button
@@ -1028,7 +1007,7 @@ function LessonResources({
           onClick={() => onChange([...resources, { name: "", url: "" }])}
           disabled={resources.length >= RESOURCE_LIMIT}
         >
-          <Plus /> Add link
+          <Plus className="mr-1.5 h-4 w-4"/> Add link
         </Button>
         {isNew && (
           <span className="text-[11px] text-muted-foreground">

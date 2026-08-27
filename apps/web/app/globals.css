@@ -471,7 +471,7 @@
     color-mix(in oklch, white 28%, transparent),
     transparent
   );
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 1.25s ease cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 .sheen:hover::after {

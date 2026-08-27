@@ -156,7 +156,7 @@ export function SpotlightCard({
 export function Magnetic({
   children,
   className,
-  strength = 0.35,
+  strength = 0.08,
 }: {
   children: ReactNode;
   className?: string;
@@ -164,8 +164,8 @@ export function Magnetic({
 }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
-  const x = useSpring(useMotionValue(0), { stiffness: 260, damping: 18 });
-  const y = useSpring(useMotionValue(0), { stiffness: 260, damping: 18 });
+  const x = useSpring(useMotionValue(0), { stiffness: 100, damping: 35 });
+  const y = useSpring(useMotionValue(0), { stiffness: 100, damping: 35 });
 
   function onMove(e: React.MouseEvent<HTMLDivElement>) {
     if (reduce) return;

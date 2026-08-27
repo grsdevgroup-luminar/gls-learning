@@ -19,7 +19,7 @@ export class AuthoringRepository {
   findCourseInstructor(courseId: string) {
     return this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { instructorId: true },
+      select: { instructorId: true, category: true },
     });
   }
 

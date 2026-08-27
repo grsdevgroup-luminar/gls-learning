@@ -66,8 +66,12 @@ export function SiteHeader() {
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
+    // Do not replay a stale debounced query while leaving the course catalog.
+    // The header state is cleared from the new URL on the first render, while
+    // the debounced value may still contain the query from the previous page.
+    if (pathname !== "/courses" && debouncedQ !== q.trim()) return;
     search(debouncedQ);
-  }, [debouncedQ, search]);
+  }, [debouncedQ, pathname, q, search]);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();

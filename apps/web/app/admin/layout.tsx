@@ -5,7 +5,7 @@ import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Admin Portal",
+  title: "Admin dashboard",
 };
 
 const items: NavItem[] = [

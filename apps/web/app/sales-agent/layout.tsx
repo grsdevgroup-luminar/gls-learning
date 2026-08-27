@@ -9,7 +9,7 @@ import { initials } from "@/lib/format";
 import { Megaphone } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Sales Agent Portal",
+  title: "Sales agent dashboard",
 };
 
 const items: NavItem[] = [

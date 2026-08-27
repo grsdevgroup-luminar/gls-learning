@@ -1,7 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
-  LEARNING_CATEGORIES,
   isLessonSequentiallyAccessible,
   type CourseDetailDto,
   type CourseListQuery,
@@ -14,6 +13,7 @@ import { EnrollmentService } from "../enrollment/enrollment.service";
 import { STORAGE_DRIVER } from "../storage/storage.constants";
 import type { StorageDriver } from "../storage/storage.driver";
 import { signCourseResourceUrls } from "../storage/sign-resources";
+import { CategoriesService } from "../categories/categories.service";
 
 function slugCandidates(input: string): string[] {
   let normalized = input.trim().toLowerCase();
@@ -31,6 +31,7 @@ export class CoursesService {
   constructor(
     private readonly repo: CoursesRepository,
     private readonly enrollment: EnrollmentService,
+    private readonly categoriesRepo: CategoriesService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
@@ -92,7 +93,7 @@ export class CoursesService {
   }
 
   async categories(): Promise<string[]> {
-    return [...LEARNING_CATEGORIES];
+    return this.categoriesRepo.activeNames();
   }
 
   async recommendedFor(userId: string, categories: string[], limit = 8) {

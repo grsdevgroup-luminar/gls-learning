@@ -11,6 +11,7 @@ export * from "./progress.js";
 export * from "./contracts/common.js";
 export * from "./contracts/auth.js";
 export * from "./contracts/catalog.js";
+export * from "./contracts/categories.js";
 export * from "./contracts/interests.js";
 export * from "./contracts/enrollment.js";
 export * from "./contracts/quiz.js";

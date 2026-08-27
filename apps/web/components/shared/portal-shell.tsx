@@ -21,6 +21,7 @@ import {
   Settings,
   ShoppingBag,
   Star,
+  Tags,
   Ticket,
   type LucideIcon,
   UserCheck,
@@ -43,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLogout } from "@/lib/api/session";
 import { cn } from "@/lib/utils";
+import { setPageTitle } from "@/components/shared/page-title";
 
 const navIcons = {
   Award,
@@ -59,6 +61,7 @@ const navIcons = {
   Settings,
   ShoppingBag,
   Star,
+  Tags,
   Ticket,
   UserCheck,
   UserCog,
@@ -115,7 +118,10 @@ export function PortalShell({
           <Link
             key={it.href}
             href={it.href}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              setPageTitle(it.label);
+            }}
             aria-current={active ? "page" : undefined}
             className={cn(
               "group relative flex items-center gap-3 rounded-lg py-2 pl-5 pr-3 text-sm font-medium transition-all duration-150",
