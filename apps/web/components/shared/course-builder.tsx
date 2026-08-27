@@ -77,6 +77,9 @@ interface BLesson {
   preview: boolean;
   hasVideo: boolean;
   cfVideoUid: string | null; // set locally after a fresh upload this session
+  uploadId: string | null;
+  replacingVideo: boolean;
+  videoLabel: string | null;
   articleContent: string;
   resources: LessonResourceDto[];
   durationSec: number;
@@ -145,6 +148,9 @@ function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       preview: !!l.preview,
       hasVideo: l.hasVideo,
       cfVideoUid: null,
+      uploadId: null,
+      replacingVideo: false,
+      videoLabel: null,
       articleContent: l.articleContent ?? "",
       resources: l.resources ?? [],
       durationSec: l.durationSec,
@@ -205,7 +211,7 @@ export function CourseBuilder({
     });
   }
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ courseId: string | null; sections: Set<string>; lessons: Set<string> }>({
@@ -305,7 +311,7 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
@@ -705,11 +711,33 @@ export function CourseBuilder({
                           ) : l.type === "video" ? (
                             <VideoUpload
                               compact
-                              initiallyUploaded={l.hasVideo}
-                              onReady={(uid, durationSec) =>
+                              courseId={courseId}
+                              lessonId={l.id}
+                              initiallyUploaded={l.hasVideo && !l.replacingVideo}
+                              initialUploadId={l.uploadId}
+                              replacingVideo={l.replacingVideo}
+                              committedVideo={
+                                l.cfVideoUid
+                                  ? {
+                                      uid: l.cfVideoUid,
+                                      uploadId: l.uploadId,
+                                      label: l.videoLabel ?? undefined,
+                                    }
+                                  : null
+                              }
+                              onReplaceRequested={() =>
+                                patchLesson(s.id, l.id, { replacingVideo: true })
+                              }
+                              onReplaceCancelled={() =>
+                                patchLesson(s.id, l.id, { replacingVideo: false })
+                              }
+                              onUploaded={({ uploadId, uid, filename, durationSec }) =>
                                 patchLesson(s.id, l.id, {
                                   cfVideoUid: uid,
+                                  uploadId,
                                   hasVideo: true,
+                                  replacingVideo: false,
+                                  videoLabel: filename,
                                   ...(durationSec ? { durationSec } : {}),
                                 })
                               }
