@@ -3,6 +3,13 @@ import { Prisma, UploadStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Db } from "../../common/types";
 
+/** Statuses that may still advance to READY or FAILED (encoding lifecycle). */
+export const ENCODING_TRANSITION_STATUSES: UploadStatus[] = [
+  UploadStatus.CREATED,
+  UploadStatus.UPLOADING,
+  UploadStatus.PROCESSING,
+];
+
 @Injectable()
 export class UploadRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -67,6 +74,41 @@ export class UploadRepository {
         readyAt: new Date(),
       },
     });
+  }
+
+  /** Atomically marks READY only from a non-terminal encoding state. */
+  async markReadyFromEncoding(uploadId: string, tx?: Db): Promise<boolean> {
+    const result = await this.db(tx).upload.updateMany({
+      where: {
+        id: uploadId,
+        status: { in: ENCODING_TRANSITION_STATUSES },
+      },
+      data: {
+        status: UploadStatus.READY,
+        completedAt: new Date(),
+        readyAt: new Date(),
+      },
+    });
+    return result.count > 0;
+  }
+
+  /** Atomically marks FAILED only from a non-terminal encoding state. */
+  async markFailedFromEncoding(
+    uploadId: string,
+    reason: string,
+    tx?: Db,
+  ): Promise<boolean> {
+    const result = await this.db(tx).upload.updateMany({
+      where: {
+        id: uploadId,
+        status: { in: ENCODING_TRANSITION_STATUSES },
+      },
+      data: {
+        status: UploadStatus.FAILED,
+        failureReason: reason,
+      },
+    });
+    return result.count > 0;
   }
 
   markAbandoned(uploadId: string, tx?: Db) {

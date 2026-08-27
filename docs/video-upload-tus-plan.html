@@ -481,8 +481,8 @@ Browser close:
         <h3>Verification</h3>
         <ul>
           <li>Read raw body (existing <code>rawBody: true</code> in main.ts)</li>
-          <li>Parse <code>Webhook-Signature</code>: <code>t=&lt;ts&gt;,sig1=&lt;hmac&gt;</code></li>
-          <li>HMAC-SHA256 over <code>&lt;ts&gt;.&lt;rawBody&gt;</code></li>
+          <li>Parse <code>Webhook-Signature</code>: <code>time=&lt;ts&gt;,sig1=&lt;hmac&gt;</code></li>
+          <li>HMAC-SHA256 over <code>&lt;time&gt;.&lt;rawBody&gt;</code></li>
           <li>Reject stale timestamps (e.g. &gt; 5 min)</li>
           <li>Constant-time compare</li>
         </ul>
@@ -552,8 +552,8 @@ Browser close:
         <code>getPlayback()</code> checks Upload status; grandfathered lessons without an Upload row still play.
       </li>
       <li>
-        <strong>Phase 6 — Webhook</strong>
-        <code>POST /webhooks/cloudflare-stream</code> with signature verification. Status sync. Instructor notification job (optional).
+        <strong>Phase 6 — Webhook</strong> ✓
+        <code>POST /webhooks/cloudflare-stream</code> with <code>Webhook-Signature</code> verification and PROCESSING → READY/FAILED sync.
       </li>
       <li>
         <strong>Phase 7 — Cleanup jobs</strong>

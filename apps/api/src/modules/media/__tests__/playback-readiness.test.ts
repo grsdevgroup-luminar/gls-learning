@@ -19,6 +19,10 @@ describe("isVideoPlaybackReady", () => {
     expect(isVideoPlaybackReady({ status: UploadStatus.FAILED })).toBe(false);
   });
 
+  it("blocks playback for abandoned uploads", () => {
+    expect(isVideoPlaybackReady({ status: UploadStatus.ABANDONED })).toBe(false);
+  });
+
   it("blocks playback for in-flight transport states", () => {
     expect(isVideoPlaybackReady({ status: UploadStatus.UPLOADING })).toBe(false);
     expect(isVideoPlaybackReady({ status: UploadStatus.CREATED })).toBe(false);

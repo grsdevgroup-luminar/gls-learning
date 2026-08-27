@@ -365,6 +365,15 @@ async function media() {
 
   r = await req("GET", `/lessons/${state.lessonVideo}/playback`);
   check("playback endpoint responds (no CF signing key configured)", [200, 403, 404, 503].includes(r.status), `${r.status} ${msg(r)}`);
+
+  r = await req("POST", "/webhooks/cloudflare-stream", {
+    body: { uid: "orphan", readyToStream: true, status: { state: "ready" } },
+  });
+  check(
+    "cloudflare stream webhook requires configuration (503 expected locally)",
+    r.status === 503 || r.status === 400,
+    `${r.status} ${msg(r)}`,
+  );
 }
 
 // ─────────────────────────── 10. PUBLISH ───────────────────────────

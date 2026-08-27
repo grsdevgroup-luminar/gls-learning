@@ -139,7 +139,7 @@ required. Everything else degrades gracefully rather than failing to boot:
 |---|---|---|
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Checkout falls back to a dev-only simulate path; production throws if neither gateway is configured |
 | PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Same as Stripe |
-| Cloudflare Stream | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `CLOUDFLARE_STREAM_KEY_ID`, `CLOUDFLARE_STREAM_KEY_PEM` | Video upload/playback endpoints 503 |
+| Cloudflare Stream | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `CLOUDFLARE_STREAM_KEY_ID`, `CLOUDFLARE_STREAM_KEY_PEM`, `CLOUDFLARE_STREAM_WEBHOOK_SECRET` | Video upload/playback endpoints 503; webhook endpoint 503 without secret |
 | Resend (email) | `RESEND_API_KEY` | `EmailService` logs to console instead of sending |
 | Twilio (SMS) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | `SmsService` logs instead of sending |
 | Sentry | `SENTRY_DSN` | No error tracking, no functional impact |

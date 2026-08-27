@@ -33,6 +33,12 @@ import {
   tusUploadIsComplete,
   type CloudflareVideoStatus,
 } from "./cloudflare-tus";
+import {
+  parseCloudflareStreamWebhookPayload,
+  resolveStreamWebhookEncodingOutcome,
+  streamWebhookFailureReason,
+  verifyCloudflareStreamWebhookSignature,
+} from "./cloudflare-stream-webhook";
 import { MediaRepository } from "./media.repository";
 import { UploadRepository } from "./upload.repository";
 import {
@@ -345,6 +351,42 @@ export class MediaService {
     await this.uploads.detachFromLesson(cloudflareUid);
   }
 
+  /** Verifies and applies a Cloudflare Stream encoding webhook (PROCESSING → READY/FAILED). */
+  async handleStreamWebhook(
+    rawBody: Buffer,
+    signatureHeader: string | undefined,
+  ): Promise<void> {
+    const secret = this.config.get("CLOUDFLARE_STREAM_WEBHOOK_SECRET", {
+      infer: true,
+    });
+    if (!secret) {
+      throw new ServiceUnavailableException(
+        "Cloudflare Stream webhooks not configured",
+      );
+    }
+
+    if (
+      !verifyCloudflareStreamWebhookSignature(
+        rawBody,
+        signatureHeader,
+        secret,
+      )
+    ) {
+      throw new BadRequestException("Invalid Cloudflare Stream webhook signature");
+    }
+
+    let video;
+    try {
+      video = parseCloudflareStreamWebhookPayload(
+        JSON.parse(rawBody.toString("utf8")) as unknown,
+      );
+    } catch {
+      throw new BadRequestException("Invalid Cloudflare Stream webhook payload");
+    }
+
+    await this.syncUploadFromStreamWebhook(video);
+  }
+
   /** Returns signed playback for an enrolled (or preview) lesson. `userId` is
    *  undefined for logged-out visitors previewing free lessons. */
   async getPlayback(
@@ -391,10 +433,7 @@ export class MediaService {
       };
     }
 
-    let upload = await this.uploads.findByCloudflareUid(lesson.cfVideoUid);
-    if (upload?.status === UploadStatus.PROCESSING) {
-      upload = await this.refreshEncodingStatus(upload);
-    }
+    const upload = await this.uploads.findByCloudflareUid(lesson.cfVideoUid);
 
     if (!isVideoPlaybackReady(upload)) {
       return {
@@ -564,7 +603,7 @@ export class MediaService {
     }
   }
 
-  /** Poll Cloudflare while PROCESSING until READY/FAILED (until webhooks ship). */
+  /** Poll Cloudflare while PROCESSING until READY/FAILED (webhook fallback). */
   private async refreshEncodingStatus(upload: Upload): Promise<Upload> {
     if (!upload.cloudflareUid || upload.status !== UploadStatus.PROCESSING) {
       return upload;
@@ -574,12 +613,12 @@ export class MediaService {
     if (!cfStatus) return upload;
 
     if (isCloudflareEncodingFailed(cfStatus.state)) {
-      await this.uploads.markFailed(
+      await this.uploads.markFailedFromEncoding(
         upload.id,
         cfStatus.errorReasonText ?? "Cloudflare reported an encoding error",
       );
     } else if (cfStatus.readyToStream) {
-      await this.uploads.markReady(upload.id);
+      await this.uploads.markReadyFromEncoding(upload.id);
     } else {
       return upload;
     }
@@ -588,6 +627,37 @@ export class MediaService {
       (await this.uploads.findByIdAndOwner(upload.id, upload.ownerUserId)) ??
       upload
     );
+  }
+
+  private async syncUploadFromStreamWebhook(
+    video: Parameters<typeof resolveStreamWebhookEncodingOutcome>[0],
+  ): Promise<void> {
+    const upload = await this.uploads.findByCloudflareUid(video.uid);
+    if (!upload) {
+      this.logger.debug(`Stream webhook ignored — no Upload row for ${video.uid}`);
+      return;
+    }
+
+    const outcome = resolveStreamWebhookEncodingOutcome(video);
+    if (outcome === "ready") {
+      const updated = await this.uploads.markReadyFromEncoding(upload.id);
+      if (updated) {
+        this.logger.log(`Upload ${upload.id} marked READY via Stream webhook`);
+      }
+      return;
+    }
+
+    if (outcome === "failed") {
+      const updated = await this.uploads.markFailedFromEncoding(
+        upload.id,
+        streamWebhookFailureReason(video),
+      );
+      if (updated) {
+        this.logger.warn(
+          `Upload ${upload.id} marked FAILED via Stream webhook (${video.uid})`,
+        );
+      }
+    }
   }
 
   private async deleteCloudflareVideo(uid: string): Promise<void> {
