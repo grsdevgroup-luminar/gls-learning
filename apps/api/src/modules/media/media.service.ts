@@ -76,6 +76,17 @@ export function ipAccessRules(_ip: string | undefined): unknown[] | undefined {
 }
 
 /**
+ * Whether a lesson with `cfVideoUid` may return signed playback URLs.
+ * Lessons without an Upload row are grandfathered as ready (pre-migration).
+ */
+export function isVideoPlaybackReady(
+  upload: { status: UploadStatus } | null,
+): boolean {
+  if (!upload) return true;
+  return upload.status === UploadStatus.READY;
+}
+
+/**
  * Signs a Cloudflare Stream playback JWT locally — no API round-trip. This is
  * the whole efficiency win: a signature is pure CPU (sub-millisecond) instead of
  * an HTTPS POST to Cloudflare on every play.
@@ -370,6 +381,22 @@ export class MediaService {
     }
 
     if (lesson.type !== "VIDEO" || !lesson.cfVideoUid) {
+      return {
+        lessonId,
+        type: lesson.type,
+        ready: false,
+        hlsUrl: null,
+        iframeUrl: null,
+        articleContent: null,
+      };
+    }
+
+    let upload = await this.uploads.findByCloudflareUid(lesson.cfVideoUid);
+    if (upload?.status === UploadStatus.PROCESSING) {
+      upload = await this.refreshEncodingStatus(upload);
+    }
+
+    if (!isVideoPlaybackReady(upload)) {
       return {
         lessonId,
         type: lesson.type,
