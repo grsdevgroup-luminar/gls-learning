@@ -60,6 +60,8 @@ const rawEnvSchema = z.object({
   STREAM_MAX_DURATION_SECONDS: z.coerce.number().int().positive().default(7200),
   STREAM_MAX_OUTSTANDING_UPLOADS: z.coerce.number().int().positive().default(3),
   STREAM_UPLOAD_RESERVATION_HOURS: z.coerce.number().int().positive().default(24),
+  STREAM_STALE_UPLOADING_HOURS: z.coerce.number().int().positive().default(48),
+  STREAM_FAILED_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
   // USD-base FX feed for the daily `Region.fxRate` refresh. The default is a
   // free, keyless endpoint covering the emerging-market currencies (BDT, NGN,
   // PKR) that ECB-sourced feeds like frankfurter.app omit.

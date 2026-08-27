@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Env } from "../../config/env";
 import { OrganizationsModule } from "../organizations/organizations.module";
+import { MediaModule } from "../media/media.module";
 import { AutomationService } from "./automation.service";
 import { FxService } from "./fx.service";
 import { MaintenanceProcessor } from "./maintenance.processor";
@@ -12,7 +13,8 @@ import { AutomationRepository } from "./automation.repository";
 import { FxRepository } from "./fx.repository";
 import { MaintenanceRepository } from "./maintenance.repository";
 import { NotificationsRepository } from "./notifications.repository";
-import { MAINTENANCE_QUEUE, NOTIFICATIONS_QUEUE } from "./jobs.constants";
+import { MAINTENANCE_QUEUE, NOTIFICATIONS_QUEUE, STREAM_CLEANUP_QUEUE } from "./jobs.constants";
+import { StreamCleanupProcessor } from "./stream-cleanup.processor";
 
 function parseRedis(url: string | undefined) {
   const base = { maxRetriesPerRequest: null as null };
@@ -43,8 +45,10 @@ function parseRedis(url: string | undefined) {
     BullModule.registerQueue(
       { name: MAINTENANCE_QUEUE },
       { name: NOTIFICATIONS_QUEUE },
+      { name: STREAM_CLEANUP_QUEUE },
     ),
     OrganizationsModule,
+    MediaModule,
   ],
   providers: [
     AutomationService,
@@ -52,6 +56,7 @@ function parseRedis(url: string | undefined) {
     MaintenanceProcessor,
     MaintenanceScheduler,
     NotificationsProcessor,
+    StreamCleanupProcessor,
     AutomationRepository,
     FxRepository,
     MaintenanceRepository,

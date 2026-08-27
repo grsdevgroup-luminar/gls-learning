@@ -22,6 +22,60 @@ export class UploadRepository {
     return this.prisma.upload.findUnique({ where: { cloudflareUid } });
   }
 
+  countLessonsByCfVideoUid(cfVideoUid: string) {
+    return this.prisma.lesson.count({ where: { cfVideoUid } });
+  }
+
+  findExpiredCreated(before: Date) {
+    return this.prisma.upload.findMany({
+      where: { status: UploadStatus.CREATED, expiresAt: { lt: before } },
+      select: { id: true, cloudflareUid: true },
+    });
+  }
+
+  findStaleUploading(before: Date) {
+    return this.prisma.upload.findMany({
+      where: { status: UploadStatus.UPLOADING, updatedAt: { lt: before } },
+      select: { id: true, cloudflareUid: true },
+    });
+  }
+
+  findAbandonedWithCloudflareUid() {
+    return this.prisma.upload.findMany({
+      where: {
+        status: UploadStatus.ABANDONED,
+        cloudflareUid: { not: null },
+      },
+      select: { id: true, cloudflareUid: true },
+    });
+  }
+
+  findUnattachedFailedBefore(before: Date) {
+    return this.prisma.upload.findMany({
+      where: {
+        status: UploadStatus.FAILED,
+        lessonId: null,
+        updatedAt: { lt: before },
+        cloudflareUid: { not: null },
+      },
+      select: { id: true, cloudflareUid: true },
+    });
+  }
+
+  markAbandonedIfCreated(uploadId: string, tx?: Db) {
+    return this.db(tx).upload.updateMany({
+      where: { id: uploadId, status: UploadStatus.CREATED },
+      data: { status: UploadStatus.ABANDONED },
+    });
+  }
+
+  markAbandonedIfUploading(uploadId: string, tx?: Db) {
+    return this.db(tx).upload.updateMany({
+      where: { id: uploadId, status: UploadStatus.UPLOADING },
+      data: { status: UploadStatus.ABANDONED },
+    });
+  }
+
   findByIdAndOwner(uploadId: string, ownerUserId: string) {
     return this.prisma.upload.findFirst({
       where: { id: uploadId, ownerUserId },

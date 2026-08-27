@@ -6,6 +6,7 @@ import type { ConfigService } from "@nestjs/config";
 import { MediaService } from "../media.service";
 import type { MediaRepository } from "../media.repository";
 import type { UploadRepository } from "../upload.repository";
+import type { StreamCleanupService } from "../stream-cleanup.service";
 import type { EnrollmentService } from "../../enrollment/enrollment.service";
 import type { Env } from "../../../config/env";
 
@@ -85,6 +86,13 @@ function makeService(overrides: {
     ...overrides.uploads,
   } as unknown as UploadRepository;
 
+  const streamCleanup = {
+    enqueueCloudflareDelete: vi.fn().mockResolvedValue(undefined),
+    maybeEnqueueCloudflareDeleteIfUnreferenced: vi.fn().mockResolvedValue(undefined),
+    runMaintenanceSweep: vi.fn(),
+    ...(overrides as { streamCleanup?: Partial<StreamCleanupService> }).streamCleanup,
+  } as unknown as StreamCleanupService;
+
   const enrollment = {
     isEnrolled: vi.fn().mockResolvedValue(false),
     assertLessonAccessible: vi.fn().mockResolvedValue(undefined),
@@ -92,7 +100,7 @@ function makeService(overrides: {
   } as unknown as EnrollmentService;
 
   return {
-    service: new MediaService(config, repo, uploads, enrollment),
+    service: new MediaService(config, repo, uploads, enrollment, streamCleanup),
     repo,
     uploads,
     enrollment,

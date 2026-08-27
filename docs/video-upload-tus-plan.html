@@ -556,8 +556,8 @@ Browser close:
         <code>POST /webhooks/cloudflare-stream</code> with <code>Webhook-Signature</code> verification and PROCESSING → READY/FAILED sync.
       </li>
       <li>
-        <strong>Phase 7 — Cleanup jobs</strong>
-        Replacement delete on lesson update/delete. Maintenance sweep for orphans. FAILED retention policy.
+        <strong>Phase 7 — Cleanup jobs</strong> ✓
+        Async CF delete on unreferenced UIDs; hourly upload maintenance sweep.
       </li>
     </ol>
 

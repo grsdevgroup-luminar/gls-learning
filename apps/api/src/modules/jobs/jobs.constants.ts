@@ -2,3 +2,4 @@
 // without creating a circular dependency with jobs.module.ts.
 export const MAINTENANCE_QUEUE = "maintenance";
 export const NOTIFICATIONS_QUEUE = "notifications";
+export const STREAM_CLEANUP_QUEUE = "stream-cleanup";

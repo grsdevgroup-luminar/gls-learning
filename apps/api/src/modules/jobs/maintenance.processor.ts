@@ -6,6 +6,7 @@ import { FxService } from "./fx.service";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrganizationsService } from "../organizations/organizations.service";
+import { StreamCleanupService } from "../media/stream-cleanup.service";
 import { MAINTENANCE_QUEUE } from "./jobs.constants";
 import { MaintenanceRepository } from "./maintenance.repository";
 import { NotificationsRepository } from "./notifications.repository";
@@ -27,6 +28,7 @@ export class MaintenanceProcessor extends WorkerHost {
     private readonly alerts: AdminAlertsService,
     private readonly notifications: NotificationsService,
     private readonly organizations: OrganizationsService,
+    private readonly streamCleanup: StreamCleanupService,
   ) {
     super();
   }
@@ -55,6 +57,9 @@ export class MaintenanceProcessor extends WorkerHost {
     if (job.name === "table-size-check") {
       await this.notifications.checkTableSize();
       return { ok: true };
+    }
+    if (job.name === "upload-sweep") {
+      return this.streamCleanup.runMaintenanceSweep();
     }
     if (job.name !== "rollup") return undefined;
 

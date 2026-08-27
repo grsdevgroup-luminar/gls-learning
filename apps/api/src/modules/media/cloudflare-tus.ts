@@ -138,3 +138,32 @@ export function parseCloudflareVideoStatus(json: {
 export function isCloudflareEncodingFailed(state: string): boolean {
   return state === "error" || state === "failed";
 }
+
+/** Best-effort DELETE for a Cloudflare Stream video UID. */
+export class CloudflareStreamDeleteError extends Error {
+  constructor(
+    readonly httpStatus: number,
+    message: string,
+  ) {
+    super(`Cloudflare Stream delete failed (${httpStatus}): ${message}`);
+    this.name = "CloudflareStreamDeleteError";
+  }
+}
+
+export async function deleteCloudflareStreamVideo(
+  accountId: string,
+  token: string,
+  uid: string,
+): Promise<void> {
+  const res = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${uid}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  if (res.status === 404 || res.ok) return;
+
+  const message = await readCloudflareErrorMessage(res);
+  throw new CloudflareStreamDeleteError(res.status, message);
+}

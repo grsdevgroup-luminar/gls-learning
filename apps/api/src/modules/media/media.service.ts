@@ -20,9 +20,11 @@ import type {
 } from "@skillstream/shared";
 import { MAX_VIDEO_BYTES } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
+import type { Db } from "../../common/types";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import {
   CloudflareTusInitError,
+  deleteCloudflareStreamVideo,
   encodeTusMetadata,
   fetchTusUploadProgress,
   isCloudflareEncodingFailed,
@@ -41,6 +43,7 @@ import {
 } from "./cloudflare-stream-webhook";
 import { MediaRepository } from "./media.repository";
 import { UploadRepository } from "./upload.repository";
+import { StreamCleanupService } from "./stream-cleanup.service";
 import {
   assertAttachableUpload,
   assertDiscardableUpload,
@@ -138,6 +141,7 @@ export class MediaService {
     private readonly repo: MediaRepository,
     private readonly uploads: UploadRepository,
     private readonly enrollment: EnrollmentService,
+    private readonly streamCleanup: StreamCleanupService,
   ) {}
 
   private cf() {
@@ -322,8 +326,15 @@ export class MediaService {
 
     await this.uploads.markAbandoned(upload.id);
     if (upload.cloudflareUid) {
-      await this.deleteCloudflareVideo(upload.cloudflareUid);
+      await this.streamCleanup.enqueueCloudflareDelete(upload.cloudflareUid);
     }
+  }
+
+  /** Queues CF deletion when a UID is no longer referenced by any lesson. */
+  async onCloudflareUidReleased(cloudflareUid: string): Promise<void> {
+    await this.streamCleanup.maybeEnqueueCloudflareDeleteIfUnreferenced(
+      cloudflareUid,
+    );
   }
 
   /**
@@ -340,15 +351,14 @@ export class MediaService {
     cloudflareUid: string,
     lessonId: string,
     courseId: string,
+    tx?: Db,
   ): Promise<void> {
-    await this.uploads.attachToLesson(cloudflareUid, lessonId, courseId);
+    await this.uploads.attachToLesson(cloudflareUid, lessonId, courseId, tx);
   }
 
   /** Clears lesson association when a video is removed from a lesson. */
-  async detachUploadFromLesson(cloudflareUid: string): Promise<void> {
-    const upload = await this.uploads.findByCloudflareUid(cloudflareUid);
-    if (!upload) return;
-    await this.uploads.detachFromLesson(cloudflareUid);
+  async detachUploadFromLesson(cloudflareUid: string, tx?: Db): Promise<void> {
+    await this.uploads.detachFromLesson(cloudflareUid, tx);
   }
 
   /** Verifies and applies a Cloudflare Stream encoding webhook (PROCESSING → READY/FAILED). */
@@ -663,15 +673,9 @@ export class MediaService {
   private async deleteCloudflareVideo(uid: string): Promise<void> {
     try {
       const { accountId, token } = this.cf();
-      await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${uid}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      await deleteCloudflareStreamVideo(accountId, token, uid);
     } catch {
-      /* Best-effort — orphan sweeps handle failures in Phase 7. */
+      /* Best-effort — async cleanup jobs handle persistent failures. */
     }
   }
 }

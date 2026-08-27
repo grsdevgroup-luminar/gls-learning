@@ -142,8 +142,21 @@ export class AuthoringService {
 
   async remove(user: RequestUser, id: string) {
     await this.assertCourseAccess(id, user);
+    const videoLessons = await this.repo.findCfVideoUidsByCourse(id);
     await this.repo.deleteCourse(id);
+    await this.releaseLessonVideoUids(videoLessons);
     return { ok: true as const };
+  }
+
+  private async releaseLessonVideoUids(
+    rows: { cfVideoUid: string | null }[],
+  ): Promise<void> {
+    const uids = [
+      ...new Set(
+        rows.map((row) => row.cfVideoUid).filter((uid): uid is string => !!uid),
+      ),
+    ];
+    await Promise.all(uids.map((uid) => this.media.onCloudflareUidReleased(uid)));
   }
 
   async myCourses(user: RequestUser) {
@@ -177,7 +190,9 @@ export class AuthoringService {
   async removeSection(user: RequestUser, sectionId: string) {
     const courseId = await this.courseIdOfSection(sectionId);
     await this.assertCourseAccess(courseId, user);
+    const videoLessons = await this.repo.findCfVideoUidsBySection(sectionId);
     await this.repo.deleteSection(sectionId);
+    await this.releaseLessonVideoUids(videoLessons);
     return this.detail(courseId);
   }
 
@@ -247,26 +262,51 @@ export class AuthoringService {
       }
     }
 
-    await this.repo.updateLesson(lessonId, {
-      title: input.title,
-      type: input.type,
-      durationSec: input.durationSec,
-      preview: input.preview,
-      order: input.order,
-      articleContent: input.articleContent ?? undefined,
-      cfVideoUid: input.cfVideoUid ?? undefined,
-      // Omitted `resources` leaves the existing attachments alone; an empty
-      // array clears them.
-      resources: input.resources ?? undefined,
+    const releasedUid = await this.repo.runTransaction(async (tx) => {
+      let released: string | null = null;
+
+      if (input.cfVideoUid !== undefined) {
+        const replacing = !!input.cfVideoUid && input.cfVideoUid !== priorUid;
+        const clearing = !input.cfVideoUid && !!priorUid;
+        if ((replacing || clearing) && priorUid) {
+          await this.media.detachUploadFromLesson(priorUid, tx);
+          released = priorUid;
+        }
+      }
+
+      await this.repo.updateLesson(
+        lessonId,
+        {
+          title: input.title,
+          type: input.type,
+          durationSec: input.durationSec,
+          preview: input.preview,
+          order: input.order,
+          articleContent: input.articleContent ?? undefined,
+          cfVideoUid: input.cfVideoUid ?? undefined,
+          resources: input.resources ?? undefined,
+        },
+        tx,
+      );
+
+      if (
+        input.cfVideoUid !== undefined &&
+        input.cfVideoUid &&
+        input.cfVideoUid !== priorUid
+      ) {
+        await this.media.attachUploadToLesson(
+          input.cfVideoUid,
+          lessonId,
+          courseId,
+          tx,
+        );
+      }
+
+      return released;
     });
 
-    if (input.cfVideoUid !== undefined) {
-      if (input.cfVideoUid && input.cfVideoUid !== priorUid) {
-        await this.media.attachUploadToLesson(input.cfVideoUid, lessonId, courseId);
-      }
-      if (!input.cfVideoUid && priorUid) {
-        await this.media.detachUploadFromLesson(priorUid);
-      }
+    if (releasedUid) {
+      await this.media.onCloudflareUidReleased(releasedUid);
     }
 
     // Post-commit: DB is authoritative, so a failed storage delete just leaks
@@ -281,6 +321,8 @@ export class AuthoringService {
   async removeLesson(user: RequestUser, lessonId: string) {
     const courseId = await this.courseIdOfLesson(lessonId);
     await this.assertCourseAccess(courseId, user);
+    const priorVideo = await this.repo.findLessonCfVideoUid(lessonId);
+    const priorUid = priorVideo?.cfVideoUid ?? null;
     // Collect uploaded resource keys BEFORE the row cascades away so we can
     // clean up bucket objects — Prisma won't tell us the JSON contents after.
     const before = await this.repo.findLessonResources(lessonId);
@@ -290,6 +332,9 @@ export class AuthoringService {
           .filter((k): k is string => !!k)
       : [];
     await this.repo.deleteLesson(lessonId);
+    if (priorUid) {
+      await this.media.onCloudflareUidReleased(priorUid);
+    }
     await Promise.all(
       keys.map((k) => this.storage.delete(k).catch(() => undefined)),
     );

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  CloudflareStreamDeleteError,
+  deleteCloudflareStreamVideo,
   encodeTusMetadata,
   fileExtension,
   fetchTusUploadProgress,
@@ -94,6 +96,35 @@ describe("parseCloudflareTusInitResponse", () => {
   it("returns null when headers are missing", () => {
     const res = new Response(null, { status: 201, headers: {} });
     expect(parseCloudflareTusInitResponse(res)).toBeNull();
+  });
+});
+
+describe("deleteCloudflareStreamVideo", () => {
+  it("accepts 2xx and 404 responses", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(null, { status: 204 });
+    await expect(
+      deleteCloudflareStreamVideo("acct", "token", "uid_1"),
+    ).resolves.toBeUndefined();
+
+    globalThis.fetch = async () => new Response(null, { status: 404 });
+    await expect(
+      deleteCloudflareStreamVideo("acct", "token", "uid_1"),
+    ).resolves.toBeUndefined();
+    globalThis.fetch = originalFetch;
+  });
+
+  it("throws on non-success responses so BullMQ can retry", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ errors: [{ message: "rate limited" }] }), {
+        status: 429,
+      });
+
+    await expect(
+      deleteCloudflareStreamVideo("acct", "token", "uid_1"),
+    ).rejects.toBeInstanceOf(CloudflareStreamDeleteError);
+    globalThis.fetch = originalFetch;
   });
 });
 
