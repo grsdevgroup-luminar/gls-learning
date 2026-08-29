@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AuthUserDto } from "@skillstream/shared";
 import { api, instructorApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useCategories } from "@/lib/api/hooks";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useSession, SESSION_QUERY_KEY } from "@/lib/api/session";
+import { apiFetch, apiFetchMultipart } from "@/lib/api/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
@@ -17,12 +20,17 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/format";
-import { Save, ShieldCheck, Clock } from "lucide-react";
+import { Save, ShieldCheck, Clock, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
+// Kept in sync with AVATAR_MAX_BYTES on the API.
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+
 export default function InstructorProfile() {
   const qc = useQueryClient();
+  const { user: sessionUser } = useSession();
   const { data: profile, isLoading } = useQuery({
     queryKey: ["instructor", "profile"],
     queryFn: instructorApi.profile,
@@ -56,6 +64,42 @@ export default function InstructorProfile() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
+  // Avatar upload / delete — same endpoint as /account so the photo is one
+  // canonical field on the user, not per-role.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadAvatar = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiFetchMultipart<AuthUserDto>("/auth/me/avatar", form);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      toast.success("Photo updated");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+  const deleteAvatar = useMutation({
+    mutationFn: () =>
+      apiFetch<AuthUserDto>("/auth/me/avatar", { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      toast.success("Photo removed");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  function handleFilePicked(file: File | undefined) {
+    if (!file) return;
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error(
+        `Photo must be under ${Math.floor(AVATAR_MAX_BYTES / (1024 * 1024))} MB`,
+      );
+      return;
+    }
+    uploadAvatar.mutate(file);
+  }
+
   if (isLoading || !profile) {
     return (
       <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
@@ -84,11 +128,55 @@ export default function InstructorProfile() {
 
       <Reveal y={20}>
         <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
-              <AvatarFallback className="brand-gradient text-xl text-white">{initials(profile.name)}</AvatarFallback>
-            </Avatar>
-            <div>
+          <CardContent className="flex flex-wrap items-start gap-4 pt-6">
+            <div className="flex flex-col items-center gap-2">
+              <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
+                {sessionUser?.avatar && <AvatarImage src={sessionUser.avatar} alt="" />}
+                <AvatarFallback className="brand-gradient text-xl text-white">{initials(profile.name)}</AvatarFallback>
+              </Avatar>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={AVATAR_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  handleFilePicked(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadAvatar.isPending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  {uploadAvatar.isPending
+                    ? "Uploading…"
+                    : sessionUser?.avatar
+                      ? "Change"
+                      : "Upload"}
+                </Button>
+                {sessionUser?.avatar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={deleteAvatar.isPending}
+                    onClick={() => deleteAvatar.mutate()}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deleteAvatar.isPending ? "Removing…" : "Remove"}
+                  </Button>
+                )}
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                PNG, JPG, WebP, GIF. Max 5 MB.
+              </p>
+            </div>
+            <div className="min-w-0 flex-1 pt-1">
               <div className="font-heading text-lg font-semibold">{profile.name}</div>
               <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
             </div>

@@ -1,17 +1,27 @@
 import {
   Controller,
+  Delete,
   Get,
   HttpCode,
   Patch,
   Post,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import type { CookieOptions, Request, Response } from "express";
+import { AVATAR_MAX_BYTES } from "../storage/storage.constants";
+import {
+  AvatarFilePipe,
+  type ValidatedAvatarFile,
+} from "./pipes/avatar-file.pipe";
 import {
   changePasswordSchema,
   forgotPasswordSchema,
@@ -180,5 +190,29 @@ export class AuthController {
     @ZodBody(changePasswordSchema) body: ChangePasswordInput,
   ) {
     return this.auth.changePassword(user.id, body);
+  }
+
+  @ApiBearerAuth()
+  @ApiConsumes("multipart/form-data")
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @Post("me/avatar")
+  @UseInterceptors(
+    // Memory storage is fine at the 2 MB avatar cap. Multer's own limit fires
+    // before the handler runs so oversize uploads short-circuit to 413.
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: AVATAR_MAX_BYTES },
+    }),
+  )
+  uploadAvatar(
+    @CurrentUser() user: RequestUser,
+    @UploadedFile(AvatarFilePipe) file: ValidatedAvatarFile,
+  ) {
+    return this.auth.uploadAvatar(user.id, file);
+  }
+
+  @Delete("me/avatar")
+  deleteAvatar(@CurrentUser() user: RequestUser) {
+    return this.auth.deleteAvatar(user.id);
   }
 }

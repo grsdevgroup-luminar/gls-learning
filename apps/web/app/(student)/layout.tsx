@@ -30,7 +30,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <PortalShell
       items={items}
       badge="Student"
-      user={{ name, email, initials: initials(name) }}
+      user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}
     >
       {children}
     </PortalShell>

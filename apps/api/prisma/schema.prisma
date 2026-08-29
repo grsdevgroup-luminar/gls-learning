@@ -177,6 +177,10 @@ model User {
   passwordHash  String
   name          String
   avatar        String?
+  /// Internal storage key for a platform-uploaded avatar (e.g.
+  /// `avatars/{userId}/{ulid}.jpg`). Null when the user set an external URL.
+  /// Kept separate so the resolver can re-sign S3 URLs on session read.
+  avatarKey     String?
   country       String?
   /// E.164, e.g. +8801712345678. Optional: SMS reminders are skipped without it.
   phone         String?

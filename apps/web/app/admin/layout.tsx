@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <PortalShell
       items={items}
       badge="Admin"
-      user={{ name, email, initials: initials(name) }}
+      user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}
     >
       {children}
     </PortalShell>

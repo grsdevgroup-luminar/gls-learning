@@ -54,6 +54,9 @@ export class S3Driver implements StorageDriver {
 
   async put(input: PutInput): Promise<StoredObject> {
     const safeName = sanitizeFilename(input.originalName);
+    // Default to attachment so lesson resources keep forcing a download; only
+    // avatars opt into inline so the browser can render them in an <img>.
+    const disposition = input.disposition ?? "attachment";
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -61,9 +64,7 @@ export class S3Driver implements StorageDriver {
         Body: input.body,
         ContentType: input.contentType,
         ContentLength: input.contentLength,
-        // Serve as an attachment with the author's filename so downloads look
-        // sensible even though the S3 key is a ULID.
-        ContentDisposition: `attachment; filename="${safeName}"`,
+        ContentDisposition: `${disposition}; filename="${safeName}"`,
         Metadata: { "original-name": safeName },
       }),
     );

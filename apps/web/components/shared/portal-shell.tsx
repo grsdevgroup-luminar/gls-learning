@@ -34,7 +34,7 @@ import { CommandPalette } from "@/components/shared/command-palette";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +87,7 @@ export function PortalShell({
 }: {
   items: NavItem[];
   badge: string;
-  user: { name: string; email: string; initials: string };
+  user: { name: string; email: string; initials: string; avatar?: string | null };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -145,15 +145,15 @@ export function PortalShell({
 
   const SidebarInner = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border pl-4 pr-3">
+      <div className="flex h-16 shrink-0 items-center gap-1 border-b border-sidebar-border pl-4 pr-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Logo className="shrink-0" iconOnly />
-          <span className="shrink-0 truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="min-w-0 truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {badge}
           </span>
         </div>
-        <NotificationBell />
-        <ThemeToggle className="shrink-0" />
+        <NotificationBell size="icon-sm" />
+        <ThemeToggle size="icon-sm" className="shrink-0" />
       </div>
       <div className="shrink-0 px-3 pt-3">
         <CommandPalette items={items} />
@@ -173,6 +173,7 @@ export function PortalShell({
             }
           >
             <Avatar className="size-8 ring-1 ring-border">
+              {user.avatar && <AvatarImage src={user.avatar} alt="" />}
               <AvatarFallback className="brand-gradient text-xs text-white">{user.initials}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">

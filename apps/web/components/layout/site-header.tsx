@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -171,6 +171,7 @@ export function SiteHeader() {
                 render={<Button variant="ghost" size="icon" className="rounded-full" />}
               >
                 <Avatar className="h-8 w-8 ring-1 ring-border">
+                  {user?.avatar && <AvatarImage src={user.avatar} alt="" />}
                   <AvatarFallback className="brand-gradient text-xs text-white">
                     {role === "ADMIN" ? "AD" : role === "INSTRUCTOR" ? "IN" : role === "SALES_AGENT" ? "SA" : role === "ORG_ADMIN" ? "OA" : initials(user?.name ?? "User")}
                   </AvatarFallback>
@@ -199,9 +200,6 @@ export function SiteHeader() {
                     </DropdownMenuItem>
                     <DropdownMenuItem render={<Link href="/instructor/courses" />}>
                       <PenSquare /> My courses
-                    </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/dashboard/progress" />}>
-                      <GraduationCap /> My Learning
                     </DropdownMenuItem>
                   </>
                 ) : role === "SALES_AGENT" ? (

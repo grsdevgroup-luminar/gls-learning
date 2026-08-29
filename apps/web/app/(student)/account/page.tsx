@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   REMINDER_TRIGGERS,
@@ -11,7 +11,7 @@ import {
 } from '@skillstream/shared';
 import { api } from '@/lib/api/endpoints';
 import { useSession, SESSION_QUERY_KEY } from '@/lib/api/session';
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, apiFetchMultipart } from '@/lib/api/client';
 import { initials } from '@/lib/format';
 import { CountrySelect } from '@/components/shared/country-select';
 import {
@@ -29,8 +29,13 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Mail, MessageSquare, Bell, Lock } from 'lucide-react';
+import { Mail, MessageSquare, Bell, Lock, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Kept in sync with AVATAR_MAX_BYTES on the API — mirrored client-side so the
+// picker can reject oversize files before the network round-trip.
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 
 export default function AccountPage() {
   const { user, isLoading } = useSession();
@@ -76,7 +81,8 @@ export default function AccountPage() {
     prefsMutation.mutate({ [trigger]: { [channel]: !prefs[trigger][channel] } });
   }
 
-  // Profile mutation
+  // Profile mutation — no longer touches `avatar`; that field is owned by the
+  // dedicated upload/delete endpoints so a name save can't clobber the avatar.
   const profileMutation = useMutation({
     mutationFn: () =>
       apiFetch<void>('/auth/me/profile', {
@@ -84,7 +90,6 @@ export default function AccountPage() {
         body: {
           name: name.trim(),
           country: country || null,
-          avatar: avatar.trim() || null,
           phone: phone.trim() || null,
         },
       }),
@@ -96,6 +101,53 @@ export default function AccountPage() {
       toast.error(err.message ?? 'Failed to save profile');
     },
   });
+
+  // Avatar upload / delete. Both flip the session cache so the header avatar
+  // updates immediately; the API returns the fully resolved URL.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadAvatar = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return apiFetchMultipart<{ avatar: string | null }>(
+        '/auth/me/avatar',
+        form,
+      );
+    },
+    onSuccess: (next) => {
+      setAvatar(next.avatar ?? '');
+      qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      toast.success('Photo updated');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? 'Failed to upload photo');
+    },
+  });
+  const deleteAvatar = useMutation({
+    mutationFn: () =>
+      apiFetch<{ avatar: string | null }>('/auth/me/avatar', {
+        method: 'DELETE',
+      }),
+    onSuccess: (next) => {
+      setAvatar(next.avatar ?? '');
+      qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      toast.success('Photo removed');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? 'Failed to remove photo');
+    },
+  });
+
+  function handleFilePicked(file: File | undefined) {
+    if (!file) return;
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error(
+        `Photo must be under ${Math.floor(AVATAR_MAX_BYTES / (1024 * 1024))} MB`,
+      );
+      return;
+    }
+    uploadAvatar.mutate(file);
+  }
 
   // Password mutation
   const passwordMutation = useMutation({
@@ -163,16 +215,50 @@ export default function AccountPage() {
                   {initials(user?.name ?? '?')}
                 </AvatarFallback>
               </Avatar>
-              {/* No image hosting on this platform (Cloudflare Stream is video
-                  only), so the avatar is a link to an image you already host. */}
-              <FormField label="Photo URL" className="flex-1">
-                <Input
-                  value={avatar}
-                  onChange={(e) => setAvatar(e.target.value)}
-                  placeholder="https://example.com/me.jpg"
-                  type="url"
+              <div className="flex-1 space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={AVATAR_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFilePicked(e.target.files?.[0]);
+                    // Reset so re-picking the same file re-fires onChange.
+                    e.target.value = '';
+                  }}
                 />
-              </FormField>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadAvatar.isPending}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                    {uploadAvatar.isPending
+                      ? 'Uploading…'
+                      : avatar
+                        ? 'Change photo'
+                        : 'Upload photo'}
+                  </Button>
+                  {avatar && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={deleteAvatar.isPending}
+                      onClick={() => deleteAvatar.mutate()}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deleteAvatar.isPending ? 'Removing…' : 'Remove'}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  PNG, JPG, WebP, or GIF. Max 5 MB.
+                </p>
+              </div>
             </div>
             <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>
               <FormField label="Full name">

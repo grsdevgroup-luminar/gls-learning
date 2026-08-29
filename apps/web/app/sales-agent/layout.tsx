@@ -49,7 +49,7 @@ export default async function SalesAgentLayout({ children }: { children: React.R
     <PortalShell
       items={items}
       badge="Sales Agent"
-      user={{ name, email, initials: initials(name) }}
+      user={{ name, email, initials: initials(name), avatar: user.avatar ?? null }}
     >
       {children}
     </PortalShell>

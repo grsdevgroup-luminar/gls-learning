@@ -15,7 +15,6 @@ export const metadata: Metadata = {
 const items: NavItem[] = [
   { href: "/instructor", label: "Overview", icon: "LayoutDashboard", exact: true },
   { href: "/instructor/courses", label: "My Courses", icon: "BookOpen" },
-  { href: "/dashboard/progress", label: "My Learning", icon: "GraduationCap" },
   { href: "/instructor/earnings", label: "Earnings", icon: "BarChart3" },
   { href: "/instructor/profile", label: "Profile", icon: "UserCog" },
 ];
@@ -55,6 +54,7 @@ export default async function InstructorLayout({ children }: { children: React.R
         name: user.name,
         email: user.email,
         initials: initials(user.name),
+        avatar: user.avatar ?? null,
       }}
     >
       {children}
