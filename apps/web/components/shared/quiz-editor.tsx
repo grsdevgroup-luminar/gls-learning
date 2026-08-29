@@ -69,6 +69,7 @@ export function QuizEditor({
     onChange({ ...quiz, questions: [...quiz.questions, emptyQuestion()] });
   }
   function removeQuestion(qId: string) {
+    if (!window.confirm("Delete this quiz question?")) return;
     onChange({ ...quiz, questions: quiz.questions?.filter((q) => q.id !== qId) ?? [] });
   }
 

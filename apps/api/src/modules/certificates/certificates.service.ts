@@ -30,7 +30,7 @@ export class CertificatesService {
     return {
       valid: true,
       serial: cert.serial,
-      learnerName: cert.enrollment.user.name,
+      learnerName: cert.learnerName,
       courseTitle: cert.enrollment.course.title,
       courseSlug: cert.enrollment.course.slug,
       issuedAt: cert.issuedAt.toISOString(),
@@ -40,7 +40,7 @@ export class CertificatesService {
   async pdf(serial: string): Promise<Buffer> {
     const cert = await this.findBySerial(serial);
     return certificatePdf({
-      learnerName: cert.enrollment.user.name,
+      learnerName: cert.learnerName,
       courseTitle: cert.enrollment.course.title,
       issuedAt: cert.issuedAt,
       serial: cert.serial,

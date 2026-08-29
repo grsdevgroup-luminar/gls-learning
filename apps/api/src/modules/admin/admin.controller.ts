@@ -64,6 +64,11 @@ export class AdminController {
     return this.admin.studentStats();
   }
 
+  @Get("students/:id/profile")
+  studentProfile(@Param("id") id: string) {
+    return this.admin.studentProfile(id);
+  }
+
   @Get("courses")
   courses(@ZodQuery(adminCourseQuerySchema) query: AdminCourseQuery) {
     return this.admin.courses(query);

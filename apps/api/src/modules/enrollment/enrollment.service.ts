@@ -42,6 +42,7 @@ function mapCertificate(
   if (!cert) return null;
   return {
     serial: cert.serial,
+    learnerName: cert.learnerName,
     pdfUrl: cert.pdfUrl ?? certificatePdfUrl(apiBase, cert.serial),
     issuedAt: cert.issuedAt.toISOString(),
   };
@@ -120,6 +121,7 @@ export class EnrollmentService {
     const certs = await this.repo.findCertificatesByUser(userId);
     return certs.map((c) => ({
       serial: c.serial,
+      learnerName: c.learnerName,
       pdfUrl: c.pdfUrl ?? certificatePdfUrl(this.apiBase, c.serial),
       issuedAt: c.issuedAt.toISOString(),
       courseId: c.enrollment.courseId,
@@ -333,12 +335,15 @@ export class EnrollmentService {
     done: boolean,
   ): Promise<CertificateDto | null> {
     if (done) {
+      const user = await this.repo.findUserName(userId);
+      if (!user) return null;
       const cert = await this.repo.upsertCertificate(
         enrollmentId,
         // 48 bits of randomness: the serial is the only credential the public
         // verification endpoint takes, so it must not be guessable (and must
         // not collide — `serial` is unique).
         `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
+        user.name,
       );
       void this.notifications
         .notify({

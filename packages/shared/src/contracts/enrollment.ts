@@ -4,6 +4,7 @@ import type { CourseSummaryDto } from "./catalog.js";
 
 export interface CertificateDto {
   serial: string;
+  learnerName: string;
   pdfUrl: string | null;
   issuedAt: string;
 }

@@ -1,12 +1,8 @@
-"use client";
+import type { Metadata } from "next";
+import InstructorNewCourseClient from "./page-client";
 
-import { CourseBuilder } from "@/components/shared/course-builder";
-import { ApprovalGate } from "../../_components/approval-gate";
+export const metadata: Metadata = { title: "Create course" };
 
-export default function NewInstructorCourse() {
-  return (
-    <ApprovalGate>
-      <CourseBuilder mode="instructor" />
-    </ApprovalGate>
-  );
+export default function InstructorNewCoursePage() {
+  return <InstructorNewCourseClient />;
 }

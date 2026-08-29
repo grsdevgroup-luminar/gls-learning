@@ -1,5 +1,397 @@
 # Changelog
 
+## 2026-08-29
+
+### Added
+
+- Added an admin-only student profile view from the Admin Panel Students table.
+- Added a `View profile` action for each student.
+- Added an admin-safe student profile response containing:
+  - Avatar, name, email, phone, country, account status, and join date.
+  - Last learning activity date.
+  - Course enrollment count, completed-course count, certificate count, and learning streak.
+  - Total student spending.
+  - Interest categories and keywords.
+  - Course-by-course progress, lesson counts, completion status, last activity, and certificate issuance.
+- Added loading, empty, and error states for the profile view.
+
+### Changed
+
+- Updated the student profile modal to use a wider responsive layout without changing shared modal sizes.
+- Contained horizontal and vertical scrolling inside the student profile modal.
+- Added a dedicated, thin, rounded scrollbar design for the profile content area.
+- Restored the modal close button visibility while keeping profile content scrolling contained.
+- Applied theme-aware modal, surface, text, border, and scrollbar styling for light and dark mode.
+- Made profile values dynamic from live student, enrollment, lesson-progress, certificate, and student-profile records rather than static UI values.
+- Added explicit completed-lesson and total-lesson counts alongside course progress percentages.
+- Refreshes the opened profile query when an admin changes a student's status.
+
+### Changed Files
+
+- `apps/api/src/modules/admin/admin.controller.ts`
+  - Added the admin-only `GET /admin/students/:id/profile` endpoint.
+
+- `apps/api/src/modules/admin/admin.repository.ts`
+  - Loads the student profile, enrollments, course lessons, completed lesson progress, and certificates.
+
+- `apps/api/src/modules/admin/admin.service.ts`
+  - Maps database records into the admin-safe profile response and calculates course progress and student metrics.
+
+- `packages/shared/src/contracts/admin.ts`
+  - Added the `AdminStudentProfileDto` contract.
+
+- `apps/web/lib/api/endpoints.ts`
+  - Added the student profile API client and grouped admin API helper.
+
+- `apps/web/app/admin/students/page-client.tsx`
+  - Added the profile action, responsive profile modal, dynamic metrics, course progress display, and modal states.
+
+- `apps/web/app/globals.css`
+  - Added profile-modal-only scrollbar styling with light/dark theme-aware colors.
+
+### Data Privacy
+
+- The admin profile response intentionally excludes passwords, password hashes, notification preferences, private lesson notes, refresh tokens, and other non-operational account data.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/shared build`
+  - `pnpm --filter @skillstream/api typecheck`
+  - `pnpm --filter @skillstream/api build`
+  - `pnpm --filter @skillstream/web typecheck`
+  - `git diff --check`
+
+## 2026-08-28
+
+### Fixed
+
+- Replaced the unclear empty-name validation feedback in the Student Profile with the user-friendly message `Name is required. Please enter your name.`
+- Prevented the Student Profile save request from being sent when the name field is empty.
+- Applied the same clear message to shared API validation for empty profile names.
+
+### Changed Files
+
+- `apps/web/app/(student)/account/page-client.tsx`
+  - Validates that a name is entered before saving the profile.
+
+- `packages/shared/src/contracts/authoring.ts`
+  - Added a clear validation message for empty profile names.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @skillstream/shared typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Replaced the unclear missing-phone validation feedback in the Student Profile with the user-friendly message `Please enter your phone number.`
+- Added a clear phone-format message for values that are present but invalid.
+- Prevented the Student Profile save request from being sent when the phone field is empty.
+
+### Changed Files
+
+- `apps/web/app/(student)/account/page-client.tsx`
+  - Validates that a phone number is entered before saving the profile.
+
+- `packages/shared/src/contracts/authoring.ts`
+  - Updated the phone-format validation message to use plain language.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @skillstream/shared typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Fixed the Student Change Password current-password visibility control so the entered current password is revealed reliably when toggled.
+- Added explicit current/new password autocomplete semantics and field associations for the visibility controls.
+- Preserved field focus while toggling visibility and kept the three password fields independently controlled.
+
+### Changed Files
+
+- `apps/web/app/(student)/account/page-client.tsx`
+  - Added stable field IDs, autocomplete values, `aria-controls`, and focus-preserving visibility-toggle behavior.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Added
+
+- Added password visibility controls to the Student Change Password form.
+- Students can independently show or hide the current password, new password, and confirmation password fields.
+- Added accessible labels and pressed-state semantics to each visibility control while preserving input spacing and security defaults.
+
+### Changed Files
+
+- `apps/web/app/(student)/account/page-client.tsx`
+  - Added independent visibility state and accessible Eye/EyeOff toggle buttons for all password fields.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Preserved the learner name recorded when a certificate is issued so later Student Profile name changes no longer alter previously issued certificates.
+- Updated certificate previews, downloads, and public verification to use the stored certificate name snapshot.
+- Added a server-side restriction allowing each account to change its name a maximum of two times.
+- Existing certificates are backfilled with the learner name associated with their enrollment during migration.
+
+### Changed Files
+
+- `apps/api/prisma/schema.prisma`
+  - Added `Certificate.learnerName` and `User.nameChangeCount` fields.
+
+- `apps/api/prisma/migrations/20260828000000_preserve_certificate_learner_name/migration.sql`
+  - Adds the certificate name snapshot and name-change counter.
+  - Backfills certificate names from the current enrollment user before enforcing the non-null constraint.
+
+- `apps/api/src/modules/enrollment/enrollment.service.ts`
+- `apps/api/src/modules/enrollment/enrollment.repository.ts`
+  - Captures the learner name only when a certificate is first created and returns the stored name for certificate responses.
+
+- `apps/api/src/modules/certificates/certificates.service.ts`
+- `apps/api/src/modules/certificates/certificates.repository.ts`
+  - Uses the stored certificate name for public verification and PDF generation.
+
+- `apps/api/src/modules/auth/auth.service.ts`
+  - Rejects name changes after the account reaches the two-change limit.
+
+- `packages/shared/src/contracts/enrollment.ts`
+- `apps/web/lib/api/endpoints.ts`
+- `apps/web/app/(student)/dashboard/certificates/page-client.tsx`
+  - Exposes and renders the immutable certificate learner name.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/shared typecheck`
+  - `pnpm --filter @skillstream/api typecheck`
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Centered the account role label inside its header box across all portal modules.
+- Admin, Instructor, Student, Sales Agent, and Company Admin labels now use consistent horizontal and vertical alignment.
+
+### Changed Files
+
+- `apps/web/components/shared/portal-shell.tsx`
+  - Added centered flex alignment and text alignment to the shared role badge.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Fixed the instructor portal header notification bell overlapping the `Instructor` account label.
+- Constrained the role label within the available sidebar-header width and reduced the header-only logo size so the role label, notification bell, and theme toggle remain separated and aligned.
+
+### Changed Files
+
+- `apps/web/components/shared/portal-shell.tsx`
+  - Made the role label shrink and truncate when necessary.
+  - Used a compact header logo size to keep all header controls within the sidebar width.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Updated the Student Change Password `Update password` button to use the standard primary button color and styling used throughout the system.
+- Removed the inconsistent outline variant while preserving the existing loading, disabled, and submit behavior.
+
+### Changed Files
+
+- `apps/web/app/(student)/account/page-client.tsx`
+  - Uses the shared default button variant for `Update password`, matching the account page's other primary actions.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Fixed the instructor portal header role label and notification bell appearing on different vertical alignments.
+- Matched the role label height to the adjacent icon controls and vertically centered its text for consistent portal-header alignment.
+
+### Changed Files
+
+- `apps/web/components/shared/portal-shell.tsx`
+  - Updated the portal role badge to use a fixed 32px height with centered content, matching the notification and theme-toggle controls.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-28
+
+### Fixed
+
+- Implemented password-format validation across password creation and update flows.
+- Passwords must contain at least 8 characters and at least one special character.
+- Reused the shared password schema for student change-password requests so the frontend and API enforce the same requirements.
+- Added immediate validation feedback to the Student Change Password and Reset Password forms before submitting a request.
+- Registration and password-reset API validation also use the strengthened shared password requirements.
+
+### Changed Files
+
+- `packages/shared/src/contracts/auth.ts`
+  - Added the special-character requirement to the canonical `passwordSchema` while retaining the existing 8-character minimum and 128-character maximum.
+
+- `packages/shared/src/contracts/authoring.ts`
+  - Updated `changePasswordSchema` to reuse the canonical password schema instead of maintaining separate length-only rules.
+
+- `apps/web/app/(student)/account/page-client.tsx`
+  - Validates the new password with the shared schema before submitting the Student Change Password form.
+  - Displays the relevant password requirement when validation fails.
+
+- `apps/web/app/(storefront)/(auth)/reset-password/page.tsx`
+  - Validates the new password with the shared schema before submitting the Reset Password form.
+  - Displays the relevant password requirement when validation fails.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/shared build`
+  - `pnpm --filter @skillstream/shared typecheck`
+  - `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-25
+
+### Fixed
+
+- Fixed main navigation course search redirecting back to the search results when a student opened a selected course.
+- Prevented stale debounced header search state from replaying after navigation to a course details page.
+
+### Changed Files
+
+`apps\web\components\layout\site-header.tsx`
+- Added a route-transition guard so only the current header query can trigger automatic search navigation.
+- Course cards selected from main search results now remain on their `/courses/[slug]` details page.
+
+### Verification
+
+- Passed: `pnpm --filter @skillstream/web typecheck`
+
+## 2026-08-23
+
+### Fixed
+
+- Fixed an issue where text in the course builder would bleed underneath the sticky header during scrolling by separating the header and content areas and applying a solid background.
+
+-Fixed the Orders table scrolling behavior so that column headers remain sticky and fixed at the top while only the table data scrolls vertically underneath them.
+
+### Changed Files
+`apps\web\components\shared\course-builder.tsx`
+- Updated the course builder top navigation into a unified, full-width header that groups the course title context and save actions together.
+
+-Restructured the desktop course builder into a fixed-height, dual-scroll layout, allowing the main curriculum editor (left column) and the publishing/settings sidebar (right column) to scroll independently.
+
+-Adjusted layout constraints so the independent scrolling panes apply only to large screens, preserving standard full-page scrolling for mobile and tablet devices.
+
+-Improved spacing and padding within the scrollable content wrapper so scrollbars align perfectly with the screen edge without overlapping the form cards.
+
+`apps\web\app\admin\orders\page.tsx`
+-Restructured the Orders page layout into a fixed-height container with an internal scrollable table container to support data-heavy viewing seamlessly.
+
+-Upgraded the bottom pagination bar to a standard multi-page pattern featuring numerical page buttons, ellipsis handling for large page ranges, and clear current-page indicators.
+
+-Ensured rows-per-page selections and search filters work reliably alongside the newly integrated sticky layout and pagination controls.
+
+`apps\web\app\admin\_components\admin-pagination.tsx`
+- Added shared admin pagination controls with `Previous`, numbered pages, ellipsis ranges, and `Next`.
+
+- Added a shared `Rows per page` selector with consistent options across admin lists.
+
+- Added an option for list pages to show pagination even when there is only one page.
+
+`apps\web\app\admin\_components\admin-table.tsx`
+- Added a shared scrollable admin table wrapper so table data can scroll independently while headers remain visible.
+
+- Added shared sticky table header classes for consistent admin table behavior.
+
+- Added full-height scroll support so fixed-height portal pages can make the table region fill the remaining space and scroll internally.
+
+`apps\web\app\admin\courses\page.tsx`
+- Updated course list pagination and rows-per-page controls to use the shared admin pattern.
+
+- Made course table headers sticky while table rows scroll.
+
+- Aligned the courses list page shell with the Orders table layout so controls, table scrolling, and pagination behave consistently.
+
+`apps\web\app\admin\students\page.tsx`
+- Added rows-per-page support to the students query and list controls.
+
+- Updated students pagination to the shared numbered admin pattern.
+
+- Made student table headers sticky while table rows scroll.
+
+- Removed the nested table scroll wrapper so the students table has a single vertical scrollbar.
+
+`apps\web\app\admin\coupons\page.tsx`
+- Updated coupon list pagination and rows-per-page controls to use the shared admin pattern.
+
+- Aligned coupon pagination with the same numbered controls used by other admin lists.
+
+`apps\web\app\admin\agents\page.tsx`
+- Added rows-per-page and numbered pagination controls to the All agents table.
+
+- Aligned the Sales Agents page structure with the Students page: fixed-height portal layout, stats at the top, search/rows controls above the table, table card, and pagination footer.
+
+- Made the All agents table header cells sticky inside the table scroll container while agent rows scroll.
+
+- Reordered the Sales Agents controls to follow the Students pattern with search on the left and rows-per-page on the right.
+
+- Made the All agents table card fill the remaining page height and scroll internally.
+
+- Kept the All agents pagination visible even when the filtered result fits on one page.
+
+`apps\web\app\sales-agent\referrals\page.tsx`
+- Added rows-per-page and numbered pagination controls to the referrals table.
+
+- Made the referrals table header sticky while referral rows scroll.
+
+`apps\web\app\sales-agent\earnings\page.tsx`
+- Added rows-per-page and numbered pagination controls to paid and pending commission tables.
+
+- Made earnings table headers sticky while commission rows scroll.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+
+
+
 ## 2026-08-22
 
 ### Fixed
@@ -588,3 +980,77 @@
 - Lint status:
   - `pnpm --filter @skillstream/web lint` completed and failed because of an existing unrelated issue in `apps/web/app/admin/students/page.tsx`.
   - The reported lint error is `react-hooks/set-state-in-effect` at line 37 and was not introduced by this navigation fix.
+
+## 2026-08-26
+
+### Changed
+
+- Consolidated Admin category selection and category management into the Course Builder category dropdown.
+- Admins can now search, select, add, approve, edit, and remove categories from one unified category list.
+- Active categories remain selectable, while pending categories can be approved directly from the same list.
+- Removed the separate Admin Categories page and its sidebar navigation entry because category operations are now handled inside the course category selector.
+- Kept the category API operations because they are still required by the embedded Admin controls.
+- Restricted the course preference modal on the dashboard to Student accounts only.
+- Signup can still display the course preference modal so new learners can choose their interests.
+
+### Changed Files
+
+- `apps/web/components/shared/category-picker.tsx`
+  - Added Admin category loading and management actions to the existing picker.
+  - Unified category selection and management into one scrollable list.
+  - Added inline add, approve, edit, and remove operations for Admin users.
+
+- `apps/web/components/shared/course-builder.tsx`
+  - Enables category management when the builder is used in Admin mode.
+
+- `apps/web/components/shared/course-preferences-modal.tsx`
+  - Added Student-only visibility support through the `studentOnly` prop and session-role validation.
+
+- `apps/web/app/(student)/dashboard/dashboard-client.tsx`
+  - Marks the dashboard preference modal as Student-only.
+
+- `apps/web/app/admin/layout.tsx`
+  - Removed the separate Categories sidebar item.
+
+- `apps/web/app/admin/categories/page.tsx`
+- `apps/web/app/admin/categories/page-client.tsx`
+  - Removed the redundant Admin Categories route and page implementation.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @skillstream/web build`
+
+## 2026-08-26
+
+### Changed
+
+- Added confirmation prompts before destructive actions throughout the frontend.
+- Users must confirm before deleting courses, coupons, automation rules, pricing tiers, quiz questions, or removing categories, organization members, organization courses, cart items, course sections, lessons, resources, and course images.
+- Added a reusable confirmation dialog for category removal inside the unified Admin course category picker.
+- Kept the existing mutation behavior unchanged after confirmation is accepted.
+
+### Changed Files
+
+- `apps/web/components/shared/confirm-dialog.tsx`
+  - Added a reusable confirmation dialog component with Cancel and Delete actions.
+
+- `apps/web/components/shared/category-picker.tsx`
+  - Added confirmation before removing a category.
+
+- `apps/web/components/shared/course-builder.tsx`
+- `apps/web/components/shared/quiz-editor.tsx`
+- `apps/web/app/admin/courses/page-client.tsx`
+- `apps/web/app/admin/coupons/page-client.tsx`
+- `apps/web/app/admin/marketing/page-client.tsx`
+- `apps/web/app/admin/pricing/page-client.tsx`
+- `apps/web/app/org/[slug]/courses/page-client.tsx`
+- `apps/web/app/org/[slug]/members/page-client.tsx`
+- `apps/web/app/(storefront)/cart/page.tsx`
+  - Added confirmation prompts before destructive actions.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/web typecheck`

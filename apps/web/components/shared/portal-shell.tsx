@@ -145,9 +145,9 @@ export function PortalShell({
 
   const SidebarInner = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-16 shrink-0 items-center gap-1 border-b border-sidebar-border pl-4 pr-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Logo className="shrink-0" iconOnly />
+       <div className="flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-sidebar-border pl-4 pr-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <Logo className="shrink-0 [&_img]:w-16" iconOnly />
           <span className="min-w-0 truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {badge}
           </span>

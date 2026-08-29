@@ -22,12 +22,6 @@ export class CatalogController {
     return this.courses.list(query);
   }
 
-  @Public()
-  @Get("categories")
-  categories() {
-    return this.courses.categories();
-  }
-
   @Get("me/recommendations")
   async recommendations(
     @CurrentUser() user: RequestUser,

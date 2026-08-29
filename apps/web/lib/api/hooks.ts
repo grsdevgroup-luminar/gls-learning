@@ -67,6 +67,22 @@ export const useCategories = () =>
     staleTime: 60 * 60 * 1000,
   });
 
+export function useProposeCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.proposeCategory(name),
+    onSuccess: (category) => {
+      if (category.status === "ACTIVE") {
+        qc.setQueryData<string[]>(qk.categories, (current = []) =>
+          current.includes(category.name) ? current : [...current, category.name].sort(),
+        );
+      }
+      void qc.invalidateQueries({ queryKey: qk.categories });
+      void qc.invalidateQueries({ queryKey: qk.adminCategories });
+    },
+  });
+}
+
 export const useRecommendedCourses = (limit = 8, enabled = true) =>
   useQuery({
     queryKey: qk.recommendations(limit),

@@ -9,7 +9,7 @@ import { initials } from "@/lib/format";
 import { GraduationCap } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Instructor Portal",
+  title: "Instructor dashboard",
 };
 
 const items: NavItem[] = [

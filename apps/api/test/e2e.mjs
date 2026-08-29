@@ -93,6 +93,9 @@ async function auth() {
   r = await req("PATCH", "/auth/me/profile", { token: state.student.token, body: { name: "E2E Student Renamed", country: "BD" } });
   check("update profile", r.status === 200 && r.json?.name === "E2E Student Renamed", `${r.status} ${msg(r)}`);
 
+  r = await req("POST", "/auth/me/password", { token: state.student.token, body: { currentPassword: password, newPassword: password } });
+  check("change password rejects current password reuse", r.status === 400, `${r.status} ${msg(r)}`);
+
   r = await req("POST", "/auth/me/password", { token: state.student.token, body: { currentPassword: password, newPassword: password + "2" } });
   check("change password", r.status === 200, `${r.status} ${msg(r)}`);
   state.student.password = password + "2";

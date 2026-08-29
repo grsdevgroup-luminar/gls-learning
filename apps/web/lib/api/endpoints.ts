@@ -6,6 +6,7 @@ import type {
   AdminStudentStatsDto,
   AdminPricingDto,
   AdminStudentDto,
+  AdminStudentProfileDto,
   AutomationRuleDto,
   CommentDto,
   CouponDto,
@@ -62,6 +63,7 @@ import type {
   ToggleLessonResultDto,
   ActivityDayDto,
   ActivityPeriod,
+  CategoryDto,
   WatchTimeResultDto,
 } from "@skillstream/shared";
 import { apiFetch, apiFetchMultipart } from "./client";
@@ -70,6 +72,7 @@ import { apiFetch, apiFetchMultipart } from "./client";
 export type {
   AdminOverviewDto,
   AdminStudentDto,
+  AdminStudentProfileDto,
   PlatformSettingsDto,
   AutomationRuleDto,
   CommentDto,
@@ -102,6 +105,7 @@ export type {
  *  (unlike the bare `CertificateDto` embedded in enrollments). */
 export interface CertificateDto {
   serial: string;
+  learnerName: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
@@ -129,6 +133,11 @@ export const api = {
   learningCourse: (courseId: string) =>
     apiFetch<CourseDetailDto>(`/me/courses/${courseId}/learning`),
   categories: () => apiFetch<string[]>("/categories"),
+  proposeCategory: (name: string) =>
+    apiFetch<CategoryDto>("/categories/proposals", {
+      method: "POST",
+      body: { name },
+    }),
   recommendations: (limit = 8) =>
     apiFetch<CourseSummaryDto[]>(`/me/recommendations${qs({ limit })}`),
   coursePreferences: () =>
@@ -268,6 +277,8 @@ export const api = {
     apiFetch<Paginated<AdminStudentDto>>(`/admin/students${qs(params)}`),
   adminStudentStats: () =>
     apiFetch<AdminStudentStatsDto>("/admin/students/stats"),
+  adminStudentProfile: (id: string) =>
+    apiFetch<AdminStudentProfileDto>(`/admin/students/${id}/profile`),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/admin/orders${qs(params)}`),
   adminOrderStats: () =>
@@ -300,6 +311,13 @@ export const api = {
   adminSettings: () => apiFetch<PlatformSettingsDto>("/admin/settings"),
   adminUpdateSettings: (input: UpdatePlatformSettingsInput) =>
     apiFetch<PlatformSettingsDto>("/admin/settings", { method: "PATCH", body: input }),
+  adminCategories: () => apiFetch<CategoryDto[]>("/admin/categories"),
+  adminCreateCategory: (name: string) =>
+    apiFetch<CategoryDto>("/admin/categories", { method: "POST", body: { name } }),
+  adminUpdateCategory: (id: string, body: { name?: string; status?: CategoryDto["status"] }) =>
+    apiFetch<CategoryDto>(`/admin/categories/${id}`, { method: "PATCH", body }),
+  adminDeleteCategory: (id: string) =>
+    apiFetch<{ ok: true; archived: boolean }>(`/admin/categories/${id}`, { method: "DELETE" }),
 
   // marketing automation
   adminAutomationRules: () => apiFetch<AutomationRuleDto[]>("/admin/automation-rules"),
@@ -591,9 +609,14 @@ export const adminApi = {
   students: (params: Record<string, string | number | undefined> = {}) =>
     api.adminStudents(params),
   studentStats: () => api.adminStudentStats(),
+  studentProfile: (id: string) => api.adminStudentProfile(id),
   orders: (params: Record<string, string | number | undefined> = {}) =>
     api.adminOrders(params),
   orderStats: () => api.adminOrderStats(),
+  categories: api.adminCategories,
+  createCategory: api.adminCreateCategory,
+  updateCategory: api.adminUpdateCategory,
+  deleteCategory: api.adminDeleteCategory,
   courses: (params: Record<string, string | number | undefined> = {}) =>
     api.adminCourses(params),
   courseStats: () => api.adminCourseStats(),

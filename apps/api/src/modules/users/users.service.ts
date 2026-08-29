@@ -1,19 +1,20 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma, User } from "@prisma/client";
 import {
-  LEARNING_CATEGORIES,
   type LearningPreferencesDto,
   type NotificationPreferencesDto,
   type UpdateNotificationPreferencesInput,
 } from "@skillstream/shared";
 import { NotificationPreferencesService } from "../notifications/notification-preferences.service";
 import { UsersRepository } from "./users.repository";
+import { CategoriesService } from "../categories/categories.service";
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly repo: UsersRepository,
     private readonly prefs: NotificationPreferencesService,
+    private readonly categories: CategoriesService,
   ) {}
 
   findByEmail(email: string): Promise<User | null> {
@@ -56,12 +57,13 @@ export class UsersService {
     userId: string,
     input: { categories: string[]; keywords: string[] },
   ): Promise<LearningPreferencesDto> {
+    const activeCategories = await this.categories.activeNames();
+    const activeSet = new Set(activeCategories.map((category) => category.toLocaleLowerCase()));
+    if (input.categories.some((category) => !activeSet.has(category.toLocaleLowerCase()))) {
+      throw new BadRequestException("One or more selected categories are not available");
+    }
     await this.repo.saveStudentInterests(userId, input.categories, input.keywords);
     return { ...input, completed: true };
-  }
-
-  availableLearningCategories() {
-    return LEARNING_CATEGORIES;
   }
 
   create(data: Prisma.UserCreateInput): Promise<User> {

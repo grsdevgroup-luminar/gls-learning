@@ -68,6 +68,38 @@ export interface AdminStudentDto {
   joinedAt: string;
 }
 
+/** Admin-safe detail view for a student. Intentionally excludes credentials,
+ * notification preferences, private notes, and other non-operational data. */
+export interface AdminStudentProfileDto {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  country: string | null;
+  phone: string | null;
+  status: string;
+  streakDays: number;
+  totalSpentCents: number;
+  joinedAt: string;
+  lastActivityAt: string | null;
+  enrollments: number;
+  completedCourses: number;
+  certificates: number;
+  interests: { categories: string[]; keywords: string[] };
+  courses: {
+    id: string;
+    title: string;
+    status: string;
+    completedLessons: number;
+    totalLessons: number;
+    progressPct: number;
+    enrolledAt: string;
+    lastActivityAt: string;
+    completedAt: string | null;
+    certificateIssuedAt: string | null;
+  }[];
+}
+
 export const upsertCouponSchema = z.object({
   code: z.string().min(2).max(40).toUpperCase(),
   type: z.enum(["PERCENT", "FIXED", "FREE"]),

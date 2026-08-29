@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Logo } from "@/components/shared/logo";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -26,6 +26,8 @@ import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
+const noOpSubscribe = () => () => {};
+
 export function SiteHeader() {
   const { cart, mounted } = useStore();
   const { user, role, isLoading } = useSession();
@@ -37,7 +39,17 @@ export function SiteHeader() {
   const [q, setQ] = useState(urlQ);
   const [syncedQ, setSyncedQ] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(q);
-  const isAuthed = !!user;
+  // Keep session-dependent markup identical for SSR and the browser's first
+  // render. The browser becomes hydrated in a follow-up render, after which
+  // the session-dependent controls can safely appear.
+  const hydrated = useSyncExternalStore(
+    noOpSubscribe,
+    () => true,
+    () => false,
+  );
+  const sessionReady = hydrated && !isLoading;
+  const headerRole = sessionReady ? role : "GUEST";
+  const isAuthed = sessionReady && !!user;
 
   if (syncedQ !== urlQ) {
     setSyncedQ(urlQ);
@@ -66,8 +78,12 @@ export function SiteHeader() {
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
+    // Do not replay a stale debounced query while leaving the course catalog.
+    // The header state is cleared from the new URL on the first render, while
+    // the debounced value may still contain the query from the previous page.
+    if (pathname !== "/courses" && debouncedQ !== q.trim()) return;
     search(debouncedQ);
-  }, [debouncedQ, search]);
+  }, [debouncedQ, pathname, q, search]);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -97,8 +113,8 @@ export function SiteHeader() {
           <Button render={<Link href="/courses" />} variant="ghost" size="sm">
             Courses
           </Button>
-          <Button render={<Link href={role === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
-            {role === "INSTRUCTOR" ? "Instructor" : "Teach"}
+          <Button render={<Link href={headerRole === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
+            {headerRole === "INSTRUCTOR" ? "Instructor" : "Teach"}
           </Button>
         </nav>
 
@@ -165,7 +181,7 @@ export function SiteHeader() {
             </Button>
           </div>
 
-          {isLoading ? null : isAuthed ? (
+          {!sessionReady ? null : isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="rounded-full" />}

@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  LEARNING_CATEGORIES,
   type LearningCategory,
 } from "@skillstream/shared";
 import { ApiError } from "@/lib/api/errors";
-import { useSaveCoursePreferences } from "@/lib/api/hooks";
+import { useCategories, useSaveCoursePreferences } from "@/lib/api/hooks";
+import { useSession } from "@/lib/api/session";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const categoryIcons: Record<LearningCategory, typeof Cloud> = {
+const categoryIcons: Partial<Record<string, typeof Cloud>> = {
   Cloud,
   Communication: MessageCircleMore,
   "Data Science": BrainCircuit,
@@ -50,6 +50,7 @@ interface CoursePreferencesModalProps {
   initialCategories?: readonly LearningCategory[];
   onOpenChange?: (open: boolean) => void;
   onSaved: () => void;
+  studentOnly?: boolean;
 }
 
 /** Shared by sign-up and dashboard so learners edit the exact same preferences. */
@@ -58,11 +59,18 @@ export function CoursePreferencesModal({
   initialCategories = EMPTY_CATEGORIES,
   onOpenChange,
   onSaved,
+  studentOnly = false,
 }: CoursePreferencesModalProps) {
+  const { role, isLoading: sessionLoading } = useSession();
   const savePreferences = useSaveCoursePreferences();
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
 
   const [selectedCategories, setSelectedCategories] =
     useState<LearningCategory[]>([...initialCategories]);
+
+  if (studentOnly && (sessionLoading || role !== "STUDENT")) {
+    return null;
+  }
 
   function toggleCategory(category: LearningCategory) {
     setSelectedCategories((current) => {
@@ -135,47 +143,42 @@ export function CoursePreferencesModal({
             </DialogDescription>
           </DialogHeader>
 
-          {/* Category Grid */}
-          <div aria-busy={savePreferences.isPending}
-            className="
-                    mt-5
-                    grid
-                    min-w-0
-                    grid-cols-5
-                    gap-1.5
-                    sm:mt-5
-                    sm:gap-3
-  "
-          >
-            {LEARNING_CATEGORIES.map((category) => {
-              const selected = selectedCategories.includes(category);
-              const unavailable =
-                selectedCategories.length === 3 && !selected;
+          {/* The viewport stays two rows by five columns; new categories scroll inside it. */}
+          <div className="mt-5 min-w-0 aspect-[5/2] overflow-y-auto pr-1 sm:mt-5 sm:pr-2">
+            <div
+              aria-busy={savePreferences.isPending}
+              className="grid min-w-0 grid-cols-5 gap-1.5 sm:gap-3"
+            >
+              {categories.map((category) => {
+                const selected = selectedCategories.includes(category);
+                const unavailable =
+                  selectedCategories.length === 3 && !selected;
 
-              const CategoryIcon = categoryIcons[category];
+                const CategoryIcon = categoryIcons[category] ?? Sprout;
 
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  aria-pressed={selected}
-                  disabled={unavailable || savePreferences.isPending}
-                  onClick={() => toggleCategory(category)}
-                  className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${selected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card hover:border-primary hover:bg-accent"
-                    }`}
-                >
-                  <CategoryIcon
-                    className="size-8 shrink-0 sm:size-6"
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 max-w-full wrap-break-words">
-                    {category}
-                  </span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    aria-pressed={selected}
+                    disabled={unavailable || savePreferences.isPending || categoriesLoading}
+                    onClick={() => toggleCategory(category)}
+                    className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card hover:border-primary hover:bg-accent"
+                      }`}
+                  >
+                    <CategoryIcon
+                      className="size-8 shrink-0 sm:size-6"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 max-w-full wrap-break-words">
+                      {category}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

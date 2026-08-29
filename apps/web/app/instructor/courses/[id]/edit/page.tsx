@@ -1,17 +1,8 @@
-"use client";
+import type { Metadata } from "next";
+import InstructorEditCourseClient from "./page-client";
 
-import { useParams } from "next/navigation";
-import { CourseBuilder } from "@/components/shared/course-builder";
-import { ApprovalGate } from "../../../_components/approval-gate";
+export const metadata: Metadata = { title: "Edit course" };
 
-export default function EditInstructorCourse() {
-  const { id } = useParams<{ id: string }>();
-
-  // Ownership is enforced server-side: the authoring detail endpoint rejects
-  // courses that aren't yours, and the builder surfaces that error.
-  return (
-    <ApprovalGate>
-      <CourseBuilder courseId={id} mode="instructor" />
-    </ApprovalGate>
-  );
+export default function InstructorEditCoursePage() {
+  return <InstructorEditCourseClient />;
 }

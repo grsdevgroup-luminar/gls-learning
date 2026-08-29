@@ -27,6 +27,12 @@ enum CourseStatus {
   PUBLISHED
 }
 
+enum CategoryStatus {
+  ACTIVE
+  PENDING
+  REJECTED
+}
+
 enum CourseVisibility {
   PUBLIC
   PRIVATE
@@ -193,6 +199,7 @@ model User {
   email         String   @unique
   passwordHash  String
   name          String
+  nameChangeCount Int      @default(0)
   avatar        String?
   /// Internal storage key for a platform-uploaded avatar (e.g.
   /// `avatars/{userId}/{ulid}.jpg`). Null when the user set an external URL.
@@ -220,6 +227,7 @@ model User {
   reminderLogs            ReminderLog[]
   couponRedemptions       CouponRedemption[]
   authoredCourses         Course[]              @relation("InstructorCourses")
+  categoryProposals   Category[]           @relation("CategoryProposals")
   salesAgent              SalesAgent?
   orgMemberships          OrgMember[]
   payoutAccount           PayoutAccount?
@@ -303,6 +311,19 @@ model InstructorApplication {
   note       String?
 
   @@index([status])
+}
+
+model Category {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  status       CategoryStatus @default(ACTIVE)
+  proposedById String?
+  proposedBy   User?          @relation("CategoryProposals", fields: [proposedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status])
+  @@index([proposedById])
 }
 
 // ─── Catalog ──────────────────────────────────────────────────────────────────
@@ -533,6 +554,7 @@ model Certificate {
   enrollmentId String     @unique
   enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   serial       String     @unique
+  learnerName  String
   pdfUrl       String?
   issuedAt     DateTime   @default(now())
 }

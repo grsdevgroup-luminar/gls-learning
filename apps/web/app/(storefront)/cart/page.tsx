@@ -163,7 +163,7 @@ export default function CartPage() {
                       {c.bestseller && <BestsellerBadge />}
                     </div>
                     <button
-                      onClick={() => { removeFromCart(c.id); toast("Removed from cart"); }}
+                      onClick={() => { if (window.confirm(`Remove "${c.title}" from your cart?`)) { removeFromCart(c.id); toast("Removed from cart"); } }}
                       className="mt-auto inline-flex w-fit items-center gap-1 text-xs text-destructive hover:underline"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Remove

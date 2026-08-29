@@ -26,6 +26,7 @@ import { STORAGE_DRIVER } from "../storage/storage.constants";
 import type { StorageDriver } from "../storage/storage.driver";
 import { signCourseResourceUrls } from "../storage/sign-resources";
 import { MediaService } from "../media/media.service";
+import { CategoriesService } from "../categories/categories.service";
 
 function slugify(s: string): string {
   return s
@@ -41,6 +42,7 @@ export class AuthoringService {
   constructor(
     private readonly repo: AuthoringRepository,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
+    private readonly categories: CategoriesService,
     private readonly media: MediaService,
   ) {}
 
@@ -96,13 +98,14 @@ export class AuthoringService {
 
   // ── courses ────────────────────────────────────────────────────────────
   async create(user: RequestUser, input: CreateCourseInput) {
+    const category = await this.categories.ensureForAuthor(input.category, user);
     const slug = await this.uniqueSlug(input.slug ?? slugify(input.title));
     const course = await this.repo.createCourse({
       slug,
       title: input.title,
       subtitle: input.subtitle,
       description: input.description,
-      category: input.category,
+      category,
       level: input.level,
       thumbnail: input.thumbnail,
       language: input.language,
@@ -118,15 +121,20 @@ export class AuthoringService {
 
   async update(user: RequestUser, id: string, input: UpdateCourseInput) {
     await this.assertCourseAccess(id, user);
+    const category = input.category
+      ? await this.categories.ensureForAuthor(input.category, user)
+      : undefined;
     await this.repo.updateCourse(id, {
       ...input,
+      ...(category ? { category } : {}),
       originalPriceCents: input.originalPriceCents ?? undefined,
     });
     return this.detail(id);
   }
 
   async setStatus(user: RequestUser, id: string, input: CourseStatusInput) {
-    await this.assertCourseAccess(id, user);
+    const course = await this.assertCourseAccess(id, user);
+    if (input.status === "PUBLISHED") await this.categories.assertActive(course.category);
     // Check prior state BEFORE update to detect first publish.
     const prior = await this.repo.findCoursePriorStatus(id);
     const isFirstPublish = input.status === "PUBLISHED" && !prior?.publishedAt;

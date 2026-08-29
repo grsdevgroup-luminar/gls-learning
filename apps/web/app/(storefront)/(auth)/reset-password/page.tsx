@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { authApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/errors";
+import { passwordSchema } from "@skillstream/shared";
 import { Logo } from "@/components/shared/logo";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
@@ -64,8 +65,9 @@ function ResetPasswordForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password too short", { description: "Minimum 8 characters required." });
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
+      toast.error("Invalid password", { description: passwordResult.error.issues[0]?.message });
       return;
     }
     if (password !== confirm) {

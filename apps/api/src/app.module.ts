@@ -12,6 +12,7 @@ import { EmailModule } from "./modules/email/email.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { CoursesModule } from "./modules/courses/courses.module";
+import { CategoriesModule } from "./modules/categories/categories.module";
 import { EnrollmentModule } from "./modules/enrollment/enrollment.module";
 import { CertificatesModule } from "./modules/certificates/certificates.module";
 import { NotesModule } from "./modules/notes/notes.module";
@@ -68,6 +69,7 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
     UsersModule,
     AuthModule,
     CoursesModule,
+    CategoriesModule,
     EnrollmentModule,
     CertificatesModule,
     NotesModule,

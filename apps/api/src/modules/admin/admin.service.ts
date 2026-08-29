@@ -7,6 +7,7 @@ import type {
   AdminOrderStatsDto,
   AdminOverviewDto,
   AdminStudentDto,
+  AdminStudentProfileDto,
   AdminStudentStatsDto,
   AutomationRuleDto,
   CouponDto,
@@ -227,6 +228,54 @@ export class AdminService {
       pageSize: query.pageSize,
       total,
       totalPages: Math.ceil(total / query.pageSize),
+    };
+  }
+
+  async studentProfile(userId: string): Promise<AdminStudentProfileDto> {
+    const user = await this.repo.findStudentProfile(userId);
+    if (!user) throw new NotFoundException("Student not found");
+
+    const profile = user.studentProfile;
+    const courses = user.enrollments.map((enrollment) => {
+      const lessonCount = enrollment.course.sections.reduce(
+        (count, section) => count + section.lessons.length,
+        0,
+      );
+      const completedCount = enrollment.lessonProgress.length;
+      return {
+        id: enrollment.course.id,
+        title: enrollment.course.title,
+        status: enrollment.status,
+        completedLessons: completedCount,
+        totalLessons: lessonCount,
+        progressPct: lessonCount ? Math.round((completedCount / lessonCount) * 100) : 0,
+        enrolledAt: enrollment.enrolledAt.toISOString(),
+        lastActivityAt: enrollment.lastActivityAt.toISOString(),
+        completedAt: enrollment.completedAt?.toISOString() ?? null,
+        certificateIssuedAt: enrollment.certificate?.issuedAt.toISOString() ?? null,
+      };
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      country: user.country,
+      phone: user.phone,
+      status: profile?.status ?? "ACTIVE",
+      streakDays: profile?.streakDays ?? 0,
+      totalSpentCents: profile?.totalSpentCents ?? 0,
+      joinedAt: user.createdAt.toISOString(),
+      lastActivityAt: courses[0]?.lastActivityAt ?? null,
+      enrollments: courses.length,
+      completedCourses: courses.filter((course) => course.status === "COMPLETED").length,
+      certificates: courses.filter((course) => course.certificateIssuedAt).length,
+      interests: {
+        categories: profile?.interestCategories ?? [],
+        keywords: profile?.interestKeywords ?? [],
+      },
+      courses,
     };
   }
 
