@@ -124,6 +124,8 @@ export type ReminderChannel =
 /** In-app notification events, Phase 1. Mirrors `NotificationEvent` in schema.prisma. */
 export const NotificationEvent = {
   ORDER_PAID: "ORDER_PAID",
+  ORDER_REFUNDED: "ORDER_REFUNDED",
+  CREDIT_GRANTED: "CREDIT_GRANTED",
   CERTIFICATE_ISSUED: "CERTIFICATE_ISSUED",
   INSTRUCTOR_APPLICATION_APPROVED: "INSTRUCTOR_APPLICATION_APPROVED",
   INSTRUCTOR_APPLICATION_REJECTED: "INSTRUCTOR_APPLICATION_REJECTED",
@@ -200,6 +202,15 @@ export const PayoutStatus = {
   REJECTED: "REJECTED",
 } as const;
 export type PayoutStatus = (typeof PayoutStatus)[keyof typeof PayoutStatus];
+
+/** Store-credit ledger reason. Mirrors `CreditLedgerReason` in schema.prisma. */
+export const CreditLedgerReason = {
+  GRANT_REFUND: "GRANT_REFUND",
+  SPEND_CHECKOUT: "SPEND_CHECKOUT",
+  ADJUST_MANUAL: "ADJUST_MANUAL",
+} as const;
+export type CreditLedgerReason =
+  (typeof CreditLedgerReason)[keyof typeof CreditLedgerReason];
 
 // Display-label maps for enums the frontend renders verbatim.
 export const LEVEL_LABELS: Record<CourseLevel, string> = {

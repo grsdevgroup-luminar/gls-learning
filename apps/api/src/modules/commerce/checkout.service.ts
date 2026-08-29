@@ -20,6 +20,7 @@ import { OrdersService } from "./orders.service";
 import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { PaymentsService } from "../payment/payments.service";
 import { SalesAgentService } from "../sales-agent/sales-agent.service";
+import { CreditsService } from "../credits/credits.service";
 
 /** Only `[A-Za-z0-9_-]{1,128}` allowed. Anything else is a client bug or an
  *  attempt to abuse the unique index with pathological inputs. */
@@ -38,6 +39,7 @@ export class CheckoutService {
     private readonly salesAgents: SalesAgentService,
     private readonly users: UsersService,
     private readonly geoIp: GeoIpService,
+    private readonly credits: CreditsService,
   ) {}
 
   private async buildLines(
@@ -55,7 +57,7 @@ export class CheckoutService {
     return { lines, region };
   }
 
-  async quote(input: CheckoutQuoteInput): Promise<QuoteDto> {
+  async quote(input: CheckoutQuoteInput, userId?: string): Promise<QuoteDto> {
     const { lines, region } = await this.buildLines(
       input.courseIds,
       input.regionCode,
@@ -78,12 +80,29 @@ export class CheckoutService {
       };
     }
 
+    const currency = "USD";
+    const afterCoupon = Math.max(0, subtotalCents - discountCents);
+
+    // Store credit is only meaningful for authenticated callers. Balance is
+    // aggregated over the ledger — SUM of signed rows. Anonymous quotes always
+    // report zero balance and cannot apply credit.
+    const availableCreditCents = userId
+      ? Math.max(0, await this.credits.getBalance(userId, currency))
+      : 0;
+    const creditAppliedCents =
+      input.applyCredit && userId
+        ? Math.min(availableCreditCents, afterCoupon)
+        : 0;
+    const totalCents = Math.max(0, afterCoupon - creditAppliedCents);
+
     return {
       lines,
       subtotalCents,
       discountCents,
-      totalCents: Math.max(0, subtotalCents - discountCents),
-      currency: "USD",
+      creditAppliedCents,
+      availableCreditCents,
+      totalCents,
+      currency,
       regionCode: region.code,
       coupon,
     };
@@ -146,7 +165,7 @@ export class CheckoutService {
       throw new BadRequestException("You already own these courses");
 
     // Recompute the quote authoritatively — client-sent prices are ignored.
-    const quote = await this.quote({ ...input, courseIds });
+    const quote = await this.quote({ ...input, courseIds }, userId);
     if (quote.lines.length === 0)
       throw new BadRequestException("No purchasable courses in cart");
 
@@ -161,6 +180,7 @@ export class CheckoutService {
       couponCode: quote.coupon?.valid ? quote.coupon.code : null,
       subtotalCents: quote.subtotalCents,
       discountCents: quote.discountCents,
+      creditAppliedCents: quote.creditAppliedCents,
       totalCents: quote.totalCents,
       currency: quote.currency,
       idempotencyKey: key,
@@ -170,6 +190,11 @@ export class CheckoutService {
         priceCents: l.priceCents,
       })),
     });
+
+    // Credit is not debited yet — the SPEND_CHECKOUT ledger row is written
+    // inside orders.fulfill() (the PENDING→PAID transition) so a checkout that
+    // never completes doesn't drain the wallet. `order.creditAppliedCents`
+    // carries the intent forward. See REFUND_TO_CREDIT_PLAN.md.
 
     // Attribute a sales-agent referral (pending until the order is paid).
     if (input.referralCode)

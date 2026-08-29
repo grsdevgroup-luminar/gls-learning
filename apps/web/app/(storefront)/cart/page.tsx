@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Tag, ShoppingCart, ArrowRight, Check } from "lucide-react";
+import { Trash2, Tag, ShoppingCart, ArrowRight, Check, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CartPage() {
@@ -26,6 +26,7 @@ export default function CartPage() {
   const searchParams = useSearchParams();
   const [code, setCode] = useState("");
   const [applying, setApplying] = useState(false);
+  const [applyCredit, setApplyCredit] = useState(false);
 
   // Show the "Payment canceled" toast at most once per page load, and strip
   // `?canceled=` from the URL synchronously so a browser refresh doesn't
@@ -62,11 +63,16 @@ export default function CartPage() {
 
   const { data: featured } = useFeaturedCoupon();
 
-  // Server-authoritative pricing: regional adjustment + coupon validation.
+  // Server-authoritative pricing: regional adjustment + coupon + credit.
   const { data: quote } = useQuery({
-    queryKey: ["quote", cart.join(","), coupon ?? "", regionCode],
+    queryKey: ["quote", cart.join(","), coupon ?? "", regionCode, applyCredit],
     queryFn: () =>
-      api.quote({ courseIds: cart, couponCode: coupon ?? undefined, regionCode }),
+      api.quote({
+        courseIds: cart,
+        couponCode: coupon ?? undefined,
+        regionCode,
+        applyCredit,
+      }),
     enabled: mounted && cart.length > 0,
   });
 
@@ -79,9 +85,12 @@ export default function CartPage() {
   const fallbackSubtotalCents = items?.reduce((sum, c) => sum + c.basePriceCents, 0) ?? 0;
   const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
   const discountCents = quote?.discountCents ?? 0;
-  const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents);
+  const creditAppliedCents = quote?.creditAppliedCents ?? 0;
+  const availableCreditCents = quote?.availableCreditCents ?? 0;
+  const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents - creditAppliedCents);
   const subtotal = subtotalCents / 100;
   const discount = discountCents / 100;
+  const creditApplied = creditAppliedCents / 100;
   const total = totalCents / 100;
   const originalTotal = items?.reduce(
     (sum, c) => sum + (c.originalPriceCents ?? c.basePriceCents) / 100,
@@ -97,6 +106,7 @@ export default function CartPage() {
         courseIds: cart,
         couponCode: code.trim().toUpperCase(),
         regionCode,
+        applyCredit,
       });
       if (res.coupon?.valid) {
         setCoupon(res.coupon.code);
@@ -232,10 +242,31 @@ export default function CartPage() {
 
               <Separator />
 
+              {availableCreditCents > 0 && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-2.5 text-sm hover:bg-muted/40">
+                  <input
+                    type="checkbox"
+                    checked={applyCredit}
+                    onChange={(e) => setApplyCredit(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span className="flex flex-1 items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <Wallet className="h-4 w-4 text-primary" />
+                      Use store credit
+                    </span>
+                    <span className="font-medium">
+                      {formatUsd(availableCreditCents / 100)} available
+                    </span>
+                  </span>
+                </label>
+              )}
+
               <div className="space-y-1.5 text-sm">
                 <Row label="Original price" value={formatUsd(originalTotal)} muted strike />
                 <Row label="Subtotal" value={formatUsd(subtotal)} />
                 {discount > 0 && <Row label="Discount" value={`-${formatUsd(discount)}`} success />}
+                {creditApplied > 0 && <Row label="Store credit" value={`-${formatUsd(creditApplied)}`} success />}
                 <Separator className="my-2" />
                 <div className="flex items-center justify-between text-lg font-bold">
                   <span>Total</span>

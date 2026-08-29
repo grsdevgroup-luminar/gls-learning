@@ -23,6 +23,8 @@ import type {
 } from "@skillstream/shared";
 import { PaymentsService } from "../payment/payments.service";
 import { toCourseSummary } from "../courses/course.mapper";
+import { CreditsService } from "../credits/credits.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { AdminRepository } from "./admin.repository";
 
 /** Settings are a single pinned row (see the PlatformSettings model). */
@@ -33,6 +35,8 @@ export class AdminService {
   constructor(
     private readonly repo: AdminRepository,
     private readonly payments: PaymentsService,
+    private readonly credits: CreditsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async overview(): Promise<AdminOverviewDto> {
@@ -302,6 +306,7 @@ export class AdminService {
         gateway: row.gateway,
         subtotalCents: row.subtotalCents,
         discountCents: row.discountCents,
+        creditAppliedCents: row.creditAppliedCents,
         totalCents: row.totalCents,
         currency: row.currency,
         couponCode: row.couponCode,
@@ -468,7 +473,11 @@ export class AdminService {
   }
 
   // ── order refunds ──────────────────────────────────────────────────────────
-  async refundOrder(orderId: string): Promise<OrderDto> {
+  async refundOrder(
+    orderId: string,
+    comment: string,
+    adminUserId: string,
+  ): Promise<OrderDto> {
     const order = await this.loadRefundableOrder(orderId);
 
     // Return the money at the gateway before touching our own ledger — if the
@@ -476,7 +485,14 @@ export class AdminService {
     // than mark it refunded without the customer actually getting paid back.
     await this.payments.refundGatewayPayment(order);
 
-    await this.applyRefundToLedger(order);
+    await this.applyRefundToLedger(order, comment, adminUserId);
+
+    // Email fan-out only after the DB transaction has actually committed —
+    // enqueuing inside the tx risks a send before/without a commit. See
+    // NotificationsService docstring for the pattern.
+    await this.notifications.notifyEmailAfterCommit(
+      this.refundNotifyInput(order, comment),
+    );
 
     const updated = await this.repo.findOrderWithItemsOrThrow(orderId);
     return this.toRefundedOrderDto(updated);
@@ -486,11 +502,34 @@ export class AdminService {
     const order = await this.repo.findOrderWithItems(orderId);
     if (!order) throw new NotFoundException("Order not found");
     if (order.status === "REFUNDED") throw new NotFoundException("Order already refunded");
+    // v1 guard: refunding orders that already spent credit compounds the balance
+    // in ways we don't model yet. Revisit when partial refunds land.
+    if (order.creditAppliedCents > 0)
+      throw new BadRequestException(
+        "Orders that used store credit cannot be refunded in this version",
+      );
     return order;
+  }
+
+  private refundNotifyInput(
+    order: NonNullable<Awaited<ReturnType<AdminRepository["findOrderWithItems"]>>>,
+    comment: string,
+  ) {
+    const titles = order.items.map((i) => i.titleSnapshot).join(", ");
+    const amount = `${order.currency} ${(order.totalCents / 100).toFixed(2)}`;
+    return {
+      userId: order.userId,
+      event: "ORDER_REFUNDED" as const,
+      title: "Order refunded",
+      body: `Your order for ${titles} was refunded. Reason: ${comment}. ${amount} has been added to your account as store credit.`,
+      href: "/dashboard/credits",
+    };
   }
 
   private async applyRefundToLedger(
     order: NonNullable<Awaited<ReturnType<AdminRepository["findOrderWithItems"]>>>,
+    comment: string,
+    adminUserId: string,
   ): Promise<void> {
     await this.repo.runTransaction(async (tx) => {
       await this.repo.updateOrderStatusRefunded(order.id, tx);
@@ -512,6 +551,21 @@ export class AdminService {
         order.items.map((i) => i.courseId),
         tx,
       );
+      // Grant credit + in-app notification inside the same tx so the ledger row,
+      // the notification, and the order status transition either all commit or
+      // all roll back together.
+      await this.credits.grantRefund(
+        {
+          userId: order.userId,
+          amountCents: order.totalCents,
+          currency: order.currency,
+          orderId: order.id,
+          adminUserId,
+          comment,
+        },
+        tx,
+      );
+      await this.notifications.notify(this.refundNotifyInput(order, comment), tx);
     });
   }
 
@@ -524,6 +578,7 @@ export class AdminService {
       gateway: updated.gateway,
       subtotalCents: updated.subtotalCents,
       discountCents: updated.discountCents,
+      creditAppliedCents: updated.creditAppliedCents,
       totalCents: updated.totalCents,
       currency: updated.currency,
       couponCode: updated.couponCode,

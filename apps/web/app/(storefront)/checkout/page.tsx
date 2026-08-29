@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Lock, CreditCard, ShieldCheck, Check, Loader2, Globe2, ShoppingCart,
   ChevronRight, BadgeCheck, Infinity as InfinityIcon, Award, ArrowLeft,
+  Wallet,
 } from "lucide-react";
 import { StripeIcon, PaypalIcon } from "@/components/shared/payment-icons";
 import { CheckoutSkeleton } from "@/components/shared/loading-skeletons";
@@ -44,6 +45,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [method, setMethod] = useState("stripe");
   const [processing, setProcessing] = useState(false);
+  const [applyCredit, setApplyCredit] = useState(false);
   // Guards against duplicate submissions from StrictMode double-invoke, rapid
   // clicks that outrun `processing` state flips, and unmount/remount races.
   const inFlightRef = useRef<string | null>(null);
@@ -61,11 +63,18 @@ export default function CheckoutPage() {
     [cart, catalog],
   );
 
-  // Authoritative totals come from the server quote (PPP + coupon recomputed there).
+  // Authoritative totals come from the server quote (PPP + coupon + credit
+  // recomputed there — availableCreditCents is also returned so we can render
+  // the toggle).
   const { data: quote } = useQuery({
-    queryKey: ["quote", cart.join(","), coupon ?? "", regionCode],
+    queryKey: ["quote", cart.join(","), coupon ?? "", regionCode, applyCredit],
     queryFn: () =>
-      api.quote({ courseIds: cart, couponCode: coupon ?? undefined, regionCode }),
+      api.quote({
+        courseIds: cart,
+        couponCode: coupon ?? undefined,
+        regionCode,
+        applyCredit,
+      }),
     enabled: mounted && cart.length > 0,
   });
   const lineUsd = (courseId: string) => {
@@ -77,9 +86,12 @@ export default function CheckoutPage() {
   const fallbackSubtotalCents = items?.reduce((sum, c) => sum + c.basePriceCents, 0) ?? 0;
   const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
   const discountCents = quote?.discountCents ?? 0;
-  const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents);
+  const creditAppliedCents = quote?.creditAppliedCents ?? 0;
+  const availableCreditCents = quote?.availableCreditCents ?? 0;
+  const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents - creditAppliedCents);
   const subtotal = subtotalCents / 100;
   const discount = discountCents / 100;
+  const creditApplied = creditAppliedCents / 100;
   const total = totalCents / 100;
 
   // Stable per-attempt key: rotates whenever the cart shape or payment choice
@@ -91,7 +103,7 @@ export default function CheckoutPage() {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? `co_${crypto.randomUUID()}`
         : `co_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-    [cart.join(","), coupon, method, regionCode],
+    [cart.join(","), coupon, method, regionCode, applyCredit],
   );
 
   async function pay() {
@@ -111,6 +123,7 @@ export default function CheckoutPage() {
           courseIds: cart,
           couponCode: coupon ?? undefined,
           regionCode,
+          applyCredit,
           gateway:
             method === "paypal"
               ? "PAYPAL"
@@ -306,12 +319,37 @@ export default function CheckoutPage() {
                   ))}
                 </div>
                 <Separator />
+                {availableCreditCents > 0 && (
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm hover:bg-muted/40">
+                    <input
+                      type="checkbox"
+                      checked={applyCredit}
+                      onChange={(e) => setApplyCredit(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                    />
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5">
+                        <Wallet className="h-4 w-4 text-primary" />
+                        Apply my store credit
+                      </span>
+                      <span className="font-medium">
+                        {formatUsd(availableCreditCents / 100)} available
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatUsd(subtotal)}</span></div>
                   {discount > 0 && (
                     <div className="flex justify-between text-success">
                       <span className="flex items-center gap-1"><Badge variant="secondary" className="text-success">{coupon}</Badge></span>
                       <span>-{formatUsd(discount)}</span>
+                    </div>
+                  )}
+                  {creditApplied > 0 && (
+                    <div className="flex justify-between text-success">
+                      <span className="flex items-center gap-1"><Wallet className="h-3.5 w-3.5" /> Store credit</span>
+                      <span>-{formatUsd(creditApplied)}</span>
                     </div>
                   )}
                   <Separator className="my-2" />

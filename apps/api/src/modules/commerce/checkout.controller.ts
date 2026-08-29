@@ -73,13 +73,16 @@ export class CheckoutController {
 
   /** Pure price calculation (course IDs + region + coupon, no user data) — the
    *  checkout page shows real pricing to anonymous visitors by design; only
-   *  "Pay" itself requires login (`FEATURE_FLOWS.md` §2.4). */
+   *  "Pay" itself requires login (`FEATURE_FLOWS.md` §2.4). When the caller is
+   *  authenticated we also honour `applyCredit` and surface their credit
+   *  balance so the cart can render the toggle. */
   @Public()
   @Post("checkout/quote")
   quote(
     @ZodBody(checkoutQuoteSchema) body: CheckoutQuoteInput,
+    @CurrentUser() user: RequestUser | undefined,
   ) {
-    return this.checkout.quote(body);
+    return this.checkout.quote(body, user?.id);
   }
 
   @Post("checkout/session")

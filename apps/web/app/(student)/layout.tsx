@@ -14,6 +14,7 @@ const items: NavItem[] = [
   { href: "/dashboard/team", label: "Team courses", icon: "Building2" },
   { href: "/dashboard/certificates", label: "Certificates", icon: "Award" },
   { href: "/dashboard/billing", label: "Billing", icon: "Receipt" },
+  { href: "/dashboard/credits", label: "Store credit", icon: "Wallet" },
   { href: "/account", label: "Account", icon: "Settings" },
 ];
 

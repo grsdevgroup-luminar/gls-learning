@@ -12,6 +12,7 @@ import { ReviewStatus } from "@prisma/client";
 import {
   adminCourseQuerySchema,
   patchCouponSchema,
+  refundOrderSchema,
   reviewStatusSchema,
   searchQuerySchema,
   updatePlatformSettingsSchema,
@@ -20,6 +21,7 @@ import {
   upsertAutomationRuleSchema,
   type AdminCourseQuery,
   type PatchCouponInput,
+  type RefundOrderInput,
   type ReviewStatusInput,
   type SearchQuery,
   type UpdatePlatformSettingsInput,
@@ -27,7 +29,7 @@ import {
   type UpdateUserStatusInput,
   type UpsertAutomationRuleInput,
 } from "@skillstream/shared";
-import { Roles } from "../../common/decorators/decorators";
+import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AdminService } from "./admin.service";
 import { ReviewsService } from "../reviews/reviews.service";
@@ -83,8 +85,12 @@ export class AdminController {
   }
 
   @Post("orders/:id/refund")
-  refundOrder(@Param("id") id: string) {
-    return this.admin.refundOrder(id);
+  refundOrder(
+    @Param("id") id: string,
+    @ZodBody(refundOrderSchema) body: RefundOrderInput,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.refundOrder(id, body.comment, user.id);
   }
 
   // users

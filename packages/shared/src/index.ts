@@ -27,3 +27,4 @@ export * from "./contracts/sales-agent.js";
 export * from "./contracts/payouts.js";
 export * from "./contracts/organizations.js";
 export * from "./contracts/pricing.js";
+export * from "./contracts/credits.js";

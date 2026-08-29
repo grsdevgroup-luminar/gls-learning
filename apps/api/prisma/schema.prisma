@@ -159,8 +159,16 @@ enum ReminderStatus {
 
 /// In-app notification events, Phase 1. Each maps to one write inside the same
 /// transaction as the state change it describes (see NOTIFICATION_SYSTEM_PLAN.md).
+enum CreditLedgerReason {
+  GRANT_REFUND
+  SPEND_CHECKOUT
+  ADJUST_MANUAL
+}
+
 enum NotificationEvent {
   ORDER_PAID
+  ORDER_REFUNDED
+  CREDIT_GRANTED
   CERTIFICATE_ISSUED
   INSTRUCTOR_APPLICATION_APPROVED
   INSTRUCTOR_APPLICATION_REJECTED
@@ -198,30 +206,33 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  studentProfile      StudentProfile?
-  instructorProfile   InstructorProfile?
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-  enrollments         Enrollment[]
-  quizResults         QuizResult[]
-  lessonNotes         LessonNote[]
-  quizAttempts        QuizAttempt[]
-  reviews             Review[]
-  comments            Comment[]
-  orders              Order[]
-  reminderLogs        ReminderLog[]
-  couponRedemptions   CouponRedemption[]
-  authoredCourses     Course[]             @relation("InstructorCourses")
-  salesAgent          SalesAgent?
-  orgMemberships      OrgMember[]
-  payoutAccount       PayoutAccount?
-  payouts             Payout[]
-  cart                Cart?
-  notifications       Notification[]
+  studentProfile          StudentProfile?
+  instructorProfile       InstructorProfile?
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  enrollments             Enrollment[]
+  quizResults             QuizResult[]
+  lessonNotes             LessonNote[]
+  quizAttempts            QuizAttempt[]
+  reviews                 Review[]
+  comments                Comment[]
+  orders                  Order[]
+  reminderLogs            ReminderLog[]
+  couponRedemptions       CouponRedemption[]
+  authoredCourses         Course[]              @relation("InstructorCourses")
+  salesAgent              SalesAgent?
+  orgMemberships          OrgMember[]
+  payoutAccount           PayoutAccount?
+  payouts                 Payout[]
+  cart                    Cart?
+  notifications           Notification[]
+  creditLedger            StudentCreditLedger[] @relation("CreditLedgerOwner")
+  creditGrants            StudentCreditLedger[] @relation("CreditLedgerAdmin")
   /// Denormalized — kept in sync transactionally on notification create/read,
   /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
   unreadNotificationCount Int @default(0)
   uploads                 Upload[]
+  unreadNotificationCount Int                   @default(0)
 
   @@index([role])
 }
@@ -253,14 +264,14 @@ model PasswordResetToken {
 }
 
 model StudentProfile {
-  userId            String        @id
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  streakDays        Int           @default(0)
-  status            StudentStatus @default(ACTIVE)
-  totalSpentCents   Int           @default(0)
-  notificationPrefs Json          @default("{}")
-  interestCategories String[]     @default([])
-  interestKeywords   String[]     @default([])
+  userId               String        @id
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  streakDays           Int           @default(0)
+  status               StudentStatus @default(ACTIVE)
+  totalSpentCents      Int           @default(0)
+  notificationPrefs    Json          @default("{}")
+  interestCategories   String[]      @default([])
+  interestKeywords     String[]      @default([])
   interestsCompletedAt DateTime?
 }
 
@@ -563,26 +574,30 @@ model Comment {
 }
 
 model Order {
-  id                   String         @id @default(cuid())
-  userId               String
-  user                 User           @relation(fields: [userId], references: [id])
-  country              String?
-  subtotalCents        Int
-  discountCents        Int            @default(0)
-  totalCents           Int
-  currency             String         @default("USD")
-  couponCode           String?
-  gateway              PaymentGateway
-  status               OrderStatus    @default(PENDING)
-  providerPaymentId    String?
-  providerRef          String?
-  providerRedirectUrl  String?
+  id                  String         @id @default(cuid())
+  userId              String
+  user                User           @relation(fields: [userId], references: [id])
+  country             String?
+  subtotalCents       Int
+  discountCents       Int            @default(0)
+  /// Store credit applied to this order at checkout. Reduces the amount charged
+  /// to the payment gateway. Refunds of orders where this is > 0 are blocked in
+  /// v1 to avoid compounding (see REFUND_TO_CREDIT_PLAN.md).
+  creditAppliedCents  Int            @default(0)
+  totalCents          Int
+  currency            String         @default("USD")
+  couponCode          String?
+  gateway             PaymentGateway
+  status              OrderStatus    @default(PENDING)
+  providerPaymentId   String?
+  providerRef         String?
+  providerRedirectUrl String?
   /// Client-supplied Idempotency-Key for POST /checkout/session. Scoped per
   /// user so two accounts can reuse the same client-side UUID without colliding.
   /// Null on legacy rows; new rows created via the checkout flow always set it.
-  idempotencyKey       String?
-  createdAt            DateTime       @default(now())
-  paidAt               DateTime?
+  idempotencyKey      String?
+  createdAt           DateTime       @default(now())
+  paidAt              DateTime?
 
   agentReferralCode String?
   agentId           String?
@@ -590,6 +605,7 @@ model Order {
   items         OrderItem[]
   redemptions   CouponRedemption[]
   agentReferral SalesAgentReferral?
+  creditLedger  StudentCreditLedger[]
 
   @@unique([userId, idempotencyKey], name: "user_idempotency_key")
   @@index([userId])
@@ -606,6 +622,28 @@ model OrderItem {
   titleSnapshot String
   priceCents    Int
 
+  @@index([orderId])
+}
+
+/// Append-only ledger for student store credit. Balance = SUM(amountCents)
+/// per (userId, currency). Positive rows = credit granted (e.g. GRANT_REFUND),
+/// negative rows = credit spent (SPEND_CHECKOUT). See REFUND_TO_CREDIT_PLAN.md.
+model StudentCreditLedger {
+  id          String             @id @default(cuid())
+  userId      String
+  amountCents Int
+  currency    String
+  reason      CreditLedgerReason
+  orderId     String?
+  adminUserId String?
+  comment     String?
+  createdAt   DateTime           @default(now())
+
+  user      User   @relation("CreditLedgerOwner", fields: [userId], references: [id], onDelete: Cascade)
+  adminUser User?  @relation("CreditLedgerAdmin", fields: [adminUserId], references: [id], onDelete: SetNull)
+  order     Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, currency, createdAt])
   @@index([orderId])
 }
 

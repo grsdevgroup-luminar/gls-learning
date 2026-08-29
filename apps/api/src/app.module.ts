@@ -27,6 +27,7 @@ import { SalesAgentModule } from "./modules/sales-agent/sales-agent.module";
 import { PayoutsModule } from "./modules/payouts/payouts.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { CreditsModule } from "./modules/credits/credits.module";
 import { JobsModule } from "./modules/jobs/jobs.module";
 import { HealthController } from "./modules/health/health.controller";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
@@ -82,6 +83,7 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
     PayoutsModule,
     OrganizationsModule,
     NotificationsModule,
+    CreditsModule,
     JobsModule,
   ],
   controllers: [HealthController],

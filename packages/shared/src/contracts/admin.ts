@@ -159,6 +159,15 @@ export const updateUserStatusSchema = z.object({
 });
 export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
 
+// ── Order refunds ─────────────────────────────────────────────────────────────
+
+/** Admin refund body: comment is required and surfaces in the student's
+ *  notification and their credit-history row. */
+export const refundOrderSchema = z.object({
+  comment: z.string().trim().min(3).max(500),
+});
+export type RefundOrderInput = z.infer<typeof refundOrderSchema>;
+
 // ── Automation rules ──────────────────────────────────────────────────────────
 
 export interface AutomationRuleDto {
