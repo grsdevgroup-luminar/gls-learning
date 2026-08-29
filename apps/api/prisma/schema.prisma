@@ -232,7 +232,6 @@ model User {
   /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
   unreadNotificationCount Int @default(0)
   uploads                 Upload[]
-  unreadNotificationCount Int                   @default(0)
 
   @@index([role])
 }
