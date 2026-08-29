@@ -5,6 +5,9 @@ export const checkoutQuoteSchema = z.object({
   courseIds: z.array(z.string().min(1)).min(1),
   couponCode: z.string().trim().optional(),
   regionCode: z.string().optional(),
+  /** When true, deduct available store credit from the total after coupon.
+   *  See REFUND_TO_CREDIT_PLAN.md. */
+  applyCredit: z.boolean().optional(),
 });
 export type CheckoutQuoteInput = z.infer<typeof checkoutQuoteSchema>;
 
@@ -33,6 +36,12 @@ export interface QuoteDto {
   lines: QuoteLineDto[];
   subtotalCents: number;
   discountCents: number;
+  /** Store credit deducted from the total when the caller sends
+   *  applyCredit=true (0 otherwise). Reflected in `totalCents`. */
+  creditAppliedCents: number;
+  /** The caller's total store-credit balance in the quote's currency —
+   *  displayed by the cart even when they haven't opted in yet. */
+  availableCreditCents: number;
   totalCents: number;
   currency: string;
   regionCode: string;
@@ -62,6 +71,7 @@ export interface OrderDto {
   gateway: PaymentGateway;
   subtotalCents: number;
   discountCents: number;
+  creditAppliedCents: number;
   totalCents: number;
   currency: string;
   couponCode: string | null;

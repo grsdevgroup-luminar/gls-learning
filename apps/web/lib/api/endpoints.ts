@@ -6,6 +6,7 @@ import type {
   AdminStudentStatsDto,
   AdminPricingDto,
   AdminStudentDto,
+  AdminStudentProfileDto,
   AutomationRuleDto,
   CommentDto,
   CouponDto,
@@ -25,7 +26,10 @@ import type {
   InstructorRosterDto,
   MyOrderStatsDto,
   OrderDto,
-  DirectUploadDto,
+  TusUploadDto,
+  UploadCompleteDto,
+  UploadStatusDto,
+  CreateTusUploadInput,
   OrganizationDto,
   Paginated,
   PlaybackDto,
@@ -52,6 +56,8 @@ import type {
   LearningPreferencesDto,
   NotificationPreferencesDto,
   UnreadCountDto,
+  CreditBalanceDto,
+  CreditLedgerEntryDto,
   UpdateNotificationPreferencesInput,
   UpdateLearningPreferencesInput,
   ToggleLessonResultDto,
@@ -66,6 +72,7 @@ import { apiFetch, apiFetchMultipart } from "./client";
 export type {
   AdminOverviewDto,
   AdminStudentDto,
+  AdminStudentProfileDto,
   PlatformSettingsDto,
   AutomationRuleDto,
   CommentDto,
@@ -81,6 +88,8 @@ export type {
   MyOrderStatsDto,
   NotificationDto,
   UnreadCountDto,
+  CreditBalanceDto,
+  CreditLedgerEntryDto,
   OrderDto,
   OrganizationDto,
   Paginated,
@@ -96,6 +105,7 @@ export type {
  *  (unlike the bare `CertificateDto` embedded in enrollments). */
 export interface CertificateDto {
   serial: string;
+  learnerName: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
@@ -204,6 +214,11 @@ export const api = {
   markAllNotificationsRead: () =>
     apiFetch<void>("/me/notifications/read-all", { method: "PATCH" }),
 
+  // store credit
+  myCreditBalances: () => apiFetch<CreditBalanceDto[]>("/me/credits"),
+  myCreditHistory: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<CreditLedgerEntryDto>>(`/me/credits/history${qs(params)}`),
+
   // reviews
   courseReviews: (courseId: string, page = 1) =>
     apiFetch<Paginated<ReviewDto>>(`/courses/${courseId}/reviews${qs({ page })}`),
@@ -262,6 +277,8 @@ export const api = {
     apiFetch<Paginated<AdminStudentDto>>(`/admin/students${qs(params)}`),
   adminStudentStats: () =>
     apiFetch<AdminStudentStatsDto>("/admin/students/stats"),
+  adminStudentProfile: (id: string) =>
+    apiFetch<AdminStudentProfileDto>(`/admin/students/${id}/profile`),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/admin/orders${qs(params)}`),
   adminOrderStats: () =>
@@ -274,8 +291,11 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
   deleteUser: (userId: string) =>
     apiFetch<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
-  refundOrder: (orderId: string) =>
-    apiFetch<{ ok: true }>(`/admin/orders/${orderId}/refund`, { method: "POST" }),
+  refundOrder: (orderId: string, comment: string) =>
+    apiFetch<OrderDto>(`/admin/orders/${orderId}/refund`, {
+      method: "POST",
+      body: { comment },
+    }),
   // coupons — the featured one drives the public storefront banner
   featuredCoupon: () => apiFetch<FeaturedCouponDto | null>("/coupons/featured"),
   adminCoupons: (params: Record<string, string | number | undefined> = {}) =>
@@ -551,8 +571,19 @@ export const authoringApi = {
     apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
       method: "DELETE",
     }),
-  mediaUploadUrl: () =>
-    apiFetch<DirectUploadDto>("/media/upload-url", { method: "POST" }),
+  createTusUpload: (body: CreateTusUploadInput) =>
+    apiFetch<TusUploadDto>("/media/tus", { method: "POST", body }),
+
+  completeUpload: (uploadId: string) =>
+    apiFetch<UploadCompleteDto>(`/media/uploads/${uploadId}/complete`, {
+      method: "POST",
+    }),
+
+  getUploadStatus: (uploadId: string) =>
+    apiFetch<UploadStatusDto>(`/media/uploads/${uploadId}`),
+
+  discardUpload: (uploadId: string) =>
+    apiFetch<void>(`/media/uploads/${uploadId}`, { method: "DELETE" }),
 
   /** Uploads a single lesson resource. The backend enforces the 10 MB cap and
    *  MIME whitelist; the UI is expected to pre-validate for a nicer UX. */
@@ -578,6 +609,7 @@ export const adminApi = {
   students: (params: Record<string, string | number | undefined> = {}) =>
     api.adminStudents(params),
   studentStats: () => api.adminStudentStats(),
+  studentProfile: (id: string) => api.adminStudentProfile(id),
   orders: (params: Record<string, string | number | undefined> = {}) =>
     api.adminOrders(params),
   orderStats: () => api.adminOrderStats(),

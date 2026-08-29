@@ -94,6 +94,29 @@ export class AdminRepository {
     ]);
   }
 
+  findStudentProfile(userId: string) {
+    return this.prisma.user.findFirst({
+      where: { id: userId, role: "STUDENT" },
+      include: {
+        studentProfile: true,
+        enrollments: {
+          orderBy: { lastActivityAt: "desc" },
+          include: {
+            course: {
+              select: {
+                id: true,
+                title: true,
+                sections: { select: { lessons: { select: { id: true } } } },
+              },
+            },
+            lessonProgress: { where: { completed: true }, select: { lessonId: true } },
+            certificate: { select: { issuedAt: true } },
+          },
+        },
+      },
+    });
+  }
+
   studentStatsCounts() {
     return this.prisma.$transaction([
       this.prisma.user.count({ where: { role: "STUDENT" } }),

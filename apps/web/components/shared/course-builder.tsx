@@ -77,6 +77,9 @@ interface BLesson {
   preview: boolean;
   hasVideo: boolean;
   cfVideoUid: string | null; // set locally after a fresh upload this session
+  uploadId: string | null;
+  replacingVideo: boolean;
+  videoLabel: string | null;
   articleContent: string;
   resources: LessonResourceDto[];
   durationSec: number;
@@ -145,6 +148,9 @@ function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       preview: !!l.preview,
       hasVideo: l.hasVideo,
       cfVideoUid: null,
+      uploadId: null,
+      replacingVideo: false,
+      videoLabel: null,
       articleContent: l.articleContent ?? "",
       resources: l.resources ?? [],
       durationSec: l.durationSec,
@@ -202,7 +208,7 @@ export function CourseBuilder({
     });
   }
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ courseId: string | null; sections: Set<string>; lessons: Set<string> }>({
@@ -303,7 +309,7 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
@@ -668,62 +674,99 @@ export function CourseBuilder({
                       <Button size="icon-sm" variant="ghost" onClick={() => removeSection(s.id)} aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
                     </div>
 
-                    <div className="mt-3 space-y-3 pl-6">
-                      {s.lessons.map((l) => (
-                        <div key={l.id} className="rounded-lg border bg-card p-3">
-                          <div className="flex items-center gap-2">
-                            <Input value={l.title} onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })} className="h-8" placeholder="Lesson title" />
-                            <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as BuilderLessonType)}>
-                              <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {lessonTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                              <Eye className="h-3.5 w-3.5" /> Preview
-                              <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
-                            </label>
-                            <Button size="icon-sm" variant="ghost" onClick={() => removeLesson(s.id, l.id)} aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
-                          </div>
-                          <div className="mt-2">
-                            {l.type === "quiz" ? (
-                              <QuizEditor
-                                quiz={l.quiz ?? emptyQuiz()}
-                                onChange={(quiz) => patchLesson(s.id, l.id, { quiz, quizDirty: true })}
-                              />
-                            ) : l.type === "video" ? (
-                              <VideoUpload
-                                compact
-                                initiallyUploaded={l.hasVideo}
-                                onReady={(uid) => patchLesson(s.id, l.id, { cfVideoUid: uid, hasVideo: true })}
-                              />
-                            ) : (
-                              <Textarea
-                                value={l.articleContent}
-                                onChange={(e) => patchLesson(s.id, l.id, { articleContent: e.target.value })}
-                                placeholder="Write the article content students will read for this lesson…"
-                                className="min-h-32 text-sm"
-                              />
-                            )}
-                          </div>
-                          <LessonResources
-                            lessonId={l.id}
-                            isNew={isTemp(l.id)}
-                            resources={l.resources}
-                            onChange={(resources) => patchLesson(s.id, l.id, { resources })}
-                          />
+                  {!collapsedSections.has(s.id) && (
+                  <div className="mt-3 space-y-3 pl-6">
+                    {s.lessons.map((l) => (
+                      <div key={l.id} className="rounded-lg border bg-card p-3">
+                        <div className="flex items-center gap-2">
+                          <Input value={l.title} onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })} className="h-8" placeholder="Lesson title" />
+                          <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as BuilderLessonType)}>
+                            <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {lessonTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                            <Eye className="h-3.5 w-3.5" /> Preview
+                            <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
+                          </label>
+                          <Button size="icon-sm" variant="ghost" onClick={() => removeLesson(s.id, l.id)} aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
                         </div>
-                      ))}
-                      <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus className="mr-2 h-4 w-4"/> Add lesson</Button>
-                    </div>
+                        <div className="mt-2">
+                          {l.type === "quiz" ? (
+                            <QuizEditor
+                              quiz={l.quiz ?? emptyQuiz()}
+                              onChange={(quiz) =>
+                                patchLesson(s.id, l.id, { quiz, quizDirty: true, durationSec: quizDurationSec(quiz) })
+                              }
+                            />
+                          ) : l.type === "video" ? (
+                            <VideoUpload
+                              compact
+                              courseId={courseId}
+                              lessonId={l.id}
+                              initiallyUploaded={l.hasVideo && !l.replacingVideo}
+                              initialUploadId={l.uploadId}
+                              replacingVideo={l.replacingVideo}
+                              committedVideo={
+                                l.cfVideoUid
+                                  ? {
+                                      uid: l.cfVideoUid,
+                                      uploadId: l.uploadId,
+                                      label: l.videoLabel ?? undefined,
+                                    }
+                                  : null
+                              }
+                              onReplaceRequested={() =>
+                                patchLesson(s.id, l.id, { replacingVideo: true })
+                              }
+                              onReplaceCancelled={() =>
+                                patchLesson(s.id, l.id, { replacingVideo: false })
+                              }
+                              onUploaded={({ uploadId, uid, filename, durationSec }) =>
+                                patchLesson(s.id, l.id, {
+                                  cfVideoUid: uid,
+                                  uploadId,
+                                  hasVideo: true,
+                                  replacingVideo: false,
+                                  videoLabel: filename,
+                                  ...(durationSec ? { durationSec } : {}),
+                                })
+                              }
+                            />
+                          ) : (
+                            <Textarea
+                              value={l.articleContent}
+                              onChange={(e) =>
+                                patchLesson(s.id, l.id, {
+                                  articleContent: e.target.value,
+                                  durationSec: articleDurationSec(e.target.value),
+                                })
+                              }
+                              placeholder="Write the article content students will read for this lesson…"
+                              className="min-h-32 text-sm"
+                            />
+                          )}
+                        </div>
+                        <LessonResources
+                          lessonId={l.id}
+                          isNew={isTemp(l.id)}
+                          resources={l.resources}
+                          onChange={(resources) => patchLesson(s.id, l.id, { resources })}
+                        />
+                      </div>
+                    ))}
+                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus /> Add lesson</Button>
                   </div>
-                ))}
-                {sections.length === 0 && (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No sections yet. Add your first section to get started.</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  )}
+                </div>
+              ))}
+              {sections.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">No sections yet. Add your first section to get started.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
           {/* RIGHT COLUMN: Independently scrollable */}
           <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">

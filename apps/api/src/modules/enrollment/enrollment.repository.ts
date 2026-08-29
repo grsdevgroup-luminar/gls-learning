@@ -197,11 +197,11 @@ export class EnrollmentRepository {
     return this.prisma.enrollment.update({ where: { id: enrollmentId }, data });
   }
 
-  upsertCertificate(enrollmentId: string, serial: string) {
+  upsertCertificate(enrollmentId: string, serial: string, learnerName: string) {
     return this.prisma.certificate.upsert({
       where: { enrollmentId },
       update: {},
-      create: { enrollmentId, serial },
+      create: { enrollmentId, serial, learnerName },
     });
   }
 
@@ -223,7 +223,11 @@ export class EnrollmentRepository {
   findCertificatesByUser(userId: string) {
     return this.prisma.certificate.findMany({
       where: { enrollment: { userId } },
-      include: {
+      select: {
+        serial: true,
+        learnerName: true,
+        pdfUrl: true,
+        issuedAt: true,
         enrollment: {
           select: {
             courseId: true,

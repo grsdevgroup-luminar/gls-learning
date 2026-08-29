@@ -279,11 +279,13 @@ only ever touch their own courses.
    Sections reorder by dragging their grip handle; the new order is written as
    each section's `order` on save.
 2. **Lesson types** (`LessonType`): `VIDEO`, `ARTICLE`, `QUIZ`.
-   - **Video**: the builder requests a direct-upload URL from Cloudflare
-     Stream via the API, then the browser uploads the raw file **straight to
-     Cloudflare**, bypassing the SkillStream API for the byte transfer
-     entirely. Playback later signs a short-lived (2hr) HLS/iframe URL, and
-     checks enrollment first unless the lesson is flagged as a free preview.
+   - **Video**: the builder requests a tus upload reservation from the API
+     (`POST /media/tus`), then the browser uploads the raw file **straight to
+     Cloudflare** via tus-js-client, bypassing the SkillStream API for the byte
+     transfer entirely. After bytes complete, the client calls
+     `POST /media/uploads/:id/complete`; playback later signs a short-lived
+     (2hr) HLS/iframe URL, and checks enrollment first unless the lesson is
+     flagged as a free preview.
    - **Article**: plain/rich text stored directly on the lesson row.
    - **Resources**: any lesson type can carry downloadable links (see §3.2).
    - **Quiz**: a 1:1 `Quiz` with nested `QuizQuestion`/`QuizOption` rows;

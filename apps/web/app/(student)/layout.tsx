@@ -14,6 +14,7 @@ const items: NavItem[] = [
   { href: "/dashboard/team", label: "Team courses", icon: "Building2" },
   { href: "/dashboard/certificates", label: "Certificates", icon: "Award" },
   { href: "/dashboard/billing", label: "Billing", icon: "Receipt" },
+  { href: "/dashboard/credits", label: "Store credit", icon: "Wallet" },
   { href: "/account", label: "Account", icon: "Settings" },
 ];
 
@@ -30,7 +31,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <PortalShell
       items={items}
       badge="Student"
-      user={{ name, email, initials: initials(name) }}
+      user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}
     >
       {children}
     </PortalShell>

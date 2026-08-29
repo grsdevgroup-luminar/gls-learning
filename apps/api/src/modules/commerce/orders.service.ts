@@ -19,6 +19,7 @@ import {
   NotificationsService,
   type NotifyInput,
 } from "../notifications/notifications.service";
+import { CreditsService } from "../credits/credits.service";
 import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { CartService } from "./cart.service";
 
@@ -29,6 +30,7 @@ export interface CreateOrderInput {
   couponCode: string | null;
   subtotalCents: number;
   discountCents: number;
+  creditAppliedCents?: number;
   totalCents: number;
   currency: string;
   items: { courseId: string; title: string; priceCents: number }[];
@@ -46,6 +48,7 @@ export class OrdersService {
     private readonly email: EmailService,
     private readonly cart: CartService,
     private readonly notifications: NotificationsService,
+    private readonly credits: CreditsService,
   ) {}
 
   private toDto(row: OrderRow): OrderDto {
@@ -55,6 +58,7 @@ export class OrdersService {
       gateway: row.gateway,
       subtotalCents: row.subtotalCents,
       discountCents: row.discountCents,
+      creditAppliedCents: row.creditAppliedCents,
       totalCents: row.totalCents,
       currency: row.currency,
       couponCode: row.couponCode,
@@ -76,6 +80,7 @@ export class OrdersService {
       couponCode: input.couponCode,
       subtotalCents: input.subtotalCents,
       discountCents: input.discountCents,
+      creditAppliedCents: input.creditAppliedCents ?? 0,
       totalCents: input.totalCents,
       currency: input.currency,
       status: "PENDING",
@@ -265,6 +270,31 @@ export class OrdersService {
           },
           tx,
         );
+      }
+
+      // Debit store credit in the same tx as the PENDING→PAID transition, so a
+      // rollback keeps the ledger in sync with the order. If the balance
+      // shifted between quote and fulfillment (extremely narrow window since
+      // gateway callbacks serialize per order), we cap the spend at whatever
+      // is currently available — never let SUM(amountCents) go negative.
+      if (order.creditAppliedCents > 0) {
+        const currentBalance = await this.credits.getBalance(
+          order.userId,
+          order.currency,
+          tx,
+        );
+        const spend = Math.min(currentBalance, order.creditAppliedCents);
+        if (spend > 0) {
+          await this.credits.spendAtCheckout(
+            {
+              userId: order.userId,
+              amountCents: spend,
+              currency: order.currency,
+              orderId: order.id,
+            },
+            tx,
+          );
+        }
       }
 
       // Payment settled — the cart that produced this order is no longer valid.

@@ -80,7 +80,7 @@ function NotificationRow({ n }: { n: NotificationDto }) {
   );
 }
 
-export function NotificationBell() {
+export function NotificationBell({ size = "icon" }: { size?: "icon" | "icon-sm" } = {}) {
   const pathname = usePathname();
   const { data: unread } = useUnreadNotificationCount();
   const { data: page, isLoading } = useNotifications({ page: 1, pageSize: 8 });
@@ -106,7 +106,7 @@ export function NotificationBell() {
     <DropdownMenu onOpenChange={markVisibleAsRead}>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon" className="relative shrink-0" />
+          <Button variant="ghost" size={size} className="relative shrink-0" />
         }
       >
         <Bell className="size-4.5" />

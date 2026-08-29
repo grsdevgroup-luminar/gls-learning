@@ -10,10 +10,10 @@ export class CertificatesRepository {
       where: { serial },
       select: {
         serial: true,
+        learnerName: true,
         issuedAt: true,
         enrollment: {
           select: {
-            user: { select: { name: true } },
             course: { select: { title: true, slug: true } },
           },
         },

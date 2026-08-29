@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useSession } from '@/lib/api/session';
 import { apiFetch } from '@/lib/api/client';
 import { CertificatePreview } from '@/components/shared/certificate-preview';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +25,7 @@ import {
 
 interface CertificateDto {
   serial: string;
+  learnerName: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
@@ -34,7 +34,6 @@ interface CertificateDto {
 }
 
 export default function CertificatesPage() {
-  const { user } = useSession();
   const [active, setActive] = useState<CertificateDto | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
 
@@ -75,7 +74,6 @@ export default function CertificatesPage() {
   }
 
   const earned = certs ?? [];
-  const userName = user?.name ?? '';
 
   // Shares the public verification page — a link anyone can open, unlike the
   // dashboard route it used to point at.
@@ -151,7 +149,7 @@ export default function CertificatesPage() {
                 >
                   <CertificatePreview
                     courseTitle={cert.courseTitle}
-                    userName={userName}
+                    userName={cert.learnerName}
                     issuedAt={cert.issuedAt}
                     serial={cert.serial}
                     small
@@ -205,7 +203,7 @@ export default function CertificatesPage() {
             <>
               <CertificatePreview
                 courseTitle={active.courseTitle}
-                userName={userName}
+                userName={active.learnerName}
                 issuedAt={active.issuedAt}
                 serial={active.serial}
               />

@@ -25,6 +25,8 @@ export const qk = {
   myOrder: (id: string) => ["orders", id] as const,
   notifications: (params?: unknown) => ["notifications", params] as const,
   unreadNotificationCount: ["notifications", "unread-count"] as const,
+  creditBalances: ["credits", "balances"] as const,
+  creditHistory: (params?: unknown) => ["credits", "history", params] as const,
   reviews: (courseId: string) => ["reviews", courseId] as const,
   comments: (courseId: string) => ["comments", courseId] as const,
   myReview: (courseId: string) => ["my-review", courseId] as const,

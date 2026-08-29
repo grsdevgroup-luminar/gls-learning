@@ -8,6 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -48,6 +52,8 @@ export default function AdminOrders() {
   const [pageSize, setPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  const [refundTarget, setRefundTarget] = useState<OrderDto | null>(null);
+  const [refundComment, setRefundComment] = useState("");
 
   // Debounce search box so every keystroke doesn't hit the API.
   useEffect(() => {
@@ -78,9 +84,12 @@ export default function AdminOrders() {
   }, [orderPage, page]);
 
   const refundMutation = useMutation({
-    mutationFn: (id: string) => adminApi.refundOrder(id),
+    mutationFn: ({ id, comment }: { id: string; comment: string }) =>
+      adminApi.refundOrder(id, comment),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "orders"] });
+      setRefundTarget(null);
+      setRefundComment("");
       toast.success("Refund issued");
     },
     onError: () => toast.error("Refund failed"),
@@ -194,8 +203,11 @@ export default function AdminOrders() {
                     <OrderRow
                       key={o.id}
                       order={o}
-                      onRefund={() => refundMutation.mutate(o.id)}
-                      refunding={refundMutation.isPending && refundMutation.variables === o.id}
+                      onRefund={() => {
+                        setRefundTarget(o);
+                        setRefundComment("");
+                      }}
+                      refunding={refundMutation.isPending && refundMutation.variables?.id === o.id}
                     />
                   ))}
             </TableBody>
@@ -205,6 +217,67 @@ export default function AdminOrders() {
       {!isLoading && (
         <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
+
+      <Dialog
+        open={Boolean(refundTarget)}
+        onOpenChange={(open) => {
+          if (!open && !refundMutation.isPending) {
+            setRefundTarget(null);
+            setRefundComment("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refund order</DialogTitle>
+            <DialogDescription>
+              {refundTarget
+                ? `Refund ${formatUsd(refundTarget.totalCents / 100)} and grant the same amount as store credit. This cannot be undone.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="refund-comment" className="text-sm font-medium">
+              Reason (visible in credit history)
+            </label>
+            <Textarea
+              id="refund-comment"
+              value={refundComment}
+              onChange={(e) => setRefundComment(e.target.value)}
+              placeholder="Why is this order being refunded?"
+              rows={4}
+              maxLength={500}
+              disabled={refundMutation.isPending}
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Minimum 3 characters.</span>
+              <span>{refundComment.trim().length}/500</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRefundTarget(null);
+                setRefundComment("");
+              }}
+              disabled={refundMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (refundTarget && refundComment.trim().length >= 3) {
+                  refundMutation.mutate({ id: refundTarget.id, comment: refundComment.trim() });
+                }
+              }}
+              disabled={!refundTarget || refundComment.trim().length < 3 || refundMutation.isPending}
+            >
+              {refundMutation.isPending ? "Refunding…" : "Refund and grant credit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

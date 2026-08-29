@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "./auth.js";
 import { learningCategorySchema } from "./catalog.js";
 
 export const MAX_COURSE_DESCRIPTION_LENGTH = 2000;
@@ -132,13 +133,13 @@ export type UpdateQuizQuestionInput = z.infer<typeof updateQuizQuestionSchema>;
 // ── User profile ─────────────────────────────────────────────────────────────
 
 export const updateProfileSchema = z.object({
-  name: z.string().min(1).max(120).optional(),
+  name: z.string().min(1, "Name is required. Please enter your name.").max(120).optional(),
   avatar: z.string().url().nullable().optional(),
   country: z.union([countryCodeSchema, z.null()]).optional(),
   /** E.164 — the SMS reminder channel has nowhere to send without it. */
   phone: z
     .string()
-    .regex(/^\+[1-9]\d{7,14}$/, "Use international format, e.g. +8801712345678")
+    .regex(/^\+[1-9]\d{7,14}$/, "Please enter a valid phone number, e.g. +8801712345678")
     .nullable()
     .optional(),
 });
@@ -146,6 +147,6 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(128),
+  newPassword: passwordSchema,
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

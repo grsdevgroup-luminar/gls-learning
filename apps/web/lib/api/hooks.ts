@@ -173,6 +173,16 @@ export const useMyOrders = (
 export const useMyOrderStats = () =>
   useQuery({ queryKey: qk.myOrderStats, queryFn: api.myOrderStats });
 
+export const useMyCreditBalances = () =>
+  useQuery({ queryKey: qk.creditBalances, queryFn: api.myCreditBalances });
+
+export const useMyCreditHistory = (params: { page: number; pageSize: number }) =>
+  useQuery({
+    queryKey: qk.creditHistory(params),
+    queryFn: () => api.myCreditHistory(params),
+    placeholderData: (prev) => prev,
+  });
+
 // ── notifications ───────────────────────────────────────────────────────────
 /** Ambient bell badge — cheap endpoint, polled slowly forever. Not "instant";
  *  see the checkout success page for the one screen that needs that instead. */
@@ -245,14 +255,6 @@ export const useAdminStudents = (params: Record<string, string | number | undefi
 
 export const useAdminOrders = (params: Record<string, string | number | undefined> = {}) =>
   useQuery({ queryKey: qk.adminOrders(params), queryFn: () => api.adminOrders(params) });
-
-export function useRefundOrder() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (orderId: string) => api.refundOrder(orderId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.adminOrders() }),
-  });
-}
 
 export function useUpdateUserStatus() {
   const qc = useQueryClient();

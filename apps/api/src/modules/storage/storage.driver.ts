@@ -19,6 +19,10 @@ export interface PutInput {
   /** Original client filename, sanitized. Used for Content-Disposition so the
    *  browser saves with a sensible name even though the key is a ULID. */
   originalName: string;
+  /** How the browser should treat the object on GET. Lesson resources want
+   *  `attachment` (force download); avatars want `inline` (render in an
+   *  <img>). Defaults to `attachment` to preserve the pre-existing behavior. */
+  disposition?: "inline" | "attachment";
 }
 
 /**
