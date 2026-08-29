@@ -5,6 +5,7 @@ learning portal**, an **instructor** program, a **B2B organizations** (seat-base
 program, a worldwide **sales agent / referral** program, and an **admin** panel — backed
 by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 
+
 > This started as a static Next.js prototype with mocked data. The backend and frontend
 > below are both real and production-shaped — see [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md)
 > for architecture and data model, and [`docs/FEATURE_FLOWS.md`](docs/FEATURE_FLOWS.md) for
