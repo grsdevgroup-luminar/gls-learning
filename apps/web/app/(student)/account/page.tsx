@@ -29,6 +29,14 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Mail, MessageSquare, Bell, Lock, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -123,6 +131,7 @@ export default function AccountPage() {
       toast.error(err.message ?? 'Failed to upload photo');
     },
   });
+  const [confirmDeleteAvatar, setConfirmDeleteAvatar] = useState(false);
   const deleteAvatar = useMutation({
     mutationFn: () =>
       apiFetch<{ avatar: string | null }>('/auth/me/avatar', {
@@ -132,6 +141,7 @@ export default function AccountPage() {
       setAvatar(next.avatar ?? '');
       qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       toast.success('Photo removed');
+      setConfirmDeleteAvatar(false);
     },
     onError: (err: Error) => {
       toast.error(err.message ?? 'Failed to remove photo');
@@ -248,7 +258,7 @@ export default function AccountPage() {
                       variant="ghost"
                       size="sm"
                       disabled={deleteAvatar.isPending}
-                      onClick={() => deleteAvatar.mutate()}
+                      onClick={() => setConfirmDeleteAvatar(true)}
                     >
                       <Trash2 className="h-4 w-4" />
                       {deleteAvatar.isPending ? 'Removing…' : 'Remove'}
@@ -420,6 +430,39 @@ export default function AccountPage() {
           </CardContent>
         </Card>
       </Reveal>
+
+      <Dialog
+        open={confirmDeleteAvatar}
+        onOpenChange={(open) => {
+          if (!open && !deleteAvatar.isPending) setConfirmDeleteAvatar(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove profile photo?</DialogTitle>
+            <DialogDescription>
+              Your avatar will be replaced with your initials. You can upload a
+              new photo anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteAvatar(false)}
+              disabled={deleteAvatar.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteAvatar.mutate()}
+              disabled={deleteAvatar.isPending}
+            >
+              {deleteAvatar.isPending ? 'Removing…' : 'Remove photo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -16,6 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -79,12 +87,14 @@ export default function InstructorProfile() {
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
+  const [confirmDeleteAvatar, setConfirmDeleteAvatar] = useState(false);
   const deleteAvatar = useMutation({
     mutationFn: () =>
       apiFetch<AuthUserDto>("/auth/me/avatar", { method: "DELETE" }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       toast.success("Photo removed");
+      setConfirmDeleteAvatar(false);
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
@@ -165,7 +175,7 @@ export default function InstructorProfile() {
                     variant="ghost"
                     size="sm"
                     disabled={deleteAvatar.isPending}
-                    onClick={() => deleteAvatar.mutate()}
+                    onClick={() => setConfirmDeleteAvatar(true)}
                   >
                     <Trash2 className="h-4 w-4" />
                     {deleteAvatar.isPending ? "Removing…" : "Remove"}
@@ -224,6 +234,39 @@ export default function InstructorProfile() {
           </CardContent>
         </Card>
       </Reveal>
+
+      <Dialog
+        open={confirmDeleteAvatar}
+        onOpenChange={(open) => {
+          if (!open && !deleteAvatar.isPending) setConfirmDeleteAvatar(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove profile photo?</DialogTitle>
+            <DialogDescription>
+              Your avatar will be replaced with your initials on your instructor
+              page and everywhere else. You can upload a new photo anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteAvatar(false)}
+              disabled={deleteAvatar.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteAvatar.mutate()}
+              disabled={deleteAvatar.isPending}
+            >
+              {deleteAvatar.isPending ? "Removing…" : "Remove photo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
