@@ -25,7 +25,10 @@ import type {
   InstructorRosterDto,
   MyOrderStatsDto,
   OrderDto,
-  DirectUploadDto,
+  TusUploadDto,
+  UploadCompleteDto,
+  UploadStatusDto,
+  CreateTusUploadInput,
   OrganizationDto,
   Paginated,
   PlaybackDto,
@@ -538,8 +541,19 @@ export const authoringApi = {
     apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
       method: "DELETE",
     }),
-  mediaUploadUrl: () =>
-    apiFetch<DirectUploadDto>("/media/upload-url", { method: "POST" }),
+  createTusUpload: (body: CreateTusUploadInput) =>
+    apiFetch<TusUploadDto>("/media/tus", { method: "POST", body }),
+
+  completeUpload: (uploadId: string) =>
+    apiFetch<UploadCompleteDto>(`/media/uploads/${uploadId}/complete`, {
+      method: "POST",
+    }),
+
+  getUploadStatus: (uploadId: string) =>
+    apiFetch<UploadStatusDto>(`/media/uploads/${uploadId}`),
+
+  discardUpload: (uploadId: string) =>
+    apiFetch<void>(`/media/uploads/${uploadId}`, { method: "DELETE" }),
 
   /** Uploads a single lesson resource. The backend enforces the 10 MB cap and
    *  MIME whitelist; the UI is expected to pre-validate for a nicer UX. */

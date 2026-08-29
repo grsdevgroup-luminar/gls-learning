@@ -96,6 +96,17 @@ export class MaintenanceScheduler implements OnModuleInit {
           removeOnFail: 50,
         },
       );
+      // Upload orphan / expiry sweep — see video-upload-tus-plan Phase 7.
+      await this.queue.add(
+        "upload-sweep",
+        {},
+        {
+          repeat: { every: 60 * 60 * 1000 },
+          jobId: "upload-sweep",
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
       // Kick one off immediately so fresh deploys reconcile right away.
       await this.queue.add("rollup", {}, { removeOnComplete: true });
       // Ditto for FX: a repeatable's first run is one interval away, which would

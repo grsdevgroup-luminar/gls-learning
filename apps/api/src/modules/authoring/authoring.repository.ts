@@ -123,8 +123,12 @@ export class AuthoringRepository {
     return this.prisma.lesson.create({ data });
   }
 
-  updateLesson(lessonId: string, data: Prisma.LessonUpdateInput) {
-    return this.prisma.lesson.update({ where: { id: lessonId }, data });
+  updateLesson(lessonId: string, data: Prisma.LessonUpdateInput, tx?: Db) {
+    return this.db(tx).lesson.update({ where: { id: lessonId }, data });
+  }
+
+  runTransaction<T>(fn: (tx: Db) => Promise<T>) {
+    return this.prisma.$transaction(fn);
   }
 
   deleteLesson(lessonId: string) {
@@ -136,6 +140,27 @@ export class AuthoringRepository {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
       select: { id: true, resources: true },
+    });
+  }
+
+  findLessonCfVideoUid(lessonId: string) {
+    return this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { cfVideoUid: true },
+    });
+  }
+
+  findCfVideoUidsBySection(sectionId: string) {
+    return this.prisma.lesson.findMany({
+      where: { sectionId, cfVideoUid: { not: null } },
+      select: { cfVideoUid: true },
+    });
+  }
+
+  findCfVideoUidsByCourse(courseId: string) {
+    return this.prisma.lesson.findMany({
+      where: { section: { courseId }, cfVideoUid: { not: null } },
+      select: { cfVideoUid: true },
     });
   }
 

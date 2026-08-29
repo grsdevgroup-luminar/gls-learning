@@ -35,6 +35,16 @@ export const LessonType = {
 } as const;
 export type LessonType = (typeof LessonType)[keyof typeof LessonType];
 
+export const UploadStatus = {
+  CREATED: "CREATED",
+  UPLOADING: "UPLOADING",
+  PROCESSING: "PROCESSING",
+  READY: "READY",
+  FAILED: "FAILED",
+  ABANDONED: "ABANDONED",
+} as const;
+export type UploadStatus = (typeof UploadStatus)[keyof typeof UploadStatus];
+
 export const InstructorStatus = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
