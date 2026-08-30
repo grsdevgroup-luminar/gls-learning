@@ -71,8 +71,7 @@ export class CoursesService {
     if (query.q) {
       where.OR = [
         { title: { contains: query.q, mode: "insensitive" } },
-        { subtitle: { contains: query.q, mode: "insensitive" } },
-        { description: { contains: query.q, mode: "insensitive" } },
+        { category: { contains: query.q, mode: "insensitive" } },
       ];
     }
 
