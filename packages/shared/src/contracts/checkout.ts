@@ -60,9 +60,13 @@ export interface CheckoutSessionDto {
 }
 
 export interface OrderItemDto {
+  /** OrderItem row id — required for per-item partial refunds. */
+  id: string;
   courseId: string;
   title: string;
   priceCents: number;
+  /** Cumulative store credit refunded against this item. */
+  refundedCents: number;
 }
 
 export interface OrderDto {
@@ -76,6 +80,8 @@ export interface OrderDto {
   currency: string;
   couponCode: string | null;
   items: OrderItemDto[];
+  /** Cumulative store credit refunded across all items on this order. */
+  refundedCents: number;
   createdAt: string;
   paidAt: string | null;
 }

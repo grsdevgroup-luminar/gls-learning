@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, type OrderDto } from "@/lib/api/endpoints";
 import { formatUsd } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,10 +42,42 @@ import {
 
 const statusCls: Record<string, string> = {
   PAID: "text-success",
+  PARTIALLY_REFUNDED: "text-warning",
   REFUNDED: "text-destructive",
   FAILED: "text-muted-foreground",
   PENDING: "text-warning",
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  PAID: "Paid",
+  PARTIALLY_REFUNDED: "Partially refunded",
+  REFUNDED: "Refunded",
+  FAILED: "Failed",
+  PENDING: "Pending",
+};
+
+/** Cap the refundable pool at the money-paid portion. Credit-applied cents
+ *  can't be handed back as new credit without compounding the ledger. */
+function orderRefundablePool(order: OrderDto): number {
+  return Math.max(0, order.totalCents - order.creditAppliedCents);
+}
+
+function orderRemainingRefundable(order: OrderDto): number {
+  return Math.max(0, orderRefundablePool(order) - order.refundedCents);
+}
+
+function itemRemainingRefundable(item: OrderDto["items"][number]): number {
+  return Math.max(0, item.priceCents - item.refundedCents);
+}
+
+// Per-item row state in the refund dialog. `amountText` is the raw input string
+// (kept so the field stays freely editable — no snap-back to "0.00" mid-type),
+// `amountCents` is its parsed, clamped cents value used for totals and payload.
+interface RefundRow {
+  selected: boolean;
+  amountText: string;
+  amountCents: number;
+}
 
 export default function AdminOrders() {
   const qc = useQueryClient();
@@ -53,7 +86,6 @@ export default function AdminOrders() {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [refundTarget, setRefundTarget] = useState<OrderDto | null>(null);
-  const [refundComment, setRefundComment] = useState("");
 
   // Debounce search box so every keystroke doesn't hit the API.
   useEffect(() => {
@@ -84,15 +116,25 @@ export default function AdminOrders() {
   }, [orderPage, page]);
 
   const refundMutation = useMutation({
-    mutationFn: ({ id, comment }: { id: string; comment: string }) =>
-      adminApi.refundOrder(id, comment),
-    onSuccess: () => {
+    mutationFn: (input: {
+      id: string;
+      comment: string;
+      items: { orderItemId: string; amountCents: number }[];
+    }) => adminApi.refundOrder(input.id, { comment: input.comment, items: input.items }),
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["admin", "orders"] });
       setRefundTarget(null);
-      setRefundComment("");
-      toast.success("Refund issued");
+      toast.success(
+        vars.items.length === 1
+          ? "Credit issued for 1 item"
+          : `Credit issued for ${vars.items.length} items`,
+      );
     },
-    onError: () => toast.error("Refund failed"),
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error && err.message ? err.message : "Refund failed";
+      toast.error(message);
+    },
   });
 
   const stats = [
@@ -203,11 +245,11 @@ export default function AdminOrders() {
                     <OrderRow
                       key={o.id}
                       order={o}
-                      onRefund={() => {
-                        setRefundTarget(o);
-                        setRefundComment("");
-                      }}
-                      refunding={refundMutation.isPending && refundMutation.variables?.id === o.id}
+                      onRefund={() => setRefundTarget(o)}
+                      refunding={
+                        refundMutation.isPending &&
+                        refundMutation.variables?.id === o.id
+                      }
                     />
                   ))}
             </TableBody>
@@ -218,66 +260,17 @@ export default function AdminOrders() {
         <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
 
-      <Dialog
-        open={Boolean(refundTarget)}
-        onOpenChange={(open) => {
-          if (!open && !refundMutation.isPending) {
-            setRefundTarget(null);
-            setRefundComment("");
-          }
+      <RefundDialog
+        order={refundTarget}
+        onClose={() => {
+          if (!refundMutation.isPending) setRefundTarget(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Refund order</DialogTitle>
-            <DialogDescription>
-              {refundTarget
-                ? `Refund ${formatUsd(refundTarget.totalCents / 100)} and grant the same amount as store credit. This cannot be undone.`
-                : null}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label htmlFor="refund-comment" className="text-sm font-medium">
-              Reason (visible in credit history)
-            </label>
-            <Textarea
-              id="refund-comment"
-              value={refundComment}
-              onChange={(e) => setRefundComment(e.target.value)}
-              placeholder="Why is this order being refunded?"
-              rows={4}
-              maxLength={500}
-              disabled={refundMutation.isPending}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Minimum 3 characters.</span>
-              <span>{refundComment.trim().length}/500</span>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRefundTarget(null);
-                setRefundComment("");
-              }}
-              disabled={refundMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (refundTarget && refundComment.trim().length >= 3) {
-                  refundMutation.mutate({ id: refundTarget.id, comment: refundComment.trim() });
-                }
-              }}
-              disabled={!refundTarget || refundComment.trim().length < 3 || refundMutation.isPending}
-            >
-              {refundMutation.isPending ? "Refunding…" : "Refund and grant credit"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        submitting={refundMutation.isPending}
+        onSubmit={(items, comment) =>
+          refundTarget &&
+          refundMutation.mutate({ id: refundTarget.id, items, comment })
+        }
+      />
     </div>
   );
 }
@@ -291,6 +284,10 @@ function OrderRow({
   onRefund: () => void;
   refunding: boolean;
 }) {
+  const remaining = orderRemainingRefundable(order);
+  const canRefund =
+    (order.status === "PAID" || order.status === "PARTIALLY_REFUNDED") &&
+    remaining > 0;
   return (
     <TableRow>
       <TableCell className="pl-6">
@@ -320,17 +317,22 @@ function OrderRow({
       </TableCell>
       <TableCell className="font-medium">
         {formatUsd(order.totalCents / 100)}
+        {order.refundedCents > 0 && (
+          <div className="text-xs text-muted-foreground">
+            Refunded {formatUsd(order.refundedCents / 100)}
+          </div>
+        )}
       </TableCell>
       <TableCell>
         <Badge
           variant="outline"
-          className={`capitalize ${statusCls[order.status] ?? ""}`}
+          className={statusCls[order.status] ?? ""}
         >
-          {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
+          {STATUS_LABELS[order.status] ?? order.status}
         </Badge>
       </TableCell>
       <TableCell className="pr-6 text-right">
-        {order.status === "PAID" && (
+        {canRefund && (
           <Button
             variant="outline"
             size="sm"
@@ -343,6 +345,255 @@ function OrderRow({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+function RefundDialog({
+  order,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  order: OrderDto | null;
+  onClose: () => void;
+  onSubmit: (
+    items: { orderItemId: string; amountCents: number }[],
+    comment: string,
+  ) => void;
+  submitting: boolean;
+}) {
+  const [rows, setRows] = useState<Record<string, RefundRow>>({});
+  const [comment, setComment] = useState("");
+
+  // Seed / reset the dialog whenever a fresh order lands. Items with any
+  // remaining refundable amount default to selected + prefilled with the max —
+  // matching the "refund what's left" mental model most of the time.
+  useEffect(() => {
+    if (!order) return;
+    const next: Record<string, RefundRow> = {};
+    for (const item of order.items) {
+      const remaining = itemRemainingRefundable(item);
+      next[item.id] = {
+        selected: remaining > 0,
+        amountText: (remaining / 100).toFixed(2),
+        amountCents: remaining,
+      };
+    }
+    setRows(next);
+    setComment("");
+  }, [order?.id]);
+
+  const totalCents = useMemo(
+    () =>
+      order
+        ? order.items.reduce(
+            (sum, item) =>
+              sum + (rows[item.id]?.selected ? rows[item.id].amountCents : 0),
+            0,
+          )
+        : 0,
+    [order, rows],
+  );
+
+  const orderPool = order ? orderRefundablePool(order) : 0;
+  const orderRemaining = order ? orderRemainingRefundable(order) : 0;
+  const canSubmit =
+    !!order &&
+    !submitting &&
+    totalCents > 0 &&
+    totalCents <= orderRemaining &&
+    comment.trim().length >= 3;
+  const isFullRemainder = !!order && totalCents === orderRemaining && totalCents > 0;
+
+  const setAmount = (itemId: string, dollars: string, maxCents: number) => {
+    // Preserve the raw text so the field stays freely editable while typing.
+    // Cents get parsed + clamped for totals/payload; empty or partial input
+    // (e.g. "" or ".") coerces to 0 cents but keeps the visible text.
+    const value = Number.parseFloat(dollars);
+    const rawCents = Number.isFinite(value) ? Math.round(value * 100) : 0;
+    const clamped = Math.max(0, Math.min(maxCents, rawCents));
+    setRows((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        amountText: dollars,
+        amountCents: clamped,
+      },
+    }));
+  };
+
+  const toggle = (itemId: string) =>
+    setRows((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], selected: !prev[itemId]?.selected },
+    }));
+
+  const fillMax = () => {
+    if (!order) return;
+    const next: Record<string, RefundRow> = {};
+    for (const item of order.items) {
+      const remaining = itemRemainingRefundable(item);
+      next[item.id] = {
+        selected: remaining > 0,
+        amountText: (remaining / 100).toFixed(2),
+        amountCents: remaining,
+      };
+    }
+    setRows(next);
+  };
+
+  return (
+    <Dialog
+      open={!!order}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Refund to store credit</DialogTitle>
+          <DialogDescription>
+            Pick the courses to refund and the credit amount for each. No money
+            leaves the payment gateway — the student receives store credit only.
+          </DialogDescription>
+        </DialogHeader>
+
+        {order && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <div className="text-muted-foreground">
+                Refundable: {formatUsd(orderRemaining / 100)}{" "}
+                <span className="text-xs">
+                  (of {formatUsd(orderPool / 100)})
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={fillMax}
+                disabled={submitting || orderRemaining === 0}
+              >
+                Refund all remaining
+              </Button>
+            </div>
+
+            <div className="space-y-2 rounded-md border">
+              {order.items.map((item) => {
+                const row = rows[item.id];
+                const remaining = itemRemainingRefundable(item);
+                const alreadyRefunded = item.refundedCents;
+                const disabled = remaining === 0;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-2 border-b p-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={!disabled && !!row?.selected}
+                        onCheckedChange={() => toggle(item.id)}
+                        disabled={disabled || submitting}
+                        aria-label={`Include ${item.title}`}
+                      />
+                      <div>
+                        <div className="text-sm font-medium">{item.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Paid {formatUsd(item.priceCents / 100)}
+                          {alreadyRefunded > 0 &&
+                            ` · Refunded ${formatUsd(alreadyRefunded / 100)}`}
+                          {disabled && " · fully refunded"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 sm:justify-end">
+                      <span className="text-xs text-muted-foreground">$</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        max={remaining / 100}
+                        step="0.01"
+                        value={row ? row.amountText : (remaining / 100).toFixed(2)}
+                        onChange={(e) =>
+                          setAmount(item.id, e.target.value, remaining)
+                        }
+                        disabled={disabled || !row?.selected || submitting}
+                        className="h-8 w-24 text-right"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        / {formatUsd(remaining / 100)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="rounded-md bg-muted/50 p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Total store credit</span>
+                <span className="text-lg font-bold">
+                  {formatUsd(totalCents / 100)}
+                </span>
+              </div>
+              {isFullRemainder ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fully-refunded courses will lose access.
+                </p>
+              ) : totalCents > 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Partial per-item refunds keep the student's course access.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="refund-comment" className="mb-2 block text-sm font-medium">
+                Reason (visible in credit history)
+              </label>
+              <Textarea
+                id="refund-comment"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Why is credit being issued?"
+                rows={3}
+                maxLength={500}
+                disabled={submitting}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Minimum 3 characters.</span>
+                <span>{comment.trim().length}/500</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!canSubmit}
+            onClick={() => {
+              if (!order) return;
+              const items = order.items
+                .map((item) => {
+                  const row = rows[item.id];
+                  if (!row?.selected || row.amountCents <= 0) return null;
+                  return { orderItemId: item.id, amountCents: row.amountCents };
+                })
+                .filter((x): x is { orderItemId: string; amountCents: number } => x !== null);
+              onSubmit(items, comment.trim());
+            }}
+          >
+            {submitting
+              ? "Issuing…"
+              : `Grant ${formatUsd(totalCents / 100)} credit`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

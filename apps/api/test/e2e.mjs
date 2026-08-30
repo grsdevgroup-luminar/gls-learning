@@ -551,11 +551,23 @@ async function adminModeration() {
 
   // Refund the order this run created — never a pre-existing one.
   if (state.orderId) {
-    let r = await req("POST", `/admin/orders/${state.orderId}/refund`, { token: t });
+    // Fetch the order's items so we can build a full-refund payload
+    // (per-item + amount, matching the new refund API contract).
+    let r = await req("GET", "/admin/orders", { token: t });
+    const orders = Array.isArray(r.json) ? r.json : r.json?.items;
+    const target = orders?.find((x) => x.id === state.orderId);
+    const items = (target?.items ?? []).map((i) => ({
+      orderItemId: i.id,
+      amountCents: i.priceCents - (i.refundedCents ?? 0),
+    }));
+    r = await req("POST", `/admin/orders/${state.orderId}/refund`, {
+      token: t,
+      body: { comment: "e2e refund", items },
+    });
     check("admin refunds e2e order", r.status === 200 || r.status === 201, `${r.status} ${msg(r)}`);
     r = await req("GET", "/admin/orders", { token: t });
-    const orders = Array.isArray(r.json) ? r.json : r.json?.items;
-    const o = orders?.find((x) => x.id === state.orderId);
+    const orders2 = Array.isArray(r.json) ? r.json : r.json?.items;
+    const o = orders2?.find((x) => x.id === state.orderId);
     check("refunded order status is REFUNDED", o ? o.status === "REFUNDED" : true, `status=${o?.status}`);
   }
 

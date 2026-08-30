@@ -291,10 +291,16 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
   deleteUser: (userId: string) =>
     apiFetch<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
-  refundOrder: (orderId: string, comment: string) =>
+  refundOrder: (
+    orderId: string,
+    body: {
+      comment: string;
+      items: { orderItemId: string; amountCents: number }[];
+    },
+  ) =>
     apiFetch<OrderDto>(`/admin/orders/${orderId}/refund`, {
       method: "POST",
-      body: { comment },
+      body,
     }),
   // coupons — the featured one drives the public storefront banner
   featuredCoupon: () => apiFetch<FeaturedCouponDto | null>("/coupons/featured"),

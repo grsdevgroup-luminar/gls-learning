@@ -27,10 +27,11 @@ import {
 } from "lucide-react";
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  PAID:     { label: "Paid",     className: "text-success" },
-  REFUNDED: { label: "Refunded", className: "text-destructive" },
-  FAILED:   { label: "Failed",   className: "text-destructive" },
-  PENDING:  { label: "Pending",  className: "text-muted-foreground" },
+  PAID:               { label: "Paid",               className: "text-success" },
+  PARTIALLY_REFUNDED: { label: "Partially refunded", className: "text-warning" },
+  REFUNDED:           { label: "Refunded",           className: "text-destructive" },
+  FAILED:             { label: "Failed",             className: "text-destructive" },
+  PENDING:            { label: "Pending",            className: "text-muted-foreground" },
 };
 
 const GATEWAY_LABEL: Record<string, string> = {
@@ -206,6 +207,29 @@ export default function BillingPage() {
                           <Badge variant="secondary" className={`ml-2 ${badge.className}`}>
                             {badge.label}
                           </Badge>
+                          {o.refundedCents > 0 && (
+                            <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+                              <div>
+                                Credited back {formatUsd(o.refundedCents / 100)}
+                              </div>
+                              {/* Per-course refund breakdown so student sees
+                                  exactly which item got credited and how much. */}
+                              {o.items
+                                .filter((i) => i.refundedCents > 0)
+                                .map((i) => {
+                                  const fully = i.refundedCents >= i.priceCents;
+                                  return (
+                                    <div key={i.id}>
+                                      {fully ? "Refunded" : "Partial refund"}:{" "}
+                                      <span className="text-foreground">
+                                        {i.title}
+                                      </span>{" "}
+                                      ({formatUsd(i.refundedCents / 100)})
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {GATEWAY_LABEL[o.gateway] ?? o.gateway}
@@ -217,7 +241,9 @@ export default function BillingPage() {
                             aria-label={`Download receipt for order ${o.id}`}
                             // Only settled orders have a receipt — the API says the same.
                             disabled={
-                              (o.status !== "PAID" && o.status !== "REFUNDED") ||
+                              (o.status !== "PAID" &&
+                                o.status !== "REFUNDED" &&
+                                o.status !== "PARTIALLY_REFUNDED") ||
                               downloading === o.id
                             }
                             onClick={() => downloadReceipt(o.id)}

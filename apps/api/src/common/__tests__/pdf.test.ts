@@ -107,4 +107,33 @@ describe("receiptPdf", () => {
     }).toString("latin1");
     expect(pdf).not.toContain("(Discount");
   });
+
+  it("renders per-item and order-level refund summary when refunded to credit", () => {
+    const pdf = receiptPdf({
+      ...order,
+      status: "PARTIALLY_REFUNDED",
+      refundedCents: 3_000,
+      items: [{ title: "Advanced TypeScript", priceCents: 10_000, refundedCents: 3_000 }],
+    }).toString("latin1");
+    expect(pdf).toContain("(  Partially refunded to store credit)");
+    expect(pdf).toContain("(-USD 30.00)");
+    expect(pdf).toContain("(Refunded to store credit)");
+    expect(pdf).toContain("(Net paid)");
+    expect(pdf).toContain("(USD 50.00)"); // net = 80 - 30
+  });
+
+  it("marks fully-refunded items as access-revoked", () => {
+    const pdf = receiptPdf({
+      ...order,
+      status: "REFUNDED",
+      refundedCents: 10_000,
+      totalCents: 10_000,
+      discountCents: 0,
+      couponCode: null,
+      subtotalCents: 10_000,
+      items: [{ title: "Advanced TypeScript", priceCents: 10_000, refundedCents: 10_000 }],
+    }).toString("latin1");
+    expect(pdf).toContain("(  Refunded to store credit \\(access revoked\\))");
+    expect(pdf).toContain("(USD 0.00)"); // net paid
+  });
 });

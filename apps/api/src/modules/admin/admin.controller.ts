@@ -95,7 +95,7 @@ export class AdminController {
     @ZodBody(refundOrderSchema) body: RefundOrderInput,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.admin.refundOrder(id, body.comment, user.id);
+    return this.admin.refundOrder(id, body, user.id);
   }
 
   // users
