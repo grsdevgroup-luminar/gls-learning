@@ -83,8 +83,8 @@ export default function InstructorOverview() {
             </span>
             <h1 className="font-heading text-2xl font-bold tracking-tight">Your application is under review</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Our team reviews new instructor applications within 1–2 business days. You can already set up
-              your profile — course creation unlocks the moment you&apos;re approved.
+              Our team reviews new instructor applications within 1–2 business days. Your profile and
+              course creation unlock the moment you&apos;re approved.
             </p>
             <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="size-3.5 text-success" /> Quality-reviewed marketplace

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, instructorApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useCategories } from "@/lib/api/hooks";
+import { ApprovalGate } from "../_components/approval-gate";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
@@ -56,86 +57,94 @@ export default function InstructorProfile() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
+  // ApprovalGate itself queries ["instructor", "profile"] (same key, shared
+  // cache) and shows the not-applied/pending/rejected notice for anyone who
+  // isn't APPROVED — so the skeleton and form below only ever render for an
+  // approved instructor, once `profile` is guaranteed non-null.
   if (isLoading || !profile) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
-        <PageHeaderSkeleton />
-        <div className="rounded-xl border p-6"><FormSkeleton /></div>
-      </div>
+      <ApprovalGate>
+        <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
+          <PageHeaderSkeleton />
+          <div className="rounded-xl border p-6"><FormSkeleton /></div>
+        </div>
+      </ApprovalGate>
     );
   }
   const status = profile.status;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">Instructor profile</h1>
-          <p className="text-sm text-muted-foreground">How learners see you across the marketplace.</p>
-        </div>
-        <Badge
-          variant="outline"
-          className={status === "APPROVED" ? "gap-1 text-success border-success/30 bg-success/10" : "gap-1 text-warning border-warning/30 bg-warning/10"}
-        >
-          {status === "APPROVED" ? <ShieldCheck className="size-3" /> : <Clock className="size-3" />}
-          {status === "APPROVED" ? "Approved instructor" : status === "PENDING" ? "Pending approval" : "Not approved"}
-        </Badge>
-      </header>
+    <ApprovalGate>
+      <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">Instructor profile</h1>
+            <p className="text-sm text-muted-foreground">How learners see you across the marketplace.</p>
+          </div>
+          <Badge
+            variant="outline"
+            className={status === "APPROVED" ? "gap-1 text-success border-success/30 bg-success/10" : "gap-1 text-warning border-warning/30 bg-warning/10"}
+          >
+            {status === "APPROVED" ? <ShieldCheck className="size-3" /> : <Clock className="size-3" />}
+            {status === "APPROVED" ? "Approved instructor" : status === "PENDING" ? "Pending approval" : "Not approved"}
+          </Badge>
+        </header>
 
-      <Reveal y={20}>
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
-              <AvatarFallback className="brand-gradient text-xl text-white">{initials(profile.name)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-heading text-lg font-semibold">{profile.name}</div>
-              <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
-            </div>
-          </CardContent>
-        </Card>
-      </Reveal>
+        <Reveal y={20}>
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
+                <AvatarFallback className="brand-gradient text-xl text-white">{initials(profile.name)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-heading text-lg font-semibold">{profile.name}</div>
+                <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
+              </div>
+            </CardContent>
+          </Card>
+        </Reveal>
 
-      <Reveal y={20} delay={0.08}>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <Stagger className="space-y-4" gap={0.05}>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Full name">
-                  <Input value={profile.name} readOnly className="opacity-70" />
+        <Reveal y={20} delay={0.08}>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <Stagger className="space-y-4" gap={0.05}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Full name">
+                    <Input value={profile.name} readOnly className="opacity-70" />
+                  </FormField>
+                  <FormField label="Email">
+                    <Input value={profile.email} readOnly className="opacity-70" />
+                  </FormField>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Headline">
+                    <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
+                  </FormField>
+                  <FormField label="Primary expertise">
+                    <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                </div>
+                <FormField label="Bio">
+                  <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell learners about your background and what you teach…" className="min-h-32" />
                 </FormField>
-                <FormField label="Email">
-                  <Input value={profile.email} readOnly className="opacity-70" />
-                </FormField>
+              </Stagger>
+              <div className="flex justify-end">
+                <Magnetic strength={0.15}>
+                  <Button className="sheen" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                    <Save /> {saveMutation.isPending ? "Saving…" : "Save profile"}
+                  </Button>
+                </Magnetic>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Headline">
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
-                </FormField>
-                <FormField label="Primary expertise">
-                  <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              </div>
-              <FormField label="Bio">
-                <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell learners about your background and what you teach…" className="min-h-32" />
-              </FormField>
-            </Stagger>
-            <div className="flex justify-end">
-              <Magnetic strength={0.15}>
-                <Button className="sheen" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                  <Save /> {saveMutation.isPending ? "Saving…" : "Save profile"}
-                </Button>
-              </Magnetic>
-            </div>
-          </CardContent>
-        </Card>
-      </Reveal>
-    </div>
+            </CardContent>
+          </Card>
+        </Reveal>
+      </div>
+    </ApprovalGate>
   );
 }
