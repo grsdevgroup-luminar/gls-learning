@@ -294,18 +294,8 @@ function OrderRow({
   return (
     <TableRow>
       <TableCell className="pl-6">
-        <div className="flex items-center gap-1.5">
-          <Tooltip>
-            <TooltipTrigger
-              render={<span />}
-              className="cursor-default font-mono text-xs"
-            >
-              {order.id.slice(0, 12)}…
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="font-mono text-xs">{order.id}</span>
-            </TooltipContent>
-          </Tooltip>
+        <div className="flex items-start gap-1.5">
+          <span className="font-mono text-xs break-all">{order.id}</span>
           <CopyOrderId id={order.id} />
         </div>
         <div className="text-xs text-muted-foreground">

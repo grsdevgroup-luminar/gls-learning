@@ -185,8 +185,8 @@ export default function BillingPage() {
                     const badge = STATUS_BADGE[o.status] ?? STATUS_BADGE.PENDING;
                     return (
                       <TableRow key={o.id}>
-                        <TableCell className="pl-6 font-mono text-xs">
-                          {o.id.slice(0, 8)}…
+                        <TableCell className="pl-6 font-mono text-xs break-all">
+                          {o.id}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(o.createdAt).toLocaleDateString("en-US", {
