@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import type { AuthUserDto } from "@skillstream/shared";
+import type { AuthUserDto, InstructorProfileDto } from "@skillstream/shared";
 import { serverApiOptional } from "@/lib/api/server";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { Logo } from "@/components/shared/logo";
@@ -46,9 +46,16 @@ export default async function InstructorLayout({ children }: { children: React.R
     );
   }
 
+  // Every nav destination gates identically until approved (ApprovalGate
+  // shows the same not-applied/pending/rejected notice everywhere), so a full
+  // sidebar just dresses up four dead links as a working app. Collapse it to
+  // an empty nav until approval — same chrome, no links that go nowhere.
+  const profile = await serverApiOptional<InstructorProfileDto>("/me/instructor");
+  const approved = profile?.status === "APPROVED";
+
   return (
     <PortalShell
-      items={items}
+      items={approved ? items : []}
       badge="Instructor"
       user={{
         name: user.name,
@@ -61,4 +68,3 @@ export default async function InstructorLayout({ children }: { children: React.R
     </PortalShell>
   );
 }
-
