@@ -36,6 +36,33 @@ function refreshSession(): Promise<boolean> {
 }
 
 /**
+ * When both access and refresh tokens are dead, every subsequent request 401s
+ * with no way to recover in-page. The middleware only checks that the
+ * refresh_token cookie *exists*, not that it's valid, so an expired-but-present
+ * cookie sails past the proxy and lands here. Bounce the browser to /login with
+ * a `next` param so they land back where they were after signing in. Skipped
+ * for the auth endpoints themselves (would loop) and when already on /login.
+ */
+let redirectingToLogin = false;
+function redirectToLogin(): void {
+  if (typeof window === "undefined" || redirectingToLogin) return;
+  const { pathname, search } = window.location;
+  if (pathname === "/login" || pathname.startsWith("/login/")) return;
+  redirectingToLogin = true;
+  const next = encodeURIComponent(`${pathname}${search}`);
+  window.location.assign(`/login?next=${next}`);
+}
+
+function isAuthPath(path: string): boolean {
+  return (
+    path.startsWith("/auth/refresh") ||
+    path.startsWith("/auth/login") ||
+    path.startsWith("/auth/logout") ||
+    path.startsWith("/auth/me")
+  );
+}
+
+/**
  * Core fetch wrapper used by both the browser and server clients. Always sends
  * credentials so the httpOnly auth cookies travel with the request. Parses
  * problem-detail errors into ApiError. On a browser 401 it transparently
@@ -64,10 +91,14 @@ export async function apiFetch<T>(
     res.status === 401 &&
     typeof window !== "undefined" &&
     !cookieHeader &&
-    !path.startsWith("/auth/refresh") &&
-    (await refreshSession())
+    !path.startsWith("/auth/refresh")
   ) {
-    res = await send();
+    if (await refreshSession()) {
+      res = await send();
+    }
+    if (res.status === 401 && !isAuthPath(path)) {
+      redirectToLogin();
+    }
   }
 
   if (res.status === 204) return undefined as T;
@@ -119,10 +150,14 @@ export async function apiFetchMultipart<T>(
   if (
     res.status === 401 &&
     typeof window !== "undefined" &&
-    !path.startsWith("/auth/refresh") &&
-    (await refreshSession())
+    !path.startsWith("/auth/refresh")
   ) {
-    res = await send();
+    if (await refreshSession()) {
+      res = await send();
+    }
+    if (res.status === 401 && !isAuthPath(path)) {
+      redirectToLogin();
+    }
   }
 
   if (res.status === 204) return undefined as T;
@@ -152,7 +187,16 @@ export async function apiFetchMultipart<T>(
  * error page in a new tab.
  */
 export async function downloadFile(path: string, filename: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  let res = await send();
+  if (res.status === 401 && typeof window !== "undefined") {
+    if (await refreshSession()) {
+      res = await send();
+    }
+    if (res.status === 401) {
+      redirectToLogin();
+    }
+  }
   if (!res.ok) {
     const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
     throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
