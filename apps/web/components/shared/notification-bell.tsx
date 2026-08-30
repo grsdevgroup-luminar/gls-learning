@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { ArrowRight, Bell, BellOff, CheckCheck } from "lucide-react";
 import type { NotificationDto } from "@skillstream/shared";
 import {
   useMarkAllNotificationsRead,
@@ -18,10 +18,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
+const PANEL_CLASS =
+  "flex w-80 flex-col overflow-hidden rounded-xl border border-border/70 bg-popover p-0 shadow-2xl shadow-black/10 ring-1 ring-black/[0.04] sm:w-96 dark:shadow-black/50 dark:ring-white/5";
 
 /** Which portal's "view all" page to link to — derived from the URL rather
  *  than a prop, since PortalShell is one shared component across all five
@@ -47,11 +49,87 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+function BellTrigger({ count, size }: { count: number; size: "icon" | "icon-sm" }) {
+  return (
+    <DropdownMenuTrigger
+      render={<Button variant="ghost" size={size} className="relative shrink-0" />}
+    >
+      <Bell className="size-4.5" />
+      {count > 0 && (
+        <Badge className="absolute -right-1 -top-1 h-4.5 min-w-4.5 justify-center rounded-full px-1 text-[10px] shadow-sm ring-2 ring-background">
+          {count > 9 ? "9+" : count}
+        </Badge>
+      )}
+    </DropdownMenuTrigger>
+  );
+}
+
+function PanelHeader({
+  unreadCount,
+  onMarkAllRead,
+}: {
+  unreadCount: number;
+  onMarkAllRead: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-muted/40 px-3.5 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-foreground">Notifications</span>
+        {unreadCount > 0 && (
+          <Badge variant="secondary" className="h-4.5 rounded-full px-1.5 text-[10px] font-semibold">
+            {unreadCount} new
+          </Badge>
+        )}
+      </div>
+      {unreadCount > 0 && (
+        <button
+          type="button"
+          onClick={onMarkAllRead}
+          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <CheckCheck className="size-3.5" /> Mark all read
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PanelSkeleton() {
+  return (
+    <div className="space-y-3 px-3.5 py-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-2.5">
+          <div className="mt-1 size-1.5 shrink-0 rounded-full bg-muted" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="h-2.5 w-full animate-pulse rounded bg-muted/70" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PanelEmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+      <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+        <BellOff className="size-4.5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-foreground">You&apos;re all caught up</p>
+      <p className="text-xs text-muted-foreground">No new notifications right now.</p>
+    </div>
+  );
+}
+
 function NotificationRow({ n }: { n: NotificationDto }) {
   const unread = !n.readAt;
 
   const content = (
-    <div className="flex w-full items-start gap-2.5 whitespace-normal">
+    <div className="relative flex w-full items-start gap-2.5 whitespace-normal">
+      {unread && (
+        <span className="absolute inset-y-0.5 -left-1.5 w-1 rounded-full bg-primary" />
+      )}
       <span
         className={cn(
           "mt-1.5 size-1.5 shrink-0 rounded-full",
@@ -60,23 +138,47 @@ function NotificationRow({ n }: { n: NotificationDto }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium">{n.title}</span>
-          <span className="shrink-0 text-[11px] text-muted-foreground">
+          <span
+            className={cn(
+              "truncate text-sm",
+              unread ? "font-semibold text-foreground" : "font-medium text-foreground/80",
+            )}
+          >
+            {n.title}
+          </span>
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
             {timeAgo(n.createdAt)}
           </span>
         </div>
-        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          {n.body}
+        </p>
       </div>
     </div>
   );
 
   return (
     <DropdownMenuItem
-      className="items-start py-2"
+      className={cn(
+        "items-start rounded-lg py-2.5 pl-3 focus:bg-accent/70",
+        unread && "bg-accent/40",
+      )}
       render={n.href ? <Link href={n.href} /> : <button type="button" />}
     >
       {content}
     </DropdownMenuItem>
+  );
+}
+
+function PanelFooter({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      className="group/view-all flex shrink-0 items-center justify-center gap-1.5 border-t border-border/70 bg-muted/40 px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      View all notifications
+      <ArrowRight className="size-3.5 transition-transform group-hover/view-all:translate-x-0.5" />
+    </Link>
   );
 }
 
@@ -104,52 +206,28 @@ export function NotificationBell({ size = "icon" }: { size?: "icon" | "icon-sm" 
 
   return (
     <DropdownMenu onOpenChange={markVisibleAsRead}>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size={size} className="relative shrink-0" />
-        }
-      >
-        <Bell className="size-4.5" />
-        {count > 0 && (
-          <Badge className="absolute -right-1 -top-1 h-4.5 min-w-4.5 justify-center px-1 text-[10px]">
-            {count > 9 ? "9+" : count}
-          </Badge>
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between px-2.5 py-2">
-          <span className="text-sm font-semibold">Notifications</span>
-          {count > 0 && (
-            <button
-              type="button"
-              onClick={() => markAllRead.mutate()}
-              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <CheckCheck className="size-3.5" /> Mark all read
-            </button>
-          )}
-        </div>
-        <DropdownMenuSeparator className="mx-0" />
-        <ScrollArea className="max-h-96">
+      <BellTrigger count={count} size={size} />
+      <DropdownMenuContent align="end" className={PANEL_CLASS}>
+        <PanelHeader unreadCount={count} onMarkAllRead={() => markAllRead.mutate()} />
+        {/* Capped so the panel stays compact — roughly four rows before it
+            scrolls — rather than stretching to fit every one of the (up to 8)
+            loaded items. min-h-0 keeps it shrinkable within the flex column;
+            ScrollArea's own flex-based viewport is what makes max-h reliable
+            here instead of spilling past it. */}
+        <ScrollArea className="max-h-76 min-h-0 flex-1">
           {isLoading ? (
-            <div className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-              Loading…
-            </div>
+            <PanelSkeleton />
           ) : !page || page.items.length === 0 ? (
-            <div className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-              You&apos;re all caught up.
-            </div>
+            <PanelEmptyState />
           ) : (
-            page.items.map((n) => <NotificationRow key={n.id} n={n} />)
+            <div className="space-y-0.5 p-1.5">
+              {page.items.map((n) => (
+                <NotificationRow key={n.id} n={n} />
+              ))}
+            </div>
           )}
         </ScrollArea>
-        <DropdownMenuSeparator className="mx-0" />
-        <DropdownMenuItem
-          render={<Link href={notificationsHref(pathname)} />}
-          className="justify-center text-sm text-muted-foreground"
-        >
-          View all
-        </DropdownMenuItem>
+        <PanelFooter href={notificationsHref(pathname)} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
