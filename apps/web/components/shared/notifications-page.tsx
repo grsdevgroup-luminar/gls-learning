@@ -39,11 +39,11 @@ function Row({ n }: { n: NotificationDto }) {
         )}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <span className={cn("text-sm", unread ? "font-semibold" : "font-medium")}>
+        <div className="flex items-center justify-between gap-3">
+          <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
             {n.title}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="shrink-0 text-xs text-muted-foreground">
             {formatTimestamp(n.createdAt)}
           </span>
         </div>
