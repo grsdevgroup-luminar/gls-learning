@@ -6,6 +6,11 @@ export const applyInstructorSchema = z.object({
   headline: z.string().min(1).max(160),
   bio: z.string().min(1).max(4000),
   sampleUrl: z.string().url().optional(),
+  linkedinUrl: z.string().url().optional(),
+  twitterUrl: z.string().url().optional(),
+  youtubeUrl: z.string().url().optional(),
+  facebookUrl: z.string().url().optional(),
+  otherUrl: z.string().url().optional(),
 });
 export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;
 
@@ -66,6 +71,11 @@ export interface InstructorApplicationDto {
   headline: string;
   bio: string;
   sampleUrl: string | null;
+  linkedinUrl: string | null;
+  twitterUrl: string | null;
+  youtubeUrl: string | null;
+  facebookUrl: string | null;
+  otherUrl: string | null;
   status: InstructorStatus;
   appliedAt: string;
   reviewedAt: string | null;

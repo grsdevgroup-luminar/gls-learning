@@ -58,6 +58,11 @@ export class InstructorService {
       headline: a.headline,
       bio: a.bio,
       sampleUrl: a.sampleUrl,
+      linkedinUrl: a.linkedinUrl,
+      twitterUrl: a.twitterUrl,
+      youtubeUrl: a.youtubeUrl,
+      facebookUrl: a.facebookUrl,
+      otherUrl: a.otherUrl,
       status: a.status,
       appliedAt: a.appliedAt.toISOString(),
       reviewedAt: a.reviewedAt?.toISOString() ?? null,
@@ -81,6 +86,11 @@ export class InstructorService {
       headline: input.headline,
       bio: input.bio,
       sampleUrl: input.sampleUrl,
+      linkedinUrl: input.linkedinUrl,
+      twitterUrl: input.twitterUrl,
+      youtubeUrl: input.youtubeUrl,
+      facebookUrl: input.facebookUrl,
+      otherUrl: input.otherUrl,
       status: "PENDING",
     });
     return this.toAppDto(app);

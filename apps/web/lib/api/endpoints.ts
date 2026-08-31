@@ -20,6 +20,7 @@ import type {
   UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
+  ApplyInstructorInput,
   EnrollmentDto,
   InstructorApplicationDto,
   InstructorProfileDto,
@@ -373,12 +374,7 @@ export const api = {
     apiFetch<PayoutDto>(`/admin/payouts/${id}/reject`, { method: "POST", body: { note } }),
 
   // instructor
-  applyInstructor: (body: {
-    expertise: string;
-    headline: string;
-    bio: string;
-    sampleUrl?: string;
-  }) =>
+  applyInstructor: (body: ApplyInstructorInput) =>
     apiFetch<InstructorApplicationDto>("/instructors/apply", {
       method: "POST",
       body,

@@ -104,6 +104,17 @@ export default function AdminInstructors() {
                             <ExternalLink className="size-3" /> Sample
                           </a>
                         )}
+                        {[
+                          { url: a.linkedinUrl, label: "LinkedIn" },
+                          { url: a.twitterUrl, label: "Twitter/X" },
+                          { url: a.youtubeUrl, label: "YouTube" },
+                          { url: a.facebookUrl, label: "Facebook" },
+                          { url: a.otherUrl, label: "Other link" },
+                        ].filter((l) => l.url).map((l) => (
+                          <a key={l.label} href={l.url!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                            <ExternalLink className="size-3" /> {l.label}
+                          </a>
+                        ))}
                       </div>
                     </div>
                   </div>
