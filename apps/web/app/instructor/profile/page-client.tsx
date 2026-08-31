@@ -107,7 +107,7 @@ export default function InstructorProfile() {
 
         <Reveal y={20}>
           <Card>
-            <CardContent className="flex items-center gap-4 pt-6">
+            <CardContent className="space-y-6 pt-6">
               <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
                 <AvatarFallback className="brand-gradient text-xl text-white">{initials(profile.name)}</AvatarFallback>
               </Avatar>
@@ -115,7 +115,8 @@ export default function InstructorProfile() {
                 <div className="font-heading text-lg font-semibold">{profile.name}</div>
                 <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <Stagger className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2">
                 <FormField label="Headline">
                   <Input
                     value={title}
@@ -136,13 +137,6 @@ export default function InstructorProfile() {
                     </SelectContent>
                   </Select>
                 </FormField>
-              </Stagger>
-              <div className="flex justify-end">
-                <Magnetic strength={0.15}>
-                  <Button className="sheen" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                    <Save /> {saveMutation.isPending ? "Saving…" : "Save profile"}
-                  </Button>
-                </Magnetic>
               </div>
               <FormField label="Bio">
                 <Textarea
@@ -156,17 +150,18 @@ export default function InstructorProfile() {
                   {bio.length.toLocaleString()} / {BIO_MAX_LENGTH.toLocaleString()} characters
                 </div>
               </FormField>
-            </Stagger>
-            <div className="flex justify-end">
+                <div className="flex justify-end">
               <Magnetic strength={0.15}>
                 <Button className="sheen" onClick={() => saveMutation.mutate({ title: title.trim(), bio, expertise: expertiseValue })} disabled={saveMutation.isPending}>
                   <Save /> {saveMutation.isPending ? "Saving…" : "Save profile"}
                 </Button>
               </Magnetic>
-            </div>
-          </CardContent>
+                </div>
+              </Stagger>
+            </CardContent>
         </Card>
       </Reveal>
     </div>
+    </ApprovalGate>
   );
 }
