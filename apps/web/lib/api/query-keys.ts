@@ -2,10 +2,10 @@
 // so Server Components can import and call them directly when prefetching,
 // and have the resulting key match what a client useQuery call builds with
 // the same params.
-export type QueryParams = Record<string, string | number | undefined>;
+export type QueryParams = Record<string, string | string[] | number | undefined>;
 
 export function cleanParams(params: QueryParams = {}) {
-  const cleaned: Record<string, string | number> = {};
+  const cleaned: Record<string, string | string[] | number> = {};
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") cleaned[key] = value;
   }

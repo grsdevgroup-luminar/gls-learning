@@ -34,12 +34,19 @@ export class CoursesRepository {
     });
   }
 
-  findRecommendedForStudent(userId: string, categories: string[], take: number) {
+  findRecommendedForStudent(userId: string, categories: string[], keywords: string[], take: number) {
+    const normalizedKeywords = keywords.map((keyword) => keyword.trim()).filter(Boolean);
+    const keywordMatches = normalizedKeywords.flatMap((keyword) => [
+      { title: { contains: keyword, mode: "insensitive" as const } },
+      { subtitle: { contains: keyword, mode: "insensitive" as const } },
+      { description: { contains: keyword, mode: "insensitive" as const } },
+    ]);
     return this.prisma.course.findMany({
       where: {
         status: "PUBLISHED",
         visibility: "PUBLIC",
         category: { in: categories },
+        ...(keywordMatches.length > 0 ? { OR: keywordMatches } : {}),
         enrollments: { none: { userId } },
       },
       include: COURSE_SUMMARY_INCLUDE,

@@ -10,8 +10,15 @@ export const applyInstructorSchema = z.object({
 export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;
 
 export const updateInstructorProfileSchema = z.object({
-  title: z.string().max(160).optional(),
-  bio: z.string().max(4000).optional(),
+  title: z
+    .string()
+    .min(1, "Headline is required")
+    .max(160, "Headline must be 160 characters or fewer")
+    .optional(),
+  bio: z
+    .string()
+    .max(4000, "Bio must be 4,000 characters or fewer")
+    .optional(),
   expertise: z.string().max(80).optional(),
   avatar: z.string().optional(),
 });

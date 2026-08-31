@@ -9,8 +9,8 @@ import { CatalogClient } from "./_components/catalog-client";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
+function values(v: string | string[] | undefined) {
+  return v === undefined ? [] : Array.isArray(v) ? v : [v];
 }
 
 export default async function CoursesPage({
@@ -24,8 +24,8 @@ export default async function CoursesPage({
   // the client's first render share the same query key and cache-hit instead
   // of the client re-fetching cold after hydration.
   const defaultParams = {
-    q: first(sp.q) || undefined,
-    category: first(sp.category) ?? undefined,
+    q: values(sp.q)[0] || undefined,
+    category: values(sp.category),
     level: undefined,
     sort: "popular" as const,
     page: 1,
