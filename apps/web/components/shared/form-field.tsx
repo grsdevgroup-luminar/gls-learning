@@ -14,12 +14,14 @@ export function FormField({
   label,
   htmlFor,
   hint,
+  error,
   className,
   children,
 }: {
   label: ReactNode;
   htmlFor?: string;
   hint?: ReactNode;
+  error?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
@@ -30,6 +32,7 @@ export function FormField({
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
       {children}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </StaggerItem>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { instructorApi, type CourseSummaryDto } from "@/lib/api/endpoints";
+import { ApprovalGate } from "../_components/approval-gate";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
@@ -20,62 +21,64 @@ export default function InstructorCourses() {
   const count = courses?.length ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">My Courses</h1>
-          {isLoading ? (
-            <div className="mt-1 h-4 w-24 animate-pulse rounded bg-muted" />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {count} {count === 1 ? "course" : "courses"}
-            </p>
-          )}
-        </div>
-        <Button render={<Link href="/instructor/courses/new" />}><Plus /> Create course</Button>
-      </header>
+    <ApprovalGate>
+      <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">My Courses</h1>
+            {isLoading ? (
+              <div className="mt-1 h-4 w-24 animate-pulse rounded bg-muted" />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {count} {count === 1 ? "course" : "courses"}
+              </p>
+            )}
+          </div>
+          <Button render={<Link href="/instructor/courses/new" />}><Plus /> Create course</Button>
+        </header>
 
-      {error && (
-        <p className="text-sm text-destructive">Failed to load courses.</p>
-      )}
+        {error && (
+          <p className="text-sm text-destructive">Failed to load courses.</p>
+        )}
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i} variant="interactive" className="flex-row items-center gap-4 p-4">
-              <div className="h-16 w-28 animate-pulse rounded-lg bg-muted" />
-              <div className="flex-1 space-y-2">
-                <div className="h-5 w-48 animate-pulse rounded bg-muted" />
-                <div className="h-3 w-32 animate-pulse rounded bg-muted" />
-                <div className="h-3 w-40 animate-pulse rounded bg-muted" />
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : count === 0 ? (
-        <Card variant="elevated" className="items-center py-14 text-center">
-          <CardContent className="flex flex-col items-center gap-3">
-            <span
-              className="icon-tile grid size-12 place-items-center"
-              style={{ ["--tile" as string]: "var(--tint-violet)" } as React.CSSProperties}
-            >
-              <Sparkles className="size-6" />
-            </span>
-            <p className="font-heading font-semibold">No courses yet</p>
-            <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-              Create your first course and submit it for review to start teaching.
-            </p>
-            <Button render={<Link href="/instructor/courses/new" />}><Plus /> Create course</Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {(courses ?? []).map((c) => (
-            <CourseCard key={c.id} course={c} />
-          ))}
-        </div>
-      )}
-    </div>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} variant="interactive" className="flex-row items-center gap-4 p-4">
+                <div className="h-16 w-28 animate-pulse rounded-lg bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-40 animate-pulse rounded bg-muted" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : count === 0 ? (
+          <Card variant="elevated" className="items-center py-14 text-center">
+            <CardContent className="flex flex-col items-center gap-3">
+              <span
+                className="icon-tile grid size-12 place-items-center"
+                style={{ ["--tile" as string]: "var(--tint-violet)" } as React.CSSProperties}
+              >
+                <Sparkles className="size-6" />
+              </span>
+              <p className="font-heading font-semibold">No courses yet</p>
+              <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+                Create your first course and submit it for review to start teaching.
+              </p>
+              <Button render={<Link href="/instructor/courses/new" />}><Plus /> Create course</Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {(courses ?? []).map((c) => (
+              <CourseCard key={c.id} course={c} />
+            ))}
+          </div>
+        )}
+      </div>
+    </ApprovalGate>
   );
 }
 

@@ -2,12 +2,15 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import type { SalesAgentDto } from "@skillstream/shared";
+import { isValidPhone } from "@skillstream/shared";
 import { useMySalesAgent, useMyAgentReferrals, referralLinkFor } from "@/lib/api/agent-hooks";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
+import { CountrySelect } from "@/components/shared/country-select";
+import { PhoneInput } from "@/components/shared/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +75,7 @@ function AgentApplyForm() {
   const qc = useQueryClient();
   const { user } = useSession();
   const [region, setRegion] = useState("");
+  const [country, setCountry] = useState("");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -81,6 +85,14 @@ function AgentApplyForm() {
     if (!user) return;
     if (!region.trim() || bio.trim().length < 20) {
       toast.error("Please add your region and a short pitch (at least 20 characters).");
+      return;
+    }
+    if (phone.trim() && !country) {
+      toast.error("Please select your country so we can validate your phone number.");
+      return;
+    }
+    if (phone.trim() && !isValidPhone(phone.trim())) {
+      toast.error("Please enter a valid phone number for the selected country.");
       return;
     }
     setSubmitting(true);
@@ -118,9 +130,13 @@ function AgentApplyForm() {
                 <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g. South Asia" />
               </div>
               <div className="space-y-1.5">
-                <Label>Phone (optional)</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+880…" />
+                <Label>Country (optional)</Label>
+                <CountrySelect value={country} onChange={setCountry} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone (optional)</Label>
+              <PhoneInput country={country} value={phone} onChange={setPhone} />
             </div>
             <div className="space-y-1.5">
               <Label>Why you?</Label>

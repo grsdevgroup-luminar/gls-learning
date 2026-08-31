@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { SalesAgentStatus } from "../enums";
+import { isValidPhone } from "../phone.js";
 
 export const ApplySalesAgentSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .refine(isValidPhone, "Please enter a valid phone number for the selected country")
+    .optional(),
   region: z.string().min(2).max(100),
   bio: z.string().min(20).max(1000),
 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   isLessonSequentiallyAccessible,
@@ -54,6 +54,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   const { isLessonDone, toggleLesson, completedCount, mounted, isEnrolled } = useStore();
   const { user } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Return to whichever page opened the player (progress, dashboard, course
   // detail, etc). Falls back to /dashboard when there is no in-app history,
@@ -73,7 +74,10 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
     ) ?? [];
   }, [course]);
 
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  // Seeded from the URL so a reload (or a shared link) reopens the exact
+  // lesson that was on screen, not wherever `resumeLesson` below lands —
+  // that fallback is only for a fresh visit with no lesson selected yet.
+  const [currentId, setCurrentId] = useState<string | null>(() => searchParams.get("lesson"));
   const enrolled = mounted && isEnrolled(course.id);
   const completedIds = mounted
     ? new Set(flat.filter((lesson) => isLessonDone(course.id, lesson.id)).map((lesson) => lesson.id))
@@ -97,6 +101,21 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   const selected = (flat.find((l) => l.id === currentId) ?? resumeLesson ?? firstAccessible)!;
   const current = (canAccess(selected) ? selected : firstAccessible ?? selected)!;
   const currentAccessible = canAccess(current);
+
+  // Mirror whichever lesson actually ends up on screen into the URL —
+  // covers explicit navigation (sidebar, Previous/Next) as well as the
+  // resume/first-accessible fallbacks above — so a reload re-seeds `currentId`
+  // (via the initial state read) to the same lesson instead of recomputing a
+  // fresh fallback. `replaceState` avoids polluting browser history with a
+  // back-button entry per lesson.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (searchParams.get("lesson") === current.id) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("lesson", current.id);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current.id]);
 
   // Server-side quiz result for the current lesson (grading lives in the API).
   const { data: quizResult } = useQuery({

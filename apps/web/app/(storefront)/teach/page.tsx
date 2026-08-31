@@ -22,6 +22,33 @@ import {
   DollarSign, Globe2, BarChart3, ShieldCheck, ArrowRight, GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { applyInstructorSchema } from "@skillstream/shared";
+
+type FieldErrors = Partial<Record<keyof ReturnType<typeof buildPayload>, string>>;
+
+function buildPayload(fields: {
+  expertise: string;
+  headline: string;
+  bio: string;
+  sampleUrl: string;
+  linkedinUrl: string;
+  twitterUrl: string;
+  youtubeUrl: string;
+  facebookUrl: string;
+  otherUrl: string;
+}) {
+  return {
+    expertise: fields.expertise.trim(),
+    headline: fields.headline.trim(),
+    bio: fields.bio.trim(),
+    sampleUrl: fields.sampleUrl.trim() || undefined,
+    linkedinUrl: fields.linkedinUrl.trim() || undefined,
+    twitterUrl: fields.twitterUrl.trim() || undefined,
+    youtubeUrl: fields.youtubeUrl.trim() || undefined,
+    facebookUrl: fields.facebookUrl.trim() || undefined,
+    otherUrl: fields.otherUrl.trim() || undefined,
+  };
+}
 
 const benefits = [
   { icon: DollarSign, title: "Earn on your terms", desc: "Keep a generous revenue share with monthly payouts and transparent analytics.", tint: "var(--tint-emerald)" },
@@ -43,10 +70,25 @@ export default function TeachPage() {
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [sampleUrl, setSampleUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [otherUrl, setOtherUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const expertiseValue = expertise || categories[0] || "";
 
   const alreadyInstructor = mounted && role === "instructor";
+
+  function clearError(field: keyof FieldErrors) {
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,18 +97,33 @@ export default function TeachPage() {
       router.push("/login?next=/teach");
       return;
     }
-    if (!headline.trim() || !bio.trim()) {
-      toast.error("Please fill in your headline and a short bio.");
+
+    const payload = buildPayload({
+      expertise: expertiseValue,
+      headline,
+      bio,
+      sampleUrl,
+      linkedinUrl,
+      twitterUrl,
+      youtubeUrl,
+      facebookUrl,
+      otherUrl,
+    });
+    const result = applyInstructorSchema.safeParse(payload);
+    if (!result.success) {
+      const errors: FieldErrors = {};
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as keyof FieldErrors;
+        if (key && !errors[key]) errors[key] = issue.message;
+      }
+      setFieldErrors(errors);
       return;
     }
+    setFieldErrors({});
+
     setSubmitting(true);
     try {
-      await api.applyInstructor({
-        expertise: expertiseValue,
-        headline: headline.trim(),
-        bio: bio.trim(),
-        sampleUrl: sampleUrl.trim() || undefined,
-      });
+      await api.applyInstructor(result.data);
       toast.success("Application submitted! 🎉", { description: "We'll review it within 1–2 business days." });
       router.push("/instructor");
     } catch (err) {
@@ -134,7 +191,7 @@ export default function TeachPage() {
                   <p className="text-sm text-muted-foreground">Tell us about yourself. Approved instructors can publish courses immediately.</p>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={submit} className="space-y-4">
+                  <form onSubmit={submit} noValidate className="space-y-6">
                     <Stagger className="space-y-4" gap={0.05}>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <FormField label="Full name">
@@ -156,8 +213,13 @@ export default function TeachPage() {
                         </FormField>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField label="Professional headline">
-                          <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Senior Data Scientist" />
+                        <FormField label="Professional headline" error={fieldErrors.headline}>
+                          <Input
+                            value={headline}
+                            onChange={(e) => { setHeadline(e.target.value); clearError("headline"); }}
+                            placeholder="e.g. Senior Data Scientist"
+                            aria-invalid={!!fieldErrors.headline}
+                          />
                         </FormField>
                         <FormField label="Primary expertise">
                           <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
@@ -168,13 +230,78 @@ export default function TeachPage() {
                           </Select>
                         </FormField>
                       </div>
-                      <FormField label="Teaching sample or portfolio (optional)">
-                        <Input value={sampleUrl} onChange={(e) => setSampleUrl(e.target.value)} placeholder="https://…" />
+                      <FormField label="Teaching sample or portfolio (optional)" error={fieldErrors.sampleUrl}>
+                        <Input
+                          value={sampleUrl}
+                          onChange={(e) => { setSampleUrl(e.target.value); clearError("sampleUrl"); }}
+                          placeholder="https://…"
+                          aria-invalid={!!fieldErrors.sampleUrl}
+                        />
                       </FormField>
-                      <FormField label="Tell us about yourself">
-                        <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Your background, experience, and what you'd love to teach…" className="min-h-32" />
+                      <FormField label="Tell us about yourself" error={fieldErrors.bio}>
+                        <Textarea
+                          value={bio}
+                          onChange={(e) => { setBio(e.target.value); clearError("bio"); }}
+                          placeholder="Your background, experience, and what you'd love to teach…"
+                          className="min-h-32"
+                          aria-invalid={!!fieldErrors.bio}
+                        />
                       </FormField>
                     </Stagger>
+
+                    <div className="space-y-4 border-t border-border pt-6">
+                      <div>
+                        <h3 className="text-sm font-semibold">Social &amp; portfolio links</h3>
+                        <p className="text-xs text-muted-foreground">Optional — help learners and reviewers find you elsewhere.</p>
+                      </div>
+                      <Stagger className="space-y-4" gap={0.05}>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <FormField label="LinkedIn" error={fieldErrors.linkedinUrl}>
+                            <Input
+                              value={linkedinUrl}
+                              onChange={(e) => { setLinkedinUrl(e.target.value); clearError("linkedinUrl"); }}
+                              placeholder="https://linkedin.com/in/username"
+                              aria-invalid={!!fieldErrors.linkedinUrl}
+                            />
+                          </FormField>
+                          <FormField label="Twitter / X" error={fieldErrors.twitterUrl}>
+                            <Input
+                              value={twitterUrl}
+                              onChange={(e) => { setTwitterUrl(e.target.value); clearError("twitterUrl"); }}
+                              placeholder="https://x.com/username"
+                              aria-invalid={!!fieldErrors.twitterUrl}
+                            />
+                          </FormField>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <FormField label="YouTube" error={fieldErrors.youtubeUrl}>
+                            <Input
+                              value={youtubeUrl}
+                              onChange={(e) => { setYoutubeUrl(e.target.value); clearError("youtubeUrl"); }}
+                              placeholder="https://youtube.com/@username"
+                              aria-invalid={!!fieldErrors.youtubeUrl}
+                            />
+                          </FormField>
+                          <FormField label="Facebook" error={fieldErrors.facebookUrl}>
+                            <Input
+                              value={facebookUrl}
+                              onChange={(e) => { setFacebookUrl(e.target.value); clearError("facebookUrl"); }}
+                              placeholder="https://facebook.com/username"
+                              aria-invalid={!!fieldErrors.facebookUrl}
+                            />
+                          </FormField>
+                        </div>
+                        <FormField label="Another link of your choice" hint="optional" error={fieldErrors.otherUrl}>
+                          <Input
+                            value={otherUrl}
+                            onChange={(e) => { setOtherUrl(e.target.value); clearError("otherUrl"); }}
+                            placeholder="https://yourwebsite.com"
+                            aria-invalid={!!fieldErrors.otherUrl}
+                          />
+                        </FormField>
+                      </Stagger>
+                    </div>
+
                     <Magnetic strength={0.15} className="flex w-full">
                       <Button type="submit" size="lg" className="sheen w-full" disabled={submitting}>
                         {submitting ? "Submitting…" : <>Submit application <ArrowRight /></>}

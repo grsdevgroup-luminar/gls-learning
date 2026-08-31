@@ -58,6 +58,11 @@ export class InstructorService {
       headline: a.headline,
       bio: a.bio,
       sampleUrl: a.sampleUrl,
+      linkedinUrl: a.linkedinUrl,
+      twitterUrl: a.twitterUrl,
+      youtubeUrl: a.youtubeUrl,
+      facebookUrl: a.facebookUrl,
+      otherUrl: a.otherUrl,
       status: a.status,
       appliedAt: a.appliedAt.toISOString(),
       reviewedAt: a.reviewedAt?.toISOString() ?? null,
@@ -81,6 +86,11 @@ export class InstructorService {
       headline: input.headline,
       bio: input.bio,
       sampleUrl: input.sampleUrl,
+      linkedinUrl: input.linkedinUrl,
+      twitterUrl: input.twitterUrl,
+      youtubeUrl: input.youtubeUrl,
+      facebookUrl: input.facebookUrl,
+      otherUrl: input.otherUrl,
       status: "PENDING",
     });
     return this.toAppDto(app);
@@ -218,7 +228,7 @@ export class InstructorService {
     return this.toAppDto(updated);
   }
 
-  async reject(appId: string, note?: string): Promise<InstructorApplicationDto> {
+  async reject(appId: string, note: string): Promise<InstructorApplicationDto> {
     const app = await this.repo.updateApplication(appId, {
       status: "REJECTED",
       reviewedAt: new Date(),
@@ -231,7 +241,11 @@ export class InstructorService {
           userId: app.userId,
           event: "INSTRUCTOR_APPLICATION_REJECTED",
           title: "Instructor application update",
-          body: note ?? "Your instructor application was not approved this time.",
+          body: note,
+          // Same destination as the approval notification (/instructor) — it
+          // shows the rejection reason and a "Re-apply" action, so this stays
+          // a real link instead of a dead-end informational notification.
+          href: "/instructor",
         })
         .catch(() => undefined);
     }

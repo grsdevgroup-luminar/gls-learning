@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { instructorApi, type CourseSummaryDto } from "@/lib/api/endpoints";
+import { ApprovalGate } from "./_components/approval-gate";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { CourseArt } from "@/components/shared/course-art";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
@@ -142,13 +143,11 @@ export default function InstructorOverview() {
   const firstName = profile?.name?.split(" ")[0] ?? "Instructor";
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-5xl flex-col overflow-hidden px-6 md:h-screen md:px-10">
-      <div className="sticky top-0 z-10 shrink-0 space-y-6 bg-background pb-6 pt-6 md:pt-10">
+    <ApprovalGate>
+      <div className="mx-auto max-w-5xl space-y-8 p-6 md:p-10">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">
-              Instructor
-            </p>
+            <p className="text-sm font-medium text-muted-foreground">Instructor</p>
             {isLoading ? (
               <div className="mt-1 h-9 w-48 animate-pulse rounded bg-muted" />
             ) : (
@@ -174,12 +173,7 @@ export default function InstructorOverview() {
           </div>
         ) : (
           <StatStrip className="grid-cols-2 lg:grid-cols-4">
-            <Stat
-              icon={BookOpen}
-              label="Published courses"
-              value={published.length}
-              tint="var(--tint-indigo)"
-            />
+            <Stat icon={BookOpen} label="Published courses" value={published.length} tint="var(--tint-indigo)" />
             <Stat
               icon={Users}
               label="Total students"
@@ -195,23 +189,17 @@ export default function InstructorOverview() {
             <Stat
               icon={DollarSign}
               label="Lifetime earnings"
-              value={formatUsd((profile?.earningsCents ?? 0) / 100).replace(
-                ".00",
-                "",
-              )}
+              value={formatUsd((profile?.earningsCents ?? 0) / 100).replace(".00", "")}
               tint="var(--tint-emerald)"
             />
           </StatStrip>
         )}
-      </div>
 
-      <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pb-6 md:pb-10">
         {inReview > 0 && (
           <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm">
             <Rocket className="size-4 shrink-0 text-warning" />
             <span>
-              {inReview} {inReview === 1 ? "course is" : "courses are"} awaiting
-              admin review. We&apos;ll notify you once approved.
+              {inReview} {inReview === 1 ? "course is" : "courses are"} awaiting admin review. We&apos;ll notify you once approved.
             </span>
           </div>
         )}
@@ -221,11 +209,7 @@ export default function InstructorOverview() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-heading text-lg font-semibold">Your courses</h2>
             {(courses ?? []).length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                render={<Link href="/instructor/courses" />}
-              >
+              <Button variant="ghost" size="sm" render={<Link href="/instructor/courses" />}>
                 Manage all <ArrowRight />
               </Button>
             )}
@@ -234,10 +218,7 @@ export default function InstructorOverview() {
           {coursesLoading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 rounded-xl border border-border p-3.5"
-                >
+                <div key={i} className="flex items-center gap-4 rounded-xl border border-border p-3.5">
                   <div className="h-14 w-24 animate-pulse rounded-lg bg-muted" />
                   <div className="flex-1 space-y-2">
                     <div className="h-4 w-48 animate-pulse rounded bg-muted" />
@@ -251,26 +232,17 @@ export default function InstructorOverview() {
               <CardContent className="flex flex-col items-center gap-3">
                 <span
                   className="icon-tile grid size-12 place-items-center"
-                  style={
-                    {
-                      ["--tile" as string]: "var(--tint-violet)",
-                    } as React.CSSProperties
-                  }
+                  style={{ ["--tile" as string]: "var(--tint-violet)" } as React.CSSProperties}
                 >
                   <Sparkles className="size-6" />
                 </span>
                 <div>
-                  <p className="font-heading font-semibold">
-                    Create your first course
-                  </p>
+                  <p className="font-heading font-semibold">Create your first course</p>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                    Build your curriculum, add lessons and quizzes, then submit
-                    it for review. We&apos;ll help you launch.
+                    Build your curriculum, add lessons and quizzes, then submit it for review. We&apos;ll help you launch.
                   </p>
                 </div>
-                <Button render={<Link href="/instructor/courses/new" />}>
-                  <Plus /> Create course
-                </Button>
+                <Button render={<Link href="/instructor/courses/new" />}><Plus /> Create course</Button>
               </CardContent>
             </Card>
           ) : (
@@ -284,24 +256,16 @@ export default function InstructorOverview() {
 
         {/* Profile teaser */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Grow your audience</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Grow your audience</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
             <p className="max-w-md">
-              A complete profile with a clear headline and bio earns more
-              enrollments. Keep yours sharp.
+              A complete profile with a clear headline and bio earns more enrollments. Keep yours sharp.
             </p>
-            <Button
-              variant="outline"
-              render={<Link href="/instructor/profile" />}
-            >
-              Edit profile
-            </Button>
+            <Button variant="outline" render={<Link href="/instructor/profile" />}>Edit profile</Button>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ApprovalGate>
   );
 }
 
