@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import type { AuthUserDto } from "@skillstream/shared";
+import type { AuthUserDto, SalesAgentDto } from "@skillstream/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { Logo } from "@/components/shared/logo";
@@ -45,9 +45,16 @@ export default async function SalesAgentLayout({ children }: { children: React.R
   const name = user.name;
   const email = user.email;
 
+  // Every nav destination gates identically until approved (each sub-page
+  // shows the same not-applied/pending/rejected/suspended notice), so a full
+  // sidebar just dresses up dead links as a working app — same fix as
+  // app/instructor/layout.tsx. Collapse it to an empty nav until approved.
+  const agent = await serverApiOptional<SalesAgentDto>("/me/sales-agent");
+  const approved = agent?.status === "APPROVED";
+
   return (
     <PortalShell
-      items={items}
+      items={approved ? items : []}
       badge="Sales Agent"
       user={{ name, email, initials: initials(name), avatar: user.avatar ?? null }}
     >

@@ -31,7 +31,7 @@ function Row({ n }: { n: NotificationDto }) {
   const unread = !n.readAt;
 
   const body = (
-    <div className="flex items-start gap-3 p-4">
+    <div className="flex flex-1 items-start gap-3 p-4">
       <span
         className={cn(
           "mt-1.5 size-2 shrink-0 rounded-full",
@@ -39,11 +39,11 @@ function Row({ n }: { n: NotificationDto }) {
         )}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <span className={cn("text-sm", unread ? "font-semibold" : "font-medium")}>
+        <div className="flex items-center justify-between gap-3">
+          <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
             {n.title}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="shrink-0 text-xs text-muted-foreground">
             {formatTimestamp(n.createdAt)}
           </span>
         </div>
@@ -63,11 +63,25 @@ function Row({ n }: { n: NotificationDto }) {
     >
       <CardContent className="p-0">
         {n.href ? (
-          <Link href={n.href} className="block">
+          // Clickable rows get a hover highlight and a trailing chevron —
+          // the same "this goes somewhere" affordance used for list rows
+          // elsewhere (e.g. the dashboard's enrolled-courses list) — so
+          // they read as distinct from purely informational notifications.
+          <Link
+            href={n.href}
+            className="group/notif-row flex items-center transition-colors hover:bg-accent/50"
+          >
             {body}
+            <ChevronRight className="mr-4 size-4 shrink-0 text-muted-foreground transition-transform group-hover/notif-row:translate-x-0.5" />
           </Link>
         ) : (
-          <div className="cursor-default">{body}</div>
+          // Chevron stays in the tree but invisible — reserving the same
+          // width as the clickable branch above keeps every row's timestamp
+          // landing on the same right edge instead of drifting per row.
+          <div className="flex cursor-default items-center">
+            {body}
+            <ChevronRight className="invisible mr-4 size-4 shrink-0" />
+          </div>
         )}
       </CardContent>
     </Card>

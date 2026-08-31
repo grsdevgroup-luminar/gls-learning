@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMySalesAgent, referralLinkFor } from "@/lib/api/agent-hooks";
+import { AgentMissingState, AgentPageLoading, AgentStatusState } from "../_components/agent-page-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +12,12 @@ import { Copy, CheckCircle2, Link2, User } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AgentProfile() {
-  const { data: agent } = useMySalesAgent();
+  const { data: agent, isLoading } = useMySalesAgent();
   const [copied, setCopied] = useState(false);
 
-  if (!agent) return null;
+  if (isLoading) return <AgentPageLoading />;
+  if (!agent) return <AgentMissingState />;
+  if (agent.status !== "APPROVED") return <AgentStatusState status={agent.status} />;
 
   const referralLink = referralLinkFor(agent.referralCode);
 

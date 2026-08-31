@@ -297,19 +297,24 @@ model InstructorProfile {
 }
 
 model InstructorApplication {
-  id         String           @id @default(cuid())
-  userId     String?
-  name       String
-  email      String
-  expertise  String
-  headline   String
-  bio        String
-  sampleUrl  String?
-  status     InstructorStatus @default(PENDING)
-  appliedAt  DateTime         @default(now())
-  reviewedAt DateTime?
-  reviewedBy String?
-  note       String?
+  id          String           @id @default(cuid())
+  userId      String?
+  name        String
+  email       String
+  expertise   String
+  headline    String
+  bio         String
+  sampleUrl   String?
+  linkedinUrl String?
+  twitterUrl  String?
+  youtubeUrl  String?
+  facebookUrl String?
+  otherUrl    String?
+  status      InstructorStatus @default(PENDING)
+  appliedAt   DateTime         @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  note        String?
 
   @@index([status])
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMySalesAgent, useMyAgentReferrals } from "@/lib/api/agent-hooks";
+import { AgentMissingState, AgentPageLoading, AgentStatusState } from "../_components/agent-page-state";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ const statusBadge = {
 } as const;
 
 export default function AgentReferrals() {
-  const { data: agent } = useMySalesAgent();
+  const { data: agent, isLoading } = useMySalesAgent();
   const { data: referrals } = useMyAgentReferrals();
   const [qInput, setQInput] = useState("");
   const q = useDebouncedSearch(qInput);
@@ -54,7 +55,9 @@ export default function AgentReferrals() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  if (!agent) return null;
+  if (isLoading) return <AgentPageLoading />;
+  if (!agent) return <AgentMissingState />;
+  if (agent.status !== "APPROVED") return <AgentStatusState status={agent.status} />;
 
   const paid = all?.filter((r) => r.status === "paid") ?? [];
   const confirmed = all?.filter((r) => r.status === "confirmed") ?? [];

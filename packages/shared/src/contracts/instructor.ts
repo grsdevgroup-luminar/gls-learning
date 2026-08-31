@@ -6,6 +6,11 @@ export const applyInstructorSchema = z.object({
   headline: z.string().min(1).max(160),
   bio: z.string().min(1).max(4000),
   sampleUrl: z.string().url().optional(),
+  linkedinUrl: z.string().url().optional(),
+  twitterUrl: z.string().url().optional(),
+  youtubeUrl: z.string().url().optional(),
+  facebookUrl: z.string().url().optional(),
+  otherUrl: z.string().url().optional(),
 });
 export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;
 
@@ -23,6 +28,13 @@ export const reviewApplicationSchema = z.object({
   note: z.string().max(1000).optional(),
 });
 export type ReviewApplicationInput = z.infer<typeof reviewApplicationSchema>;
+
+/** Rejection requires a reason — it's what the applicant sees in their
+ *  decision notification, so an empty one leaves them with no explanation. */
+export const rejectApplicationSchema = z.object({
+  note: z.string().trim().min(1, "A rejection reason is required").max(1000),
+});
+export type RejectApplicationInput = z.infer<typeof rejectApplicationSchema>;
 
 /** Public roster entry — no email/earnings, so it is safe to serve unauthenticated. */
 export interface InstructorRosterDto {
@@ -59,6 +71,11 @@ export interface InstructorApplicationDto {
   headline: string;
   bio: string;
   sampleUrl: string | null;
+  linkedinUrl: string | null;
+  twitterUrl: string | null;
+  youtubeUrl: string | null;
+  facebookUrl: string | null;
+  otherUrl: string | null;
   status: InstructorStatus;
   appliedAt: string;
   reviewedAt: string | null;

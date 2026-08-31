@@ -74,7 +74,8 @@ export class CartService {
       for (const courseId of input.courseIds) {
         await this.repo.addItem(cart.id, courseId, tx);
       }
-      if (!cart.couponCode && input.couponCode) {
+      const hasItems = cart.items.length > 0 || input.courseIds.length > 0;
+      if (!cart.couponCode && input.couponCode && hasItems) {
         await this.repo.setCoupon(
           cart.id,
           input.couponCode.trim().toUpperCase() || null,

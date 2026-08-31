@@ -1,16 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Stars } from "@/components/shared/stars";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { initials, compactNumber } from "@/lib/format";
 import {
   Clock, Users, GraduationCap, CheckCircle2, Check, X, ExternalLink, Mail,
@@ -33,9 +39,19 @@ export default function AdminInstructors() {
     mutationFn: (id: string) => api.approveInstructorApplication(id),
     onSuccess: invalidate,
   });
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const rejectInstructor = useMutation({
-    mutationFn: (id: string) => api.rejectInstructorApplication(id),
-    onSuccess: invalidate,
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      api.rejectInstructorApplication(id, note),
+    onSuccess: (_, { id }) => {
+      invalidate();
+      const app = applications.find((a) => a.id === id);
+      toast("Application rejected", { description: app?.name });
+      setRejectingId(null);
+      setRejectReason("");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
   const pending = applications?.filter((a) => a.status === "PENDING") ?? [];
@@ -88,17 +104,61 @@ export default function AdminInstructors() {
                             <ExternalLink className="size-3" /> Sample
                           </a>
                         )}
+                        {[
+                          { url: a.linkedinUrl, label: "LinkedIn" },
+                          { url: a.twitterUrl, label: "Twitter/X" },
+                          { url: a.youtubeUrl, label: "YouTube" },
+                          { url: a.facebookUrl, label: "Facebook" },
+                          { url: a.otherUrl, label: "Other link" },
+                        ].filter((l) => l.url).map((l) => (
+                          <a key={l.label} href={l.url!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                            <ExternalLink className="size-3" /> {l.label}
+                          </a>
+                        ))}
                       </div>
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { rejectInstructor.mutate(a.id); toast("Application rejected", { description: a.name }); }}
+                    <Dialog
+                      open={rejectingId === a.id}
+                      onOpenChange={(o) => {
+                        setRejectingId(o ? a.id : null);
+                        if (!o) setRejectReason("");
+                      }}
                     >
-                      <X /> Reject
-                    </Button>
+                      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+                        <X /> Reject
+                      </DialogTrigger>
+                      <DialogContent className="max-w-sm">
+                        <DialogHeader>
+                          <DialogTitle>Reject application — {a.name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="mt-2 space-y-4">
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium">Rejection reason</label>
+                            <Textarea
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                              placeholder="Explain why this application wasn't approved — the applicant will see this."
+                              className="min-h-24"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setRejectingId(null)}>
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="text-destructive"
+                              disabled={!rejectReason.trim() || rejectInstructor.isPending}
+                              onClick={() => rejectInstructor.mutate({ id: a.id, note: rejectReason.trim() })}
+                            >
+                              <X /> Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                     <Button
                       size="sm"
                       onClick={() => { approveInstructor.mutate(a.id); toast.success("Instructor approved 🎉", { description: a.name }); }}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMySalesAgent, useMyAgentReferrals } from "@/lib/api/agent-hooks";
+import { AgentMissingState, AgentPageLoading, AgentStatusState } from "../_components/agent-page-state";
 import { PayoutPanel } from "@/components/shared/payout-panel";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,7 @@ import {
 } from "@/app/admin/_components/admin-table";
 
 export default function AgentEarnings() {
-  const { data: agent } = useMySalesAgent();
+  const { data: agent, isLoading } = useMySalesAgent();
   const { data: referrals } = useMyAgentReferrals();
   const [paidPage, setPaidPage] = useState(1);
   const [paidPageSize, setPaidPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
@@ -56,7 +57,9 @@ export default function AgentEarnings() {
     if (pendingPage > pendingTotalPages) setPendingPage(pendingTotalPages);
   }, [pendingPage, pendingTotalPages]);
 
-  if (!agent) return null;
+  if (isLoading) return <AgentPageLoading />;
+  if (!agent) return <AgentMissingState />;
+  if (agent.status !== "APPROVED") return <AgentStatusState status={agent.status} />;
 
   const summary = [
     {

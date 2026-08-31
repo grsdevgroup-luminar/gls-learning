@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { InstructorStatus } from "@prisma/client";
 import {
   applyInstructorSchema,
+  rejectApplicationSchema,
   reviewApplicationSchema,
   updateInstructorProfileSchema,
   type ApplyInstructorInput,
+  type RejectApplicationInput,
   type ReviewApplicationInput,
   type UpdateInstructorProfileInput,
 } from "@skillstream/shared";
@@ -68,8 +70,8 @@ export class InstructorController {
   @Post("admin/instructor-applications/:id/reject")
   reject(
     @Param("id") id: string,
-    @ZodBody(reviewApplicationSchema)
-    body: ReviewApplicationInput,
+    @ZodBody(rejectApplicationSchema)
+    body: RejectApplicationInput,
   ) {
     return this.instructor.reject(id, body.note);
   }

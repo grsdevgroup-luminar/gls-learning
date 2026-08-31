@@ -60,12 +60,15 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
+          // Kept fully inside the card (not floating off the corner) so it's
+          // never clipped or crowded — DialogHeader reserves right padding so
+          // title text can't run under it regardless of title length.
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
               <Button
                 variant="outline"
-                className="absolute -top-3 -right-3 z-10 rounded-full bg-popover shadow-md"
+                className="absolute top-3 right-3 z-10 rounded-full"
                 size="icon-sm"
               />
             }
@@ -83,7 +86,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("flex flex-col gap-2 pr-9", className)}
       {...props}
     />
   )

@@ -7,6 +7,7 @@ import {
   REMINDER_TRIGGER_COPY,
   DEFAULT_NOTIFICATION_PREFS,
   isIsoCountryCode,
+  isValidPhone,
   passwordSchema,
   type ReminderTrigger,
 } from '@skillstream/shared';
@@ -15,6 +16,7 @@ import { useSession, SESSION_QUERY_KEY } from '@/lib/api/session';
 import { apiFetch, apiFetchMultipart } from '@/lib/api/client';
 import { initials } from '@/lib/format';
 import { CountrySelect } from '@/components/shared/country-select';
+import { PhoneInput } from '@/components/shared/phone-input';
 import {
   Card,
   CardContent,
@@ -92,6 +94,14 @@ export default function AccountPage() {
     }
     if (!phone.trim()) {
       toast.error('Please enter your phone number.');
+      return;
+    }
+    if (!country) {
+      toast.error('Please select your country so we can validate your phone number.');
+      return;
+    }
+    if (!isValidPhone(phone.trim())) {
+      toast.error('Please enter a valid phone number for the selected country.');
       return;
     }
     profileMutation.mutate();
@@ -296,17 +306,12 @@ export default function AccountPage() {
                   className="cursor-not-allowed opacity-60"
                 />
               </FormField>
+              <FormField label="Country" hint="Sets your phone's calling code">
+                <CountrySelect value={country} onChange={setCountry} />
+              </FormField>
               {/* Where SMS reminders go; without one they're skipped. */}
               <FormField label="Phone" hint="For SMS reminders">
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+8801712345678"
-                  type="tel"
-                />
-              </FormField>
-              <FormField label="Country">
-                <CountrySelect value={country} onChange={setCountry} />
+                <PhoneInput country={country} value={phone} onChange={setPhone} />
               </FormField>
             </Stagger>
             <Magnetic strength={0.15}>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { passwordSchema } from "./auth.js";
 import { learningCategorySchema } from "./catalog.js";
+import { isValidPhone } from "../phone.js";
 
 export const MAX_COURSE_DESCRIPTION_LENGTH = 2000;
 import { countryCodeSchema } from "./auth.js";
@@ -136,10 +137,12 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1, "Name is required. Please enter your name.").max(120).optional(),
   avatar: z.string().url().nullable().optional(),
   country: z.union([countryCodeSchema, z.null()]).optional(),
-  /** E.164 — the SMS reminder channel has nowhere to send without it. */
+  /** E.164, validated against the real numbering plan for its calling code
+   *  (length + pattern) rather than a generic digit-count regex — the SMS
+   *  reminder channel has nowhere to send without a genuinely dialable number. */
   phone: z
     .string()
-    .regex(/^\+[1-9]\d{7,14}$/, "Please enter a valid phone number, e.g. +8801712345678")
+    .refine(isValidPhone, "Please enter a valid phone number for the selected country")
     .nullable()
     .optional(),
 });

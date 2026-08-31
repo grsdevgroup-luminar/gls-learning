@@ -215,12 +215,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mounted || user) return;
     try {
-      if (coupon) localStorage.setItem(CART_COUPON_KEY, coupon);
+      if (coupon && cart.length > 0) localStorage.setItem(CART_COUPON_KEY, coupon);
       else localStorage.removeItem(CART_COUPON_KEY);
     } catch {
       /* ignore */
     }
-  }, [coupon, mounted, user]);
+  }, [coupon, cart, mounted, user]);
 
   // ── pricing regions (rates refreshed daily server-side) ──
   const { data: regionList } = useQuery({
@@ -331,8 +331,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     mergedForUserRef.current = user.id;
 
     const guestItems = readGuestCart();
-    const guestCoupon = readGuestCoupon();
-    const shouldMerge = guestItems.length > 0 || !!guestCoupon;
+    const guestCoupon = guestItems.length > 0 ? readGuestCoupon() : null;
+    const shouldMerge = guestItems.length > 0;
 
     const run = shouldMerge
       ? cartApi.merge({
