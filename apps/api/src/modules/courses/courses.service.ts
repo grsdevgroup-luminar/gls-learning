@@ -59,7 +59,11 @@ export class CoursesService {
       status: "PUBLISHED",
       visibility: "PUBLIC",
     };
-    if (query.category) where.category = query.category;
+    if (query.category) {
+      where.category = Array.isArray(query.category)
+        ? { in: query.category }
+        : query.category;
+    }
     if (query.level) where.level = query.level;
     if (query.minPriceCents !== undefined || query.maxPriceCents !== undefined) {
       where.basePriceCents = {
@@ -95,11 +99,12 @@ export class CoursesService {
     return this.categoriesRepo.activeNames();
   }
 
-  async recommendedFor(userId: string, categories: string[], limit = 8) {
+  async recommendedFor(userId: string, categories: string[], keywords: string[] = [], limit = 8) {
     if (categories.length === 0) return [];
     const rows = await this.repo.findRecommendedForStudent(
       userId,
       categories,
+      keywords,
       Math.min(Math.max(limit, 1), 24),
     );
     return rows.map(toCourseSummary);

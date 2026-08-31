@@ -28,7 +28,7 @@ export class CatalogController {
     @Query("limit") limit?: string,
   ) {
     const preferences = await this.users.learningPreferences(user.id);
-    return this.courses.recommendedFor(user.id, preferences.categories, Number(limit) || 8);
+    return this.courses.recommendedFor(user.id, preferences.categories, preferences.keywords, Number(limit) || 8);
   }
 
   @Public()

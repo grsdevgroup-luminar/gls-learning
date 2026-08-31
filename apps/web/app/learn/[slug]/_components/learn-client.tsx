@@ -140,7 +140,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background lg:h-screen lg:overflow-hidden">
       {/* Top bar — course-player chrome (title left · learner actions right) */}
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/65 sm:px-4">
         <Button variant="ghost" size="icon" onClick={goBack} aria-label="Go back">
@@ -161,9 +161,9 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
         </div>
       </header>
 
-      <div className="grid flex-1 lg:grid-cols-[1fr_360px]">
+      <div className="grid min-h-0 min-w-0 flex-none lg:h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden">
         {/* Player + content */}
-        <div className="flex flex-col">
+        <div className="flex min-h-0 min-w-0 flex-col overflow-y-scroll lg:h-full lg:overscroll-contain">
           {!currentAccessible ? (
             <LockedLesson title={current.title} />
           ) : current.type === "QUIZ" ? (
@@ -171,8 +171,8 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <QuizPlayer key={current.id} courseId={course.id} lessonId={current.id} />
             </div>
           ) : (
-            <div className="p-0 lg:p-4">
-              <div className="mx-auto w-full max-w-4xl">
+            <div className="relative z-0 flex min-h-0 shrink-0 items-start justify-center overflow-hidden p-2 lg:p-5">
+              <div className="w-full shrink-0 overflow-hidden rounded-xl">
                 <ProtectedPlayer
                   key={current.id}
                   courseId={course.id}
@@ -186,7 +186,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
             </div>
           )}
 
-          <div className="mx-auto w-full max-w-4xl flex-1 p-4 md:p-6">
+          <div className="relative z-10 w-full bg-background p-4 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">{current.sectionTitle}</p>
@@ -291,7 +291,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
         </div>
 
         {/* Curriculum sidebar */}
-        <aside className="border-t lg:border-l lg:border-t-0">
+        <aside className="min-h-0 border-t lg:h-full lg:overflow-y-scroll lg:border-l lg:border-t-0">
           <div className="flex items-center justify-between gap-3 border-b p-4">
             <h2 className="font-semibold">Course content</h2>
             <span className="inline-flex items-center gap-2">
@@ -304,7 +304,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <span className="text-xs tabular-nums text-muted-foreground">{done}/{total}</span>
             </span>
           </div>
-          <Accordion defaultValue={course.sections?.map((s) => s.id) ?? []} className="max-h-[calc(100vh-7rem)] overflow-y-auto">
+          <Accordion defaultValue={course.sections?.map((s) => s.id) ?? []}>
             {course.sections?.map((s) => (
               <AccordionItem key={s.id} value={s.id} className="px-3">
                 <AccordionTrigger disabled={!s.lessons[0] || !canAccess({ ...s.lessons[0], sectionTitle: s.title, index: 0 })}>
@@ -397,7 +397,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
 
 function LockedLesson({ title }: { title: string }) {
   return (
-    <div className="mx-auto flex aspect-video w-full max-w-4xl flex-col items-center justify-center rounded-xl border bg-secondary/20 p-6 text-center">
+    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border bg-secondary/20 p-6 text-center">
       <Lock className="h-8 w-8 text-muted-foreground" />
       <h2 className="mt-3 font-semibold">Lesson locked</h2>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">

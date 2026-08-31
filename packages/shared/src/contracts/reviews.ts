@@ -3,8 +3,8 @@ import type { ReviewStatus } from "../enums.js";
 
 export const createReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
-  title: z.string().min(1).max(160),
-  body: z.string().trim().max(4000),
+  title: z.string().min(1, "Review title is required").max(160, "Review title must be 160 characters or fewer"),
+  body: z.string().trim().max(4000, "Review must be 4,000 characters or fewer"),
 });
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 

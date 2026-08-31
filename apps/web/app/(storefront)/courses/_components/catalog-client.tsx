@@ -38,7 +38,7 @@ export function CatalogClient() {
   const { region } = useStore();
   const searchParams = useSearchParams();
   const urlQ = searchParams.get("q") ?? "";
-  const urlCat = searchParams.get("category");
+  const urlCats = searchParams.getAll("category");
 
   // Backend `GET /courses` only accepts one category / one level at a time —
   // the filter UI matches that instead of pretending to support multi-select
@@ -46,7 +46,7 @@ export function CatalogClient() {
   const [qInput, setQInput] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(qInput);
   const [urlSearch, setUrlSearch] = useState(activeSearch(urlQ));
-  const [cat, setCat] = useState<string | null>(urlCat);
+  const [cats, setCats] = useState<string[]>(urlCats);
   const [lvl, setLvl] = useState<CourseLevel | null>(null);
   const [price, setPrice] = useState("all");
   const [minRating, setMinRating] = useState(0);
@@ -59,14 +59,15 @@ export function CatalogClient() {
   // Adjusted synchronously during render (React's recommended pattern for
   // "sync state to a changing external value") instead of an effect, which
   // would cost an extra render pass and can cascade.
-  const [syncedFromUrl, setSyncedFromUrl] = useState({ q: urlQ, cat: urlCat });
-  const urlChanged = syncedFromUrl.q !== urlQ || syncedFromUrl.cat !== urlCat;
+  const [syncedFromUrl, setSyncedFromUrl] = useState({ q: urlQ, cats: urlCats.join("|") });
+  const urlCatsKey = urlCats.join("|");
+  const urlChanged = syncedFromUrl.q !== urlQ || syncedFromUrl.cats !== urlCatsKey;
   const nextUrlSearch = activeSearch(urlQ);
   if (urlChanged) {
-    setSyncedFromUrl({ q: urlQ, cat: urlCat });
+    setSyncedFromUrl({ q: urlQ, cats: urlCatsKey });
     setQInput(urlQ);
     setUrlSearch(nextUrlSearch);
-    setCat(urlCat);
+    setCats(urlCats);
   }
   const effectiveQInput = urlChanged ? urlQ : qInput;
   const q =
@@ -79,17 +80,18 @@ export function CatalogClient() {
   // already-filtered result, never something to narrow down further client-side.
   // `region.multiplier` is included because it changes what raw-price bound
   // the current price bucket resolves to below, even if `price` itself didn't change.
-  const [pagingKey, setPagingKey] = useState({ q, cat, lvl, price, minRating, sort, m: region.multiplier });
+  const catKey = cats.join("|");
+  const [pagingKey, setPagingKey] = useState({ q, catKey, lvl, price, minRating, sort, m: region.multiplier });
   if (
     pagingKey.q !== q ||
-    pagingKey.cat !== cat ||
+    pagingKey.catKey !== catKey ||
     pagingKey.lvl !== lvl ||
     pagingKey.price !== price ||
     pagingKey.minRating !== minRating ||
     pagingKey.sort !== sort ||
     pagingKey.m !== region.multiplier
   ) {
-    setPagingKey({ q, cat, lvl, price, minRating, sort, m: region.multiplier });
+    setPagingKey({ q, catKey, lvl, price, minRating, sort, m: region.multiplier });
     setPage(1);
   }
 
@@ -101,7 +103,7 @@ export function CatalogClient() {
   // an "under $30" filter because its raw price is $64.99.
   const { data: coursePage, isLoading } = useCourses({
     q: q || undefined,
-    category: cat ?? undefined,
+    category: cats.length ? cats : undefined,
     level: lvl ?? undefined,
     minPriceCents:
       bucket.minPriceCents !== undefined
@@ -118,11 +120,11 @@ export function CatalogClient() {
 
   const items = coursePage?.items ?? [];
   const activeFilterCount =
-    (cat ? 1 : 0) + (lvl ? 1 : 0) + (price !== "all" ? 1 : 0) + (minRating > 0 ? 1 : 0);
+    (cats.length ? 1 : 0) + (lvl ? 1 : 0) + (price !== "all" ? 1 : 0) + (minRating > 0 ? 1 : 0);
 
   function clearAllFilters() {
     setQInput("");
-    setCat(null);
+    setCats([]);
     setLvl(null);
     setPrice("all");
     setMinRating(0);
@@ -132,8 +134,8 @@ export function CatalogClient() {
     categories,
     q: effectiveQInput,
     onQChange: setQInput,
-    cat,
-    onCatChange: setCat,
+    cats,
+    onCatsChange: setCats,
     lvl,
     onLvlChange: setLvl,
     price,

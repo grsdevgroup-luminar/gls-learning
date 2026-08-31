@@ -22,11 +22,15 @@ import { Save, ShieldCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
+const BIO_MAX_LENGTH = 4000;
+const HEADLINE_MAX_LENGTH = 160;
+
 export default function InstructorProfile() {
   const qc = useQueryClient();
   const { data: profile, isLoading } = useQuery({
     queryKey: ["instructor", "profile"],
     queryFn: instructorApi.profile,
+    refetchOnMount: "always",
   });
 
   const { data: categories = [] } = useCategories();
@@ -48,11 +52,22 @@ export default function InstructorProfile() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      api.updateInstructorProfile({ title, bio, expertise: expertiseValue }),
-    onSuccess: () => {
+    mutationFn: (input: { title: string; bio: string; expertise: string }) => {
+      if (!input.title) throw new Error("Headline is required");
+      return api.updateInstructorProfile(input);
+    },
+    onSuccess: (savedProfile, submitted) => {
+      const visibleProfile = {
+        ...savedProfile,
+        title: submitted.title,
+        bio: submitted.bio,
+        expertise: submitted.expertise || savedProfile.expertise,
+      };
+      setTitle(submitted.title);
+      setExpertise(submitted.expertise);
+      setBio(submitted.bio);
+      qc.setQueryData(["instructor", "profile"], visibleProfile);
       toast.success("Profile saved");
-      void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
@@ -100,38 +115,26 @@ export default function InstructorProfile() {
                 <div className="font-heading text-lg font-semibold">{profile.name}</div>
                 <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
               </div>
-            </CardContent>
-          </Card>
-        </Reveal>
-
-        <Reveal y={20} delay={0.08}>
-          <Card>
-            <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <Stagger className="space-y-4" gap={0.05}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Full name">
-                    <Input value={profile.name} readOnly className="opacity-70" />
-                  </FormField>
-                  <FormField label="Email">
-                    <Input value={profile.email} readOnly className="opacity-70" />
-                  </FormField>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Headline">
-                    <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
-                  </FormField>
-                  <FormField label="Primary expertise">
-                    <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-                </div>
-                <FormField label="Bio">
-                  <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell learners about your background and what you teach…" className="min-h-32" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Headline">
+                  <Input
+                    value={title}
+                    required
+                    maxLength={HEADLINE_MAX_LENGTH}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Senior Frontend Engineer"
+                  />
+                  <div className="mt-1 text-right text-xs text-muted-foreground">
+                    {title.length} / {HEADLINE_MAX_LENGTH} characters
+                  </div>
+                </FormField>
+                <FormField label="Primary expertise">
+                  <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FormField>
               </Stagger>
               <div className="flex justify-end">
@@ -141,10 +144,29 @@ export default function InstructorProfile() {
                   </Button>
                 </Magnetic>
               </div>
-            </CardContent>
-          </Card>
-        </Reveal>
-      </div>
-    </ApprovalGate>
+              <FormField label="Bio">
+                <Textarea
+                  value={bio}
+                  maxLength={BIO_MAX_LENGTH}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell learners about your background and what you teach…"
+                  className="min-h-32"
+                />
+                <div className="mt-1 text-right text-xs text-muted-foreground">
+                  {bio.length.toLocaleString()} / {BIO_MAX_LENGTH.toLocaleString()} characters
+                </div>
+              </FormField>
+            </Stagger>
+            <div className="flex justify-end">
+              <Magnetic strength={0.15}>
+                <Button className="sheen" onClick={() => saveMutation.mutate({ title: title.trim(), bio, expertise: expertiseValue })} disabled={saveMutation.isPending}>
+                  <Save /> {saveMutation.isPending ? "Saving…" : "Save profile"}
+                </Button>
+              </Magnetic>
+            </div>
+          </CardContent>
+        </Card>
+      </Reveal>
+    </div>
   );
 }

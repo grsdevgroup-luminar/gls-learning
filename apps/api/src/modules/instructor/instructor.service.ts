@@ -160,11 +160,22 @@ export class InstructorService {
   ): Promise<InstructorProfileDto> {
     if (input.avatar !== undefined)
       await this.repo.updateUserAvatar(user.id, input.avatar);
-    await this.repo.updateInstructorProfile(user.id, {
-      title: input.title,
-      bio: input.bio,
-      expertise: input.expertise,
-    });
+    const current = await this.repo.findUserWithProfile(user.id);
+    if (current?.instructorProfile) {
+      await this.repo.updateInstructorProfile(user.id, {
+        title: input.title,
+        bio: input.bio,
+        expertise: input.expertise,
+      });
+    } else {
+      const application = await this.repo.findLatestApplicationByUser(user.id);
+      if (!application) throw new NotFoundException("Instructor profile not found");
+      await this.repo.updateApplication(application.id, {
+        headline: input.title,
+        bio: input.bio,
+        expertise: input.expertise,
+      });
+    }
     const profile = await this.myProfile(user);
     if (!profile) throw new NotFoundException("Instructor profile not found");
     return profile;
