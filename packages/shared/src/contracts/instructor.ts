@@ -24,6 +24,13 @@ export const reviewApplicationSchema = z.object({
 });
 export type ReviewApplicationInput = z.infer<typeof reviewApplicationSchema>;
 
+/** Rejection requires a reason — it's what the applicant sees in their
+ *  decision notification, so an empty one leaves them with no explanation. */
+export const rejectApplicationSchema = z.object({
+  note: z.string().trim().min(1, "A rejection reason is required").max(1000),
+});
+export type RejectApplicationInput = z.infer<typeof rejectApplicationSchema>;
+
 /** Public roster entry — no email/earnings, so it is safe to serve unauthenticated. */
 export interface InstructorRosterDto {
   id: string;

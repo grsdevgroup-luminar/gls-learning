@@ -207,7 +207,7 @@ export class InstructorService {
     return this.toAppDto(updated);
   }
 
-  async reject(appId: string, note?: string): Promise<InstructorApplicationDto> {
+  async reject(appId: string, note: string): Promise<InstructorApplicationDto> {
     const app = await this.repo.updateApplication(appId, {
       status: "REJECTED",
       reviewedAt: new Date(),
@@ -220,7 +220,11 @@ export class InstructorService {
           userId: app.userId,
           event: "INSTRUCTOR_APPLICATION_REJECTED",
           title: "Instructor application update",
-          body: note ?? "Your instructor application was not approved this time.",
+          body: note,
+          // Same destination as the approval notification (/instructor) — it
+          // shows the rejection reason and a "Re-apply" action, so this stays
+          // a real link instead of a dead-end informational notification.
+          href: "/instructor",
         })
         .catch(() => undefined);
     }

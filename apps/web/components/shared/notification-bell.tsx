@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
-import { ArrowRight, Bell, BellOff, CheckCheck } from "lucide-react";
+import { ArrowRight, Bell, BellOff, CheckCheck, ChevronRight } from "lucide-react";
 import type { NotificationDto } from "@skillstream/shared";
 import {
   useMarkAllNotificationsRead,
@@ -126,7 +126,10 @@ function NotificationRow({ n }: { n: NotificationDto }) {
   const unread = !n.readAt;
 
   const content = (
-    <div className="relative flex w-full items-start gap-2.5 whitespace-normal">
+    // text-left guards against the non-clickable row's <button> wrapper —
+    // browsers default `button` to text-align:center (unlike `a`/`div`),
+    // which would otherwise shift this row's text off the shared left edge.
+    <div className="relative flex w-full items-start gap-2.5 whitespace-normal text-left">
       {unread && (
         <span className="absolute inset-y-0.5 -left-1.5 w-1 rounded-full bg-primary" />
       )}
@@ -154,6 +157,17 @@ function NotificationRow({ n }: { n: NotificationDto }) {
           {n.body}
         </p>
       </div>
+      {/* Chevron marks this row as a link — invisible (not omitted) when
+          there's no href, so it still reserves its width. Omitting it
+          entirely would let the title/timestamp row above grow into that
+          space, landing timestamps at a different right edge row to row
+          depending on whether a chevron happened to be present. */}
+      <ChevronRight
+        className={cn(
+          "mt-1 size-3.5 shrink-0 self-center text-muted-foreground transition-transform group-hover/dropdown-menu-item:translate-x-0.5",
+          !n.href && "invisible",
+        )}
+      />
     </div>
   );
 
@@ -163,7 +177,10 @@ function NotificationRow({ n }: { n: NotificationDto }) {
         "items-start rounded-lg py-2.5 pl-3 focus:bg-accent/70",
         unread && "bg-accent/40",
       )}
-      render={n.href ? <Link href={n.href} /> : <button type="button" />}
+      // w-full is required on both: an <a> stretches to fill the row by
+      // default, but a <button> doesn't — even with the same `flex` class —
+      // so without it, non-clickable rows render narrower than the rest.
+      render={n.href ? <Link href={n.href} className="w-full" /> : <button type="button" className="w-full" />}
     >
       {content}
     </DropdownMenuItem>

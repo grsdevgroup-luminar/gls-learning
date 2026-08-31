@@ -244,7 +244,7 @@ export const api = {
       `/admin/instructor-applications/${id}/approve`,
       { method: "POST", body: { note } },
     ),
-  rejectInstructorApplication: (id: string, note?: string) =>
+  rejectInstructorApplication: (id: string, note: string) =>
     apiFetch<InstructorApplicationDto>(
       `/admin/instructor-applications/${id}/reject`,
       { method: "POST", body: { note } },
