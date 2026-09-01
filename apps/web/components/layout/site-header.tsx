@@ -24,7 +24,6 @@ import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import {
-  MAX_COURSE_SEARCH_LENGTH,
   activeCourseSearchQuery,
   normalizeCourseSearchQuery,
   onCourseSearchInputChange,
@@ -149,7 +148,6 @@ export function SiteHeader() {
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
             minLength={2}
-            maxLength={MAX_COURSE_SEARCH_LENGTH}
           />
         </form>
 
