@@ -7,6 +7,7 @@ import { adminApi, type InstructorApplicationDto, type InstructorProfileDto } fr
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useCategories } from "@/lib/api/hooks";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import { cn } from "@/lib/utils";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Stars } from "@/components/shared/stars";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -391,12 +392,20 @@ function ApplicationDetailDialog({
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+            <div
+              className={cn(
+                "mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm",
+                // Reserving a 4th column when there's no Reviewed date to fill it
+                // starves Email of width it doesn't need to give up — only go to
+                // 4 columns once something actually occupies the 4th slot.
+                a.reviewedAt ? "sm:grid-cols-4" : "sm:grid-cols-3",
+              )}
+            >
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Email</div>
                 <div className="flex items-start gap-1.5">
                   <Mail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="break-all">{a.email}</span>
+                  <span className="break-words">{a.email}</span>
                 </div>
               </div>
               <div className="min-w-0">
