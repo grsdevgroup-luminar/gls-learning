@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "@/lib/context/store";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -20,9 +20,13 @@ import {
 } from "@/components/ui/select";
 import {
   DollarSign, Globe2, BarChart3, ShieldCheck, ArrowRight, GraduationCap,
+  Upload, FileText, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { applyInstructorSchema } from "@skillstream/shared";
+import { applyInstructorSchema, type InstructorCvUploadDto } from "@skillstream/shared";
+
+const CV_MAX_BYTES = 5 * 1024 * 1024;
+const CV_ACCEPT = ".pdf,.doc,.docx";
 
 type FieldErrors = Partial<Record<keyof ReturnType<typeof buildPayload>, string>>;
 
@@ -75,11 +79,40 @@ export default function TeachPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [facebookUrl, setFacebookUrl] = useState("");
   const [otherUrl, setOtherUrl] = useState("");
+  const [cv, setCv] = useState<InstructorCvUploadDto | null>(null);
+  const [uploadingCv, setUploadingCv] = useState(false);
+  const cvInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const expertiseValue = expertise || categories[0] || "";
 
   const alreadyInstructor = mounted && role === "instructor";
+
+  async function handleCvPicked(file: File | undefined) {
+    if (!file) return;
+    if (file.size > CV_MAX_BYTES) {
+      toast.error(`CV must be under ${Math.floor(CV_MAX_BYTES / (1024 * 1024))} MB`);
+      return;
+    }
+    setUploadingCv(true);
+    try {
+      const uploaded = await api.uploadInstructorCv(file);
+      setCv(uploaded);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setUploadingCv(false);
+    }
+  }
+
+  function handleRemoveCv() {
+    if (!cv) return;
+    const key = cv.key;
+    setCv(null);
+    // Best-effort: the form already dropped the reference either way, so a
+    // failed cleanup call shouldn't block or alarm the applicant.
+    api.deleteInstructorCv(key).catch(() => undefined);
+  }
 
   function clearError(field: keyof FieldErrors) {
     setFieldErrors((prev) => {
@@ -98,17 +131,20 @@ export default function TeachPage() {
       return;
     }
 
-    const payload = buildPayload({
-      expertise: expertiseValue,
-      headline,
-      bio,
-      sampleUrl,
-      linkedinUrl,
-      twitterUrl,
-      youtubeUrl,
-      facebookUrl,
-      otherUrl,
-    });
+    const payload = {
+      ...buildPayload({
+        expertise: expertiseValue,
+        headline,
+        bio,
+        sampleUrl,
+        linkedinUrl,
+        twitterUrl,
+        youtubeUrl,
+        facebookUrl,
+        otherUrl,
+      }),
+      ...(cv ? { cvKey: cv.key, cvName: cv.name, cvSizeLabel: cv.sizeLabel } : {}),
+    };
     const result = applyInstructorSchema.safeParse(payload);
     if (!result.success) {
       const errors: FieldErrors = {};
@@ -246,6 +282,43 @@ export default function TeachPage() {
                           className="min-h-32"
                           aria-invalid={!!fieldErrors.bio}
                         />
+                      </FormField>
+                      <FormField label="Resume / CV" hint="optional">
+                        <input
+                          ref={cvInputRef}
+                          type="file"
+                          accept={CV_ACCEPT}
+                          className="hidden"
+                          onChange={(e) => {
+                            handleCvPicked(e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingCv}
+                            onClick={() => cvInputRef.current?.click()}
+                          >
+                            <Upload className="h-4 w-4" />
+                            {uploadingCv ? "Uploading…" : cv ? "Replace file" : "Upload CV"}
+                          </Button>
+                          {cv && (
+                            <>
+                              <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                                <FileText className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{cv.name}</span>
+                                <span className="shrink-0 text-xs">({cv.sizeLabel})</span>
+                              </span>
+                              <Button type="button" variant="ghost" size="sm" onClick={handleRemoveCv}>
+                                <Trash2 className="h-4 w-4" /> Remove
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">PDF, DOC, or DOCX — up to 5 MB.</p>
                       </FormField>
                     </Stagger>
 

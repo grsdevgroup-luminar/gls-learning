@@ -44,6 +44,7 @@ export const courseListQuerySchema = z.object({
   minPriceCents: z.coerce.number().int().min(0).optional(),
   maxPriceCents: z.coerce.number().int().min(0).optional(),
   minRating: z.coerce.number().min(0).max(5).optional(),
+  instructorId: z.string().optional(),
   sort: courseSortSchema,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),

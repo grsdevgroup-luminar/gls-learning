@@ -61,6 +61,7 @@ export class CoursesService {
     };
     if (query.category) where.category = query.category;
     if (query.level) where.level = query.level;
+    if (query.instructorId) where.instructorId = query.instructorId;
     if (query.minPriceCents !== undefined || query.maxPriceCents !== undefined) {
       where.basePriceCents = {
         ...(query.minPriceCents !== undefined && { gte: query.minPriceCents }),

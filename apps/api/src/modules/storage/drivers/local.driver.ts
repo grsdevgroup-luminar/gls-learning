@@ -25,8 +25,12 @@ export class LocalDriver implements StorageDriver {
     // Resolve relative to the API process cwd so `pnpm dev` and `node dist`
     // put files in the same place.
     this.root = path.resolve(process.cwd(), dir);
+    // `||` (not `??`) deliberately: an empty-string PUBLIC_API_URL — the
+    // common shape of an unfilled .env placeholder — must fall back too, or
+    // getUrl() below returns a bare "/uploads/..." path that only resolves
+    // correctly when the browser's own origin happens to be the API's.
     const apiBase =
-      config.get("PUBLIC_API_URL", { infer: true }) ??
+      config.get("PUBLIC_API_URL", { infer: true }) ||
       `http://localhost:${config.get("PORT", { infer: true }) ?? 4000}`;
     this.publicBase = apiBase.replace(/\/$/, "");
   }

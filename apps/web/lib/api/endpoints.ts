@@ -17,13 +17,17 @@ import type {
   FeaturedCouponDto,
   PatchCouponInput,
   PlatformSettingsDto,
+  UpdateInstructorProfileInput,
   UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
   ApplyInstructorInput,
   EnrollmentDto,
   InstructorApplicationDto,
+  InstructorApplicationStatsDto,
+  InstructorCvUploadDto,
   InstructorProfileDto,
+  InstructorPublicProfileDto,
   InstructorRosterDto,
   MyOrderStatsDto,
   OrderDto,
@@ -84,7 +88,10 @@ export type {
   CourseSummaryDto,
   EnrollmentDto,
   InstructorApplicationDto,
+  InstructorApplicationStatsDto,
+  InstructorCvUploadDto,
   InstructorProfileDto,
+  InstructorPublicProfileDto,
   InstructorRosterDto,
   MyOrderStatsDto,
   NotificationDto,
@@ -236,10 +243,17 @@ export const api = {
 
   /** Approved instructors (public roster). */
   instructors: () => apiFetch<InstructorRosterDto[]>("/instructors"),
+  /** Public instructor profile page. */
+  instructorPublicProfile: (id: string) =>
+    apiFetch<InstructorPublicProfileDto>(`/instructors/${id}`),
 
   // admin — instructor applications
-  adminInstructorApplications: () =>
-    apiFetch<InstructorApplicationDto[]>("/admin/instructor-applications"),
+  adminInstructorApplications: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<InstructorApplicationDto>>(`/admin/instructor-applications${qs(params)}`),
+  adminInstructorApplicationStats: () =>
+    apiFetch<InstructorApplicationStatsDto>("/admin/instructor-applications/stats"),
+  adminInstructors: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<InstructorProfileDto>>(`/admin/instructors${qs(params)}`),
   approveInstructorApplication: (id: string, note?: string) =>
     apiFetch<InstructorApplicationDto>(
       `/admin/instructor-applications/${id}/approve`,
@@ -379,15 +393,17 @@ export const api = {
       method: "POST",
       body,
     }),
+  uploadInstructorCv: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetchMultipart<InstructorCvUploadDto>("/instructors/apply/cv", form);
+  },
+  deleteInstructorCv: (key: string) =>
+    apiFetch<{ ok: true }>(`/instructors/apply/cv${qs({ key })}`, { method: "DELETE" }),
   instructorProfile: () => apiFetch<InstructorProfileDto | null>("/me/instructor"),
   instructorCourses: () =>
     apiFetch<InstructorCourseDto[]>("/me/instructor/courses"),
-  updateInstructorProfile: (body: {
-    title?: string;
-    bio?: string;
-    expertise?: string;
-    avatar?: string;
-  }) =>
+  updateInstructorProfile: (body: UpdateInstructorProfileInput) =>
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
 
@@ -621,7 +637,11 @@ export const adminApi = {
   refundOrder: api.refundOrder,
   reviews: api.adminReviews,
   updateReviewStatus: api.updateReviewStatus,
-  instructorApplications: api.adminInstructorApplications,
+  instructorApplications: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminInstructorApplications(params),
+  instructorApplicationStats: () => api.adminInstructorApplicationStats(),
+  instructors: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminInstructors(params),
   approveInstructorApplication: api.approveInstructorApplication,
   rejectInstructorApplication: api.rejectInstructorApplication,
   salesAgents: api.adminSalesAgents,

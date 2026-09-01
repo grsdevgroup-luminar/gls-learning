@@ -77,6 +77,8 @@ export interface NavItem {
   label: string;
   icon: NavIconName;
   exact?: boolean;
+  /** Small count pill rendered after the label (e.g. pending items needing review). */
+  badgeCount?: number;
 }
 
 export function PortalShell({
@@ -136,7 +138,12 @@ export function PortalShell({
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
               )}
             />
-            {it.label}
+            <span className="flex-1">{it.label}</span>
+            {!!it.badgeCount && (
+              <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-warning/15 px-1 text-[10px] font-semibold text-warning">
+                {it.badgeCount}
+              </span>
+            )}
           </Link>
         );
       })}

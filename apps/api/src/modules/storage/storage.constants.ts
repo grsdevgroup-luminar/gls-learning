@@ -70,3 +70,30 @@ export const AVATAR_KEY_PREFIX = "avatars";
 /** Per-file cap for avatars. Smaller than lesson resources — a profile photo
  *  bigger than this is almost always an un-downscaled camera capture. */
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+// ── Instructor application CVs ──────────────────────────────────────────────
+
+/** Extension → allowed MIME for instructor-application CVs/resumes. Kept
+ *  narrow (document formats only) — this is downloaded and opened by an
+ *  admin, never rendered inline. */
+export const ALLOWED_CV_MIME: Readonly<Record<string, readonly string[]>> = {
+  pdf: ["application/pdf"],
+  doc: ["application/msword"],
+  docx: [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
+} as const;
+
+export const ALLOWED_CV_MIME_SET: ReadonlySet<string> = new Set(
+  Object.values(ALLOWED_CV_MIME).flat(),
+);
+
+export const ALLOWED_CV_EXTENSIONS: readonly string[] = Object.keys(
+  ALLOWED_CV_MIME,
+);
+
+/** Object-key prefix under the bucket / local upload dir for applicant CVs. */
+export const CV_KEY_PREFIX = "cvs";
+
+/** Per-file cap for CVs — generous for a text-heavy PDF/DOCX résumé. */
+export const CV_MAX_BYTES = 5 * 1024 * 1024;
