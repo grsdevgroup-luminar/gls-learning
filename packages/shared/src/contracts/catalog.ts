@@ -35,8 +35,29 @@ export const learningCategorySchema = z
   .min(1, "Category is required")
   .max(80, "Category cannot exceed 80 characters");
 
+/** Catalog search box limit — keeps URLs and ILIKE filters bounded. */
+export const MAX_COURSE_SEARCH_LENGTH = 200;
+export const MIN_COURSE_SEARCH_LENGTH = 2;
+
+export function normalizeCourseSearchQuery(value: string): string {
+  return value.trim().slice(0, MAX_COURSE_SEARCH_LENGTH);
+}
+
+/** Returns a trimmed, capped query when it meets the minimum length; otherwise "". */
+export function activeCourseSearchQuery(value: string): string {
+  const query = normalizeCourseSearchQuery(value);
+  return query.length >= MIN_COURSE_SEARCH_LENGTH ? query : "";
+}
+
 export const courseListQuerySchema = z.object({
-  q: z.string().trim().optional(),
+  q: z
+    .string()
+    .trim()
+    .max(
+      MAX_COURSE_SEARCH_LENGTH,
+      `Search cannot exceed ${MAX_COURSE_SEARCH_LENGTH} characters`,
+    )
+    .optional(),
   category: z.union([learningCategorySchema, z.array(learningCategorySchema).min(1)]).optional(),
   level: z
     .enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ALL_LEVELS"])

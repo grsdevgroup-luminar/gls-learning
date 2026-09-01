@@ -62,6 +62,18 @@ function isAuthPath(path: string): boolean {
   );
 }
 
+function parseResponseBody(text: string, res: Response): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (!res.ok) {
+      throw new ApiError(res.status, null, res.statusText);
+    }
+    throw new ApiError(502, null, "Invalid response from server");
+  }
+}
+
 /**
  * Core fetch wrapper used by both the browser and server clients. Always sends
  * credentials so the httpOnly auth cookies travel with the request. Parses
@@ -104,7 +116,7 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponseBody(text, res);
 
   if (!res.ok) {
     const problem = data as ProblemDetail | null;
@@ -163,7 +175,7 @@ export async function apiFetchMultipart<T>(
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponseBody(text, res);
 
   if (!res.ok) {
     const problem = data as ProblemDetail | null;
