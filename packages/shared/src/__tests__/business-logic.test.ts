@@ -18,6 +18,12 @@ import {
   UpdateAgentSchema,
 } from "../contracts/sales-agent.js";
 import { emailSchema, normalizeEmail, countryCodeSchema } from "../contracts/auth.js";
+import {
+  activeCourseSearchQuery,
+  courseListQuerySchema,
+  MAX_COURSE_SEARCH_LENGTH,
+  normalizeCourseSearchQuery,
+} from "../contracts/catalog.js";
 
 describe("email normalization", () => {
   it("canonicalizes validated email values", () => {
@@ -203,5 +209,20 @@ describe("sales agent commission validation", () => {
     expect(UpdateAgentSchema.safeParse({ commissionPercent: 1 }).success).toBe(true);
     expect(UpdateAgentSchema.safeParse({ commissionPercent: 50 }).success).toBe(true);
     expect(UpdateAgentSchema.safeParse({ commissionPercent: 51 }).success).toBe(false);
+  });
+});
+
+describe("course catalog search", () => {
+  it("caps and trims catalog search queries", () => {
+    const long = "a".repeat(MAX_COURSE_SEARCH_LENGTH + 50);
+    expect(normalizeCourseSearchQuery(`  ${long}  `)).toHaveLength(MAX_COURSE_SEARCH_LENGTH);
+    expect(activeCourseSearchQuery("a")).toBe("");
+    expect(activeCourseSearchQuery("  cloud  ")).toBe("cloud");
+  });
+
+  it("rejects overlong q on the courses list endpoint", () => {
+    const long = "a".repeat(MAX_COURSE_SEARCH_LENGTH + 1);
+    expect(courseListQuerySchema.safeParse({ q: long, sort: "popular" }).success).toBe(false);
+    expect(courseListQuerySchema.safeParse({ q: "cloud", sort: "popular" }).success).toBe(true);
   });
 });

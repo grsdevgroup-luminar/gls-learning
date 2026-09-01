@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import type { CourseSummaryDto, Paginated } from "@skillstream/shared";
+import { activeCourseSearchQuery } from "@skillstream/shared";
 import { getQueryClient } from "@/lib/api/query-client";
 import { serverApiCached } from "@/lib/api/server";
 import { qs } from "@/lib/api/endpoints";
@@ -24,7 +25,10 @@ export default async function CoursesPage({
   // the client's first render share the same query key and cache-hit instead
   // of the client re-fetching cold after hydration.
   const defaultParams = {
-    q: values(sp.q)[0] || undefined,
+    q: (() => {
+      const query = values(sp.q)[0];
+      return query ? activeCourseSearchQuery(query) || undefined : undefined;
+    })(),
     category: values(sp.category),
     level: undefined,
     sort: "popular" as const,

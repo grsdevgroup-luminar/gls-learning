@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
-import { CourseLevel } from "@skillstream/shared";
+import { CourseLevel, MAX_COURSE_SEARCH_LENGTH, MIN_COURSE_SEARCH_LENGTH } from "@skillstream/shared";
 import { levelLabel } from "@/lib/format";
 
 export const LEVELS: CourseLevel[] = [
@@ -56,6 +56,8 @@ export function CatalogFilters({
           onChange={(e) => onQChange(e.target.value)}
           placeholder="Search…"
           className="pl-9"
+          minLength={MIN_COURSE_SEARCH_LENGTH}
+          maxLength={MAX_COURSE_SEARCH_LENGTH}
         />
       </div>
 
