@@ -45,6 +45,30 @@ export class InstructorRepository {
     });
   }
 
+  findApprovedProfileByUserId(userId: string) {
+    return this.prisma.user.findFirst({
+      where: { id: userId, instructorProfile: { status: InstructorStatus.APPROVED } },
+      include: { instructorProfile: true },
+    });
+  }
+
+  findInstructorProfilesPage(
+    where: Prisma.UserWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        include: { instructorProfile: true },
+        orderBy: { instructorProfile: { ratingAvg: "desc" } },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+  }
+
   findUserWithProfile(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
@@ -69,11 +93,28 @@ export class InstructorRepository {
     });
   }
 
-  findManyApplications(status?: InstructorStatus) {
-    return this.prisma.instructorApplication.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { appliedAt: "desc" },
-    });
+  findApplicationsPage(
+    where: Prisma.InstructorApplicationWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.instructorApplication.findMany({
+        where,
+        orderBy: { appliedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.instructorApplication.count({ where }),
+    ]);
+  }
+
+  applicationStatusCounts() {
+    return this.prisma.$transaction([
+      this.prisma.instructorApplication.count({ where: { status: "PENDING" } }),
+      this.prisma.instructorApplication.count({ where: { status: "APPROVED" } }),
+      this.prisma.instructorApplication.count({ where: { status: "REJECTED" } }),
+    ]);
   }
 
   findApplicationById(appId: string) {

@@ -294,6 +294,12 @@ model InstructorProfile {
   courseCount   Int              @default(0)
   earningsCents Int              @default(0)
   status        InstructorStatus @default(PENDING)
+  sampleUrl     String?
+  linkedinUrl   String?
+  twitterUrl    String?
+  youtubeUrl    String?
+  facebookUrl   String?
+  otherUrl      String?
 }
 
 model InstructorApplication {
@@ -310,6 +316,9 @@ model InstructorApplication {
   youtubeUrl  String?
   facebookUrl String?
   otherUrl    String?
+  cvName      String?
+  cvKey       String?
+  cvSizeLabel String?
   status      InstructorStatus @default(PENDING)
   appliedAt   DateTime         @default(now())
   reviewedAt  DateTime?

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CourseDetailDto } from "@skillstream/shared";
 import { Stars } from "@/components/shared/stars";
 import { BestsellerBadge, HighestRatedBadge, isHighestRated } from "@/components/shared/bestseller-badge";
@@ -40,16 +41,21 @@ export function CourseHero({ course }: { course: CourseDetailDto }) {
               <Clock className="h-4 w-4" /> Updated {relativeDate(course.updatedAt)}
             </span>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-sm">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-                {instructor ? initials(instructor.name) : "?"}
-              </AvatarFallback>
-            </Avatar>
-            <span className="opacity-90">
-              Created by <span className="font-medium">{instructor?.name}</span>
-            </span>
-          </div>
+          {instructor && (
+            <Link
+              href={`/instructors/${instructor.id}`}
+              className="mt-4 inline-flex items-center gap-2 text-sm opacity-90 transition-opacity hover:opacity-100 hover:underline"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+                  {initials(instructor.name)}
+                </AvatarFallback>
+              </Avatar>
+              <span>
+                Created by <span className="font-medium">{instructor.name}</span>
+              </span>
+            </Link>
+          )}
         </div>
 
         {/* spacer for the floating card on desktop */}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CourseDetailDto } from "@skillstream/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -158,13 +159,17 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
           <h2 className="mb-4 text-xl font-bold">Your instructor</h2>
           <Card>
             <CardContent className="flex gap-4 pt-6">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="brand-gradient text-lg text-white">
-                  {initials(instructor.name)}
-                </AvatarFallback>
-              </Avatar>
+              <Link href={`/instructors/${instructor.id}`} className="shrink-0">
+                <Avatar className="h-16 w-16 transition-opacity hover:opacity-80">
+                  <AvatarFallback className="brand-gradient text-lg text-white">
+                    {initials(instructor.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
               <div>
-                <h3 className="font-semibold">{instructor.name}</h3>
+                <Link href={`/instructors/${instructor.id}`} className="hover:underline">
+                  <h3 className="font-semibold">{instructor.name}</h3>
+                </Link>
                 <p className="text-sm text-muted-foreground">{instructor.title}</p>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">

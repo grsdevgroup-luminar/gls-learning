@@ -248,12 +248,14 @@ export default async function HomePage() {
           <Stagger className="grid gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5" gap={0.06}>
           {instructors?.slice(0, 5)?.map((i) => (
               <StaggerItem key={i.id} className="group text-center" y={16}>
-                <Avatar className="mx-auto size-16 ring-1 ring-border transition-all duration-300 group-hover:-translate-y-1 group-hover:ring-2 group-hover:ring-primary/40">
-                  <AvatarFallback className="brand-gradient text-lg text-white">
-                    {initials(i.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <h3 className="mt-3 font-semibold">{i.name}</h3>
+                <Link href={`/instructors/${i.id}`}>
+                  <Avatar className="mx-auto size-16 ring-1 ring-border transition-all duration-300 group-hover:-translate-y-1 group-hover:ring-2 group-hover:ring-primary/40">
+                    <AvatarFallback className="brand-gradient text-lg text-white">
+                      {initials(i.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="mt-3 font-semibold group-hover:underline">{i.name}</h3>
+                </Link>
                 <p className="text-xs text-muted-foreground">{i.title}</p>
                 <div className="mt-2 flex items-center justify-center">
                   <Stars rating={i.ratingAvg} size={12} showValue />

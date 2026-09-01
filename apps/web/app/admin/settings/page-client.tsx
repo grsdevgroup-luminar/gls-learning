@@ -41,8 +41,10 @@ export default function AdminSettings() {
   });
 
   // Seed the draft from the server value whenever it (re)loads — adjusting
-  // state during render instead of syncing in an effect.
-  const [prevSettings, setPrevSettings] = useState(settings);
+  // state during render instead of syncing in an effect. `prevSettings` must
+  // NOT initialize from `settings` itself, or an already-warm cache at mount
+  // time would make them equal on the first render and skip seeding forever.
+  const [prevSettings, setPrevSettings] = useState<typeof settings>();
   if (settings && settings !== prevSettings) {
     setPrevSettings(settings);
     setGeneral({

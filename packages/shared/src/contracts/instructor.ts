@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { InstructorStatus } from "../enums.js";
+import { InstructorStatus } from "../enums.js";
+import { searchQuerySchema } from "./common.js";
 
 export const applyInstructorSchema = z.object({
   expertise: z.string().min(1).max(80),
@@ -11,8 +12,20 @@ export const applyInstructorSchema = z.object({
   youtubeUrl: z.string().url().optional(),
   facebookUrl: z.string().url().optional(),
   otherUrl: z.string().url().optional(),
+  // A CV is optional and uploaded separately (multipart) before the JSON
+  // apply body is submitted — these just reference that already-uploaded
+  // file. The server re-verifies cvKey belongs to the applying user.
+  cvKey: z.string().optional(),
+  cvName: z.string().max(200).optional(),
+  cvSizeLabel: z.string().max(20).optional(),
 });
 export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;
+
+// A URL field the instructor can also explicitly clear: "" means "remove the
+// link", a valid URL means "set it", and omitting the key entirely (the
+// `.optional()`) leaves it untouched — matched by `nullableUrl` below on the
+// service side, which maps "" to `null` before writing to the DB.
+const clearableUrl = z.union([z.string().trim().url(), z.literal("")]).optional();
 
 export const updateInstructorProfileSchema = z.object({
   title: z
@@ -26,6 +39,12 @@ export const updateInstructorProfileSchema = z.object({
     .optional(),
   expertise: z.string().max(80).optional(),
   avatar: z.string().optional(),
+  sampleUrl: clearableUrl,
+  linkedinUrl: clearableUrl,
+  twitterUrl: clearableUrl,
+  youtubeUrl: clearableUrl,
+  facebookUrl: clearableUrl,
+  otherUrl: clearableUrl,
 });
 export type UpdateInstructorProfileInput = z.infer<
   typeof updateInstructorProfileSchema
@@ -42,6 +61,24 @@ export const rejectApplicationSchema = z.object({
   note: z.string().trim().min(1, "A rejection reason is required").max(1000),
 });
 export type RejectApplicationInput = z.infer<typeof rejectApplicationSchema>;
+
+export const adminInstructorApplicationQuerySchema = searchQuerySchema.extend({
+  status: z.nativeEnum(InstructorStatus).optional(),
+});
+export type AdminInstructorApplicationQuery = z.infer<
+  typeof adminInstructorApplicationQuerySchema
+>;
+
+export const adminInstructorQuerySchema = searchQuerySchema.extend({
+  expertise: z.string().optional(),
+});
+export type AdminInstructorQuery = z.infer<typeof adminInstructorQuerySchema>;
+
+export interface InstructorApplicationStatsDto {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
 
 /** Public roster entry — no email/earnings, so it is safe to serve unauthenticated. */
 export interface InstructorRosterDto {
@@ -68,6 +105,33 @@ export interface InstructorProfileDto {
   courseCount: number;
   earningsCents: number;
   status: InstructorStatus;
+  sampleUrl?: string | null;
+  linkedinUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  facebookUrl?: string | null;
+  otherUrl?: string | null;
+  joinedAt?: string;
+}
+
+/** Public instructor profile — no email/earnings, safe to serve unauthenticated. */
+export interface InstructorPublicProfileDto {
+  id: string;
+  name: string;
+  avatar: string | null;
+  title: string;
+  bio: string;
+  expertise: string | null;
+  ratingAvg: number;
+  studentCount: number;
+  courseCount: number;
+  joinedAt: string;
+  sampleUrl: string | null;
+  linkedinUrl: string | null;
+  twitterUrl: string | null;
+  youtubeUrl: string | null;
+  facebookUrl: string | null;
+  otherUrl: string | null;
 }
 
 export interface InstructorApplicationDto {
@@ -83,8 +147,20 @@ export interface InstructorApplicationDto {
   youtubeUrl: string | null;
   facebookUrl: string | null;
   otherUrl: string | null;
+  cvName: string | null;
+  cvUrl: string | null;
+  cvSizeLabel: string | null;
   status: InstructorStatus;
   appliedAt: string;
   reviewedAt: string | null;
   note: string | null;
+}
+
+/** Response from the CV upload endpoint — `key` is echoed back in the apply
+ *  body so the server can verify it belongs to the uploading user. */
+export interface InstructorCvUploadDto {
+  key: string;
+  name: string;
+  url: string;
+  sizeLabel: string;
 }
