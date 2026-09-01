@@ -124,10 +124,15 @@ export interface CertificateDto {
 /** Exported so server-side prefetches (serverApi) can build the identical
  *  path + query string a matching client useQuery call will use — needed
  *  for the RSC↔React Query hydration bridge to actually cache-hit. */
-export const qs = (params: Record<string, string | number | undefined>) => {
+export const qs = (params: Record<string, string | string[] | number | undefined>) => {
   const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params))
-    if (v !== undefined && v !== "") sp.set(k, String(v));
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) {
+      for (const value of v) if (value !== "") sp.append(k, String(value));
+    } else if (v !== undefined && v !== "") {
+      sp.set(k, String(v));
+    }
+  }
   const s = sp.toString();
   return s ? `?${s}` : "";
 };
@@ -135,7 +140,7 @@ export const qs = (params: Record<string, string | number | undefined>) => {
 // Endpoint functions usable from the browser (credentials are always included).
 export const api = {
   // catalog
-  courses: (params: Record<string, string | number | undefined> = {}) =>
+  courses: (params: Record<string, string | string[] | number | undefined> = {}) =>
     apiFetch<Paginated<CourseSummaryDto>>(`/courses${qs(params)}`),
   course: (slug: string) => apiFetch<CourseDetailDto>(`/courses/${slug}`),
   learningCourse: (courseId: string) =>
@@ -306,10 +311,16 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
   deleteUser: (userId: string) =>
     apiFetch<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
-  refundOrder: (orderId: string, comment: string) =>
+  refundOrder: (
+    orderId: string,
+    body: {
+      comment: string;
+      items: { orderItemId: string; amountCents: number }[];
+    },
+  ) =>
     apiFetch<OrderDto>(`/admin/orders/${orderId}/refund`, {
       method: "POST",
-      body: { comment },
+      body,
     }),
   // coupons — the featured one drives the public storefront banner
   featuredCoupon: () => apiFetch<FeaturedCouponDto | null>("/coupons/featured"),
@@ -400,7 +411,8 @@ export const api = {
   },
   deleteInstructorCv: (key: string) =>
     apiFetch<{ ok: true }>(`/instructors/apply/cv${qs({ key })}`, { method: "DELETE" }),
-  instructorProfile: () => apiFetch<InstructorProfileDto | null>("/me/instructor"),
+  instructorProfile: () =>
+    apiFetch<InstructorProfileDto | null>("/me/instructor", { cache: "no-store" }),
   instructorCourses: () =>
     apiFetch<InstructorCourseDto[]>("/me/instructor/courses"),
   updateInstructorProfile: (body: UpdateInstructorProfileInput) =>

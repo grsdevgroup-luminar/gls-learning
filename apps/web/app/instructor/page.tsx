@@ -11,7 +11,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatUsd, compactNumber } from "@/lib/format";
 import {
-  BookOpen, Users, Star, DollarSign, Plus, ArrowRight, Pencil, Sparkles, Rocket,
+  BookOpen,
+  Users,
+  Star,
+  DollarSign,
+  Plus,
+  ArrowRight,
+  Pencil,
+  Sparkles,
+  Rocket,
+  Clock,
+  XCircle,
+  ShieldCheck,
+  GraduationCap,
 } from "lucide-react";
 
 export default function InstructorOverview() {
@@ -26,6 +38,106 @@ export default function InstructorOverview() {
   });
 
   const isLoading = profileLoading || coursesLoading;
+
+  // Approval gate — /instructor is reachable by any signed-in account (see
+  // proxy.ts and layout.tsx), since it also hosts the apply-status view for
+  // accounts that aren't INSTRUCTOR yet.
+  if (!profileLoading && !profile) {
+    return (
+      <div className="grid min-h-[60vh] place-items-center p-6">
+        <div
+          className="max-w-md text-center"
+          style={
+            { ["--tile" as string]: "var(--tint-amber)" } as React.CSSProperties
+          }
+        >
+          <span className="icon-tile mx-auto mb-5 grid size-14 place-items-center">
+            <GraduationCap className="size-7" />
+          </span>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">
+            You&apos;re not an instructor yet
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Apply to teach on GRS Learning — approved instructors unlock the
+            full course builder, earnings and analytics.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <Button render={<Link href="/teach" />}>Apply to teach</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profileLoading && profile) {
+    if (profile.status === "REJECTED") {
+      return (
+        <div className="grid min-h-[60vh] place-items-center p-6">
+          <div
+            className="max-w-md text-center"
+            style={
+              {
+                ["--tile" as string]: "var(--tint-rose)",
+              } as React.CSSProperties
+            }
+          >
+            <span className="icon-tile mx-auto mb-5 grid size-14 place-items-center">
+              <XCircle className="size-7" />
+            </span>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">
+              Application not approved
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              Thanks for applying. After review we&apos;re unable to onboard you
+              as an instructor right now. You&apos;re welcome to strengthen your
+              sample and re-apply in the future.
+            </p>
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <Button render={<Link href="/teach" />} variant="outline">
+                Re-apply
+              </Button>
+            </div>
+            <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5 text-success" /> Quality-reviewed
+              marketplace
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.status === "PENDING") {
+      return (
+        <div className="grid min-h-[60vh] place-items-center p-6">
+          <div
+            className="max-w-md text-center"
+            style={
+              {
+                ["--tile" as string]: "var(--tint-amber)",
+              } as React.CSSProperties
+            }
+          >
+            <span className="icon-tile mx-auto mb-5 grid size-14 place-items-center">
+              <Clock className="size-7" />
+            </span>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">
+              Your application is under review
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              Our team reviews new instructor applications within 1–2 business
+              days. You can already set up your profile — course creation
+              unlocks the moment you&apos;re approved.
+            </p>
+            <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5 text-success" /> Quality-reviewed
+              marketplace
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   const published = (courses ?? []).filter((c) => c.status === "PUBLISHED");
   const inReview = (courses ?? []).filter((c) => c.status === "REVIEW").length;
   const firstName = profile?.name?.split(" ")[0] ?? "Instructor";
@@ -157,12 +269,25 @@ export default function InstructorOverview() {
   );
 }
 
-function CourseRow({ course, index }: { course: CourseSummaryDto; index: number }) {
+function CourseRow({
+  course,
+  index,
+}: {
+  course: CourseSummaryDto;
+  index: number;
+}) {
   const lessonCount = course.lessonCount ?? 0;
 
   return (
-    <div className={`flex items-center gap-4 p-3.5 ${index > 0 ? "border-t border-border" : ""}`}>
-      <CourseArt seed={course.thumbnail} title={course.title} className="h-14 w-24 shrink-0 rounded-lg" iconSize={22} />
+    <div
+      className={`flex items-center gap-4 p-3.5 ${index > 0 ? "border-t border-border" : ""}`}
+    >
+      <CourseArt
+        seed={course.thumbnail}
+        title={course.title}
+        className="h-14 w-24 shrink-0 rounded-lg"
+        iconSize={22}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-medium">{course.title}</span>
@@ -173,10 +298,16 @@ function CourseRow({ course, index }: { course: CourseSummaryDto; index: number 
           <span className="inline-flex items-center gap-1">
             <Users className="size-3" /> {compactNumber(course.studentCount)}
           </span>
-          <span>{formatUsd(course.basePriceCents / 100).replace(".00", "")}</span>
+          <span>
+            {formatUsd(course.basePriceCents / 100).replace(".00", "")}
+          </span>
         </div>
       </div>
-      <Button variant="outline" size="sm" render={<Link href={`/instructor/courses/${course.id}/edit`} />}>
+      <Button
+        variant="outline"
+        size="sm"
+        render={<Link href={`/instructor/courses/${course.id}/edit`} />}
+      >
         <Pencil /> Edit
       </Button>
     </div>

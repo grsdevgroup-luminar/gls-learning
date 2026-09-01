@@ -287,38 +287,62 @@ export class AdminRepository {
   }
 
   // ── refunds ───────────────────────────────────────────────────────────────
-  updateOrderStatusRefunded(orderId: string, tx?: Db) {
+  /** Set the order's status + cumulative refunded total in one write. Called
+   *  after per-item refundedCents rows have been bumped so the two stay in sync. */
+  updateOrderRefundState(
+    orderId: string,
+    data: { status: "PARTIALLY_REFUNDED" | "REFUNDED"; refundedCents: number },
+    tx?: Db,
+  ) {
     return this.db(tx).order.update({
       where: { id: orderId },
-      data: { status: "REFUNDED" },
+      data,
     });
   }
 
-  decrementCourseRevenueAndStudents(
+  incrementOrderItemRefunded(
+    itemId: string,
+    amountCents: number,
+    tx?: Db,
+  ) {
+    return this.db(tx).orderItem.update({
+      where: { id: itemId },
+      data: { refundedCents: { increment: amountCents } },
+      select: { id: true, courseId: true, refundedCents: true, priceCents: true },
+    });
+  }
+
+  /** Roll back course revenue by the refunded amount. When the item was fully
+   *  refunded (`decrementStudentCount=true`) the course's student count also
+   *  decrements — mirrors the fulfill-time increment in orders.service. */
+  decrementCourseOnRefund(
     courseId: string,
-    priceCents: number,
+    amountCents: number,
+    decrementStudentCount: boolean,
     tx?: Db,
   ) {
     return this.db(tx).course.update({
       where: { id: courseId },
       data: {
-        revenueCents: { decrement: priceCents },
-        studentCount: { decrement: 1 },
+        revenueCents: { decrement: amountCents },
+        ...(decrementStudentCount ? { studentCount: { decrement: 1 } } : {}),
       },
       select: { instructorId: true },
     });
   }
 
-  decrementInstructorEarningsAndStudents(
+  /** Same idea as decrementCourseOnRefund but for the instructor's totals. */
+  decrementInstructorOnRefund(
     instructorUserId: string,
-    priceCents: number,
+    amountCents: number,
+    decrementStudentCount: boolean,
     tx?: Db,
   ) {
     return this.db(tx).instructorProfile.updateMany({
       where: { userId: instructorUserId },
       data: {
-        earningsCents: { decrement: priceCents },
-        studentCount: { decrement: 1 },
+        earningsCents: { decrement: amountCents },
+        ...(decrementStudentCount ? { studentCount: { decrement: 1 } } : {}),
       },
     });
   }
@@ -331,6 +355,7 @@ export class AdminRepository {
   }
 
   deleteEnrollmentsForRefund(userId: string, courseIds: string[], tx?: Db) {
+    if (courseIds.length === 0) return { count: 0 };
     return this.db(tx).enrollment.deleteMany({
       where: {
         userId,

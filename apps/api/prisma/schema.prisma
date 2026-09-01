@@ -122,6 +122,7 @@ enum ReviewStatus {
 enum OrderStatus {
   PENDING
   PAID
+  PARTIALLY_REFUNDED
   REFUNDED
   FAILED
 }
@@ -619,6 +620,10 @@ model Order {
   /// to the payment gateway. Refunds of orders where this is > 0 are blocked in
   /// v1 to avoid compounding (see REFUND_TO_CREDIT_PLAN.md).
   creditAppliedCents  Int            @default(0)
+  /// Cumulative refunded amount across all refund actions on this order.
+  /// Equals SUM(items.refundedCents). Denormalized for quick "remaining refundable"
+  /// computation and status decisions. Full refund → status REFUNDED; partial → PARTIALLY_REFUNDED.
+  refundedCents       Int            @default(0)
   totalCents          Int
   currency            String         @default("USD")
   couponCode          String?
@@ -656,6 +661,9 @@ model OrderItem {
   course        Course @relation(fields: [courseId], references: [id])
   titleSnapshot String
   priceCents    Int
+  /// Cumulative store-credit refund granted against this item.
+  /// Access is revoked only when refundedCents == priceCents (item fully refunded).
+  refundedCents Int    @default(0)
 
   @@index([orderId])
 }

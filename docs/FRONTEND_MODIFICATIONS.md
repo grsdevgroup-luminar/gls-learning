@@ -1,5 +1,75 @@
 # Changelog
 
+## 2026-08-31
+
+### Fixed
+
+
+- Fixed Student Course category-wise retrieval so recommendations require an exact selected category and match the student's relevant keywords against course titles, subtitles, or descriptions.
+
+
+### Fixed
+
+- Kept the Course content sidebar independently scrollable.
+- Adjusted the desktop split so the video takes most of the available height while the lesson tabs retain a visible minimum area.
+
+- Fixed the course review modal close icon being clipped by the popup overflow boundary.
+- Added visible 160-character title and 4,000-character review limits with live counters.
+
+### Changed Files
+
+- `apps/web/app/learn/[slug]/_components/learn-client.tsx`
+  - Uses a fixed desktop player shell with a non-scrollable video track.
+  - Keeps lesson details and the course-content sidebar as separate scrollable regions.
+  - Reserves a visible details area while giving the video the larger share of the viewport.
+
+- `apps/web/components/player/protected-player.tsx`
+  - Keeps video and unavailable/loading frames width-driven with a responsive 16:9 ratio.
+  - Prevents the player section from introducing its own scrollbar.
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/review-dialog.tsx`
+  - Removed popup overflow clipping and added review title/body length feedback.
+- `packages/shared/src/contracts/reviews.ts`
+  - Added clear review title and body validation messages.
+
+## 2026-08-30
+
+### Fixed
+
+- Made the Instructor Overview welcome and stats section stay sticky at the top of the page.
+- Moved the instructor review notice, courses list, and profile teaser into a scrollable content area below the sticky overview summary.
+- Fixed Instructor Profile edits for pending applicants by persisting changes to their latest application when no instructor profile row exists yet.
+- Added a clear 4,000-character bio limit and live counter to the Instructor Profile form.
+- Made the Instructor Profile headline required, limited it to 160 characters, and added a live counter.
+- Added multi-category selection to the student course catalog filters.
+- Updated catalog requests to return courses matching any selected category.
+
+### Changed Files
+
+- `apps/web/app/instructor/page.tsx`
+  - Split the overview page into a fixed-height shell with a sticky summary band and an independently scrollable content section.
+- `apps/web/app/instructor/profile/page-client.tsx`
+  - Added bio and headline length enforcement, immediate saved-value updates, and visible character feedback.
+- `apps/api/src/modules/instructor/instructor.service.ts`
+  - Persists profile edits to either the instructor profile or latest application record.
+- `packages/shared/src/contracts/instructor.ts`
+  - Added user-facing headline and bio length validation messages.
+- `apps/web/app/(storefront)/courses/_components/catalog-client.tsx`
+  - Tracks multiple selected categories and sends repeated category query parameters.
+- `apps/web/app/(storefront)/courses/_components/catalog-filters.tsx`
+  - Allows category checkboxes to be selected and cleared independently.
+- `apps/api/src/modules/courses/courses.service.ts`
+  - Filters catalog courses with an `in` query for multiple categories.
+- `packages/shared/src/contracts/catalog.ts`
+  - Accepts a category string or an array of categories in course list queries.
+
+
+- Made the learning video and lesson content fill the available main-column width at different browser zoom levels, removing large empty side gaps.
+- Made the learning lesson column and course-content sidebar independently scrollable within the desktop viewport.
+- Made the learning video and lesson content fill the available main-column width at different browser zoom levels, removing large empty side gaps.
+- Made the learning lesson column and course-content sidebar independently scrollable within the desktop viewport.
+
+
 ## 2026-08-29
 
 ### Added
@@ -723,7 +793,8 @@
 - Rating choices now display as `3.0 stars and above`, `4.0 stars and above`, and `4.5 stars and above`.
 - Fixed stale enrollment state after course enrollment by unifying the storefront and learner enrollment query cache key.
 - Enrolled learners now have their course access state refreshed consistently instead of seeing an enrollment access message from stale client data.
-- Fixed intermittent role redirects after login by prioritizing the authenticated role over stale `next` paths.
+- Fixed intermittent role redirects after login by prioritizing the authenticated role over stale 
+ext` paths.
 - Admins now consistently land in `/admin`, and the proxy prevents an admin session from remaining in the student dashboard.
 - Synchronized the freshly loaded authenticated user into the client session cache so names, emails, and role badges stay consistent.
 - Added a shared 300 ms `useDebouncedValue` hook for search inputs.
@@ -932,7 +1003,8 @@
   - Made the sidebar column use `min-h-0` so its flex children can shrink correctly within the viewport.
   - Added `overflow-y-auto` to the navigation region, allowing long menus like the admin sidebar to scroll independently.
   - Marked the header, command palette, and footer/logout area as `shrink-0` so they remain visible.
-  - Added a client-side `navIcons` registry for supported Lucide icons.
+  - Added a client-side 
+avIcons` registry for supported Lucide icons.
   - Added `NavIconName`, derived from the registry keys.
   - Changed `NavItem.icon` from a `LucideIcon` component to a serializable icon-name string.
   - Added `getNavIcon(name)` so client components can resolve icon names to Lucide components.

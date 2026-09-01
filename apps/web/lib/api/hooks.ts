@@ -29,7 +29,7 @@ import { cleanParams, qk } from "./query-keys";
 export { qk };
 
 // ── catalog ──────────────────────────────────────────────────────────────
-export const useCourses = (params: Record<string, string | number | undefined>) => {
+export const useCourses = (params: Record<string, string | string[] | number | undefined>) => {
   const cleanedParams = cleanParams(params);
   return useQuery({
     queryKey: qk.courses(cleanedParams),

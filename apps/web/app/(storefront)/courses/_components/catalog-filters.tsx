@@ -26,8 +26,8 @@ export function CatalogFilters({
   categories,
   q,
   onQChange,
-  cat,
-  onCatChange,
+  cats,
+  onCatsChange,
   lvl,
   onLvlChange,
   price,
@@ -38,8 +38,8 @@ export function CatalogFilters({
   categories: string[];
   q: string;
   onQChange: (v: string) => void;
-  cat: string | null;
-  onCatChange: (v: string | null) => void;
+  cats: string[];
+  onCatsChange: (v: string[]) => void;
   lvl: CourseLevel | null;
   onLvlChange: (v: CourseLevel | null) => void;
   price: string;
@@ -62,7 +62,7 @@ export function CatalogFilters({
       <FilterGroup title="Category">
         {categories.map((c) => (
           <label key={c} className="flex cursor-pointer items-center gap-2 text-sm">
-            <Checkbox checked={cat === c} onCheckedChange={() => onCatChange(cat === c ? null : c)} />
+            <Checkbox checked={cats.includes(c)} onCheckedChange={() => onCatsChange(cats.includes(c) ? cats.filter((selected) => selected !== c) : [...cats, c])} />
             {c}
           </label>
         ))}

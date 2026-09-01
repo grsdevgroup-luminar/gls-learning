@@ -18,11 +18,11 @@ import type {
   ReminderLogDto,
   OrderDto,
   PatchCouponInput,
+  RefundOrderInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
   UpdateUserStatusInput,
 } from "@skillstream/shared";
-import { PaymentsService } from "../payment/payments.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import { CreditsService } from "../credits/credits.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -31,11 +31,29 @@ import { AdminRepository } from "./admin.repository";
 /** Settings are a single pinned row (see the PlatformSettings model). */
 const SETTINGS_ID = "singleton";
 
+/** Normalized refund action derived from RefundOrderInput + the live order.
+ *  `entries` mirrors input.items but resolved against the order's current
+ *  refundedCents so downstream writes don't need to re-query. */
+interface RefundPlan {
+  entries: {
+    itemId: string;
+    courseId: string;
+    titleSnapshot: string;
+    priceCents: number;
+    amountCents: number;
+    /** True when this item's cumulative refundedCents will hit priceCents
+     *  after this action — access to that course should be revoked. */
+    fullyRefundedAfter: boolean;
+  }[];
+  total: number;
+  newOrderRefunded: number;
+  status: "PARTIALLY_REFUNDED" | "REFUNDED";
+}
+
 @Injectable()
 export class AdminService {
   constructor(
     private readonly repo: AdminRepository,
-    private readonly payments: PaymentsService,
     private readonly credits: CreditsService,
     private readonly notifications: NotificationsService,
   ) {}
@@ -349,24 +367,7 @@ export class AdminService {
       query.pageSize,
     );
     return {
-      items: rows.map((row) => ({
-        id: row.id,
-        status: row.status,
-        gateway: row.gateway,
-        subtotalCents: row.subtotalCents,
-        discountCents: row.discountCents,
-        creditAppliedCents: row.creditAppliedCents,
-        totalCents: row.totalCents,
-        currency: row.currency,
-        couponCode: row.couponCode,
-        items: row.items.map((i) => ({
-          courseId: i.courseId,
-          title: i.titleSnapshot,
-          priceCents: i.priceCents,
-        })),
-        createdAt: row.createdAt.toISOString(),
-        paidAt: row.paidAt?.toISOString() ?? null,
-      })),
+      items: rows.map((row) => this.toOrderDto(row)),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -522,91 +523,169 @@ export class AdminService {
   }
 
   // ── order refunds ──────────────────────────────────────────────────────────
+  /**
+   * Credit-only refund. One admin action can refund any subset of the order's
+   * items with arbitrary per-item amounts (each ≤ that item's remaining
+   * refundable). No payment-gateway call is ever made — the student is made
+   * whole via store credit only.
+   *
+   * Access is revoked only for items that become fully refunded in this action
+   * (cumulative `refundedCents == priceCents`). A dollar-partial refund on an
+   * otherwise-active item leaves the student's enrollment intact.
+   */
   async refundOrder(
     orderId: string,
-    comment: string,
+    input: RefundOrderInput,
     adminUserId: string,
   ): Promise<OrderDto> {
     const order = await this.loadRefundableOrder(orderId);
+    const plan = this.buildRefundPlan(order, input);
 
-    // Return the money at the gateway before touching our own ledger — if the
-    // gateway call fails we want to bail out with the order still PAID rather
-    // than mark it refunded without the customer actually getting paid back.
-    await this.payments.refundGatewayPayment(order);
+    await this.applyRefundToLedger(order, plan, input.comment, adminUserId);
 
-    await this.applyRefundToLedger(order, comment, adminUserId);
-
-    // Email fan-out only after the DB transaction has actually committed —
-    // enqueuing inside the tx risks a send before/without a commit. See
-    // NotificationsService docstring for the pattern.
     await this.notifications.notifyEmailAfterCommit(
-      this.refundNotifyInput(order, comment),
+      this.refundNotifyInput(order, plan, input.comment),
     );
 
     const updated = await this.repo.findOrderWithItemsOrThrow(orderId);
-    return this.toRefundedOrderDto(updated);
+    return this.toOrderDto(updated);
   }
 
   private async loadRefundableOrder(orderId: string) {
     const order = await this.repo.findOrderWithItems(orderId);
     if (!order) throw new NotFoundException("Order not found");
-    if (order.status === "REFUNDED") throw new NotFoundException("Order already refunded");
-    // v1 guard: refunding orders that already spent credit compounds the balance
-    // in ways we don't model yet. Revisit when partial refunds land.
-    if (order.creditAppliedCents > 0)
-      throw new BadRequestException(
-        "Orders that used store credit cannot be refunded in this version",
-      );
+    if (order.status === "REFUNDED")
+      throw new BadRequestException("Order already fully refunded");
     return order;
+  }
+
+  /** Cross-checks the admin's requested items/amounts against the order's live
+   *  state and returns a normalized per-item plan. Also flags which items will
+   *  become fully refunded (→ revoke access + decrement student counts). */
+  private buildRefundPlan(
+    order: NonNullable<Awaited<ReturnType<AdminRepository["findOrderWithItems"]>>>,
+    input: RefundOrderInput,
+  ): RefundPlan {
+    const itemsById = new Map(order.items.map((i) => [i.id, i]));
+    const seen = new Set<string>();
+    const entries: RefundPlan["entries"] = [];
+
+    for (const req of input.items) {
+      if (seen.has(req.orderItemId))
+        throw new BadRequestException(
+          `Item ${req.orderItemId} appears more than once in the refund request`,
+        );
+      seen.add(req.orderItemId);
+
+      const item = itemsById.get(req.orderItemId);
+      if (!item)
+        throw new BadRequestException(
+          `Item ${req.orderItemId} does not belong to this order`,
+        );
+
+      const remaining = item.priceCents - item.refundedCents;
+      if (remaining <= 0)
+        throw new BadRequestException(
+          `Item "${item.titleSnapshot}" is already fully refunded`,
+        );
+      if (req.amountCents > remaining)
+        throw new BadRequestException(
+          `Refund amount for "${item.titleSnapshot}" exceeds the remaining ${remaining} cents`,
+        );
+
+      const newRefunded = item.refundedCents + req.amountCents;
+      entries.push({
+        itemId: item.id,
+        courseId: item.courseId,
+        titleSnapshot: item.titleSnapshot,
+        priceCents: item.priceCents,
+        amountCents: req.amountCents,
+        fullyRefundedAfter: newRefunded === item.priceCents,
+      });
+    }
+
+    const total = entries.reduce((sum, e) => sum + e.amountCents, 0);
+    // Cap refund at the portion of the order that was actually money-paid.
+    // The credit-applied portion is not returnable as fresh credit (it would
+    // compound the balance without a corresponding money movement).
+    const refundableTotal = order.totalCents - order.creditAppliedCents;
+    const alreadyRefunded = order.refundedCents;
+    if (alreadyRefunded + total > refundableTotal)
+      throw new BadRequestException(
+        `Refund total exceeds the order's remaining refundable amount`,
+      );
+
+    const newOrderRefunded = alreadyRefunded + total;
+    return {
+      entries,
+      total,
+      newOrderRefunded,
+      status: newOrderRefunded >= refundableTotal ? "REFUNDED" : "PARTIALLY_REFUNDED",
+    };
   }
 
   private refundNotifyInput(
     order: NonNullable<Awaited<ReturnType<AdminRepository["findOrderWithItems"]>>>,
+    plan: RefundPlan,
     comment: string,
   ) {
-    const titles = order.items.map((i) => i.titleSnapshot).join(", ");
-    const amount = `${order.currency} ${(order.totalCents / 100).toFixed(2)}`;
+    const lines = plan.entries
+      .map(
+        (e) =>
+          `${e.titleSnapshot} (${order.currency} ${(e.amountCents / 100).toFixed(2)})`,
+      )
+      .join(", ");
+    const amount = `${order.currency} ${(plan.total / 100).toFixed(2)}`;
+    const isFullOrder = plan.status === "REFUNDED";
     return {
       userId: order.userId,
       event: "ORDER_REFUNDED" as const,
-      title: "Order refunded",
-      body: `Your order for ${titles} was refunded. Reason: ${comment}. ${amount} has been added to your account as store credit.`,
+      title: isFullOrder ? "Order refunded" : "Partial refund issued",
+      body: `${amount} store credit added for: ${lines}. Reason: ${comment}.`,
       href: "/dashboard/credits",
     };
   }
 
   private async applyRefundToLedger(
     order: NonNullable<Awaited<ReturnType<AdminRepository["findOrderWithItems"]>>>,
+    plan: RefundPlan,
     comment: string,
     adminUserId: string,
   ): Promise<void> {
     await this.repo.runTransaction(async (tx) => {
-      await this.repo.updateOrderStatusRefunded(order.id, tx);
-      for (const item of order.items) {
-        const course = await this.repo.decrementCourseRevenueAndStudents(
-          item.courseId,
-          item.priceCents,
+      const fullyRefundedCourseIds: string[] = [];
+
+      for (const entry of plan.entries) {
+        await this.repo.incrementOrderItemRefunded(entry.itemId, entry.amountCents, tx);
+        const course = await this.repo.decrementCourseOnRefund(
+          entry.courseId,
+          entry.amountCents,
+          entry.fullyRefundedAfter,
           tx,
         );
-        await this.repo.decrementInstructorEarningsAndStudents(
+        await this.repo.decrementInstructorOnRefund(
           course.instructorId,
-          item.priceCents,
+          entry.amountCents,
+          entry.fullyRefundedAfter,
           tx,
         );
+        if (entry.fullyRefundedAfter) fullyRefundedCourseIds.push(entry.courseId);
       }
-      await this.repo.decrementStudentTotalSpent(order.userId, order.totalCents, tx);
-      await this.repo.deleteEnrollmentsForRefund(
-        order.userId,
-        order.items.map((i) => i.courseId),
+
+      await this.repo.updateOrderRefundState(
+        order.id,
+        { status: plan.status, refundedCents: plan.newOrderRefunded },
         tx,
       );
-      // Grant credit + in-app notification inside the same tx so the ledger row,
-      // the notification, and the order status transition either all commit or
-      // all roll back together.
+      await this.repo.decrementStudentTotalSpent(order.userId, plan.total, tx);
+      await this.repo.deleteEnrollmentsForRefund(order.userId, fullyRefundedCourseIds, tx);
+
+      // Ledger row + in-app notification inside the same tx so the credit,
+      // notification, and status transition either all commit or all roll back.
       await this.credits.grantRefund(
         {
           userId: order.userId,
-          amountCents: order.totalCents,
+          amountCents: plan.total,
           currency: order.currency,
           orderId: order.id,
           adminUserId,
@@ -614,11 +693,14 @@ export class AdminService {
         },
         tx,
       );
-      await this.notifications.notify(this.refundNotifyInput(order, comment), tx);
+      await this.notifications.notify(
+        this.refundNotifyInput(order, plan, comment),
+        tx,
+      );
     });
   }
 
-  private toRefundedOrderDto(
+  private toOrderDto(
     updated: Awaited<ReturnType<AdminRepository["findOrderWithItemsOrThrow"]>>,
   ): OrderDto {
     return {
@@ -632,10 +714,13 @@ export class AdminService {
       currency: updated.currency,
       couponCode: updated.couponCode,
       items: updated.items.map((i) => ({
+        id: i.id,
         courseId: i.courseId,
         title: i.titleSnapshot,
         priceCents: i.priceCents,
+        refundedCents: i.refundedCents,
       })),
+      refundedCents: updated.refundedCents,
       createdAt: updated.createdAt.toISOString(),
       paidAt: updated.paidAt?.toISOString() ?? null,
     };

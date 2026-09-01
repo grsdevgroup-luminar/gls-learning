@@ -37,7 +37,7 @@ export const learningCategorySchema = z
 
 export const courseListQuerySchema = z.object({
   q: z.string().trim().optional(),
-  category: learningCategorySchema.optional(),
+  category: z.union([learningCategorySchema, z.array(learningCategorySchema).min(1)]).optional(),
   level: z
     .enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ALL_LEVELS"])
     .optional(),

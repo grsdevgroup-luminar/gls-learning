@@ -63,10 +63,13 @@ export class OrdersService {
       currency: row.currency,
       couponCode: row.couponCode,
       items: row.items.map((i) => ({
+        id: i.id,
         courseId: i.courseId,
         title: i.titleSnapshot,
         priceCents: i.priceCents,
+        refundedCents: i.refundedCents,
       })),
+      refundedCents: row.refundedCents,
       createdAt: row.createdAt.toISOString(),
       paidAt: row.paidAt?.toISOString() ?? null,
     };
@@ -107,7 +110,11 @@ export class OrdersService {
   async receiptPdf(userId: string, orderId: string): Promise<Buffer> {
     const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
     if (!order) throw new NotFoundException("Order not found");
-    if (order.status !== "PAID" && order.status !== "REFUNDED")
+    if (
+      order.status !== "PAID" &&
+      order.status !== "REFUNDED" &&
+      order.status !== "PARTIALLY_REFUNDED"
+    )
       throw new BadRequestException("No receipt for an unpaid order");
 
     return receiptPdf({
@@ -123,9 +130,11 @@ export class OrdersService {
       subtotalCents: order.subtotalCents,
       discountCents: order.discountCents,
       totalCents: order.totalCents,
+      refundedCents: order.refundedCents,
       items: order.items.map((i) => ({
         title: i.titleSnapshot,
         priceCents: i.priceCents,
+        refundedCents: i.refundedCents,
       })),
     });
   }

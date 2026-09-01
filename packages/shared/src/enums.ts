@@ -78,6 +78,7 @@ export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus];
 export const OrderStatus = {
   PENDING: "PENDING",
   PAID: "PAID",
+  PARTIALLY_REFUNDED: "PARTIALLY_REFUNDED",
   REFUNDED: "REFUNDED",
   FAILED: "FAILED",
 } as const;

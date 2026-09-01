@@ -257,20 +257,40 @@ export class InstructorService {
   ): Promise<InstructorProfileDto> {
     if (input.avatar !== undefined)
       await this.repo.updateUserAvatar(user.id, input.avatar);
+
     // Link fields are "clearable": "" means remove the link (-> null),
     // omitted means leave it untouched, anything else is the new value.
     const nullableUrl = (v?: string) => (v === undefined ? undefined : v || null);
-    await this.repo.updateInstructorProfile(user.id, {
-      title: input.title,
-      bio: input.bio,
-      expertise: input.expertise,
+    const linkFields = {
       sampleUrl: nullableUrl(input.sampleUrl),
       linkedinUrl: nullableUrl(input.linkedinUrl),
       twitterUrl: nullableUrl(input.twitterUrl),
       youtubeUrl: nullableUrl(input.youtubeUrl),
       facebookUrl: nullableUrl(input.facebookUrl),
       otherUrl: nullableUrl(input.otherUrl),
-    });
+    };
+
+    // A PENDING applicant has no InstructorProfile row yet (that's only
+    // created on approval) — fall back to updating the application itself so
+    // edits made before approval aren't silently dropped.
+    const current = await this.repo.findUserWithProfile(user.id);
+    if (current?.instructorProfile) {
+      await this.repo.updateInstructorProfile(user.id, {
+        title: input.title,
+        bio: input.bio,
+        expertise: input.expertise,
+        ...linkFields,
+      });
+    } else {
+      const application = await this.repo.findLatestApplicationByUser(user.id);
+      if (!application) throw new NotFoundException("Instructor profile not found");
+      await this.repo.updateApplication(application.id, {
+        headline: input.title,
+        bio: input.bio,
+        expertise: input.expertise,
+        ...linkFields,
+      });
+    }
     const profile = await this.myProfile(user);
     if (!profile) throw new NotFoundException("Instructor profile not found");
     return profile;

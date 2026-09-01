@@ -36,9 +36,12 @@ import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-sk
 // Kept in sync with AVATAR_MAX_BYTES on the API.
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+// Kept in sync with updateInstructorProfileSchema's max lengths.
+const HEADLINE_MAX_LENGTH = 160;
+const BIO_MAX_LENGTH = 4000;
 
 type LinkField = "sampleUrl" | "linkedinUrl" | "twitterUrl" | "youtubeUrl" | "facebookUrl" | "otherUrl";
-type FieldErrors = Partial<Record<LinkField, string>>;
+type FieldErrors = Partial<Record<LinkField | "title", string>>;
 
 export default function InstructorProfile() {
   const qc = useQueryClient();
@@ -46,6 +49,7 @@ export default function InstructorProfile() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ["instructor", "profile"],
     queryFn: instructorApi.profile,
+    refetchOnMount: "always",
   });
 
   const { data: categories = [] } = useCategories();
@@ -64,7 +68,7 @@ export default function InstructorProfile() {
   // Categories load async; fall back to the first once they arrive.
   const expertiseValue = expertise || categories[0] || "";
 
-  function clearError(field: LinkField) {
+  function clearError(field: LinkField | "title") {
     setFieldErrors((prev) => {
       if (!(field in prev)) return prev;
       const next = { ...prev };
@@ -120,7 +124,7 @@ export default function InstructorProfile() {
     if (!result.success) {
       const errors: FieldErrors = {};
       for (const issue of result.error.issues) {
-        const key = issue.path[0] as LinkField;
+        const key = issue.path[0] as LinkField | "title";
         if (key && !errors[key]) errors[key] = issue.message;
       }
       setFieldErrors(errors);
@@ -345,8 +349,18 @@ export default function InstructorProfile() {
                   </FormField>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Headline">
-                    <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Senior Frontend Engineer" />
+                  <FormField label="Headline" error={fieldErrors.title}>
+                    <Input
+                      value={title}
+                      required
+                      maxLength={HEADLINE_MAX_LENGTH}
+                      onChange={(e) => { setTitle(e.target.value); clearError("title"); }}
+                      placeholder="e.g. Senior Frontend Engineer"
+                      aria-invalid={!!fieldErrors.title}
+                    />
+                    <div className="mt-1 text-right text-xs text-muted-foreground">
+                      {title.length} / {HEADLINE_MAX_LENGTH} characters
+                    </div>
                   </FormField>
                   <FormField label="Primary expertise">
                     <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
@@ -358,7 +372,16 @@ export default function InstructorProfile() {
                   </FormField>
                 </div>
                 <FormField label="Bio">
-                  <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell learners about your background and what you teach…" className="min-h-32" />
+                  <Textarea
+                    value={bio}
+                    maxLength={BIO_MAX_LENGTH}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell learners about your background and what you teach…"
+                    className="min-h-32"
+                  />
+                  <div className="mt-1 text-right text-xs text-muted-foreground">
+                    {bio.length.toLocaleString()} / {BIO_MAX_LENGTH.toLocaleString()} characters
+                  </div>
                 </FormField>
               </Stagger>
             </CardContent>

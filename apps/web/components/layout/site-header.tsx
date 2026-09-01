@@ -113,9 +113,15 @@ export function SiteHeader() {
           <Button render={<Link href="/courses" />} variant="ghost" size="sm">
             Courses
           </Button>
-          <Button render={<Link href={headerRole === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
-            {headerRole === "INSTRUCTOR" ? "Instructor" : "Teach"}
-          </Button>
+          {headerRole === "INSTRUCTOR" ? (
+            <Button render={<Link href="/instructor" />} variant="ghost" size="sm">
+              Instructor
+            </Button>
+          ) : !isAuthed ? (
+            <Button render={<Link href="/teach" />} variant="ghost" size="sm">
+              Teach
+            </Button>
+          ) : null}
         </nav>
 
         <form onSubmit={submitSearch} className="relative ml-2 hidden flex-1 lg:block">

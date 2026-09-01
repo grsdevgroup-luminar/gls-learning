@@ -193,10 +193,21 @@ export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
 
 // ── Order refunds ─────────────────────────────────────────────────────────────
 
-/** Admin refund body: comment is required and surfaces in the student's
- *  notification and their credit-history row. */
+/** Admin refund body — one refund action can span multiple order items with
+ *  arbitrary per-item amounts. `comment` is required and surfaces in the
+ *  student's notification and their credit-history row. Each `items[]` entry
+ *  targets one OrderItem; server validates that amountCents never exceeds
+ *  (priceCents − prior refundedCents) for that item. */
 export const refundOrderSchema = z.object({
   comment: z.string().trim().min(3).max(500),
+  items: z
+    .array(
+      z.object({
+        orderItemId: z.string().min(1),
+        amountCents: z.number().int().positive(),
+      }),
+    )
+    .min(1, "Select at least one item to refund"),
 });
 export type RefundOrderInput = z.infer<typeof refundOrderSchema>;
 

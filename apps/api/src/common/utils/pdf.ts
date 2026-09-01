@@ -218,7 +218,9 @@ export function receiptPdf(input: {
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  items: { title: string; priceCents: number }[];
+  /** Cumulative store-credit refund granted on this order. */
+  refundedCents?: number;
+  items: { title: string; priceCents: number; refundedCents?: number }[];
 }): Buffer {
   const width = 595;
   const height = 842;
@@ -258,7 +260,31 @@ export function receiptPdf(input: {
       size: 11,
       align: "right",
     });
-    y -= 22;
+    y -= 16;
+    if (item.refundedCents && item.refundedCents > 0) {
+      // Per-item refund line, shown right under its parent so it is obvious
+      // which course received store credit and how much.
+      const fully = item.refundedCents >= item.priceCents;
+      lines.push({
+        text: fully
+          ? "  Refunded to store credit (access revoked)"
+          : "  Partially refunded to store credit",
+        x: left,
+        y,
+        size: 10,
+        gray: 0.45,
+      });
+      lines.push({
+        text: `-${money(item.refundedCents, input.currency)}`,
+        x: right,
+        y,
+        size: 10,
+        gray: 0.45,
+        align: "right",
+      });
+      y -= 16;
+    }
+    y -= 6;
   }
 
   y -= 12;
@@ -292,6 +318,39 @@ export function receiptPdf(input: {
     bold: true,
     align: "right",
   });
+
+  const refundedTotal = input.refundedCents ?? 0;
+  if (refundedTotal > 0) {
+    // Order-level refund summary + net-paid so the buyer sees, in dollars,
+    // exactly what has been credited back and what has actually been retained.
+    y -= 22;
+    lines.push({
+      text: "Refunded to store credit",
+      x: left,
+      y,
+      size: 11,
+      gray: 0.4,
+    });
+    lines.push({
+      text: `-${money(refundedTotal, input.currency)}`,
+      x: right,
+      y,
+      size: 11,
+      gray: 0.4,
+      align: "right",
+    });
+    y -= 22;
+    const net = Math.max(0, input.totalCents - refundedTotal);
+    lines.push({ text: "Net paid", x: left, y, size: 12, bold: true });
+    lines.push({
+      text: money(net, input.currency),
+      x: right,
+      y,
+      size: 12,
+      bold: true,
+      align: "right",
+    });
+  }
 
   lines.push({
     text: "Thank you for learning with SkillStream.",
