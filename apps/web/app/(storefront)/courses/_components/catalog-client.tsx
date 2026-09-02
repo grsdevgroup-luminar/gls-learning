@@ -5,6 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { useCategories, useCourses } from "@/lib/api/hooks";
 import { useStore } from "@/lib/context/store";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import {
+  activeCourseSearchQuery,
+  normalizeCourseSearchQuery,
+  onCourseSearchInputChange,
+} from "@/lib/course-search";
 import { CatalogFilters, PRICE_BUCKETS } from "./catalog-filters";
 import { CatalogResults } from "./catalog-results";
 import { SortSelect } from "./sort-select";
@@ -28,16 +33,11 @@ const SORT_TO_API: Record<string, CourseSort> = {
   price_high: "price_desc",
 };
 
-function activeSearch(value: string) {
-  const query = value.trim();
-  return query.length >= 2 ? query : "";
-}
-
 export function CatalogClient() {
   const { data: categories = [] } = useCategories();
   const { region } = useStore();
   const searchParams = useSearchParams();
-  const urlQ = searchParams.get("q") ?? "";
+  const urlQ = normalizeCourseSearchQuery(searchParams.get("q") ?? "");
   const urlCats = searchParams.getAll("category");
 
   // Backend `GET /courses` only accepts one category / one level at a time —
@@ -45,7 +45,7 @@ export function CatalogClient() {
   // then silently only honoring the first pick.
   const [qInput, setQInput] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(qInput);
-  const [urlSearch, setUrlSearch] = useState(activeSearch(urlQ));
+  const [urlSearch, setUrlSearch] = useState(activeCourseSearchQuery(urlQ));
   const [cats, setCats] = useState<string[]>(urlCats);
   const [lvl, setLvl] = useState<CourseLevel | null>(null);
   const [price, setPrice] = useState("all");
@@ -62,7 +62,7 @@ export function CatalogClient() {
   const [syncedFromUrl, setSyncedFromUrl] = useState({ q: urlQ, cats: urlCats.join("|") });
   const urlCatsKey = urlCats.join("|");
   const urlChanged = syncedFromUrl.q !== urlQ || syncedFromUrl.cats !== urlCatsKey;
-  const nextUrlSearch = activeSearch(urlQ);
+  const nextUrlSearch = activeCourseSearchQuery(urlQ);
   if (urlChanged) {
     setSyncedFromUrl({ q: urlQ, cats: urlCatsKey });
     setQInput(urlQ);
@@ -71,7 +71,7 @@ export function CatalogClient() {
   }
   const effectiveQInput = urlChanged ? urlQ : qInput;
   const q =
-    activeSearch(effectiveQInput) === (urlChanged ? nextUrlSearch : urlSearch)
+    activeCourseSearchQuery(effectiveQInput) === (urlChanged ? nextUrlSearch : urlSearch)
       ? (urlChanged ? nextUrlSearch : urlSearch)
       : debouncedQ;
 
@@ -133,7 +133,7 @@ export function CatalogClient() {
   const filterProps = {
     categories,
     q: effectiveQInput,
-    onQChange: setQInput,
+    onQChange: (value: string) => onCourseSearchInputChange(value, qInput, setQInput),
     cats,
     onCatsChange: setCats,
     lvl,

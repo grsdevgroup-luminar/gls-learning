@@ -23,6 +23,11 @@ import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import {
+  activeCourseSearchQuery,
+  normalizeCourseSearchQuery,
+  onCourseSearchInputChange,
+} from "@/lib/course-search";
 import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
 
@@ -35,7 +40,10 @@ export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const urlQ = pathname === "/courses" ? (searchParams.get("q") ?? "") : "";
+  const urlQ =
+    pathname === "/courses"
+      ? normalizeCourseSearchQuery(searchParams.get("q") ?? "")
+      : "";
   const [q, setQ] = useState(urlQ);
   const [syncedQ, setSyncedQ] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(q);
@@ -57,10 +65,11 @@ export function SiteHeader() {
   }
 
   const search = useCallback((query: string) => {
+    const normalized = activeCourseSearchQuery(query);
     if (pathname === "/courses") {
       const nextParams = new URLSearchParams(searchParams.toString());
-      if (query.length < 2) nextParams.delete("q");
-      else nextParams.set("q", query);
+      if (!normalized) nextParams.delete("q");
+      else nextParams.set("q", normalized);
 
       const nextQueryString = nextParams.toString();
       const nextHref = nextQueryString ? `/courses?${nextQueryString}` : "/courses";
@@ -72,9 +81,9 @@ export function SiteHeader() {
       return;
     }
 
-    if (query.length < 2) return;
+    if (!normalized) return;
 
-    router.push(`/courses?q=${encodeURIComponent(query)}`);
+    router.push(`/courses?q=${encodeURIComponent(normalized)}`);
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
@@ -87,7 +96,7 @@ export function SiteHeader() {
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    search(q.trim());
+    search(activeCourseSearchQuery(q));
   }
 
   async function logout() {
@@ -135,7 +144,7 @@ export function SiteHeader() {
           <Input
             type="search"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => onCourseSearchInputChange(e.target.value, q, setQ)}
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
             minLength={2}
