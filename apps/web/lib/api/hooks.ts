@@ -361,8 +361,8 @@ export const useDeleteCoupon = () =>
   useCouponMutation((code: string) => api.adminDeleteCoupon(code));
 
 // ── instructor ────────────────────────────────────────────────────────────
-export const useInstructorProfile = () =>
-  useQuery({ queryKey: qk.instructorProfile, queryFn: api.instructorProfile });
+export const useInstructorProfile = (enabled = true) =>
+  useQuery({ queryKey: qk.instructorProfile, queryFn: api.instructorProfile, enabled });
 
 export const useInstructorCourses = () =>
   useQuery({ queryKey: qk.instructorCourses, queryFn: api.instructorCourses });

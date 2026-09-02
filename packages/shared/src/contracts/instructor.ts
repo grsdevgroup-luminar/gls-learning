@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { InstructorStatus } from "../enums.js";
 import { searchQuerySchema } from "./common.js";
+import { countryCodeSchema, emailSchema, passwordSchema } from "./auth.js";
 
 export const applyInstructorSchema = z.object({
   expertise: z.string().min(1).max(80),
@@ -20,6 +21,19 @@ export const applyInstructorSchema = z.object({
   cvSizeLabel: z.string().max(20).optional(),
 });
 export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;
+
+/** Creates the account and the instructor application in one step — the
+ *  dedicated instructor signup journey, so applying never requires first
+ *  creating (or logging into) a student account. No CV field: that's
+ *  uploaded separately post-signup, once the applicant has an account to
+ *  scope the upload to. */
+export const instructorSignupSchema = z.object({
+  name: z.string().min(1).max(120),
+  email: emailSchema,
+  password: passwordSchema,
+  country: countryCodeSchema,
+}).merge(applyInstructorSchema.omit({ cvKey: true, cvName: true, cvSizeLabel: true }));
+export type InstructorSignupInput = z.infer<typeof instructorSignupSchema>;
 
 // A URL field the instructor can also explicitly clear: "" means "remove the
 // link", a valid URL means "set it", and omitting the key entirely (the

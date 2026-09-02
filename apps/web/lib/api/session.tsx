@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import type {
   AuthUserDto,
+  InstructorSignupInput,
   LoginInput,
   RegisterInput,
   UserRole,
@@ -75,6 +76,14 @@ export function useRegister() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: RegisterInput) => authApi.register(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY }),
+  });
+}
+
+export function useRegisterInstructor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: InstructorSignupInput) => authApi.registerInstructor(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY }),
   });
 }

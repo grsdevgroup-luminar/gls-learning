@@ -14,6 +14,7 @@ import type {
   AuthUserDto,
   ChangePasswordInput,
   ForgotPasswordInput,
+  InstructorSignupInput,
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
@@ -23,6 +24,7 @@ import { UsersService } from "../users/users.service";
 import { TokenService } from "./token.service";
 import { AuthRepository } from "./auth.repository";
 import { EmailService } from "../email/email.service";
+import { InstructorService } from "../instructor/instructor.service";
 import {
   AVATAR_KEY_PREFIX,
   STORAGE_DRIVER,
@@ -51,10 +53,20 @@ export class AuthService {
     private readonly tokens: TokenService,
     private readonly repo: AuthRepository,
     private readonly email: EmailService,
+    private readonly instructor: InstructorService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
-  async register(input: RegisterInput, meta: SessionMeta) {
+  /** Every account starts as a STUDENT regardless of entry point — the
+   *  dedicated instructor-signup journey (registerInstructor) elevates to
+   *  INSTRUCTOR only later, on admin approval, same as the apply-from-an-
+   *  existing-account path. */
+  private async createStudentAccount(input: {
+    name: string;
+    email: string;
+    password: string;
+    country: string;
+  }) {
     const email = normalizeEmail(input.email);
     const existing = await this.users.findByEmail(email);
     if (existing) throw new ConflictException("Email already registered");
@@ -62,7 +74,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(input.password, {
       type: argon2.argon2id,
     });
-    const user = await this.users.create({
+    return this.users.create({
       email,
       name: input.name,
       country: input.country,
@@ -70,7 +82,26 @@ export class AuthService {
       role: "STUDENT",
       studentProfile: { create: {} },
     });
+  }
+
+  async register(input: RegisterInput, meta: SessionMeta) {
+    const user = await this.createStudentAccount(input);
     // Fire welcome email (non-blocking — don't fail registration on email error).
+    this.email.sendWelcome(user.email, user.name).catch(() => {});
+    return this.issueSession(user.id, user.email, user.role, meta);
+  }
+
+  /** The dedicated instructor signup journey: creates the account and submits
+   *  the instructor application in one step, so applying to teach never
+   *  requires first creating (or logging into) a separate student account. */
+  async registerInstructor(input: InstructorSignupInput, meta: SessionMeta) {
+    const user = await this.createStudentAccount(input);
+    await this.instructor.createSignupApplication(
+      user.id,
+      user.name,
+      user.email,
+      input,
+    );
     this.email.sendWelcome(user.email, user.name).catch(() => {});
     return this.issueSession(user.id, user.email, user.role, meta);
   }
@@ -127,7 +158,13 @@ export class AuthService {
       phone: user.phone,
       role: user.role,
       emailVerified: user.emailVerified,
-      instructorStatus: user.instructorProfile?.status ?? null,
+      // No InstructorProfile row yet means either a pure student or a
+      // pending/rejected applicant — check the latest application so the
+      // frontend can route applicants to /instructor instead of /dashboard
+      // right after login, without a second request.
+      instructorStatus:
+        user.instructorProfile?.status ??
+        (await this.instructor.latestApplicationStatus(userId)),
     };
   }
 

@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { loginSchema } from "@skillstream/shared";
+import { loginSchema, type AuthUserDto } from "@skillstream/shared";
 
 function LoginForm() {
   const login = useLogin();
@@ -27,14 +27,20 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  function destinationFor(role: string): string {
+  function destinationFor(me: AuthUserDto): string {
     const next = params.get("next");
     // Role portals take priority over a stale/previous return path. Otherwise
     // an admin can authenticate successfully and still land in /dashboard.
-    if (role === "ADMIN") return "/admin";
-    if (role === "INSTRUCTOR") return "/instructor";
-    if (role === "SALES_AGENT") return "/sales-agent";
-    if (role === "ORG_ADMIN") return "/org";
+    if (me.role === "ADMIN") return "/admin";
+    if (me.role === "INSTRUCTOR") return "/instructor";
+    if (me.role === "SALES_AGENT") return "/sales-agent";
+    if (me.role === "ORG_ADMIN") return "/org";
+    // A pending instructor application means this account's identity right
+    // now is "applicant," not "student" — send them to their application
+    // status page instead of the student dashboard so the two journeys never
+    // mix. A rejected application doesn't redirect: that user is just a
+    // student again.
+    if (me.instructorStatus === "PENDING") return "/instructor";
     return next || "/dashboard";
   }
 
@@ -57,7 +63,7 @@ function LoginForm() {
       // sitting in Next's client router cache from a pre-login prefetch (e.g. a
       // visible nav link to /admin or /dashboard), which would serve the stale
       // "redirect to /login" response instead of re-checking the fresh session.
-      window.location.href = destinationFor(me.role);
+      window.location.href = destinationFor(me);
     } catch (err) {
       const message = err instanceof ApiError ? err.displayMessage : "Login failed";
       toast.error("Could not sign in", { description: message });
