@@ -16,6 +16,7 @@ import { QuizEditor, emptyQuiz, type BuilderQuiz } from "@/components/shared/qui
 import { CourseArt, isImageThumbnail } from "@/components/shared/course-art";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { CategoryPicker } from "@/components/shared/category-picker";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -305,7 +306,6 @@ export function CourseBuilder({
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
   }
   function removeSection(id: string) {
-    if (!window.confirm("Remove this section and all of its lessons?")) return;
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
@@ -321,7 +321,6 @@ export function CourseBuilder({
     patchLesson(sid, lid, { type, quiz, quizDirty: type === "quiz", durationSec });
   }
   function removeLesson(sid: string, lid: string) {
-    if (!window.confirm("Remove this lesson?")) return;
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
   }
 
@@ -671,7 +670,13 @@ export function CourseBuilder({
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                       </span>
                       <Input value={s.title} onChange={(e) => patchSection(s.id, { title: e.target.value })} className="h-8 font-medium" />
-                      <Button size="icon-sm" variant="ghost" onClick={() => removeSection(s.id)} aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                      <ConfirmDialog
+                        trigger={<Button size="icon-sm" variant="ghost" aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>}
+                        title="Remove this section?"
+                        description="All of its lessons will be removed too."
+                        confirmLabel="Remove"
+                        onConfirm={() => removeSection(s.id)}
+                      />
                     </div>
 
                   {!collapsedSections.has(s.id) && (
@@ -690,7 +695,13 @@ export function CourseBuilder({
                             <Eye className="h-3.5 w-3.5" /> Preview
                             <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
                           </label>
-                          <Button size="icon-sm" variant="ghost" onClick={() => removeLesson(s.id, l.id)} aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                          <ConfirmDialog
+                            trigger={<Button size="icon-sm" variant="ghost" aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>}
+                            title="Remove this lesson?"
+                            description="This can't be undone."
+                            confirmLabel="Remove"
+                            onConfirm={() => removeLesson(s.id, l.id)}
+                          />
                         </div>
                         <div className="mt-2">
                           {l.type === "quiz" ? (
@@ -850,15 +861,22 @@ export function CourseBuilder({
                 </button>
                 {thumbError && <p className="text-xs text-destructive">{thumbError}</p>}
                 {isImageThumbnail(thumbnail) && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-muted-foreground"
-                    onClick={() => { if (window.confirm("Remove this course image?")) setThumbnail(thumbSeeds[0]); }}
-                  >
-                    <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove image
-                  </Button>
+                  <ConfirmDialog
+                    trigger={
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-muted-foreground"
+                      >
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove image
+                      </Button>
+                    }
+                    title="Remove this course image?"
+                    description="You can pick a new image or color theme afterward."
+                    confirmLabel="Remove"
+                    onConfirm={() => setThumbnail(thumbSeeds[0])}
+                  />
                 )}
 
                 <div className="space-y-1.5">
@@ -943,7 +961,6 @@ function LessonResources({
   }
 
   async function handleRemove(i: number) {
-    if (!window.confirm("Remove this resource?")) return;
     const r = resources[i];
     if (r.storageKey) {
       try {
@@ -987,14 +1004,17 @@ function LessonResources({
             <a href={r.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" aria-label="Open resource">
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Remove resource"
-              onClick={() => handleRemove(i)}
-            >
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button size="icon-sm" variant="ghost" aria-label="Remove resource">
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              }
+              title="Remove this resource?"
+              description="Students will no longer be able to download it."
+              confirmLabel="Remove"
+              onConfirm={() => handleRemove(i)}
+            />
           </div>
         ) : (
           <div key={i} className="flex items-center gap-2">
@@ -1012,14 +1032,17 @@ function LessonResources({
               type="url"
               className="h-8 flex-[2] min-w-0"
             />
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Remove resource"
-              onClick={() => handleRemove(i)}
-            >
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button size="icon-sm" variant="ghost" aria-label="Remove resource">
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              }
+              title="Remove this resource?"
+              description="Students will no longer be able to download it."
+              confirmLabel="Remove"
+              onConfirm={() => handleRemove(i)}
+            />
           </div>
         ),
       )}

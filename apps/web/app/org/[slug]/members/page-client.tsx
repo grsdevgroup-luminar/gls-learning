@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { initials, relativeDate } from "@/lib/format";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -218,15 +219,23 @@ export default function OrgMembers() {
                     </TableCell>
                     <TableCell>
                       {m.role !== "ADMIN" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => { if (window.confirm(`Remove ${m.name} from this organization?`)) removeMutation.mutate(m.id); }}
-                          aria-label="Remove member"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDialog
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label="Remove member"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          }
+                          title={`Remove ${m.name}?`}
+                          description="They will lose access to this organization's courses."
+                          confirmLabel="Remove"
+                          pending={removeMutation.isPending}
+                          onConfirm={async () => { await removeMutation.mutateAsync(m.id); }}
+                        />
                       )}
                     </TableCell>
                   </TableRow>

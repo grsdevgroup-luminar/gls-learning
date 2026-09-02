@@ -38,9 +38,17 @@ export class CartService {
     return this.toDto((await this.repo.findByUserId(userId))!);
   }
 
+  /** Removing the last item drops the coupon too — otherwise it silently
+   *  reapplies to whatever gets added to the cart next. */
   async removeItem(userId: string, courseId: string): Promise<CartDto> {
     const cart = await this.ensure(userId);
-    await this.repo.removeItem(cart.id, courseId);
+    await this.prisma.$transaction(async (tx) => {
+      await this.repo.removeItem(cart.id, courseId, tx);
+      const remaining = await this.repo.findByUserId(userId, tx);
+      if (remaining?.couponCode && remaining.items.length === 0) {
+        await this.repo.setCoupon(cart.id, null, tx);
+      }
+    });
     return this.toDto((await this.repo.findByUserId(userId))!);
   }
 

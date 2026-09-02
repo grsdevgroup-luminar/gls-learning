@@ -7,6 +7,7 @@ import { adminApi, authoringApi, type InstructorCourseDto } from "@/lib/api/endp
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ export default function AdminCourses() {
   const [status, setStatus] = useState<"all" | ApiStatus>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
+  const [deleteTarget, setDeleteTarget] = useState<InstructorCourseDto | null>(null);
 
   useEffect(() => {
     setPage(1);
@@ -199,7 +201,7 @@ export default function AdminCourses() {
                         )}
                         <DropdownMenuItem render={<Link href={`/admin/courses/${c.id}/edit`} />}><Pencil /> Edit</DropdownMenuItem>
                         <DropdownMenuItem render={<Link href={`/courses/${c.slug}`} />}><Eye /> View</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => { if (window.confirm(`Delete course "${c.title}"? This cannot be undone.`)) deleteMutation.mutate(c.id); }}><Trash2 /> Delete</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 /> Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -212,6 +214,18 @@ export default function AdminCourses() {
       {!isLoading && (
         <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title={`Delete course "${deleteTarget?.title}"?`}
+        description="This cannot be undone."
+        pending={deleteMutation.isPending}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          await deleteMutation.mutateAsync(deleteTarget.id);
+        }}
+      />
     </div>
   );
 }

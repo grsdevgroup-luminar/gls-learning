@@ -13,9 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
-  trigger: ReactNode;
+  // Either an uncontrolled trigger element (wrapped to open the dialog itself)
+  // or a controlled open/onOpenChange pair — the latter is for callers that
+  // can't nest a DialogTrigger in the clicked element, e.g. a dropdown menu
+  // item, which unmounts before a trigger-owned dialog would get to open.
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
-  description: string;
+  description?: string;
   confirmLabel?: string;
   pending?: boolean;
   onConfirm: () => void | Promise<void>;
@@ -23,13 +29,17 @@ interface ConfirmDialogProps {
 
 export function ConfirmDialog({
   trigger,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
   title,
   description,
   confirmLabel = "Delete",
   pending = false,
   onConfirm,
 }: ConfirmDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = trigger ? openState : (openProp ?? false);
+  const setOpen = trigger ? setOpenState : (onOpenChangeProp ?? (() => {}));
 
   async function confirm() {
     await onConfirm();
@@ -38,11 +48,13 @@ export function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger as React.ReactElement}>{trigger}</DialogTrigger>
+      {trigger && (
+        <DialogTrigger render={trigger as React.ReactElement}>{trigger}</DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancel</Button>

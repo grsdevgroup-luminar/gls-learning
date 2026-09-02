@@ -413,7 +413,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const removeFromCart = useCallback(
     (courseId: string) => {
       if (!user) {
-        setCart((c) => c.filter((x) => x !== courseId));
+        // Dropping the last item must drop the coupon too — otherwise it
+        // silently reapplies to whatever gets added to the cart next.
+        setCart((c) => {
+          const next = c.filter((x) => x !== courseId);
+          if (next.length === 0) setCouponState(null);
+          return next;
+        });
         return;
       }
       runServerMutation(
