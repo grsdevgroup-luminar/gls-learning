@@ -66,11 +66,30 @@ const rawEnvSchema = z.object({
   // free, keyless endpoint covering the emerging-market currencies (BDT, NGN,
   // PKR) that ECB-sourced feeds like frankfurter.app omit.
   FX_RATES_URL: z.string().url().default("https://open.er-api.com/v6/latest/USD"),
+  // Transactional email. `EMAIL_DRIVER` selects the transport adapter; the
+  // service layer (templates + helpers) is provider-agnostic. Adding a new
+  // provider = extend the enum + register an adapter in EmailModule.
+  EMAIL_DRIVER: z.enum(["resend", "smtp", "log"]).optional(),
   RESEND_API_KEY: z.string().optional(),
+  // Generic SMTP transport. Primary local use: Mailpit
+  // (docker-compose service `mailpit`, SMTP :1025, UI :8025). Also usable
+  // for any SMTP relay in staging.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
   // SMS reminders. Without all three, SmsService logs instead of sending.
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
+  // `EMAIL_FROM` is the new canonical key; `RESEND_FROM_EMAIL` is kept as a
+  // legacy fallback so existing deployments keep booting during migration.
+  EMAIL_FROM: z.string().email().optional(),
+  EMAIL_REPLY_TO: z.string().email().optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@skillstream.dev"),
   FRONTEND_URL: z.string().url().default("http://localhost:3001"),
   SENTRY_DSN: z.string().optional(),
@@ -141,6 +160,18 @@ export const envSchema = rawEnvSchema
     STORAGE_DRIVER:
       env.STORAGE_DRIVER ??
       (env.NODE_ENV === "production" ? ("s3" as const) : ("local" as const)),
+    // Auto-resolve EMAIL_DRIVER: explicit setting wins; else prefer resend
+    // when API key is present, then SMTP when host is set (Mailpit in dev),
+    // else fall back to log (CI/no-config boot).
+    EMAIL_DRIVER:
+      env.EMAIL_DRIVER ??
+      (env.RESEND_API_KEY
+        ? ("resend" as const)
+        : env.SMTP_HOST
+          ? ("smtp" as const)
+          : ("log" as const)),
+    // Canonical from-address; legacy RESEND_FROM_EMAIL kept for one release.
+    EMAIL_FROM: env.EMAIL_FROM ?? env.RESEND_FROM_EMAIL,
   }))
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === "production" && env.LOG_DESTINATION === "file") {
@@ -148,6 +179,20 @@ export const envSchema = rawEnvSchema
         code: z.ZodIssueCode.custom,
         path: ["LOG_DESTINATION"],
         message: "LOG_DESTINATION must be stdout in production",
+      });
+    }
+    if (env.EMAIL_DRIVER === "resend" && !env.RESEND_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["RESEND_API_KEY"],
+        message: "RESEND_API_KEY is required when EMAIL_DRIVER=resend",
+      });
+    }
+    if (env.EMAIL_DRIVER === "smtp" && !env.SMTP_HOST) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["SMTP_HOST"],
+        message: "SMTP_HOST is required when EMAIL_DRIVER=smtp",
       });
     }
     if (env.STORAGE_DRIVER === "s3") {

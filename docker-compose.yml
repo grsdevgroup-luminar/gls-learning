@@ -26,6 +26,25 @@ services:
     volumes:
       - redisdata:/data
 
+  # Local SMTP catcher for transactional email dev/testing. Web UI at
+  # http://localhost:8025 shows every mail the API tries to send. Point the
+  # API at it with EMAIL_DRIVER=smtp, SMTP_HOST=localhost, SMTP_PORT=1025.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: skillstream-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web UI
+    volumes:
+      - mailpitdata:/data
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
 volumes:
   pgdata:
   redisdata:
+  mailpitdata:

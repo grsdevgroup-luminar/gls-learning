@@ -1,44 +1,34 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Resend } from "resend";
 import type { Env } from "../../config/env";
+import {
+  EMAIL_PROVIDER,
+  type EmailProvider,
+} from "./providers/email-provider";
 
 @Injectable()
 export class EmailService {
-  private readonly resend: Resend | null;
-  private readonly from: string;
   private readonly frontendUrl: string;
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private readonly config: ConfigService<Env, true>) {
-    const apiKey = config.get("RESEND_API_KEY", { infer: true });
-    this.resend = apiKey ? new Resend(apiKey) : null;
-    this.from = config.get("RESEND_FROM_EMAIL", { infer: true });
+  constructor(
+    @Inject(EMAIL_PROVIDER) private readonly provider: EmailProvider,
+    private readonly config: ConfigService<Env, true>,
+  ) {
     this.frontendUrl = config.get("FRONTEND_URL", { infer: true });
-
-    if (!this.resend) {
-      this.logger.warn("RESEND_API_KEY not set — emails will be logged only");
-    }
   }
 
   async sendPasswordReset(to: string, name: string, token: string): Promise<void> {
     const link = `${this.frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
-
-    if (!this.resend) {
-      this.logger.log(`[DEV] Password reset link for ${to}: ${link}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject: "Reset your SkillStream password",
-      html: this.passwordResetHtml(name, link),
-      text: `Hi ${name},\n\nReset your password:\n${link}\n\nThis link expires in 1 hour.\n\n— The SkillStream team`,
-    });
-
-    if (error) {
-      this.logger.error("Failed to send password reset email", error);
+    try {
+      await this.provider.send({
+        to,
+        subject: "Reset your SkillStream password",
+        html: this.passwordResetHtml(name, link),
+        text: `Hi ${name},\n\nReset your password:\n${link}\n\nThis link expires in 1 hour.\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send password reset email", err as Error);
       throw new Error("Email delivery failed");
     }
   }
@@ -51,22 +41,15 @@ export class EmailService {
   ): Promise<void> {
     const link = `${this.frontendUrl}/join/${encodeURIComponent(token)}`;
     const roleLabel = role === "ADMIN" ? "an admin" : "a member";
-
-    if (!this.resend) {
-      this.logger.log(`[DEV] Org invite for ${to} (${orgName}): ${link}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject: `You've been invited to ${orgName} on SkillStream`,
-      html: this.orgInviteHtml(orgName, roleLabel, link),
-      text: `You've been invited to join ${orgName} as ${roleLabel} on SkillStream.\n\nAccept your invitation:\n${link}\n\nThis invitation expires in 7 days.\n\n— The SkillStream team`,
-    });
-
-    if (error) {
-      this.logger.error("Failed to send org invite email", error);
+    try {
+      await this.provider.send({
+        to,
+        subject: `You've been invited to ${orgName} on SkillStream`,
+        html: this.orgInviteHtml(orgName, roleLabel, link),
+        text: `You've been invited to join ${orgName} as ${roleLabel} on SkillStream.\n\nAccept your invitation:\n${link}\n\nThis invitation expires in 7 days.\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send org invite email", err as Error);
       throw new Error("Email delivery failed");
     }
   }
@@ -74,21 +57,15 @@ export class EmailService {
   /** Engagement reminder (marketing automation). `subject` is the already-
    *  rendered template line and doubles as the body's headline. */
   async sendReminder(to: string, name: string, subject: string): Promise<void> {
-    if (!this.resend) {
-      this.logger.log(`[DEV] Reminder to ${to}: ${subject}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject,
-      html: this.reminderHtml(name, subject),
-      text: `Hi ${name},\n\n${subject}\n\n${this.frontendUrl}/dashboard\n\n— The SkillStream team`,
-    });
-
-    if (error) {
-      this.logger.error("Failed to send reminder email", error);
+    try {
+      await this.provider.send({
+        to,
+        subject,
+        html: this.reminderHtml(name, subject),
+        text: `Hi ${name},\n\n${subject}\n\n${this.frontendUrl}/dashboard\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send reminder email", err as Error);
       throw new Error("Email delivery failed");
     }
   }
@@ -105,39 +82,31 @@ export class EmailService {
     href?: string,
   ): Promise<void> {
     const link = `${this.frontendUrl}${href ?? "/dashboard"}`;
-
-    if (!this.resend) {
-      this.logger.log(`[DEV] Notification email to ${to}: ${title}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject: title,
-      html: this.notificationHtml(name, title, body, link),
-      text: `Hi ${name},\n\n${title}\n\n${body}\n\n${link}\n\n— The SkillStream team`,
-    });
-
-    if (error) {
-      this.logger.error("Failed to send notification email", error);
+    try {
+      await this.provider.send({
+        to,
+        subject: title,
+        html: this.notificationHtml(name, title, body, link),
+        text: `Hi ${name},\n\n${title}\n\n${body}\n\n${link}\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send notification email", err as Error);
       throw new Error("Email delivery failed");
     }
   }
 
   async sendWelcome(to: string, name: string): Promise<void> {
-    if (!this.resend) {
-      this.logger.log(`[DEV] Welcome email would be sent to ${to}`);
-      return;
+    try {
+      await this.provider.send({
+        to,
+        subject: "Welcome to SkillStream 🎉",
+        html: this.welcomeHtml(name),
+        text: `Hi ${name},\n\nWelcome to SkillStream! Start learning today.\n\n${this.frontendUrl}/courses\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send welcome email", err as Error);
+      // Welcome mail is best-effort — swallow so signup path stays green.
     }
-
-    await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject: "Welcome to SkillStream 🎉",
-      html: this.welcomeHtml(name),
-      text: `Hi ${name},\n\nWelcome to SkillStream! Start learning today.\n\n${this.frontendUrl}/courses\n\n— The SkillStream team`,
-    });
   }
 
   /**
@@ -167,20 +136,15 @@ export class EmailService {
           "You're welcome to apply again once you have more to show us.",
         ];
 
-    if (!this.resend) {
-      this.logger.log(`[DEV] ${programme} decision (${approved ? "approved" : "rejected"}) for ${to}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject,
-      html: this.reminderHtml(name, lines.join(" ")),
-      text: `Hi ${name},\n\n${lines.join("\n\n")}\n\n— The SkillStream team`,
-    });
-    if (error) {
-      this.logger.error("Failed to send application decision email", error);
+    try {
+      await this.provider.send({
+        to,
+        subject,
+        html: this.reminderHtml(name, lines.join(" ")),
+        text: `Hi ${name},\n\n${lines.join("\n\n")}\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send application decision email", err as Error);
       throw new Error("Email delivery failed");
     }
   }
@@ -206,23 +170,22 @@ export class EmailService {
       "Your receipt is attached, and your courses are ready in your dashboard.",
     ];
 
-    if (!this.resend) {
-      this.logger.log(`[DEV] Receipt for order ${order.id} would be emailed to ${to}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject,
-      html: this.adminAlertHtml(subject, lines),
-      text: `${lines.join("\n\n")}\n\n${this.frontendUrl}/dashboard`,
-      attachments: [
-        { filename: `skillstream-receipt-${order.id}.pdf`, content: pdf.toString("base64") },
-      ],
-    });
-    if (error) {
-      this.logger.error("Failed to send receipt email", error);
+    try {
+      await this.provider.send({
+        to,
+        subject,
+        html: this.adminAlertHtml(subject, lines),
+        text: `${lines.join("\n\n")}\n\n${this.frontendUrl}/dashboard`,
+        attachments: [
+          {
+            filename: `skillstream-receipt-${order.id}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          },
+        ],
+      });
+    } catch (err) {
+      this.logger.error("Failed to send receipt email", err as Error);
       throw new Error("Email delivery failed");
     }
   }
@@ -230,20 +193,15 @@ export class EmailService {
   /** Operational alert to the platform's own support inbox (admin toggles). */
   async sendAdminAlert(to: string, subject: string, lines: string[]): Promise<void> {
     const text = `${lines.join("\n")}\n\n${this.frontendUrl}/admin`;
-    if (!this.resend) {
-      this.logger.log(`[DEV] Admin alert to ${to}: ${subject}`);
-      return;
-    }
-
-    const { error } = await this.resend.emails.send({
-      from: `SkillStream <${this.from}>`,
-      to,
-      subject,
-      html: this.adminAlertHtml(subject, lines),
-      text,
-    });
-    if (error) {
-      this.logger.error("Failed to send admin alert", error);
+    try {
+      await this.provider.send({
+        to,
+        subject,
+        html: this.adminAlertHtml(subject, lines),
+        text,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send admin alert", err as Error);
       throw new Error("Email delivery failed");
     }
   }
