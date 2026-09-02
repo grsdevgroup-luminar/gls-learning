@@ -4,10 +4,6 @@
 // in the old mock data, which is gone now.
 import type { CourseDetailDto, CourseSummaryDto } from "@skillstream/shared";
 
-export function courseDurationMin(course: CourseSummaryDto) {
-  return Math.round(course.durationSec / 60);
-}
-
 export function courseLessonCount(course: CourseSummaryDto) {
   return course.lessonCount;
 }

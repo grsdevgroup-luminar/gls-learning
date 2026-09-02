@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Meter } from "@/components/shared/meter";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -263,20 +264,24 @@ export default function AdminCoupons() {
                     >
                       <Star className="h-3.5 w-3.5" /> {c.featured ? "Unpromote" : "Promote"}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => {
-                        if (!window.confirm(`Delete coupon "${c.code}"?`)) return;
-                        remove.mutate(c.code, {
-                          onSuccess: () => toast.success(`Coupon ${c.code} deleted`),
-                          onError: (e) => toast.error(getApiErrorMessage(e)),
-                        });
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="ghost" className="text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                      title={`Delete coupon "${c.code}"?`}
+                      description="This can't be undone."
+                      pending={remove.isPending}
+                      onConfirm={async () => {
+                        try {
+                          await remove.mutateAsync(c.code);
+                          toast.success(`Coupon ${c.code} deleted`);
+                        } catch (e) {
+                          toast.error(getApiErrorMessage(e));
+                        }
                       }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    />
                   </div>
                 </CardContent>
               </Card>

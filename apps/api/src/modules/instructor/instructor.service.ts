@@ -16,6 +16,7 @@ import type {
   InstructorProfileDto,
   InstructorPublicProfileDto,
   InstructorRosterDto,
+  InstructorSignupInput,
   Paginated,
   UpdateInstructorProfileInput,
 } from "@skillstream/shared";
@@ -110,10 +111,24 @@ export class InstructorService {
       throw new BadRequestException("Invalid CV reference");
     }
 
-    const app = await this.repo.createApplication({
-      userId: user.id,
-      name: dbUser.name,
-      email: dbUser.email,
+    const app = await this.createApplicationRecord(user.id, dbUser.name, dbUser.email, input);
+    return this.toAppDto(app);
+  }
+
+  /** Shared by `apply()` (an existing account applying) and
+   *  `createSignupApplication()` (a brand-new instructor account created and
+   *  applying in the same step, from the dedicated signup journey). */
+  private createApplicationRecord(
+    userId: string,
+    name: string,
+    email: string,
+    input: Omit<ApplyInstructorInput, "cvKey" | "cvName" | "cvSizeLabel"> &
+      Partial<Pick<ApplyInstructorInput, "cvKey" | "cvName" | "cvSizeLabel">>,
+  ) {
+    return this.repo.createApplication({
+      userId,
+      name,
+      email,
       expertise: input.expertise,
       headline: input.headline,
       bio: input.bio,
@@ -128,7 +143,28 @@ export class InstructorService {
       cvSizeLabel: input.cvSizeLabel,
       status: "PENDING",
     });
-    return this.toAppDto(app);
+  }
+
+  /** Used by the dedicated instructor-signup journey (AuthService, right
+   *  after the account is created) — a brand-new user can't already have a
+   *  pending application, so this skips straight to creating the record. */
+  async createSignupApplication(
+    userId: string,
+    name: string,
+    email: string,
+    input: InstructorSignupInput,
+  ): Promise<void> {
+    await this.createApplicationRecord(userId, name, email, input);
+  }
+
+  /** Used by AuthService#me so a pending/rejected applicant's `/auth/me`
+   *  response reflects their status even before an InstructorProfile row
+   *  exists (that row is only created on approval). */
+  async latestApplicationStatus(
+    userId: string,
+  ): Promise<InstructorApplicationDto["status"] | null> {
+    const app = await this.repo.findLatestApplicationByUser(userId);
+    return app?.status ?? null;
   }
 
   async uploadCv(user: RequestUser, file: ValidatedCvFile): Promise<InstructorCvUploadDto> {

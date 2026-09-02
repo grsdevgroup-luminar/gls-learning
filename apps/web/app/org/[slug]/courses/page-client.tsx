@@ -7,6 +7,7 @@ import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { api, orgApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -124,13 +125,21 @@ export default function OrgCourses() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="truncate text-sm font-medium">{c.title}</div>
-                    <button
-                      onClick={() => { if (window.confirm(`Remove "${c.title}" from this organization?`)) unassignMutation.mutate(c.id); }}
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                      aria-label="Remove course"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    <ConfirmDialog
+                      trigger={
+                        <button
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          aria-label="Remove course"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      }
+                      title={`Remove "${c.title}"?`}
+                      description="This course will no longer be available to organization members."
+                      confirmLabel="Remove"
+                      pending={unassignMutation.isPending}
+                      onConfirm={async () => { await unassignMutation.mutateAsync(c.id); }}
+                    />
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">{c.category}</div>
                   <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">

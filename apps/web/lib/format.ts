@@ -37,6 +37,14 @@ export function formatHoursFromMin(min: number): string {
   return `${m}m`;
 }
 
+/** Total course/lesson length from seconds. Rounding straight to minutes
+ *  makes anything under 30s disappear as "0m", so under a minute is shown
+ *  in seconds instead. */
+export function formatDurationSec(totalSec: number): string {
+  if (totalSec < 60) return `${Math.round(totalSec)}s`;
+  return formatHoursFromMin(Math.round(totalSec / 60));
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];

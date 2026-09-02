@@ -22,8 +22,8 @@ import {
   Link2,
   ExternalLink,
 } from "lucide-react";
-import { courseDurationMin, courseLessonCount } from "@/lib/course-stats";
-import { compactNumber, formatHoursFromMin, lessonTime, initials } from "@/lib/format";
+import { courseLessonCount } from "@/lib/course-stats";
+import { compactNumber, formatDurationSec, lessonTime, initials } from "@/lib/format";
 
 /** "What you'll learn" + curriculum + requirements/description + instructor
  *  bio — none of it depends on the viewer, so it renders on the server. The
@@ -52,7 +52,7 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
           <h2 className="text-xl font-bold">Course content</h2>
           <span className="text-sm text-muted-foreground">
             {course.sections.length} sections · {courseLessonCount(course)} lessons ·{" "}
-            {formatHoursFromMin(courseDurationMin(course))}
+            {formatDurationSec(course.durationSec)}
           </span>
         </div>
         <Card className="p-0">

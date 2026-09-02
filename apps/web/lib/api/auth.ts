@@ -2,6 +2,7 @@ import type {
   AuthTokensDto,
   AuthUserDto,
   ChangePasswordInput,
+  InstructorSignupInput,
   LoginInput,
   RegisterInput,
   UpdateProfileInput,
@@ -14,6 +15,11 @@ export const authApi = {
 
   register: (input: RegisterInput) =>
     apiFetch<AuthTokensDto>("/auth/register", { method: "POST", body: input }),
+
+  // Dedicated instructor signup journey — creates the account and submits the
+  // instructor application in one step (see docs on instructorSignupSchema).
+  registerInstructor: (input: InstructorSignupInput) =>
+    apiFetch<AuthTokensDto>("/auth/register-instructor", { method: "POST", body: input }),
 
   logout: () => apiFetch<{ ok: true }>("/auth/logout", { method: "POST" }),
 

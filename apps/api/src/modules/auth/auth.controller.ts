@@ -25,6 +25,7 @@ import {
 import {
   changePasswordSchema,
   forgotPasswordSchema,
+  instructorSignupSchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
@@ -32,6 +33,7 @@ import {
   type AuthTokensDto,
   type ChangePasswordInput,
   type ForgotPasswordInput,
+  type InstructorSignupInput,
   type LoginInput,
   type RegisterInput,
   type ResetPasswordInput,
@@ -100,6 +102,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthTokensDto> {
     const tokens = await this.auth.register(body, this.metaFrom(req));
+    this.setAuthCookies(res, tokens);
+    return { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("register-instructor")
+  async registerInstructor(
+    @ZodBody(instructorSignupSchema) body: InstructorSignupInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthTokensDto> {
+    const tokens = await this.auth.registerInstructor(body, this.metaFrom(req));
     this.setAuthCookies(res, tokens);
     return { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn };
   }

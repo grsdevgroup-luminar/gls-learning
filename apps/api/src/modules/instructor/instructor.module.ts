@@ -9,5 +9,6 @@ import { InstructorRepository } from "./instructor.repository";
   imports: [NotificationsModule, StorageModule],
   controllers: [InstructorController],
   providers: [InstructorService, InstructorRepository],
+  exports: [InstructorService],
 })
 export class InstructorModule {}

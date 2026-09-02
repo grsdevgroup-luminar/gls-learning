@@ -13,6 +13,7 @@ import { pricingAdminApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,14 +95,20 @@ export default function AdminPricing() {
                     onSave={(name, multiplier) => saveTier.mutate({ id: t.id, name, multiplier })}
                     saving={saveTier.isPending}
                   />
-                  <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={() => { if (window.confirm(`Delete pricing tier "${t.name}"?`)) deleteTier.mutate(t.id); }}
-                    disabled={deleteTier.isPending}
-                    aria-label="Delete tier"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <ConfirmDialog
+                    trigger={
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        aria-label="Delete tier"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    }
+                    title={`Delete pricing tier "${t.name}"?`}
+                    description="Countries assigned to this tier will need to be reassigned."
+                    pending={deleteTier.isPending}
+                    onConfirm={async () => { await deleteTier.mutateAsync(t.id); }}
+                  />
                 </div>
               </div>
               <CardDescription>{t.countries.length} countries</CardDescription>

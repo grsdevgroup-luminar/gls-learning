@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,7 +70,6 @@ export function QuizEditor({
     onChange({ ...quiz, questions: [...quiz.questions, emptyQuestion()] });
   }
   function removeQuestion(qId: string) {
-    if (!window.confirm("Delete this quiz question?")) return;
     onChange({ ...quiz, questions: quiz.questions?.filter((q) => q.id !== qId) ?? [] });
   }
 
@@ -117,15 +117,21 @@ export function QuizEditor({
               placeholder={`Question ${qi + 1}`}
               className="h-8"
             />
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => removeQuestion(q.id)}
-              aria-label="Remove question"
-              disabled={quiz.questions.length <= 1}
-            >
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Remove question"
+                  disabled={quiz.questions.length <= 1}
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              }
+              title="Delete this quiz question?"
+              description="This can't be undone."
+              onConfirm={() => removeQuestion(q.id)}
+            />
           </div>
 
           <RadioGroup

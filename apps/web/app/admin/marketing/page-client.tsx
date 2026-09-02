@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { relativeDate } from "@/lib/format";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -163,20 +164,24 @@ export default function AdminMarketing() {
                     <p className="rounded-lg bg-muted/60 p-2.5 text-xs italic text-muted-foreground">
                       “{r.template}”
                     </p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => {
-                        if (!window.confirm(`Delete automation rule "${r.name}"?`)) return;
-                        remove.mutate(r.id, {
-                          onSuccess: () => toast.success(`${r.name} deleted`),
-                          onError: (e) => toast.error(getApiErrorMessage(e)),
-                        });
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="ghost" className="text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      }
+                      title={`Delete automation rule "${r.name}"?`}
+                      description="This can't be undone."
+                      pending={remove.isPending}
+                      onConfirm={async () => {
+                        try {
+                          await remove.mutateAsync(r.id);
+                          toast.success(`${r.name} deleted`);
+                        } catch (e) {
+                          toast.error(getApiErrorMessage(e));
+                        }
                       }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Delete
-                    </Button>
+                    />
                   </CardContent>
                 </Card>
               );
