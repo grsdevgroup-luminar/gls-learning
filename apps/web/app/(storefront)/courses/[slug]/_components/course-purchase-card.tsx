@@ -18,8 +18,8 @@ import {
   ClipboardList,
   Smartphone,
 } from "lucide-react";
-import { courseDurationMin, courseArticleCount, courseResourceCount } from "@/lib/course-stats";
-import { formatHoursFromMin } from "@/lib/format";
+import { courseArticleCount, courseResourceCount } from "@/lib/course-stats";
+import { formatDurationSec } from "@/lib/format";
 import { toast } from "sonner";
 
 /** Self-contained cart/enrollment island — everything it needs (enrolled,
@@ -48,7 +48,7 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
   const includes = [
     {
       icon: PlayCircle,
-      label: `${formatHoursFromMin(courseDurationMin(course))} on-demand video`,
+      label: `${formatDurationSec(course.durationSec)} on-demand video`,
     },
     { icon: ClipboardList, label: "Assignments" },
     ...(articleCount > 0

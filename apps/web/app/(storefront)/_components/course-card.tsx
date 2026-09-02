@@ -5,8 +5,8 @@ import { Stars } from "@/components/shared/stars";
 import { Price } from "@/components/shared/price";
 import { SpotlightCard } from "@/components/shared/motion";
 import { BestsellerBadge } from "@/components/shared/bestseller-badge";
-import { courseDurationMin, courseLessonCount } from "@/lib/course-stats";
-import { compactNumber, formatHoursFromMin, levelLabel } from "@/lib/format";
+import { courseLessonCount } from "@/lib/course-stats";
+import { compactNumber, formatDurationSec, levelLabel } from "@/lib/format";
 import { Clock, Users, Dot, PlayCircle, ArrowRight, Gauge } from "lucide-react";
 
 export function CourseCard({ course }: { course: CourseSummaryDto }) {
@@ -62,7 +62,7 @@ export function CourseCard({ course }: { course: CourseSummaryDto }) {
 
             <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                <Clock className="size-3.5" /> {formatHoursFromMin(courseDurationMin(course))}
+                <Clock className="size-3.5" /> {formatDurationSec(course.durationSec)}
               </span>
               <Dot className="size-3 shrink-0 text-border" />
               <span>{courseLessonCount(course)} lessons</span>
