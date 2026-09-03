@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BrainCircuit,
+  BookOpen,
   Cloud,
   Code2,
   HeartPulse,
@@ -12,7 +13,6 @@ import {
   Megaphone,
   MessageCircleMore,
   Palette,
-  Sprout,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,7 +40,7 @@ const categoryIcons: Partial<Record<string, typeof Cloud>> = {
   "Health & Wellness": HeartPulse,
   "Language Learning": Languages,
   Marketing: Megaphone,
-  "Personal Development": Sprout,
+  "Personal Development": BookOpen,
 };
 
 const EMPTY_CATEGORIES: readonly LearningCategory[] = [];
@@ -68,6 +68,14 @@ export function CoursePreferencesModal({
   const [selectedCategories, setSelectedCategories] =
     useState<LearningCategory[]>([...initialCategories]);
 
+  useEffect(() => {
+    if (open) {
+      // Reset the draft each time the dialog opens so abandoned edits are discarded.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedCategories([...initialCategories]);
+    }
+  }, [open, initialCategories]);
+
   if (studentOnly && (sessionLoading || role !== "STUDENT")) {
     return null;
   }
@@ -87,7 +95,7 @@ export function CoursePreferencesModal({
   }
 
   async function save() {
-    if (selectedCategories.length !== 3) {
+    if (selectedCategories.length < 3 || (!studentOnly && selectedCategories.length !== 3)) {
       return;
     }
 
@@ -138,8 +146,9 @@ export function CoursePreferencesModal({
             </DialogTitle>
 
             <DialogDescription className="max-w-xl text-sm sm:text-base">
-              Choose exactly three categories to personalize your course
-              recommendations.
+              {studentOnly
+                ? "Choose at least three categories to personalize your course recommendations."
+                : "Choose exactly three categories to personalize your course recommendations."}
             </DialogDescription>
           </DialogHeader>
 
@@ -152,9 +161,9 @@ export function CoursePreferencesModal({
               {categories.map((category) => {
                 const selected = selectedCategories.includes(category);
                 const unavailable =
-                  selectedCategories.length === 3 && !selected;
+                  !studentOnly && selectedCategories.length === 3 && !selected;
 
-                const CategoryIcon = categoryIcons[category] ?? Sprout;
+                const CategoryIcon = categoryIcons[category] ?? BookOpen;
 
                 return (
                   <button
@@ -201,12 +210,14 @@ export function CoursePreferencesModal({
         >
           <span
             className={
-              selectedCategories.length === 3
+              selectedCategories.length >= 3
                 ? "shrink-0 text-sm font-medium text-primary sm:text-base"
                 : "shrink-0 text-sm text-muted-foreground sm:text-base"
             }
           >
-            {selectedCategories.length}/3 selected
+            {studentOnly
+              ? `${selectedCategories.length} selected${selectedCategories.length < 3 ? ` · choose ${3 - selectedCategories.length} more` : ""}`
+              : `${selectedCategories.length}/3 selected`}
           </span>
 
           <Button
@@ -223,7 +234,8 @@ export function CoursePreferencesModal({
               sm:text-base
             "
             disabled={
-              selectedCategories.length !== 3 ||
+              selectedCategories.length < 3 ||
+              (!studentOnly && selectedCategories.length !== 3) ||
               savePreferences.isPending
             }
             onClick={() => void save()}
@@ -234,7 +246,7 @@ export function CoursePreferencesModal({
                 Saving...
               </>
             ) : (
-              "Show recommendations"
+              studentOnly ? "Save preferences" : "Show recommendations"
             )}
           </Button>
         </div>

@@ -1,0 +1,89 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 3078 >>
+stream
+0.65 G 0.5 w 45 718 505 0.8 re S
+0.78 G 0.3 w 195 666 0.5 45 re S
+0.78 G 0.3 w 350 666 0.5 45 re S
+0.75 G 0.5 w 45 612 505 38 re S
+0.75 G 0.4 w 45 570 505 0.6 re S
+0.86 G 0.25 w 45 507 505 0.45 re S
+0.86 G 0.25 w 45 470 505 0.45 re S
+0.86 G 0.25 w 45 433 505 0.45 re S
+0.86 G 0.25 w 45 381 505 0.45 re S
+0.86 G 0.25 w 45 329 505 0.45 re S
+0.55 G 0.5 w 45 281 505 0.7 re S
+0.55 G 0.5 w 45 233 505 0.7 re S
+0.75 G 0.4 w 45 74 505 0.6 re S
+BT 0.2 g /F2 32 Tf 1 0 0 1 45.00 770 Tm (GRS) Tj ET
+BT 0.2 g /F2 13 Tf 1 0 0 1 45.00 744 Tm (LEARNING) Tj ET
+BT 0 g /F2 24 Tf 1 0 0 1 457.60 766 Tm (RECEIPT) Tj ET
+BT 0.35 g /F2 9 Tf 1 0 0 1 45.00 700 Tm (ORDER ID) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 45.00 682 Tm (cmtj95iz7000houosneib4waz) Tj ET
+BT 0.35 g /F2 9 Tf 1 0 0 1 220.00 700 Tm (DATE) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 220.00 682 Tm (Date September 1, 2026) Tj ET
+BT 0.35 g /F2 9 Tf 1 0 0 1 375.00 700 Tm (BILLED TO) Tj ET
+BT 0 g /F2 10 Tf 1 0 0 1 375.00 682 Tm (Akram Bhai) Tj ET
+BT 0.35 g /F1 9 Tf 1 0 0 1 375.00 666 Tm (akram@demo.com) Tj ET
+BT 0 g /F2 9 Tf 1 0 0 1 57.00 635 Tm (PAYMENT) Tj ET
+BT 0 g /F1 9 Tf 1 0 0 1 407.50 635 Tm (STRIPE  -  PARTIALLY REFUNDED) Tj ET
+BT 0.35 g /F2 9 Tf 1 0 0 1 45.00 585 Tm (DESCRIPTION) Tj ET
+BT 0.35 g /F2 9 Tf 1 0 0 1 520.30 585 Tm (AMOUNT) Tj ET
+BT 0 g /F2 10 Tf 1 0 0 1 45.00 548 Tm (Mindfulness & Stress Management) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 505.00 548 Tm (USD 16.99) Tj ET
+BT 0.38 g /F1 8.5 Tf 1 0 0 1 57.00 530 Tm (  Refunded to store credit \(access revoked\)) Tj ET
+BT 0.38 g /F1 8.5 Tf 1 0 0 1 507.50 530 Tm (-USD 16.99) Tj ET
+BT 0 g /F2 10 Tf 1 0 0 1 45.00 496 Tm (Growth Marketing for Founders) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 505.00 496 Tm (USD 17.99) Tj ET
+BT 0 g /F2 10 Tf 1 0 0 1 45.00 459 Tm (Conversational Spanish for Travelers) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 505.00 459 Tm (USD 11.99) Tj ET
+BT 0 g /F2 10 Tf 1 0 0 1 45.00 422 Tm (Personal Finance Mastery) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 505.00 422 Tm (USD 19.99) Tj ET
+BT 0.38 g /F1 8.5 Tf 1 0 0 1 57.00 404 Tm (  Refunded to store credit \(access revoked\)) Tj ET
+BT 0.38 g /F1 8.5 Tf 1 0 0 1 507.50 404 Tm (-USD 19.99) Tj ET
+BT 0 g /F2 10 Tf 1 0 0 1 45.00 370 Tm (Python) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 505.00 370 Tm (USD 14.99) Tj ET
+BT 0.38 g /F1 8.5 Tf 1 0 0 1 57.00 352 Tm (  Refunded to store credit \(access revoked\)) Tj ET
+BT 0.38 g /F1 8.5 Tf 1 0 0 1 507.50 352 Tm (-USD 14.99) Tj ET
+BT 0.35 g /F1 10 Tf 1 0 0 1 45.00 313 Tm (Subtotal) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 505.00 313 Tm (USD 81.95) Tj ET
+BT 0.35 g /F1 10 Tf 1 0 0 1 45.00 292 Tm (Discount \(WELCOME10\)) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 500.00 292 Tm (-USD 10.00) Tj ET
+BT 0 g /F2 12 Tf 1 0 0 1 45.00 268 Tm (Total) Tj ET
+BT 0 g /F2 12 Tf 1 0 0 1 490.60 268 Tm (USD 71.95) Tj ET
+BT 0.35 g /F1 10 Tf 1 0 0 1 45.00 244 Tm (Refunded to store credit) Tj ET
+BT 0.35 g /F1 10 Tf 1 0 0 1 500.00 244 Tm (-USD 51.97) Tj ET
+BT 0 g /F2 12 Tf 1 0 0 1 45.00 220 Tm (Net paid) Tj ET
+BT 0 g /F2 12 Tf 1 0 0 1 490.60 220 Tm (USD 19.98) Tj ET
+BT 0 g /F1 10 Tf 1 0 0 1 297.50 50 Tm (Thank you for learning with us.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000003381 00000 n 
+0000003478 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3580
+%%EOF

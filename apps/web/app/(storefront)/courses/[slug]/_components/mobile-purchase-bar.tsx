@@ -24,13 +24,22 @@ export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
   const inCartNow = inCart(course.id);
 
   function add() {
+    if (inCartNow) {
+      toast.info("This course is already in your cart.");
+      return;
+    }
     addToCart(course.id);
     toast.success("Added to cart", { description: course.title });
   }
   function buyNow() {
+    if (inCartNow) {
+      toast.info("This course is already in your cart.");
+      router.push("/cart#coupon");
+      return;
+    }
     addToCart(course.id);
     toast.success("Ready when you are", {
-      description: "Review your cart and apply a coupon before checkout.",
+      description: "Ready to checkout? Review your cart.",
     });
     router.push("/cart#coupon");
   }

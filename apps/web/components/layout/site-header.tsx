@@ -83,6 +83,14 @@ export function SiteHeader() {
 
     if (!normalized) return;
 
+    // Instructor navigation uses the shared header search, but the query must
+    // not become a CatalogClient filter. The instructor course list and the
+    // catalog's dedicated filters are separate search contexts.
+    if (pathname.startsWith("/instructor")) {
+      router.push("/courses");
+      return;
+    }
+
     router.push(`/courses?q=${encodeURIComponent(normalized)}`);
   }, [pathname, router, searchParams]);
 

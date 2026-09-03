@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { applyInstructorSchema, type InstructorCvUploadDto } from "@skillstream/shared";
 import { ApplySocialLinks, type SocialLinkField } from "./apply-social-links";
 
+const OTHER_EXPERTISE = "__other__";
 const CV_MAX_BYTES = 5 * 1024 * 1024;
 const CV_ACCEPT = ".pdf,.doc,.docx";
 
@@ -59,6 +60,7 @@ export function ApplyInstructorForm() {
   const [email, setEmail] = useState("");
   // Categories load async, so hold "" and fall back to the first one on render.
   const [expertise, setExpertise] = useState("");
+  const [customExpertise, setCustomExpertise] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [sampleUrl, setSampleUrl] = useState("");
@@ -73,6 +75,7 @@ export function ApplyInstructorForm() {
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const expertiseValue = expertise || categories[0] || "";
+  const isCustomExpertise = expertise === OTHER_EXPERTISE;
 
   const socialSetters: Record<SocialLinkField, (value: string) => void> = {
     linkedinUrl: setLinkedinUrl,
@@ -127,7 +130,7 @@ export function ApplyInstructorForm() {
 
     const payload = {
       ...buildPayload({
-        expertise: expertiseValue,
+        expertise: isCustomExpertise ? customExpertise : expertiseValue,
         headline,
         bio,
         sampleUrl,
@@ -201,13 +204,34 @@ export function ApplyInstructorForm() {
                     aria-invalid={!!fieldErrors.headline}
                   />
                 </FormField>
-                <FormField label="Primary expertise">
-                  <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                <FormField label="Primary expertise" error={fieldErrors.expertise}>
+                  <Select
+                    value={expertiseValue}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      setExpertise(v);
+                      clearError("expertise");
+                    }}
+                  >
+                    <SelectTrigger aria-invalid={!!fieldErrors.expertise}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      <SelectItem value={OTHER_EXPERTISE}>Others</SelectItem>
                     </SelectContent>
                   </Select>
+                  {isCustomExpertise && (
+                    <Input
+                      value={customExpertise}
+                      onChange={(e) => {
+                        setCustomExpertise(e.target.value);
+                        clearError("expertise");
+                      }}
+                      placeholder="Enter your area of expertise"
+                      maxLength={80}
+                      aria-label="Custom primary expertise"
+                      aria-invalid={!!fieldErrors.expertise}
+                    />
+                  )}
                 </FormField>
               </div>
               <FormField label="Teaching sample or portfolio (optional)" error={fieldErrors.sampleUrl}>

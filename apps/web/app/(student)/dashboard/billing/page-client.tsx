@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useMyOrders, useMyOrderStats } from "@/lib/api/hooks";
-import { downloadFile } from "@/lib/api/client";
+import { downloadFile, fetchFile } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatUsd } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   Loader2,
   Receipt,
   Search,
@@ -47,6 +48,7 @@ export default function BillingPage() {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   // Debounce free-text search so keystrokes don't hit the API on every char.
   useEffect(() => {
@@ -84,49 +86,63 @@ export default function BillingPage() {
     }
   }
 
+  async function viewReceipt(orderId: string) {
+    const preview = window.open("about:blank", "_blank");
+    if (!preview) {
+      toast.error("Please allow pop-ups to view the receipt.");
+      return;
+    }
+    setViewing(orderId);
+    preview.document.title = "Loading receiptÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦";
+    try {
+      const url = URL.createObjectURL(await fetchFile(`/me/orders/${orderId}/receipt`));
+      preview.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      preview.close();
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setViewing(null);
+    }
+  }
+
   return (
     <div className="space-y-6 p-4 md:space-y-8 md:p-8">
       <div>
         <h1 className="text-xl font-bold tracking-tight md:text-2xl">Billing</h1>
-        <p className="text-sm text-muted-foreground md:text-base">Your past purchases and receipts. Cards are handled by Stripe and PayPal at checkout — nothing is stored here.</p>
+        <p className="text-sm text-muted-foreground md:text-base">Your past purchases and receipts. Cards are handled by Stripe and PayPal at checkout ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â nothing is stored here.</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        {/* Sidebar — total spent. On mobile it renders first (source order); on
-         *  lg+ it snaps back to the right column via col-start-2. */}
-        <div className="space-y-6 lg:col-start-2 lg:row-start-1">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Total spent</CardTitle></CardHeader>
-            <CardContent>
+      <Card className="flex h-[calc(100vh-12rem)] min-h-[420px] flex-col overflow-hidden">
+        <div className="sticky top-0 z-20 border-b border-border bg-card px-6 py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total spent</p>
               {!stats ? (
-                <Skeleton className="h-9 w-28" />
+                <Skeleton className="mt-2 h-9 w-28" />
               ) : (
                 <>
-                  <div className="text-3xl font-bold">{formatUsd(stats.totalSpentCents / 100)}</div>
+                  <div className="mt-1 text-3xl font-bold">{formatUsd(stats.totalSpentCents / 100)}</div>
                   <p className="text-xs text-muted-foreground">
                     across {stats.paidCount} paid order{stats.paidCount !== 1 ? "s" : ""}
                   </p>
                 </>
               )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Purchase history */}
-        <Card className="lg:col-start-1 lg:row-start-1">
-          <CardHeader>
+            </div>
             <CardTitle className="flex items-center gap-2 text-base">
               <Receipt className="h-4 w-4 text-primary" /> Purchase history
             </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 px-0">
-            <div className="flex flex-col gap-3 px-6 sm:flex-row sm:items-center sm:justify-between">
+          </div>
+        </div>
+
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-4 px-0">
+          <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-border bg-card px-6 pb-4 pt-1 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative sm:max-w-xs sm:flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={qInput}
                   onChange={(e) => setQInput(e.target.value)}
-                  placeholder="Search by order id or course name…"
+                  placeholder="Search by order id or course nameÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦"
                   className="pl-9"
                   aria-label="Search orders"
                 />
@@ -154,6 +170,7 @@ export default function BillingPage() {
               </div>
             </div>
 
+          <div className="min-h-0 flex-1 overflow-auto">
             {isLoading ? (
               <div className="space-y-3 px-6 py-2">
                 {[1, 2, 3].map((n) => (
@@ -169,16 +186,16 @@ export default function BillingPage() {
                 {q ? "No orders match your search." : "No purchases yet."}
               </p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="min-w-[980px]">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-[2] bg-card">
                   <TableRow>
                     <TableHead className="pl-6">Order</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Course</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Gateway</TableHead>
-                    <TableHead className="pr-6 text-right">Invoice</TableHead>
+                    <TableHead className="sticky right-0 z-[1] bg-card pr-6 text-right">Invoice</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -197,7 +214,7 @@ export default function BillingPage() {
                           })}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {o.items[0]?.title ?? "—"}
+                          {o.items[0]?.title ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"}
                           {o.items.length > 1 && (
                             <span className="text-muted-foreground"> +{o.items.length - 1}</span>
                           )}
@@ -234,12 +251,31 @@ export default function BillingPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {GATEWAY_LABEL[o.gateway] ?? o.gateway}
                         </TableCell>
-                        <TableCell className="pr-6 text-right">
+                        <TableCell className="sticky right-0 z-[1] bg-card pr-6 text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`View receipt for order ${o.id}`}
+                            title="View receipt"
+                            disabled={
+                              (o.status !== "PAID" &&
+                                o.status !== "REFUNDED" &&
+                                o.status !== "PARTIALLY_REFUNDED") ||
+                              viewing === o.id ||
+                              downloading === o.id
+                            }
+                            onClick={() => viewReceipt(o.id)}
+                          >
+                            {viewing === o.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             aria-label={`Download receipt for order ${o.id}`}
-                            // Only settled orders have a receipt — the API says the same.
                             disabled={
                               (o.status !== "PAID" &&
                                 o.status !== "REFUNDED" &&
@@ -259,11 +295,12 @@ export default function BillingPage() {
                     );
                   })}
                 </TableBody>
-              </Table>
+                </Table>
               </div>
             )}
+          </div>
 
-            {!isLoading && totalPages > 1 && (
+          {!isLoading && rows.length > 0 && (
               <div className="flex items-center justify-center gap-3 pb-2">
                 <Button
                   variant="outline"
@@ -287,8 +324,7 @@ export default function BillingPage() {
               </div>
             )}
           </CardContent>
-        </Card>
-      </div>
+      </Card>
     </div>
   );
 }

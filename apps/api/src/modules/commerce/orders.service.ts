@@ -117,7 +117,7 @@ export class OrdersService {
     )
       throw new BadRequestException("No receipt for an unpaid order");
 
-    return receiptPdf({
+    return await receiptPdf({
       orderId: order.id,
       buyerName: order.user.name,
       buyerEmail: order.user.email,
@@ -129,6 +129,7 @@ export class OrdersService {
       couponCode: order.couponCode,
       subtotalCents: order.subtotalCents,
       discountCents: order.discountCents,
+      creditAppliedCents: order.creditAppliedCents,
       totalCents: order.totalCents,
       refundedCents: order.refundedCents,
       items: order.items.map((i) => ({

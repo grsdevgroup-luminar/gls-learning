@@ -198,7 +198,7 @@ export default function CartPage() {
 
               <div id="coupon" className="scroll-mt-24 space-y-2">
               {/* Coupon */}
-              {coupon && couponValid ? (
+              {coupon ? (
                 <div className="flex items-center justify-between rounded-md border border-success/30 bg-success/10 p-2.5 text-sm">
                   <span className="flex items-center gap-1.5 font-medium text-success">
                     <Check className="h-4 w-4" /> {coupon}

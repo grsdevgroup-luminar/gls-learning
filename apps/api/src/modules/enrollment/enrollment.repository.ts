@@ -197,11 +197,23 @@ export class EnrollmentRepository {
     return this.prisma.enrollment.update({ where: { id: enrollmentId }, data });
   }
 
-  upsertCertificate(enrollmentId: string, serial: string, learnerName: string) {
+  findCourseNumber(courseId: string) {
+    return this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { courseNumber: true },
+    });
+  }
+
+  upsertCertificate(
+    enrollmentId: string,
+    serial: string,
+    learnerName: string,
+    courseNumber: string,
+  ) {
     return this.prisma.certificate.upsert({
       where: { enrollmentId },
-      update: {},
-      create: { enrollmentId, serial, learnerName },
+      update: { courseNumber },
+      create: { enrollmentId, serial, learnerName, courseNumber },
     });
   }
 
@@ -226,6 +238,7 @@ export class EnrollmentRepository {
       select: {
         serial: true,
         learnerName: true,
+        courseNumber: true,
         pdfUrl: true,
         issuedAt: true,
         enrollment: {

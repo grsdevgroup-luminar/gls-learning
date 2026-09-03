@@ -5,6 +5,8 @@
 ### Fixed
 
 
+- Fixed duplicate course additions from the course details page by preventing repeated cart entries and showing This course is already in your cart. for duplicate Add to Cart or Buy now attempts on desktop and mobile.
+
 - Fixed Student Course category-wise retrieval so recommendations require an exact selected category and match the student's relevant keywords against course titles, subtitles, or descriptions.
 
 
@@ -1126,3 +1128,154 @@ avIcons` registry for supported Lucide icons.
 
 - Passed:
   - `pnpm --filter @skillstream/web typecheck`
+
+
+## 2026-09-01
+
+### Fixed
+
+- Fixed the Instructor Shopping Cart applied-coupon state so the Remove option remains visible whenever a coupon is stored, including while quote validation is loading or has not refreshed yet.
+- Removing the coupon continues to clear the applied code through the existing cart state flow.
+
+## 2026-09-01
+
+### Fixed
+
+- Isolated the Instructor Courses header search from the catalog filter query.
+- Searching from the shared header while on /instructor now opens the course catalog without forwarding the header keyword as a q query parameter.
+- Dedicated catalog search and filter controls remain the only controls that affect catalog course filtering, preventing irrelevant “No courses match your filters” results from header searches.
+
+### Changed Files
+
+- apps/web/components/layout/site-header.tsx
+  - Added instructor-route handling that navigates to /courses without carrying the shared header query into the catalog.
+
+### Verification
+
+- Passed:
+  - git diff --check
+## 2026-09-01
+
+### Fixed
+
+- Fixed the shared header search remaining populated after clearing all course filters with Backspace or the Clear all filters action.
+- Clearing catalog filters now also removes the URL query parameters that drive the header search state.
+
+### Changed Files
+
+- apps/web/app/(storefront)/courses/_components/catalog-client.tsx
+  - Clears the q and category URL parameters through the existing router flow when all filters are reset.
+
+### Verification
+
+- Passed:
+  - git diff --check
+## 2026-09-01
+
+### Added
+
+- Added an “Others” option to the Student Teach form’s Primary Expertise selector.
+- Selecting “Others” reveals a custom expertise input so students can provide an expertise that is not in the predefined category list.
+- Custom expertise is trimmed and validated through the existing instructor application schema, including the 80-character maximum and required-value validation.
+
+### Changed Files
+
+- apps/web/app/(storefront)/teach/page.tsx
+  - Added custom expertise state and conditional input rendering.
+  - Submits the custom expertise value when “Others” is selected.
+  - Displays validation feedback for the Primary Expertise field.
+
+### Verification
+
+- Passed:
+  - git diff --check
+## 2026-09-01
+
+### Fixed
+
+- Fixed compact multi-word course searches such as “datascience” not matching courses titled “Data Science”.
+- Catalog search now includes the canonical spaced category term when a compact keyword matches a known learning category.
+- Preserved the separation between the shared Instructor header search and the dedicated catalog filter state.
+
+### Changed Files
+
+- apps/api/src/modules/courses/courses.service.ts
+  - Added compact-to-canonical category search matching for public course listings.
+
+### Verification
+
+- Passed:
+  - git diff --check
+## 2026-09-01
+
+### Added
+
+- Added an “Others” option to the Student Teach module’s Primary Expertise selector.
+- Selecting “Others” reveals a custom expertise field for expertise outside the predefined list.
+- Custom expertise is trimmed and validated through the existing instructor application schema, including required-value and 80-character maximum validation.
+
+### Changed Files
+
+- apps/web/app/(storefront)/teach/_components/apply-instructor-form.tsx
+  - Added custom expertise state and conditional input rendering.
+  - Submits the custom expertise when “Others” is selected.
+  - Displays Primary Expertise validation feedback.
+
+### Verification
+
+- Passed:
+  - git diff --check
+## 2026-09-02
+
+### Updated
+
+- Redesigned the generated payment receipt to match the current GRS Learning receipt format.
+- Added structured order metadata for order ID, paid date, billed-to details, payment gateway, and payment status.
+- Added item-level refund lines showing refunded-to-store-credit amounts and access revocation for fully refunded items.
+- Added complete billing reconciliation for subtotal, coupon discount, checkout store credit, gateway total, refunded store credit, and net paid.
+- Preserved receipt access for paid, partially refunded, and fully refunded orders through the existing ownership and settled-order checks.
+
+### Changed Files
+
+- apps/api/src/common/utils/pdf.ts
+  - Reworked the receipt PDF layout and billing summary.
+  - Added support for checkout store-credit deductions and current refund states.
+
+- apps/api/src/modules/commerce/orders.service.ts
+  - Passes creditAppliedCents from the billing order schema into the receipt renderer.
+
+### Verification
+
+- Passed:
+  - apps/api/src/common/__tests__/pdf.test.ts (8 tests)
+  - git diff --check
+- Generated a representative partially refunded receipt preview.
+- PDF rasterization was unavailable because Poppler and PyMuPDF are not installed in the environment.
+## 2026-09-02 — Receipt visual fidelity
+
+### Updated
+
+- Updated the generated receipt to mirror the supplied GRS Learning reference: A4 proportions, exact header hierarchy, ruled sections, payment panel, itemized amount column, totals block, and centered footer message.
+- Embedded the existing apps/web/public/GRS-Learning.svg logo asset in the PDF so receipts use the same GRS branding as the storefront.
+- Applied consistent PDF typography and weight hierarchy for receipt headings, metadata, line items, refund annotations, and totals.
+- Kept the current billing flow intact: cumulative order/item refunds, partial versus full refund status, store-credit refund amounts, checkout credit, coupon discounts, and calculated net paid.
+
+### Changed Files
+
+- apps/api/src/common/utils/pdf.ts — Uses PDFKit for the updated receipt layout and embeds the storefront logo; renders refund/store-credit information from the billing schema without adding duplicate refund entries.
+- apps/api/src/modules/commerce/orders.service.ts — Supplies creditAppliedCents to reconcile checkout credit in the receipt summary.
+- apps/api/src/common/__tests__/pdf.test.ts — Covers paid, discounted, partially refunded, and fully refunded receipt flows.
+## 2026-09-03 — Student learning preferences save flow
+
+### Fixed
+
+- Student Panel learning preferences now allow zero, one, two, or three selected categories.
+- Category clicks update only the modal draft; preferences are persisted only after clicking Save preferences.
+- Reopening the modal restores the last server-saved categories, so unsaved edits are discarded.
+- The backend validation now accepts an empty category array while retaining the maximum of three categories.
+
+### Changed Files
+
+- apps/web/components/shared/course-preferences-modal.tsx — Separates draft selections from saved preferences and provides the Student Panel save flow.
+- packages/shared/src/contracts/interests.ts — Changes category validation from exactly three to at most three.
+- apps/api/src/modules/users/__tests__/learning-preferences.test.ts — Covers fewer-than-three and cleared preference states.

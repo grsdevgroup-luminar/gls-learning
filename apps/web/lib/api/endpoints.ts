@@ -114,6 +114,7 @@ export type {
 export interface CertificateDto {
   serial: string;
   learnerName: string;
+  courseNumber: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
@@ -525,6 +526,7 @@ export interface CourseFieldsInput {
   subtitle?: string;
   description?: string;
   category?: string;
+  isoStandard?: string;
   level?: CourseLevelInput;
   thumbnail?: string;
   language?: string;

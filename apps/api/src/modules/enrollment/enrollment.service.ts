@@ -43,6 +43,7 @@ function mapCertificate(
   return {
     serial: cert.serial,
     learnerName: cert.learnerName,
+    courseNumber: cert.courseNumber,
     pdfUrl: cert.pdfUrl ?? certificatePdfUrl(apiBase, cert.serial),
     issuedAt: cert.issuedAt.toISOString(),
   };
@@ -122,6 +123,7 @@ export class EnrollmentService {
     return certs.map((c) => ({
       serial: c.serial,
       learnerName: c.learnerName,
+      courseNumber: c.courseNumber,
       pdfUrl: c.pdfUrl ?? certificatePdfUrl(this.apiBase, c.serial),
       issuedAt: c.issuedAt.toISOString(),
       courseId: c.enrollment.courseId,
@@ -316,7 +318,7 @@ export class EnrollmentService {
       await this.repo.countLessonsAndCompleted(courseId, enrollmentId);
     const done = isCourseComplete(completedCount, lessonCount);
     await this.updateStatus(enrollmentId, done);
-    const certificate = await this.manageCertificate(userId, enrollmentId, done);
+    const certificate = await this.manageCertificate(userId, enrollmentId, courseId, done);
     return this.buildResult(lessonId, completed, lessonCount, completedCount, done, certificate);
   }
 
@@ -332,11 +334,13 @@ export class EnrollmentService {
   private async manageCertificate(
     userId: string,
     enrollmentId: string,
+    courseId: string,
     done: boolean,
   ): Promise<CertificateDto | null> {
     if (done) {
       const user = await this.repo.findUserName(userId);
-      if (!user) return null;
+      const course = await this.repo.findCourseNumber(courseId);
+      if (!user || !course) return null;
       const cert = await this.repo.upsertCertificate(
         enrollmentId,
         // 48 bits of randomness: the serial is the only credential the public
@@ -344,6 +348,7 @@ export class EnrollmentService {
         // not collide — `serial` is unique).
         `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
         user.name,
+        course.courseNumber,
       );
       void this.notifications
         .notify({

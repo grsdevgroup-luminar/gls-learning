@@ -27,6 +27,7 @@ import type { StorageDriver } from "../storage/storage.driver";
 import { signCourseResourceUrls } from "../storage/sign-resources";
 import { MediaService } from "../media/media.service";
 import { CategoriesService } from "../categories/categories.service";
+import { randomUUID } from "node:crypto";
 
 function slugify(s: string): string {
   return s
@@ -101,11 +102,13 @@ export class AuthoringService {
     const category = await this.categories.ensureForAuthor(input.category, user);
     const slug = await this.uniqueSlug(input.slug ?? slugify(input.title));
     const course = await this.repo.createCourse({
+      courseNumber: `CRS-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
       slug,
       title: input.title,
       subtitle: input.subtitle,
       description: input.description,
       category,
+      isoStandard: input.isoStandard,
       level: input.level,
       thumbnail: input.thumbnail,
       language: input.language,

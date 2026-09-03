@@ -5,6 +5,7 @@ import type { CourseSummaryDto } from "./catalog.js";
 export interface CertificateDto {
   serial: string;
   learnerName: string;
+  courseNumber: string;
   pdfUrl: string | null;
   issuedAt: string;
 }
@@ -61,6 +62,12 @@ export interface CertificateVerificationDto {
   learnerName: string;
   courseTitle: string;
   courseSlug: string;
+  uniqueId: string;
+  courseNumber: string;
+  courseStartDate: string;
+  courseEndDate: string;
+  verificationUrl: string;
+  isoStandard: string;
   issuedAt: string;
 }
 

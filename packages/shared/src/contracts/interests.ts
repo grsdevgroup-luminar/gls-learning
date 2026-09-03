@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { learningCategorySchema } from "./catalog.js";
 
-/** A learner chooses exactly three catalog categories in the sign-up modal. */
+/** Learners must save at least three catalog categories. */
 export const REQUIRED_INTEREST_CATEGORY_COUNT = 3;
 export const MAX_INTEREST_KEYWORDS = 12;
 
@@ -10,9 +10,9 @@ const keywordSchema = z.string().trim().min(1).max(48);
 export const updateLearningPreferencesSchema = z.object({
   categories: z
     .array(learningCategorySchema)
-    .length(
+    .min(
       REQUIRED_INTEREST_CATEGORY_COUNT,
-      `Choose exactly ${REQUIRED_INTEREST_CATEGORY_COUNT} learning areas`,
+      `Choose at least ${REQUIRED_INTEREST_CATEGORY_COUNT} learning areas`,
     )
     .refine((categories) => new Set(categories).size === categories.length, {
       message: "Choose three different learning areas",

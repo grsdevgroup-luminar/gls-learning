@@ -121,10 +121,12 @@ export interface SectionDto {
 
 export interface CourseSummaryDto {
   id: string;
+  courseNumber: string;
   slug: string;
   title: string;
   subtitle: string;
   category: string;
+  isoStandard: string;
   level: CourseLevel;
   thumbnail: string;
   status: CourseStatus;

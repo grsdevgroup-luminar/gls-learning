@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api/client';
-import { CertificatePreview } from '@/components/shared/certificate-preview';
+import { CertificateTemplate } from '@/components/shared/certificate-template';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,7 @@ import {
 interface CertificateDto {
   serial: string;
   learnerName: string;
+  courseNumber: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
@@ -147,13 +148,7 @@ export default function CertificatesPage() {
                   className="block w-full cursor-pointer text-left"
                   aria-label={`View certificate for ${cert.courseTitle}`}
                 >
-                  <CertificatePreview
-                    courseTitle={cert.courseTitle}
-                    userName={cert.learnerName}
-                    issuedAt={cert.issuedAt}
-                    serial={cert.serial}
-                    small
-                  />
+                  <CertificateTemplate variant="small" data={templateData(cert)} />
                 </button>
                 <div className="flex items-center justify-between p-3">
                   <span className="truncate text-sm font-medium">{cert.courseTitle}</span>
@@ -201,12 +196,7 @@ export default function CertificatesPage() {
           </DialogDescription>
           {active && (
             <>
-              <CertificatePreview
-                courseTitle={active.courseTitle}
-                userName={active.learnerName}
-                issuedAt={active.issuedAt}
-                serial={active.serial}
-              />
+              <CertificateTemplate data={templateData(active)} />
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
@@ -231,6 +221,26 @@ export default function CertificatesPage() {
       </Dialog>
     </div>
   );
+}
+
+function templateData(cert: CertificateDto) {
+  return {
+    studentName: cert.learnerName,
+    courseName: cert.courseTitle,
+    certificateNumber: cert.serial,
+    uniqueId: cert.serial,
+    courseNumber: cert.courseNumber,
+    courseStartDate: '',
+    courseEndDate: '',
+    issueDate: formatDate(cert.issuedAt),
+    verificationUrl: `/verify/${encodeURIComponent(cert.serial)}`,
+  };
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('en-US', {
+    month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'UTC',
+  });
 }
 
 

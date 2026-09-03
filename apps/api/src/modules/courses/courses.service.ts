@@ -6,6 +6,7 @@ import {
   type CourseListQuery,
   type CourseSummaryDto,
   type Paginated,
+  LEARNING_CATEGORIES,
 } from "@skillstream/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
@@ -74,10 +75,24 @@ export class CoursesService {
     }
     if (query.minRating !== undefined) where.ratingAvg = { gte: query.minRating };
     if (query.q) {
-      where.OR = [
-        { title: { contains: query.q, mode: "insensitive" } },
-        { category: { contains: query.q, mode: "insensitive" } },
-      ];
+      const search = query.q.trim();
+      const compactSearch = search.replace(/\s+/g, "").toLowerCase();
+      const spacedCategoryMatches = LEARNING_CATEGORIES.filter(
+        (category) => category.replace(/\s+/g, "").toLowerCase() === compactSearch,
+      );
+      const searchTerms = [search, ...spacedCategoryMatches];
+
+      // Include the canonical spaced category when a compact term such as
+      // "webdevelopment" is searched, so that courses in the "Web Development"
+      // category are returned even though their category field is not a direct
+      // match for the compact term.
+      if (spacedCategoryMatches.length) {
+        where.category = { in: spacedCategoryMatches };
+      }
+      where.OR = searchTerms.flatMap((term) => [
+        { title: { contains: term, mode: "insensitive" as const } },
+        { category: { contains: term, mode: "insensitive" as const } },
+      ]);
     }
 
     const [rows, total] = await this.repo.listAndCount(
