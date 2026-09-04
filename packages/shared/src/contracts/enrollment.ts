@@ -8,6 +8,8 @@ export interface CertificateDto {
   courseNumber: string;
   pdfUrl: string | null;
   issuedAt: string;
+  courseStartDate?: string;
+  courseEndDate?: string;
 }
 
 export interface EnrollmentDto {

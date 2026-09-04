@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api/client';
@@ -32,6 +33,8 @@ interface CertificateDto {
   courseId: string;
   courseTitle: string;
   courseSlug: string;
+  courseStartDate: string;
+  courseEndDate: string;
 }
 
 export default function CertificatesPage() {
@@ -148,7 +151,7 @@ export default function CertificatesPage() {
                   className="block w-full cursor-pointer text-left"
                   aria-label={`View certificate for ${cert.courseTitle}`}
                 >
-                  <CertificateTemplate variant="small" data={templateData(cert)} />
+                  <CertificateCardPreview cert={cert} />
                 </button>
                 <div className="flex items-center justify-between p-3">
                   <span className="truncate text-sm font-medium">{cert.courseTitle}</span>
@@ -187,7 +190,7 @@ export default function CertificatesPage() {
       )}
 
       <Dialog open={!!active} onOpenChange={(open) => !open && setActive(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="w-fit max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-none">
           <DialogTitle className="sr-only">
             {active ? `Certificate — ${active.courseTitle}` : 'Certificate'}
           </DialogTitle>
@@ -195,30 +198,64 @@ export default function CertificatesPage() {
             Certificate of completion, shareable and downloadable.
           </DialogDescription>
           {active && (
-            <>
-              <CertificateTemplate data={templateData(active)} />
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  render={<a href={`/verify/${active.serial}`} />}
-                >
-                  <ShieldCheck className="mr-1.5 h-4 w-4" /> Verify
-                </Button>
-                <Button variant="outline" onClick={() => share(active)}>
-                  <Share2 className="mr-1.5 h-4 w-4" /> Share
-                </Button>
-                <Button
-                  onClick={() => downloadCertificate(active)}
-                  disabled={downloading === active.serial}
-                >
-                  <Download className="mr-1.5 h-4 w-4" />
-                  {downloading === active.serial ? 'Downloading...' : 'Download PDF'}
-                </Button>
+            <div className="certificate-dialog-scroll">
+              <div className="certificate-dialog-preview">
+                <CertificateTemplate data={templateData(active)} />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    render={<a href={`/verify/${active.serial}`} />}
+                  >
+                    <ShieldCheck className="mr-1.5 h-4 w-4" /> Verify
+                  </Button>
+                  <Button variant="outline" onClick={() => share(active)}>
+                    <Share2 className="mr-1.5 h-4 w-4" /> Share
+                  </Button>
+                  <Button
+                    onClick={() => downloadCertificate(active)}
+                    disabled={downloading === active.serial}
+                  >
+                    <Download className="mr-1.5 h-4 w-4" />
+                    {downloading === active.serial ? 'Downloading...' : 'Download PDF'}
+                  </Button>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function CertificateCardPreview({ cert }: { cert: CertificateDto }) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.4);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const resize = () => {
+      setScale(frame.clientWidth / 793.7);
+    };
+
+    resize();
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(frame);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const style = {
+    '--certificate-card-scale': scale,
+    height: `${1122.5 * scale}px`,
+  } as CSSProperties;
+
+  return (
+    <div ref={frameRef} className="certificate-card-preview" style={style}>
+      <CertificateTemplate variant="small" data={templateData(cert)} />
     </div>
   );
 }
@@ -230,8 +267,8 @@ function templateData(cert: CertificateDto) {
     certificateNumber: cert.serial,
     uniqueId: cert.serial,
     courseNumber: cert.courseNumber,
-    courseStartDate: '',
-    courseEndDate: '',
+    courseStartDate: formatDate(cert.courseStartDate),
+    courseEndDate: formatDate(cert.courseEndDate),
     issueDate: formatDate(cert.issuedAt),
     verificationUrl: `/verify/${encodeURIComponent(cert.serial)}`,
   };

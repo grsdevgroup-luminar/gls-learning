@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/context/store";
 import { useCatalog, useFeaturedCoupon } from "@/lib/api/hooks";
 import { api } from "@/lib/api/endpoints";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 export default function CartPage() {
   const { cart, removeFromCart, region, regionCode, coupon, setCoupon, mounted } = useStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [code, setCode] = useState("");
   const [applying, setApplying] = useState(false);
@@ -41,6 +42,13 @@ export default function CartPage() {
     if (!canceledOrder) return;
     canceledToastFiredRef.current = true;
 
+    // The provider has already created a server-side order by this point.
+    // Reconcile its status before the student can return to Billing so an
+    // abandoned checkout is never left showing as an active Pending purchase.
+    void api.cancelOrder(canceledOrder).catch(() => undefined).finally(() => {
+      void queryClient.invalidateQueries({ queryKey: ["orders"] });
+    });
+
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.delete("canceled");
@@ -50,7 +58,7 @@ export default function CartPage() {
     toast.error("Payment canceled", {
       description: "Your order was not completed. You can try again anytime.",
     });
-  }, [searchParams]);
+  }, [queryClient, searchParams]);
 
   const { data: catalog } = useCatalog();
   const items = useMemo(

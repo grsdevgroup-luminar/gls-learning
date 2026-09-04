@@ -20,6 +20,8 @@ type CertificateTemplateProps = {
  * artwork is kept as a background and the variable certificate fields are
  * overlaid at the source PDF's measured coordinates. */
 export function CertificateTemplate({ data, variant = "preview" }: CertificateTemplateProps) {
+  const courseDates = formatCourseDates(data.courseStartDate, data.courseEndDate);
+
   return (
     <article className={`certificate-template certificate-template--${variant}`} aria-label="Achievement Certificate">
       <img className="certificate-template__background" src="/certificate/client-background.jpg" alt="" aria-hidden="true" />
@@ -38,7 +40,7 @@ export function CertificateTemplate({ data, variant = "preview" }: CertificateTe
           <MetadataItem label="Certificate Number" value={data.certificateNumber} />
           <MetadataItem label="Unique ID Number" value={data.uniqueId} />
           <MetadataItem label="Course Number" value={data.courseNumber} />
-          <MetadataItem label="Course Dates" value={`${data.courseStartDate} TO ${data.courseEndDate}`} />
+          <MetadataItem label="Course Dates" value={courseDates} />
           <MetadataItem label="Issue Date" value={data.issueDate} />
         </section>
         <p className="certificate-template__validity">This certificate is valid for five (5) years from the date of issue for registration as a Principal Auditor.</p>
@@ -49,6 +51,11 @@ export function CertificateTemplate({ data, variant = "preview" }: CertificateTe
 
 function MetadataItem({ label, value }: { label: string; value: string }) {
   return <p className="certificate-template__metadata-item"><span>{label}</span><strong>{value || "-"}</strong></p>;
+}
+
+function formatCourseDates(startDate: string, endDate: string) {
+  if (startDate && endDate) return `${startDate} TO ${endDate}`;
+  return startDate || endDate || "-";
 }
 
 function fittedFontSize(value: string, max: number, min: number, idealLength: number) {

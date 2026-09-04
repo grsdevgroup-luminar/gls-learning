@@ -119,6 +119,26 @@ export class OrdersRepository {
     });
   }
 
+  findPendingOrdersByUserAndCourseIds(userId: string, courseIds: string[]) {
+    return this.prisma.order.findMany({
+      where: {
+        userId,
+        status: "PENDING",
+        items: { some: { courseId: { in: courseIds } } },
+      },
+      include: orderInclude,
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /** Mark an unpaid order abandoned, without racing a successful webhook. */
+  markFailedIfPending(orderId: string, userId: string) {
+    return this.prisma.order.updateMany({
+      where: { id: orderId, userId, status: "PENDING" },
+      data: { status: "FAILED" },
+    });
+  }
+
   incrementCourseRevenue(courseId: string, priceCents: number, tx?: Db) {
     return this.db(tx).course.update({
       where: { id: courseId },

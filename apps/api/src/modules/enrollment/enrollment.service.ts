@@ -129,6 +129,8 @@ export class EnrollmentService {
       courseId: c.enrollment.courseId,
       courseTitle: (c.enrollment.course as { title: string }).title,
       courseSlug: (c.enrollment.course as { slug: string }).slug,
+      courseStartDate: c.enrollment.enrolledAt.toISOString(),
+      courseEndDate: (c.enrollment.completedAt ?? c.issuedAt).toISOString(),
     }));
   }
 

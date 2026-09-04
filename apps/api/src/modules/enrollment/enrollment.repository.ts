@@ -244,6 +244,8 @@ export class EnrollmentRepository {
         enrollment: {
           select: {
             courseId: true,
+            enrolledAt: true,
+            completedAt: true,
             course: { select: { title: true, slug: true } },
           },
         },

@@ -188,6 +188,22 @@ export class OrdersService {
     return this.toDto(order);
   }
 
+  /**
+   * Records an explicit provider cancellation. A payment webhook can arrive
+   * concurrently, so the repository only changes an order that is still
+   * PENDING; a settled order remains settled.
+   */
+  async cancelPending(userId: string, orderId: string): Promise<OrderDto> {
+    const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.status === "PENDING") {
+      await this.repo.markFailedIfPending(orderId, userId);
+    }
+    const updated = await this.repo.findById(orderId);
+    if (!updated) throw new NotFoundException("Order not found");
+    return this.toDto(updated);
+  }
+
   async myOrderStats(userId: string): Promise<MyOrderStatsDto> {
     const agg = await this.repo.aggregatePaidByUser(userId);
     return {

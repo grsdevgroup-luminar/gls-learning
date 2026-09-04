@@ -120,6 +120,8 @@ export interface CertificateDto {
   courseId: string;
   courseTitle: string;
   courseSlug: string;
+  courseStartDate: string;
+  courseEndDate: string;
 }
 
 /** Exported so server-side prefetches (serverApi) can build the identical
@@ -214,6 +216,8 @@ export const api = {
   myOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/me/orders${qs(params)}`),
   myOrder: (orderId: string) => apiFetch<OrderDto>(`/me/orders/${orderId}`),
+  cancelOrder: (orderId: string) =>
+    apiFetch<OrderDto>(`/me/orders/${orderId}/cancel`, { method: "POST" }),
   myOrderStats: () => apiFetch<MyOrderStatsDto>("/me/orders/stats"),
   devSimulatePayment: (orderId: string) =>
     apiFetch<OrderDto>(`/payments/dev/simulate/${orderId}`, { method: "POST" }),

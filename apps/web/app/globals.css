@@ -55,10 +55,40 @@
 .certificate-template--small {
   width: 210mm;
   height: 297mm;
-  transform: scale(0.28);
+  transform: scale(var(--certificate-card-scale, 0.4));
   transform-origin: top left;
-  margin-right: -151.2mm;
-  margin-bottom: -213.84mm;
+}
+.certificate-card-preview {
+  width: 100%;
+  overflow: hidden;
+  background: #e9e9e9;
+  color-scheme: light;
+}
+.certificate-dialog-preview {
+  width: 210mm;
+  max-width: none;
+  color-scheme: light;
+}
+.certificate-dialog-scroll {
+  max-width: calc(100vw - 4.5rem);
+  max-height: calc(100vh - 4.5rem);
+  overflow: auto;
+  border-radius: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent) transparent;
+}
+.certificate-dialog-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.certificate-dialog-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.certificate-dialog-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
 }
 .certificate-template__background { position: absolute; inset: 0; z-index: 0; width: 210mm; height: 297mm; display: block; }
 .certificate-template__content { position: absolute; inset: 0; z-index: 1; text-align: left; }
@@ -72,8 +102,8 @@
 .certificate-template h2 { position: absolute; top: 146.5mm; left: 18mm; width: 176mm; margin: 0; overflow: hidden; font-family: "Times New Roman", "Liberation Serif", serif; font-size: 11.3mm; font-weight: 700; line-height: 1.05; white-space: nowrap; }
 .certificate-template__certification { position: absolute; top: 163mm; left: 18mm; width: 133mm; margin: 0; font-size: 4.95mm; line-height: 1.15; }
 .certificate-template__metadata { position: absolute; top: 181.8mm; left: 18.7mm; width: 178mm; margin: 0; }
-.certificate-template__metadata-item { display: block; height: 5.68mm; margin: 0; font-size: 4.95mm; line-height: 1.05; white-space: nowrap; }
-.certificate-template__metadata-item span { display: inline-block; min-width: 42mm; }
+.certificate-template__metadata-item { display: grid; grid-template-columns: 48mm minmax(0, 1fr); column-gap: 7mm; align-items: baseline; height: 5.68mm; margin: 0; font-size: 4.95mm; line-height: 1.05; white-space: nowrap; }
+.certificate-template__metadata-item span { display: block; }
 .certificate-template__metadata-item strong { font-weight: 400; }
 .certificate-template__validity { position: absolute; top: 225mm; left: 18.7mm; width: 178mm; margin: 0; font-size: 3.9mm; line-height: 1.12; }
 @media print {
