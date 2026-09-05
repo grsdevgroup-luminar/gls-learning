@@ -4,6 +4,7 @@ import type {
   AdminAnalyticsDto,
   AdminCourseQuery,
   AdminCourseStatsDto,
+  AdminOrderQuery,
   AdminOrderStatsDto,
   AdminOverviewDto,
   AdminStudentDto,
@@ -340,27 +341,30 @@ export class AdminService {
     return { total, published };
   }
 
-  async orders(query: SearchQuery): Promise<Paginated<OrderDto>> {
+  async orders(query: AdminOrderQuery): Promise<Paginated<OrderDto>> {
     const q = query.q?.trim();
-    const where: Prisma.OrderWhereInput = q
-      ? {
-          OR: [
-            { id: { contains: q, mode: "insensitive" } },
-            { couponCode: { contains: q, mode: "insensitive" } },
-            { providerPaymentId: { contains: q, mode: "insensitive" } },
-            { providerRef: { contains: q, mode: "insensitive" } },
-            { user: { email: { contains: q, mode: "insensitive" } } },
-            { user: { name: { contains: q, mode: "insensitive" } } },
-            {
-              items: {
-                some: {
-                  titleSnapshot: { contains: q, mode: "insensitive" },
+    const where: Prisma.OrderWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { id: { contains: q, mode: "insensitive" } },
+              { couponCode: { contains: q, mode: "insensitive" } },
+              { providerPaymentId: { contains: q, mode: "insensitive" } },
+              { providerRef: { contains: q, mode: "insensitive" } },
+              { user: { email: { contains: q, mode: "insensitive" } } },
+              { user: { name: { contains: q, mode: "insensitive" } } },
+              {
+                items: {
+                  some: {
+                    titleSnapshot: { contains: q, mode: "insensitive" },
+                  },
                 },
               },
-            },
-          ],
-        }
-      : {};
+            ],
+          }
+        : {}),
+    };
     const [rows, total] = await this.repo.findOrdersPage(
       where,
       query.page,
