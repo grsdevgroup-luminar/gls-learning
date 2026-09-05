@@ -15,6 +15,23 @@ const HOP_BY_HOP = new Set([
   "content-length",
 ]);
 
+const AUTH_COOKIE_NAMES = new Set(["access_token", "refresh_token"]);
+
+/**
+ * The API response is exposed through this browser-origin proxy. A Domain
+ * attribute emitted for the API host (or a shared parent domain) can otherwise
+ * leave the browser holding a cookie that the web host cannot reliably clear.
+ * Auth cookies are intentionally host-only at the browser-facing origin.
+ */
+function browserCookie(setCookie: string): string {
+  const name = setCookie.slice(0, setCookie.indexOf("="));
+  if (!AUTH_COOKIE_NAMES.has(name)) return setCookie;
+  return setCookie
+    .split(";")
+    .filter((part, index) => index === 0 || !/^\s*domain\s*=/i.test(part))
+    .join(";");
+}
+
 function isPrivateOrLocalIp(ip: string): boolean {
   if (ip === "::1" || ip === "127.0.0.1" || ip.startsWith("::ffff:127.")) {
     return true;
@@ -124,8 +141,33 @@ async function proxyToApi(
     typeof upstream.headers.getSetCookie === "function"
       ? upstream.headers.getSetCookie()
       : [];
+  const isLogout = path.join("/") === "auth/logout";
   for (const cookie of cookies) {
-    res.headers.append("set-cookie", cookie);
+    // During logout, preserve the API's original Domain attribute as well as
+    // the host-only fallback below. This removes cookies created by older
+    // deployments before auth cookies were normalized at this proxy.
+    res.headers.append("set-cookie", isLogout ? cookie : browserCookie(cookie));
+  }
+
+  // Logout must clear the cookies on the browser-facing origin. Do this after
+  // forwarding the API headers so the proxy's deletion cannot be superseded
+  // by another Set-Cookie header from the upstream response.
+  if (isLogout) {
+    const expires = new Date(0);
+    res.cookies.set("access_token", "", {
+      expires,
+      httpOnly: true,
+      maxAge: 0,
+      path: "/",
+      sameSite: "lax",
+    });
+    res.cookies.set("refresh_token", "", {
+      expires,
+      httpOnly: true,
+      maxAge: 0,
+      path: "/",
+      sameSite: "lax",
+    });
   }
 
   return res;
