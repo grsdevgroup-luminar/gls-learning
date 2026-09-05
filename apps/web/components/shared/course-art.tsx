@@ -1,12 +1,13 @@
 import { gradientFor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
-  Atom, Braces, BrainCircuit, PenTool, Cloud, TrendingUp, Code2, Layers,
+  Atom, BookOpen, Braces, BrainCircuit, PenTool, Cloud, TrendingUp, Code2, Layers,
   Mic, HeartHandshake, PiggyBank, Sparkles, Languages,
   type LucideIcon,
 } from "lucide-react";
 
 const icons: Record<string, LucideIcon> = {
+  course: BookOpen,
   react: Atom,
   typescript: Braces,
   ml: BrainCircuit,
@@ -69,7 +70,7 @@ export function CourseArt({
     );
   }
 
-  const Icon = icons[seed] ?? Code2;
+  const Icon = icons[seed] ?? BookOpen;
 
   if (compact) {
     return (

@@ -82,6 +82,14 @@ export function SiteHeader() {
 
     if (!normalized) return;
 
+    // Instructor navigation uses the shared header search, but the query must
+    // not become a CatalogClient filter. The instructor course list and the
+    // catalog's dedicated filters are separate search contexts.
+    if (pathname.startsWith("/instructor")) {
+      router.push("/courses");
+      return;
+    }
+
     pendingUrlQRef.current = normalized;
     router.push(`/courses?q=${encodeURIComponent(normalized)}`);
   }, [pathname, router, searchParams]);
@@ -125,7 +133,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/55">
       {/* aurora hairline under the header */}
       <span
         aria-hidden
@@ -230,7 +238,7 @@ export function SiteHeader() {
                       {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
                     </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@grs-learning.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
+                      {user?.email ?? ""}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>

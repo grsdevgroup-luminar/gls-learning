@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import PDFDocument from "pdfkit";
+
 /**
  * Minimal single-page PDF writer — enough for certificates and receipts, which
  * are a handful of text lines and a border. Writing the ~70 lines of PDF
@@ -205,7 +209,7 @@ const money = (cents: number, currency: string) =>
   `${currency} ${(cents / 100).toFixed(2)}`;
 
 /** Portrait A4 payment receipt for a paid order. */
-export function receiptPdf(input: {
+export async function receiptPdf(input: {
   orderId: string;
   buyerName: string;
   buyerEmail: string;
@@ -217,153 +221,119 @@ export function receiptPdf(input: {
   couponCode: string | null;
   subtotalCents: number;
   discountCents: number;
+  creditAppliedCents?: number;
   totalCents: number;
-  /** Cumulative store-credit refund granted on this order. */
   refundedCents?: number;
   items: { title: string; priceCents: number; refundedCents?: number }[];
-}): Buffer {
-  const width = 595;
-  const height = 842;
-  const left = 60;
-  const right = width - 60;
-  const lines: PdfLine[] = [
-    { text: "SkillStream", x: left, y: 770, size: 20, bold: true },
-    { text: "Receipt", x: right, y: 770, size: 20, bold: true, align: "right" },
-    { text: `Order ${input.orderId}`, x: left, y: 740, size: 10, gray: 0.4 },
-    {
-      text: `Date ${(input.paidAt ?? input.createdAt).toLocaleDateString("en-US", LONG_DATE)}`,
-      x: right,
-      y: 740,
-      size: 10,
-      gray: 0.4,
-      align: "right",
-    },
-    { text: `Billed to ${input.buyerName} (${input.buyerEmail})`, x: left, y: 700, size: 11 },
-    {
-      text: `Payment ${input.gateway} · ${input.status}`,
-      x: left,
-      y: 682,
-      size: 11,
-      gray: 0.4,
-    },
-    { text: "Description", x: left, y: 640, size: 10, bold: true, gray: 0.4 },
-    { text: "Amount", x: right, y: 640, size: 10, bold: true, gray: 0.4, align: "right" },
+}): Promise<Buffer> {
+  const doc = new PDFDocument({ size: "A4", margin: 0, compress: false });
+  const chunks: Buffer[] = [];
+  const result = new Promise<Buffer>((resolve, reject) => {
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
+  const left = 45;
+  const right = 550;
+  const navy = "#252447";
+  const muted = "#5c5c5c";
+  const rule = "#c8c8c8";
+  const moneyText = (cents: number) => input.currency + " " + (cents / 100).toFixed(2);
+  const status = input.status.replace(/_/g, " ");
+  const logoPaths = [
+    join(process.cwd(), "../web/public/GRS-Learning.svg"),
+    join(process.cwd(), "apps/web/public/GRS-Learning.svg"),
   ];
 
-  let y = 615;
-  for (const item of input.items) {
-    lines.push({ text: item.title, x: left, y, size: 11 });
-    lines.push({
-      text: money(item.priceCents, input.currency),
-      x: right,
-      y,
-      size: 11,
-      align: "right",
-    });
-    y -= 16;
-    if (item.refundedCents && item.refundedCents > 0) {
-      // Per-item refund line, shown right under its parent so it is obvious
-      // which course received store credit and how much.
-      const fully = item.refundedCents >= item.priceCents;
-      lines.push({
-        text: fully
-          ? "  Refunded to store credit (access revoked)"
-          : "  Partially refunded to store credit",
-        x: left,
-        y,
-        size: 10,
-        gray: 0.45,
-      });
-      lines.push({
-        text: `-${money(item.refundedCents, input.currency)}`,
-        x: right,
-        y,
-        size: 10,
-        gray: 0.45,
-        align: "right",
-      });
-      y -= 16;
+  let logo: Buffer | null = null;
+  for (const logoPath of logoPaths) {
+    try {
+      const svg = readFileSync(logoPath, "utf8");
+      const encoded = /data:image\/png;base64,([A-Za-z0-9+/=]+)/.exec(svg);
+      if (encoded) {
+        logo = Buffer.from(encoded[1], "base64");
+        break;
+      }
+    } catch {
+      // Deployments may not include the web public asset.
     }
-    y -= 6;
   }
 
-  y -= 12;
-  lines.push({ text: "Subtotal", x: left, y, size: 11, gray: 0.4 });
-  lines.push({
-    text: money(input.subtotalCents, input.currency),
-    x: right,
-    y,
-    size: 11,
-    align: "right",
-  });
+  if (logo) doc.image(logo, left, 42, { width: 105, height: 70 });
+  else {
+    doc.fillColor(navy).font("Helvetica-Bold").fontSize(30).text("GRS", left, 46);
+    doc.fontSize(12).text("LEARNING", left, 82);
+  }
+  doc.fillColor("#000000").font("Helvetica-Bold").fontSize(24).text("RECEIPT", 390, 48, { width: 160, align: "right" });
+  doc.strokeColor(rule).lineWidth(0.8).moveTo(left, 132).lineTo(right, 132).stroke();
+
+  doc.fillColor(muted).font("Helvetica-Bold").fontSize(9)
+    .text("ORDER ID", left, 157)
+    .text("DATE", 220, 157)
+    .text("BILLED TO", 375, 157);
+  doc.fillColor("#111111").font("Helvetica").fontSize(10)
+    .text(input.orderId, left, 176)
+    .text("Date " + (input.paidAt ?? input.createdAt).toLocaleDateString("en-US", LONG_DATE), 220, 176)
+    .font("Helvetica-Bold").text(input.buyerName, 375, 176)
+    .font("Helvetica").fillColor(muted).fontSize(9).text(input.buyerEmail, 375, 193);
+  doc.strokeColor(rule).lineWidth(0.4).moveTo(195, 148).lineTo(195, 203).stroke();
+  doc.moveTo(350, 148).lineTo(350, 203).stroke();
+
+  doc.roundedRect(left, 230, right - left, 37, 6).strokeColor(rule).lineWidth(0.6).stroke();
+  doc.fillColor("#111111").font("Helvetica-Bold").fontSize(9).text("PAYMENT", left + 12, 244);
+  doc.font("Helvetica").text(input.gateway.replace(/_/g, " ") + "  -  " + status, 360, 244, { width: 178, align: "right" });
+
+  doc.fillColor(muted).font("Helvetica-Bold").fontSize(9)
+    .text("DESCRIPTION", left, 300)
+    .text("AMOUNT", 470, 300, { width: 80, align: "right" });
+  doc.strokeColor(rule).lineWidth(0.6).moveTo(left, 319).lineTo(right, 319).stroke();
+
+  let y = 342;
+  for (const item of input.items) {
+    const title = item.title.length > 64 ? item.title.slice(0, 61) + "..." : item.title;
+    doc.fillColor("#111111").font("Helvetica-Bold").fontSize(10).text(title, left, y, { width: 380 });
+    doc.font("Helvetica").text(moneyText(item.priceCents), 455, y, { width: 95, align: "right" });
+    y += 18;
+    if ((item.refundedCents ?? 0) > 0) {
+      const fully = (item.refundedCents ?? 0) >= item.priceCents;
+      doc.fillColor(muted).font("Helvetica").fontSize(8.5)
+        .text(fully ? "  Refunded to store credit (access revoked)" : "  Partially refunded to store credit", left + 12, y);
+      doc.text("-" + moneyText(item.refundedCents ?? 0), 455, y, { width: 95, align: "right" });
+      y += 16;
+    }
+    doc.strokeColor("#dedede").lineWidth(0.35).moveTo(left, y + 8).lineTo(right, y + 8).stroke();
+    y += 27;
+  }
+
+  y += 4;
+  const summary = (label: string, value: string, bold = false, color = muted) => {
+    doc.fillColor(color).font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(bold ? 12 : 10)
+      .text(label, left, y).text(value, 455, y, { width: 95, align: "right" });
+  };
+  summary("Subtotal", moneyText(input.subtotalCents));
   if (input.discountCents > 0) {
-    y -= 20;
-    const label = input.couponCode ? `Discount (${input.couponCode})` : "Discount";
-    lines.push({ text: label, x: left, y, size: 11, gray: 0.4 });
-    lines.push({
-      text: `-${money(input.discountCents, input.currency)}`,
-      x: right,
-      y,
-      size: 11,
-      align: "right",
-    });
+    y += 21;
+    summary(input.couponCode ? "Discount (" + input.couponCode + ")" : "Discount", "-" + moneyText(input.discountCents));
   }
-  y -= 26;
-  lines.push({ text: "Total", x: left, y, size: 14, bold: true });
-  lines.push({
-    text: money(input.totalCents, input.currency),
-    x: right,
-    y,
-    size: 14,
-    bold: true,
-    align: "right",
-  });
+  if ((input.creditAppliedCents ?? 0) > 0) {
+    y += 21;
+    summary("Store credit applied", "-" + moneyText(input.creditAppliedCents ?? 0));
+  }
+  y += 24;
+  doc.strokeColor("#777777").lineWidth(0.6).moveTo(left, y - 8).lineTo(right, y - 8).stroke();
+  summary("Total", moneyText(input.totalCents), true, "#111111");
 
-  const refundedTotal = input.refundedCents ?? 0;
-  if (refundedTotal > 0) {
-    // Order-level refund summary + net-paid so the buyer sees, in dollars,
-    // exactly what has been credited back and what has actually been retained.
-    y -= 22;
-    lines.push({
-      text: "Refunded to store credit",
-      x: left,
-      y,
-      size: 11,
-      gray: 0.4,
-    });
-    lines.push({
-      text: `-${money(refundedTotal, input.currency)}`,
-      x: right,
-      y,
-      size: 11,
-      gray: 0.4,
-      align: "right",
-    });
-    y -= 22;
-    const net = Math.max(0, input.totalCents - refundedTotal);
-    lines.push({ text: "Net paid", x: left, y, size: 12, bold: true });
-    lines.push({
-      text: money(net, input.currency),
-      x: right,
-      y,
-      size: 12,
-      bold: true,
-      align: "right",
-    });
+  const refunded = input.refundedCents ?? 0;
+  if (refunded > 0) {
+    y += 24;
+    summary("Refunded to store credit", "-" + moneyText(refunded));
+    y += 24;
+    doc.strokeColor("#777777").lineWidth(0.6).moveTo(left, y - 8).lineTo(right, y - 8).stroke();
+    summary("Net paid", moneyText(Math.max(0, input.totalCents - refunded)), true, "#111111");
   }
 
-  lines.push({
-    text: "Thank you for learning with SkillStream.",
-    x: left,
-    y: 90,
-    size: 10,
-    gray: 0.45,
-  });
-
-  return buildPdf({
-    width,
-    height,
-    rects: [{ x: left, y: y - 16, w: right - left, h: 0.1, gray: 0.7, lineWidth: 0.5 }],
-    lines,
-  });
+  doc.strokeColor(rule).lineWidth(0.5).moveTo(left, 769).lineTo(right, 769).stroke();
+  doc.fillColor("#111111").font("Helvetica").fontSize(10).text("Thank you for learning with us.", left, 787, { width: right - left, align: "center" });
+  doc.end();
+  return result;
 }

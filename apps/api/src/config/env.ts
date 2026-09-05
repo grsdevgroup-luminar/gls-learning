@@ -92,6 +92,7 @@ const rawEnvSchema = z.object({
   EMAIL_REPLY_TO: z.string().email().optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@skillstream.dev"),
   FRONTEND_URL: z.string().url().default("http://localhost:3001"),
+  PLAYWRIGHT_EXECUTABLE_PATH: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
 
   // Swagger docs. In production the docs are only mounted when both are set —

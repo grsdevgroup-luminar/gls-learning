@@ -197,20 +197,45 @@ export class EnrollmentRepository {
     return this.prisma.enrollment.update({ where: { id: enrollmentId }, data });
   }
 
+  findCourseNumber(courseId: string) {
+    return this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { courseNumber: true },
+    });
+  }
+
   findCertificateByEnrollment(enrollmentId: string) {
     return this.prisma.certificate.findUnique({
       where: { enrollmentId },
     });
   }
 
+  upsertCertificate(
+    enrollmentId: string,
+    serial: string,
+    learnerName: string,
+    courseNumber: string,
+  ) {
+    return this.prisma.certificate.upsert({
+      where: { enrollmentId },
+      update: { courseNumber },
+      create: { enrollmentId, serial, learnerName, courseNumber },
+    });
+  }
+
+  deleteCertificateByEnrollment(enrollmentId: string) {
+    return this.prisma.certificate.delete({ where: { enrollmentId } });
+  }
+
   createCertificate(
     enrollmentId: string,
     serial: string,
     learnerName: string,
+    courseNumber: string,
     tx?: Db,
   ) {
     return this.db(tx).certificate.create({
-      data: { enrollmentId, serial, learnerName },
+      data: { enrollmentId, serial, learnerName, courseNumber },
     });
   }
 
@@ -231,11 +256,14 @@ export class EnrollmentRepository {
       select: {
         serial: true,
         learnerName: true,
+        courseNumber: true,
         pdfUrl: true,
         issuedAt: true,
         enrollment: {
           select: {
             courseId: true,
+            enrolledAt: true,
+            completedAt: true,
             course: { select: { title: true, slug: true } },
           },
         },

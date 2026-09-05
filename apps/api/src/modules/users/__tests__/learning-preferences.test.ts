@@ -21,21 +21,25 @@ describe("updateLearningPreferencesSchema", () => {
     ]);
   });
 
-  it("accepts exactly three distinct areas and defaults optional keywords", () => {
+  it("accepts three or more distinct areas and defaults optional keywords", () => {
     const parsed = updateLearningPreferencesSchema.parse({
-      categories: ["Development", "Design", "Data Science"],
+      categories: [
+        "Development",
+        "Design",
+        "Data Science",
+        "Cloud",
+      ],
     });
 
-    expect(parsed.categories).toHaveLength(REQUIRED_INTEREST_CATEGORY_COUNT);
+    expect(parsed.categories).toHaveLength(4);
     expect(parsed.keywords).toEqual([]);
   });
 
-  it("rejects a selection that is not exactly three areas", () => {
-    expect(
-      updateLearningPreferencesSchema.safeParse({
-        categories: ["Development", "Design"],
-      }).success,
-    ).toBe(false);
+  it("rejects fewer than three areas", () => {
+    expect(updateLearningPreferencesSchema.safeParse({
+      categories: ["Development", "Design"],
+    }).success).toBe(false);
+    expect(updateLearningPreferencesSchema.safeParse({ categories: [] }).success).toBe(false);
   });
 
   it("rejects duplicate areas and case-insensitive duplicate keywords", () => {

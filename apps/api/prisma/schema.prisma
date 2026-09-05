@@ -345,11 +345,13 @@ model Category {
 
 model Course {
   id                 String       @id @default(cuid())
+  courseNumber       String       @unique
   slug               String       @unique
   title              String
   subtitle           String       @default("")
   description        String       @default("")
   category           String
+  isoStandard        String       @default("")
   level              CourseLevel  @default(ALL_LEVELS)
   thumbnail          String       @default("")
   instructorId       String
@@ -570,6 +572,7 @@ model Certificate {
   enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   serial       String     @unique
   learnerName  String
+  courseNumber String
   pdfUrl       String?
   issuedAt     DateTime   @default(now())
 }

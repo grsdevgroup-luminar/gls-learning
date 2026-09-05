@@ -160,9 +160,30 @@ export class CheckoutService {
     // Never sell a course the user already owns.
     const owned = await this.repo.findOwnedEnrollments(userId, input.courseIds);
     const ownedSet = new Set(owned.map((o) => o.courseId));
-    const courseIds = input.courseIds.filter((id) => !ownedSet.has(id));
-    if (courseIds.length === 0)
+    const purchasableCourseIds = [...new Set(input.courseIds)].filter(
+      (id) => !ownedSet.has(id),
+    );
+    if (purchasableCourseIds.length === 0)
       throw new BadRequestException("You already own these courses");
+
+    // A new checkout attempt may use a fresh idempotency key (for example
+    // after returning from a canceled provider session). Do not create a
+    // second pending order for a course that is already awaiting payment.
+    // Mixed carts continue with only the courses that do not have a pending
+    // order; the existing pending order remains available to resume.
+    const pendingOrders =
+      await this.repo.findPendingOrdersByUserAndCourseIds(
+        userId,
+        purchasableCourseIds,
+    );
+    const pendingCourseIds = new Set(
+      pendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
+    );
+    const courseIds = purchasableCourseIds.filter(
+      (id) => !pendingCourseIds.has(id),
+    );
+    if (courseIds.length === 0)
+      return this.resurrectSession(pendingOrders[0]);
 
     // Recompute the quote authoritatively — client-sent prices are ignored.
     const quote = await this.quote({ ...input, courseIds }, userId);

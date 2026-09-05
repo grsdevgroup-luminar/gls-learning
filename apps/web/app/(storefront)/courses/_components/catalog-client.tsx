@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCategories, useCourses } from "@/lib/api/hooks";
 import { useStore } from "@/lib/context/store";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
@@ -36,6 +36,7 @@ const SORT_TO_API: Record<string, CourseSort> = {
 export function CatalogClient() {
   const { data: categories = [] } = useCategories();
   const { region } = useStore();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const urlQ = normalizeCourseSearchQuery(searchParams.get("q") ?? "");
   const urlCats = searchParams.getAll("category");
@@ -128,6 +129,15 @@ export function CatalogClient() {
     setLvl(null);
     setPrice("all");
     setMinRating(0);
+
+    // Keep the shared header search in sync when the catalog was opened with
+    // a header query. Local filter state alone cannot clear the header input,
+    // which derives its value from the URL.
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("q");
+    nextParams.delete("category");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? "/courses?" + nextQuery : "/courses");
   }
 
   const filterProps = {

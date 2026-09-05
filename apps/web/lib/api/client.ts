@@ -17,7 +17,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
  * Single-flight refresh: the 15-minute access-token cookie expires long before
  * the 7-day refresh cookie, so browser calls hit 401 mid-session. This POSTs
  * /auth/refresh once and lets the Set-Cookie install a fresh access token.
- * Deduped module-wide so a burst of parallel 401s triggers ONE rotation —
+ * Deduped module-wide so a burst of parallel 401s triggers ONE rotation â€”
  * refresh tokens are single-use, so N concurrent refreshes would invalidate
  * each other and log the user out.
  */
@@ -79,7 +79,7 @@ function parseResponseBody(text: string, res: Response): unknown {
  * credentials so the httpOnly auth cookies travel with the request. Parses
  * problem-detail errors into ApiError. On a browser 401 it transparently
  * refreshes the session once and retries (SSR calls carry cookieHeader and are
- * skipped — a Server Component can't persist rotated cookies mid-render).
+ * skipped â€” a Server Component can't persist rotated cookies mid-render).
  */
 export async function apiFetch<T>(
   path: string,
@@ -134,7 +134,7 @@ export async function apiFetch<T>(
   return data as T;
 }
 
-/** Absolute URL for an API path — for links the browser navigates to directly
+/** Absolute URL for an API path â€” for links the browser navigates to directly
  *  (PDFs, downloads) rather than fetches. */
 export function apiUrl(path: string): string {
   return `${BASE_URL}${path}`;
@@ -142,7 +142,7 @@ export function apiUrl(path: string): string {
 
 /**
  * Multipart upload wrapper. Uses the same 401-retry dance as apiFetch but lets
- * the browser set the multipart boundary in Content-Type — hard-coding it here
+ * the browser set the multipart boundary in Content-Type â€” hard-coding it here
  * would strip the `boundary=...` suffix and every request would 400.
  */
 export async function apiFetchMultipart<T>(
@@ -193,12 +193,12 @@ export async function apiFetchMultipart<T>(
 }
 
 /**
- * Downloads a cookie-authenticated file. A plain <a href> would work only while
+ * Fetches a cookie-authenticated file. A plain <a href> would work only while
  * the API stays same-site; fetching with credentials and handing the browser a
- * blob works regardless, and surfaces API errors instead of rendering a JSON
+ * blob works regardless, and surfaces API errors to callers instead of rendering a JSON
  * error page in a new tab.
  */
-export async function downloadFile(path: string, filename: string): Promise<void> {
+export async function fetchFile(path: string): Promise<Blob> {
   const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include" });
   let res = await send();
   if (res.status === 401 && typeof window !== "undefined") {
@@ -213,7 +213,11 @@ export async function downloadFile(path: string, filename: string): Promise<void
     const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
     throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
   }
-  const url = URL.createObjectURL(await res.blob());
+  return res.blob();
+}
+
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const url = URL.createObjectURL(await fetchFile(path));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

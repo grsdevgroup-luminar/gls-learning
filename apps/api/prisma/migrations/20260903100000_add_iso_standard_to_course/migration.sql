@@ -1,0 +1,1 @@
+ALTER TABLE "Course" ADD COLUMN "isoStandard" TEXT NOT NULL DEFAULT '';
