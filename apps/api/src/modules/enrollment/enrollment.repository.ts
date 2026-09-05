@@ -197,16 +197,21 @@ export class EnrollmentRepository {
     return this.prisma.enrollment.update({ where: { id: enrollmentId }, data });
   }
 
-  upsertCertificate(enrollmentId: string, serial: string, learnerName: string) {
-    return this.prisma.certificate.upsert({
+  findCertificateByEnrollment(enrollmentId: string) {
+    return this.prisma.certificate.findUnique({
       where: { enrollmentId },
-      update: {},
-      create: { enrollmentId, serial, learnerName },
     });
   }
 
-  deleteCertificateByEnrollment(enrollmentId: string) {
-    return this.prisma.certificate.delete({ where: { enrollmentId } });
+  createCertificate(
+    enrollmentId: string,
+    serial: string,
+    learnerName: string,
+    tx?: Db,
+  ) {
+    return this.db(tx).certificate.create({
+      data: { enrollmentId, serial, learnerName },
+    });
   }
 
   findLessonProgressSince(userId: string, since: Date) {
