@@ -544,6 +544,16 @@ async function adminModeration() {
     check(`admin ${name} readable`, r.status === 200, `${r.status}`);
   }
 
+  {
+    const r = await req("GET", "/admin/orders?status=PAID&pageSize=100", { token: t });
+    const items = Array.isArray(r.json) ? r.json : r.json?.items;
+    check(
+      "admin orders status=PAID returns only PAID",
+      r.status === 200 && Array.isArray(items) && items.every((o) => o.status === "PAID"),
+      `${r.status} n=${items?.length}`,
+    );
+  }
+
   if (state.reviewId) {
     const r = await req("PATCH", `/admin/reviews/${state.reviewId}/status`, { token: t, body: { status: "APPROVED" } });
     check("admin approves review", r.status === 200, `${r.status} ${msg(r)}`);

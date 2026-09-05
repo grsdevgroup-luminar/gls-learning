@@ -50,21 +50,47 @@ export function AdminPagination({
   totalPages,
   onPageChange,
   showSinglePage = false,
+  total,
+  itemLabel,
 }: {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   showSinglePage?: boolean;
+  /** Matching-row count from the current list query (search/filters included). */
+  total?: number;
+  /** Singular noun for `total`, e.g. "order" → "49 orders". */
+  itemLabel?: string;
 }) {
-  if (totalPages <= 1 && !showSinglePage) return null;
+  const showNav = totalPages > 1 || showSinglePage;
+  if (!showNav && total === undefined) return null;
+
+  const countLabel =
+    total === undefined
+      ? null
+      : itemLabel
+        ? `${total} ${itemLabel}${total === 1 ? "" : "s"}`
+        : String(total);
 
   return (
     <div className="flex flex-col items-center justify-between gap-4 pt-2 sm:flex-row">
       <div className="text-sm text-muted-foreground">
-        Page <span className="font-medium text-foreground">{page}</span> of{" "}
-        <span className="font-medium text-foreground">{totalPages}</span>
+        {total === 0 ? (
+          countLabel
+        ) : (
+          <>
+            Page <span className="font-medium text-foreground">{page}</span> of{" "}
+            <span className="font-medium text-foreground">{totalPages}</span>
+            {countLabel ? (
+              <>
+                <span className="mx-1.5">·</span>
+                {countLabel}
+              </>
+            ) : null}
+          </>
+        )}
       </div>
-      <div className="flex items-center justify-center gap-1">
+      <div className={showNav ? "flex items-center justify-center gap-1" : "hidden"}>
         <Button
           variant="outline"
           size="sm"

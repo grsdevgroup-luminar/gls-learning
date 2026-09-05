@@ -9,7 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { OrderStatus } from "@skillstream/shared";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -56,6 +60,9 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING: "Pending",
 };
 
+const STATUS_FILTERS = ["all", ...Object.values(OrderStatus)] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
 /** Cap the refundable pool at the money-paid portion. Credit-applied cents
  *  can't be handed back as new credit without compounding the ledger. */
 function orderRefundablePool(order: OrderDto): number {
@@ -85,6 +92,7 @@ export default function AdminOrders() {
   const [pageSize, setPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [refundTarget, setRefundTarget] = useState<OrderDto | null>(null);
 
   // Debounce search box so every keystroke doesn't hit the API.
@@ -97,9 +105,14 @@ export default function AdminOrders() {
   }, [qInput]);
 
   const { data: orderPage, isLoading, error } = useQuery({
-    queryKey: ["admin", "orders", "list", { q, page, pageSize }],
+    queryKey: ["admin", "orders", "list", { q, status, page, pageSize }],
     queryFn: () =>
-      adminApi.orders({ q: q || undefined, page, pageSize }),
+      adminApi.orders({
+        q: q || undefined,
+        status: status === "all" ? undefined : status,
+        page,
+        pageSize,
+      }),
     placeholderData: (prev) => prev,
   });
 
@@ -110,6 +123,7 @@ export default function AdminOrders() {
 
   const pagedOrders = orderPage?.items ?? [];
   const totalPages = orderPage?.totalPages ?? 1;
+  const matchingTotal = orderPage?.total ?? 0;
 
   useEffect(() => {
     if (orderPage && page > orderPage.totalPages) setPage(orderPage.totalPages);
@@ -194,7 +208,7 @@ export default function AdminOrders() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center shrink-0">
         <div className="relative sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -204,13 +218,36 @@ export default function AdminOrders() {
             className="pl-9"
           />
         </div>
-        <AdminRowsPerPage
-          value={pageSize}
-          onChange={(value) => {
-            setPageSize(value);
+        <Select
+          value={status}
+          onValueChange={(value) => {
+            if (!value) return;
+            setStatus(value as StatusFilter);
             setPage(1);
           }}
-        />
+        >
+          <SelectTrigger className="w-[11.5rem]" aria-label="Filter by status">
+            <SelectValue>
+              {status === "all" ? "All statuses" : STATUS_LABELS[status]}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_FILTERS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s === "all" ? "All statuses" : STATUS_LABELS[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="sm:ml-auto">
+          <AdminRowsPerPage
+            value={pageSize}
+            onChange={(value) => {
+              setPageSize(value);
+              setPage(1);
+            }}
+          />
+        </div>
       </div>
 
       {error && (
@@ -257,7 +294,13 @@ export default function AdminOrders() {
       </AdminTableCard>
 
       {!isLoading && (
-        <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        <AdminPagination
+          page={page}
+          totalPages={totalPages}
+          total={matchingTotal}
+          itemLabel="order"
+          onPageChange={setPage}
+        />
       )}
 
       <RefundDialog
