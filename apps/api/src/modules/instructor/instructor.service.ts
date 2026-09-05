@@ -239,6 +239,7 @@ export class InstructorService {
     const u = await this.repo.findUserWithProfile(user.id);
     if (u?.instructorProfile) {
       const p = u.instructorProfile;
+      const live = await this.repo.computeInstructorStats(u.id);
       return {
         userId: u.id,
         name: u.name,
@@ -247,8 +248,8 @@ export class InstructorService {
         title: p.title,
         bio: p.bio,
         expertise: p.expertise,
-        ratingAvg: p.ratingAvg,
-        studentCount: p.studentCount,
+        ratingAvg: live.ratingAvg,
+        studentCount: live.studentCount,
         courseCount: p.courseCount,
         earningsCents: p.earningsCents,
         status: p.status,

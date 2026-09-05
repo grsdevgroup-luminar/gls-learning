@@ -4,6 +4,9 @@ import { PayeeType, PayoutMethod, PayoutStatus } from "../enums";
 /** Minimum balance (cents) a payee must have accrued to request a payout. */
 export const MIN_PAYOUT_CENTS = 5000;
 
+/** Stripe connected account id pattern (`acct_...`). Used when method=STRIPE. */
+export const STRIPE_CONNECTED_ACCOUNT_RE = /^acct_[A-Za-z0-9]+$/;
+
 export const PayoutAccountSchema = z.object({
   method: z.nativeEnum(PayoutMethod),
   details: z.string().min(3).max(300),
@@ -38,9 +41,13 @@ export const PayoutDto = z.object({
   payeeEmail: z.string(),
   payeeType: z.nativeEnum(PayeeType),
   amountCents: z.number(),
+  netCents: z.number(),
+  platformFeeCents: z.number(),
+  stripeFeeCents: z.number(),
   status: z.nativeEnum(PayoutStatus),
   method: z.nativeEnum(PayoutMethod),
   destination: z.string(),
+  providerRef: z.string().nullable(),
   note: z.string().nullable(),
   requestedAt: z.string(),
   processedAt: z.string().nullable(),
@@ -51,3 +58,48 @@ export const RejectPayoutSchema = z.object({
   note: z.string().max(500).optional(),
 });
 export type RejectPayoutInput = z.infer<typeof RejectPayoutSchema>;
+
+/** Body for `POST /me/payouts`. When `amountCents` is omitted the server
+ *  withdraws the full available balance (backward-compatible). */
+export const RequestPayoutSchema = z.object({
+  amountCents: z.number().int().positive().optional(),
+});
+export type RequestPayoutInput = z.infer<typeof RequestPayoutSchema>;
+
+/** Body for `POST /me/payouts/quote`. Pure fee preview, no writes. */
+export const QuotePayoutSchema = z.object({
+  amountCents: z.number().int().positive(),
+});
+export type QuotePayoutInput = z.infer<typeof QuotePayoutSchema>;
+
+/** Breakdown of a payout: gross requested → what the payee actually receives.
+ *  `net = requested − platformFee − stripeFee`. */
+export const PayoutBreakdownDto = z.object({
+  requestedCents: z.number(),
+  platformFeeCents: z.number(),
+  stripeFeeCents: z.number(),
+  netCents: z.number(),
+  minNetCents: z.number(),
+  meetsMinimum: z.boolean(),
+});
+export type PayoutBreakdownDto = z.infer<typeof PayoutBreakdownDto>;
+
+/** Stripe Connect status snapshot fetched live from Stripe. `connected` means
+ *  the platform has ever created an `acct_xxx` for this user; `payoutsEnabled`
+ *  means Stripe will accept a Transfer to that account right now. */
+export const PayoutStripeStatusDto = z.object({
+  connected: z.boolean(),
+  connectedAccountId: z.string().nullable(),
+  chargesEnabled: z.boolean(),
+  payoutsEnabled: z.boolean(),
+  detailsSubmitted: z.boolean(),
+  requirementsDue: z.array(z.string()),
+});
+export type PayoutStripeStatusDto = z.infer<typeof PayoutStripeStatusDto>;
+
+/** Hosted onboarding link returned by Stripe. Single-use; short TTL. */
+export const StripeOnboardLinkDto = z.object({
+  url: z.string().url(),
+  expiresAt: z.string(),
+});
+export type StripeOnboardLinkDto = z.infer<typeof StripeOnboardLinkDto>;

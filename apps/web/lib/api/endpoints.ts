@@ -52,6 +52,9 @@ import type {
   PayoutDto,
   PayoutAccountDto,
   PayoutAccountInput,
+  PayoutBreakdownDto,
+  PayoutStripeStatusDto,
+  StripeOnboardLinkDto,
   CheckoutQuoteInput,
   CheckoutSessionInput,
   CheckoutSessionDto,
@@ -107,6 +110,9 @@ export type {
   PayoutBalanceDto,
   PayoutDto,
   PayoutAccountDto,
+  PayoutBreakdownDto,
+  PayoutStripeStatusDto,
+  StripeOnboardLinkDto,
 } from "@skillstream/shared";
 
 /** `GET /me/certificates` returns certificates enriched with course info
@@ -393,7 +399,22 @@ export const api = {
   payoutAccount: () => apiFetch<PayoutAccountDto | null>("/me/payout-account"),
   setPayoutAccount: (body: PayoutAccountInput) =>
     apiFetch<PayoutAccountDto>("/me/payout-account", { method: "POST", body }),
-  requestPayout: () => apiFetch<PayoutDto>("/me/payouts", { method: "POST" }),
+  requestPayout: (amountCents?: number) =>
+    apiFetch<PayoutDto>("/me/payouts", {
+      method: "POST",
+      body: amountCents !== undefined ? { amountCents } : undefined,
+    }),
+  quotePayout: (amountCents: number) =>
+    apiFetch<PayoutBreakdownDto>("/me/payouts/quote", {
+      method: "POST",
+      body: { amountCents },
+    }),
+  stripeOnboardLink: () =>
+    apiFetch<StripeOnboardLinkDto>("/me/payout-account/stripe/onboard-link", {
+      method: "POST",
+    }),
+  stripeAccountStatus: () =>
+    apiFetch<PayoutStripeStatusDto>("/me/payout-account/stripe/status"),
   adminPayouts: (status?: string) =>
     apiFetch<PayoutDto[]>(`/admin/payouts${status ? `?status=${status}` : ""}`),
   approvePayout: (id: string) =>
