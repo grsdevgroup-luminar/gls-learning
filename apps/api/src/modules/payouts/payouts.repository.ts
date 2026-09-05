@@ -49,6 +49,15 @@ export class PayoutsRepository {
     return this.prisma.payout.create({ data });
   }
 
+  /** Looks up the payee's email — needed by the Stripe onboarding flow to
+   *  pre-fill the connected-account creation. */
+  findUserEmail(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+  }
+
   findMyPayouts(userId: string) {
     return this.prisma.payout.findMany({
       where: { payeeUserId: userId },
