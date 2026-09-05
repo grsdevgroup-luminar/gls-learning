@@ -19,18 +19,33 @@ import {
 } from "@skillstream/shared";
 import { ConfigService } from "@nestjs/config";
 import { AdminAlertsService } from "../email/admin-alerts.service";
-import { NotificationsService } from "../notifications/notifications.service";
+import {
+  NotificationsService,
+  type NotifyInput,
+} from "../notifications/notifications.service";
 import type { Db } from "../../common/types";
 import { apiBaseUrl, certificatePdfUrl } from "../../common/utils/urls";
 import type { Env } from "../../config/env";
+import { PrismaService } from "../../prisma/prisma.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import {
   EnrollmentRepository,
   type EnrollmentRow,
 } from "./enrollment.repository";
 
+const MAX_CERTIFICATE_SERIAL_RETRIES = 3;
+
 function countLessons(course: EnrollmentRow["course"]): number {
   return course.sections.reduce((n, s) => n + s.lessons.length, 0);
+}
+
+/** 48 bits of randomness — the serial is the only public credential. */
+function generateCertificateSerial(): string {
+  return `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+}
+
+function isUniqueViolation(e: unknown): boolean {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 }
 
 /** `pdfUrl` falls back to the API's on-the-fly renderer, so every certificate
@@ -53,6 +68,7 @@ function mapCertificate(
 export class EnrollmentService {
   constructor(
     private readonly repo: EnrollmentRepository,
+    private readonly prisma: PrismaService,
     private readonly config: ConfigService<Env, true>,
     private readonly alerts: AdminAlertsService,
     private readonly notifications: NotificationsService,
@@ -333,40 +349,61 @@ export class EnrollmentService {
     await this.repo.updateEnrollment(enrollmentId, data);
   }
 
+  /**
+   * Certificates are issued once per enrollment and never revoked by progress
+   * changes. `serial`, `issuedAt`, and `learnerName` are immutable after creation.
+   */
   private async manageCertificate(
     userId: string,
     enrollmentId: string,
     courseId: string,
     done: boolean,
   ): Promise<CertificateDto | null> {
-    if (done) {
-      const user = await this.repo.findUserName(userId);
-      const course = await this.repo.findCourseNumber(courseId);
-      if (!user || !course) return null;
-      const cert = await this.repo.upsertCertificate(
-        enrollmentId,
-        // 48 bits of randomness: the serial is the only credential the public
-        // verification endpoint takes, so it must not be guessable (and must
-        // not collide — `serial` is unique).
-        `CERT-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
-        user.name,
-        course.courseNumber,
-      );
-      void this.notifications
-        .notify({
-          userId,
-          event: "CERTIFICATE_ISSUED",
-          title: "Certificate issued",
-          body: "You completed a course — your certificate is ready.",
-          href: "/dashboard/certificates",
-        })
-        .catch(() => undefined);
-      return mapCertificate(cert, this.apiBase);
+    const existing = await this.repo.findCertificateByEnrollment(enrollmentId);
+    if (existing) return mapCertificate(existing, this.apiBase);
+
+    if (!done) return null;
+
+    const user = await this.repo.findUserName(userId);
+    const course = await this.repo.findCourseNumber(courseId);
+    if (!user || !course) return null;
+
+    const notifyInput: NotifyInput = {
+      userId,
+      event: "CERTIFICATE_ISSUED",
+      title: "Certificate issued",
+      body: "You completed a course — your certificate is ready.",
+      href: "/dashboard/certificates",
+    };
+
+    let serial = generateCertificateSerial();
+
+    for (let attempt = 0; attempt < MAX_CERTIFICATE_SERIAL_RETRIES; attempt++) {
+      try {
+        const cert = await this.prisma.$transaction(async (tx) => {
+          const created = await this.repo.createCertificate(
+            enrollmentId,
+            serial,
+            user.name,
+            course.courseNumber,
+            tx,
+          );
+          await this.notifications.notify(notifyInput, tx);
+          return created;
+        });
+        void this.notifications
+          .notifyEmailAfterCommit(notifyInput)
+          .catch(() => undefined);
+        return mapCertificate(cert, this.apiBase);
+      } catch (e) {
+        if (!isUniqueViolation(e)) throw e;
+        const raced = await this.repo.findCertificateByEnrollment(enrollmentId);
+        if (raced) return mapCertificate(raced, this.apiBase);
+        serial = generateCertificateSerial();
+      }
     }
-    await this.repo
-      .deleteCertificateByEnrollment(enrollmentId)
-      .catch(() => undefined);
-    return null;
+
+    throw new Error("Could not allocate certificate serial");
   }
 
   private buildResult(

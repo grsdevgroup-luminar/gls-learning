@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Logo } from "@/components/shared/logo";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -27,6 +27,7 @@ import {
   activeCourseSearchQuery,
   normalizeCourseSearchQuery,
   onCourseSearchInputChange,
+  shouldPreserveSearchInputOverUrlSync,
 } from "@/lib/course-search";
 import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
@@ -47,6 +48,8 @@ export function SiteHeader() {
   const [q, setQ] = useState(urlQ);
   const [syncedQ, setSyncedQ] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(q);
+  /** Normalized `q` last pushed to the URL — read only in the sync effect below. */
+  const pendingUrlQRef = useRef<string | null>(null);
   // Keep session-dependent markup identical for SSR and the browser's first
   // render. The browser becomes hydrated in a follow-up render, after which
   // the session-dependent controls can safely appear.
@@ -59,12 +62,7 @@ export function SiteHeader() {
   const headerRole = sessionReady ? role : "GUEST";
   const isAuthed = sessionReady && !!user;
 
-  if (syncedQ !== urlQ) {
-    setSyncedQ(urlQ);
-    setQ(urlQ);
-  }
-
-  const search = useCallback((query: string) => {
+  const pushSearchToUrl = useCallback((query: string) => {
     const normalized = activeCourseSearchQuery(query);
     if (pathname === "/courses") {
       const nextParams = new URLSearchParams(searchParams.toString());
@@ -77,6 +75,7 @@ export function SiteHeader() {
       const currentHref = currentQueryString ? `/courses?${currentQueryString}` : "/courses";
       if (nextHref === currentHref) return;
 
+      pendingUrlQRef.current = normalized;
       router.push(nextHref);
       return;
     }
@@ -91,20 +90,36 @@ export function SiteHeader() {
       return;
     }
 
+    pendingUrlQRef.current = normalized;
     router.push(`/courses?q=${encodeURIComponent(normalized)}`);
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
-    // Do not replay a stale debounced query while leaving the course catalog.
-    // The header state is cleared from the new URL on the first render, while
-    // the debounced value may still contain the query from the previous page.
-    if (pathname !== "/courses" && debouncedQ !== q.trim()) return;
-    search(debouncedQ);
-  }, [debouncedQ, pathname, q, search]);
+    if (syncedQ !== urlQ) {
+      const pending = pendingUrlQRef.current;
+      pendingUrlQRef.current = null;
+      // URL changed (our debounced push, Back, or external nav) — mirror into input.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync searchParams to controlled input
+      setSyncedQ(urlQ);
+      if (pending !== null && urlQ === pending) {
+        setQ((current) =>
+          shouldPreserveSearchInputOverUrlSync(current, urlQ, pending) ? current : urlQ,
+        );
+      } else {
+        setQ(urlQ);
+      }
+
+      // Do not push q/debouncedQ from the stale render that observed this URL change.
+      return;
+    }
+
+    if (debouncedQ !== q.trim()) return;
+    pushSearchToUrl(debouncedQ);
+  }, [debouncedQ, q, pushSearchToUrl, syncedQ, urlQ]);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    search(activeCourseSearchQuery(q));
+    pushSearchToUrl(q);
   }
 
   async function logout() {
@@ -118,7 +133,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/55">
       {/* aurora hairline under the header */}
       <span
         aria-hidden
@@ -223,7 +238,7 @@ export function SiteHeader() {
                       {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
                     </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@grs-learning.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
+                      {user?.email ?? ""}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
@@ -291,4 +306,3 @@ export function SiteHeader() {
     </header>
   );
 }
-

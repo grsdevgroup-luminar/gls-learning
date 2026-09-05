@@ -7,6 +7,22 @@ import { toast } from "sonner";
 
 export { MAX_COURSE_SEARCH_LENGTH, activeCourseSearchQuery, normalizeCourseSearchQuery };
 
+/**
+ * Keep local input when a tracked debounced URL push lands but the user has
+ * already typed ahead (or below min-length while the URL was cleared).
+ * Only call with the exact `pendingUrlQ` value that was just pushed.
+ */
+export function shouldPreserveSearchInputOverUrlSync(
+  current: string,
+  urlQ: string,
+  pendingUrlQ: string,
+): boolean {
+  const trimmed = current.trim();
+  if (trimmed === pendingUrlQ) return false;
+  if (pendingUrlQ === "") return trimmed.length > 0;
+  return trimmed.length > pendingUrlQ.length && trimmed.startsWith(pendingUrlQ);
+}
+
 /** Clamp catalog search input and surface a one-time toast when the limit is hit. */
 export function onCourseSearchInputChange(
   next: string,

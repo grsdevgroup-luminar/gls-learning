@@ -146,13 +146,15 @@ export class OrdersService {
   ): Promise<Paginated<OrderDto>> {
     const q = query.q?.trim();
     // Restrict to caller's own orders and, when a search term is present,
-    // match against order id or a purchased course title (order items).
+    // match against the case-sensitive order id or a case-insensitive
+    // purchased course title (order items). Order IDs are identifiers, so
+    // their letter casing must be preserved during search.
     const where: Prisma.OrderWhereInput = {
       userId,
       ...(q
         ? {
             OR: [
-              { id: { contains: q, mode: "insensitive" } },
+              { id: { contains: q } },
               {
                 items: {
                   some: {

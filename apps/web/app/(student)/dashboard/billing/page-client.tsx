@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { OrderDto } from "@skillstream/shared";
 import { useMyOrders, useMyOrderStats } from "@/lib/api/hooks";
 import { downloadFile, fetchFile } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -11,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -49,6 +53,7 @@ export default function BillingPage() {
   const [q, setQ] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
 
   // Debounce free-text search so keystrokes don't hit the API on every char.
   useEffect(() => {
@@ -202,7 +207,20 @@ export default function BillingPage() {
                   {rows?.map((o) => {
                     const badge = STATUS_BADGE[o.status] ?? STATUS_BADGE.PENDING;
                     return (
-                      <TableRow key={o.id}>
+                      <TableRow
+                        key={o.id}
+                        role="button"
+                        tabIndex={0}
+                        className="cursor-pointer"
+                        aria-label={`View purchase details for order ${o.id}`}
+                        onClick={() => setSelectedOrder(o)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedOrder(o);
+                          }
+                        }}
+                      >
                         <TableCell className="pl-6 font-mono text-xs break-all">
                           {o.id}
                         </TableCell>
@@ -251,7 +269,10 @@ export default function BillingPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {GATEWAY_LABEL[o.gateway] ?? o.gateway}
                         </TableCell>
-                        <TableCell className="sticky right-0 z-[1] bg-card pr-6 text-right">
+                        <TableCell
+                          className="sticky right-0 z-[1] bg-card pr-6 text-right"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <Button
                             size="sm"
                             variant="ghost"
@@ -325,6 +346,89 @@ export default function BillingPage() {
             )}
           </CardContent>
       </Card>
+
+      <Dialog
+        open={selectedOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedOrder(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Purchase details</DialogTitle>
+            <DialogDescription>
+              Order {selectedOrder?.id}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Purchase date</p>
+                  <p className="font-medium">
+                    {new Date(selectedOrder.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric", month: "long", day: "numeric",
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Payment status</p>
+                  <Badge
+                    variant="secondary"
+                    className={STATUS_BADGE[selectedOrder.status]?.className}
+                  >
+                    {STATUS_BADGE[selectedOrder.status]?.label ?? selectedOrder.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Payment method</p>
+                  <p className="font-medium">
+                    {GATEWAY_LABEL[selectedOrder.gateway] ?? selectedOrder.gateway}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total</p>
+                  <p className="font-medium">
+                    {formatUsd(selectedOrder.totalCents / 100)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="mb-3 text-sm font-medium">Purchased courses</p>
+                <div className="space-y-2">
+                  {selectedOrder.items.map((item) => (
+                    <div key={item.id} className="flex justify-between gap-4 text-sm">
+                      <span>{item.title}</span>
+                      <span className="shrink-0 font-medium">
+                        {formatUsd(item.priceCents / 100)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(selectedOrder.discountCents > 0 || selectedOrder.creditAppliedCents > 0) && (
+                <div className="border-t pt-4 text-sm text-muted-foreground">
+                  {selectedOrder.discountCents > 0 && (
+                    <div className="flex justify-between">
+                      <span>Coupon discount</span>
+                      <span>-{formatUsd(selectedOrder.discountCents / 100)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.creditAppliedCents > 0 && (
+                    <div className="flex justify-between">
+                      <span>Store credit</span>
+                      <span>-{formatUsd(selectedOrder.creditAppliedCents / 100)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

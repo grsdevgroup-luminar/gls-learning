@@ -335,7 +335,9 @@ export default function AccountPage() {
               <Lock className="h-4 w-4 text-primary" /> Password
             </CardTitle>
             <CardDescription>
-              Choose a strong password of at least 8 characters.
+              Use at least 8 characters with at least one uppercase letter (A–Z),
+              one lowercase letter (a–z), one number (0–9), and one special
+              character (for example, !@#$%).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
