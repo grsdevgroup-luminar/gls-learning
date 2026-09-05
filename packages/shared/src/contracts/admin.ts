@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { CouponScope, CouponType } from "../enums.js";
-import { CourseStatus } from "../enums.js";
+import { CourseStatus, OrderStatus } from "../enums.js";
 import {
   ReminderChannel,
   ReminderStatus,
@@ -56,6 +56,12 @@ export const adminCourseQuerySchema = searchQuerySchema.extend({
   status: z.nativeEnum(CourseStatus).optional(),
 });
 export type AdminCourseQuery = z.infer<typeof adminCourseQuerySchema>;
+
+/** Admin orders list query: search, pagination, and status filter. */
+export const adminOrderQuerySchema = searchQuerySchema.extend({
+  status: z.nativeEnum(OrderStatus).optional(),
+});
+export type AdminOrderQuery = z.infer<typeof adminOrderQuerySchema>;
 
 export interface AdminStudentDto {
   id: string;
