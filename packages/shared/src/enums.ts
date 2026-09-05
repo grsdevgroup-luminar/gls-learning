@@ -184,6 +184,13 @@ export const OrgMemberRole = {
 } as const;
 export type OrgMemberRole = (typeof OrgMemberRole)[keyof typeof OrgMemberRole];
 
+export const OrgSuspensionMode = {
+  LOCK_NOW: "LOCK_NOW",
+  GRACE_PERIOD: "GRACE_PERIOD",
+} as const;
+export type OrgSuspensionMode =
+  (typeof OrgSuspensionMode)[keyof typeof OrgSuspensionMode];
+
 export const PayeeType = {
   INSTRUCTOR: "INSTRUCTOR",
   AGENT: "AGENT",

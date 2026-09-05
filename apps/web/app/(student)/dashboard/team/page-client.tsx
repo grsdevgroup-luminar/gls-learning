@@ -9,7 +9,8 @@ import { CourseArt } from "@/components/shared/course-art";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building2, BookOpen, Play, Plus, Lock } from "lucide-react";
+import type { OrganizationDto } from "@skillstream/shared";
+import { Building2, BookOpen, Play, Plus, Lock, PauseCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CourseGridSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
@@ -67,8 +68,7 @@ export default function TeamCoursesPage() {
       {orgs?.map((org) => (
         <OrgCourseList
           key={org.id}
-          orgId={org.id}
-          orgName={org.name}
+          org={org}
           enrolledIds={enrolledIds}
           onEnroll={(id) => enroll.mutate(id)}
           enrolling={enroll.isPending ? enroll.variables : undefined}
@@ -79,32 +79,38 @@ export default function TeamCoursesPage() {
 }
 
 function OrgCourseList({
-  orgId,
-  orgName,
+  org,
   enrolledIds,
   onEnroll,
   enrolling,
 }: {
-  orgId: string;
-  orgName: string;
+  org: OrganizationDto;
   enrolledIds: Set<string>;
   onEnroll: (courseId: string) => void;
   enrolling?: string;
 }) {
   const { data: courses, isLoading } = useQuery({
-    queryKey: ["org", orgId, "courses"],
-    queryFn: () => orgApi.courses(orgId),
+    queryKey: ["org", org.id, "courses"],
+    queryFn: () => orgApi.courses(org.id),
+    enabled: !org.accessLocked,
   });
 
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2">
         <Building2 className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold">{orgName}</h2>
-        <Badge variant="secondary" className="text-[10px]">{courses?.length ?? 0} courses</Badge>
+        <h2 className="font-semibold">{org.name}</h2>
+        {!org.accessLocked && (
+          <Badge variant="secondary" className="text-[10px]">{courses?.length ?? 0} courses</Badge>
+        )}
       </div>
 
-      {isLoading ? (
+      {org.accessLocked ? (
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-warning/50 bg-warning/5 p-4 text-sm text-muted-foreground">
+          <PauseCircle className="h-4 w-4 shrink-0 text-warning" />
+          Your organization&apos;s access is currently paused — contact your admin.
+        </div>
+      ) : isLoading ? (
         <CourseGridSkeleton count={3} />
       ) : !courses || courses.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">

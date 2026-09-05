@@ -56,6 +56,11 @@ enum OrgMemberRole {
   MEMBER
 }
 
+enum OrgSuspensionMode {
+  LOCK_NOW
+  GRACE_PERIOD
+}
+
 enum PayeeType {
   INSTRUCTOR
   AGENT
@@ -211,6 +216,7 @@ model User {
   phone         String?
   role          UserRole @default(STUDENT)
   emailVerified Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -934,6 +940,8 @@ model Organization {
   logoUrl    String?
   adminEmail String
   status     OrgStatus @default(TRIAL)
+  suspensionMode OrgSuspensionMode?
+  accessLocksAt  DateTime?
   seatCount  Int       @default(10)
   usedSeats  Int       @default(0)
   createdAt  DateTime  @default(now())

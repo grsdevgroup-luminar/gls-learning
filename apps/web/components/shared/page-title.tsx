@@ -30,6 +30,7 @@ export function pageTitleForPathname(pathname: string): string | undefined {
     [/^\/signup$/, "Create account"],
     [/^\/forgot-password$/, "Reset password"],
     [/^\/reset-password$/, "Choose a new password"],
+    [/^\/force-password-change$/, "Set your password"],
     [/^\/verify\/[^/]+$/, "Certificate verification"],
     [/^\/learn\/[^/]+$/, "Course learning"],
     [/^\/join\/[^/]+$/, "Join organization"],

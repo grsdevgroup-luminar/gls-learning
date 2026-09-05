@@ -41,6 +41,10 @@ export class OrganizationsRepository {
     });
   }
 
+  findUserByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+  }
+
   createOrganization(data: Prisma.OrganizationCreateInput) {
     return this.prisma.organization.create({
       data,
@@ -61,6 +65,36 @@ export class OrganizationsRepository {
     tx?: Db,
   ) {
     return this.db(tx).organization.update({ where: { id: orgId }, data });
+  }
+
+  createOrganizationWithAdmin(
+    org: Omit<Prisma.OrganizationCreateInput, "usedSeats">,
+    admin: { email: string; name: string; passwordHash: string },
+    tx: Db,
+  ) {
+    return this.db(tx).organization.create({
+      data: {
+        ...org,
+        usedSeats: 1,
+        members: {
+          create: {
+            email: admin.email,
+            name: admin.name,
+            role: "ADMIN",
+            user: {
+              create: {
+                email: admin.email,
+                name: admin.name,
+                passwordHash: admin.passwordHash,
+                role: "ORG_ADMIN",
+                mustChangePassword: true,
+              },
+            },
+          },
+        },
+      },
+      include: ORG_INCLUDE,
+    });
   }
 
   createInvitation(data: Prisma.OrgInvitationUncheckedCreateInput) {

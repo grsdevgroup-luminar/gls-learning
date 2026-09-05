@@ -31,6 +31,12 @@ export const authApi = {
   resetPassword: (token: string, password: string) =>
     apiFetch<{ ok: true }>("/auth/reset-password", { method: "POST", body: { token, password } }),
 
+  forcePasswordChange: (newPassword: string) =>
+    apiFetch<AuthTokensDto>("/auth/force-password-change", {
+      method: "POST",
+      body: { newPassword },
+    }),
+
   updateProfile: (input: UpdateProfileInput) =>
     apiFetch<AuthUserDto>("/auth/me/profile", { method: "PATCH", body: input }),
 

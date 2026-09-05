@@ -1,25 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
-import { api, orgApi } from "@/lib/api/endpoints";
+import { orgApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { AssignCourseDialog } from "@/components/shared/assign-course-dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import { Plus, X, BookOpen, Lock } from "lucide-react";
+import { X, BookOpen, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export default function OrgCourses() {
   const params = useParams<{ slug: string }>();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
 
   const { data: org } = useQuery({
     queryKey: ["org", params.slug],
@@ -31,32 +25,13 @@ export default function OrgCourses() {
     queryFn: () => orgApi.courses(org!.id),
     enabled: !!org?.id,
   });
-  const { data: catalog } = useQuery({
-    queryKey: ["store", "courses"],
-    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
-    staleTime: 60_000,
-  });
-
-  const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ["org", org?.id, "courses"] });
-    void qc.invalidateQueries({ queryKey: ["store", "courses"] });
-  };
-
-  const assignMutation = useMutation({
-    mutationFn: (courseId: string) => orgApi.assignCourse(org!.id, courseId),
-    onSuccess: () => {
-      toast.success("Course assigned to organization");
-      setOpen(false);
-      refresh();
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
-  });
 
   const unassignMutation = useMutation({
     mutationFn: (courseId: string) => orgApi.unassignCourse(org!.id, courseId),
     onSuccess: () => {
       toast.success("Course removed from organization");
-      refresh();
+      void qc.invalidateQueries({ queryKey: ["org", org?.id, "courses"] });
+      void qc.invalidateQueries({ queryKey: ["store", "courses"] });
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
@@ -65,7 +40,6 @@ export default function OrgCourses() {
 
   const assigned = assignedCourses ?? [];
   const assignedIds = new Set(assigned.map((c) => c.id));
-  const available = (catalog?.items ?? []).filter((c) => !assignedIds.has(c.id));
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -76,39 +50,7 @@ export default function OrgCourses() {
             These private courses are available to all {org.name} members.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus /> Assign course
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Assign a course</DialogTitle>
-            </DialogHeader>
-            <div className="mt-2 max-h-100 space-y-2 overflow-y-auto">
-              {available.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">All published courses are already assigned.</p>
-              ) : (
-                available.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3 rounded-lg border p-3">
-                    <CourseArt seed={c.thumbnail} title={c.title} className="h-10 w-10 shrink-0 rounded-md" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{c.title}</div>
-                      <div className="text-xs text-muted-foreground">{c.category} · {c.level}</div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => assignMutation.mutate(c.id)}
-                      disabled={assignMutation.isPending}
-                    >
-                      <Plus className="h-4 w-4" /> Add
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AssignCourseDialog orgId={org.id} assignedIds={assignedIds} />
       </div>
 
       {assigned.length === 0 ? (

@@ -4,10 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import * as argon2 from "argon2";
+import { Prisma } from "@prisma/client";
+import { isOrgAccessLocked } from "@skillstream/shared";
 import type {
   AssignOrgCourseInput,
   CreateOrganizationInput,
+  CreateOrganizationResultDto,
   InviteOrgMemberInput,
   OrganizationDto,
   UpdateOrganizationInput,
@@ -24,6 +28,27 @@ import {
   OrganizationsRepository,
   type OrgRow,
 } from "./organizations.repository";
+
+const TEMP_PASSWORD_CHARS =
+  "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+
+function generateTempPassword(length = 14): string {
+  const bytes = randomBytes(length);
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += TEMP_PASSWORD_CHARS[bytes[i] % TEMP_PASSWORD_CHARS.length];
+  }
+  return `${out}Aa1!`;
+}
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 @Injectable()
 export class OrganizationsService {
@@ -43,6 +68,12 @@ export class OrganizationsService {
       logoUrl: o.logoUrl,
       adminEmail: o.adminEmail,
       status: o.status,
+      suspensionMode: o.suspensionMode,
+      accessLocksAt: o.accessLocksAt?.toISOString() ?? null,
+      accessLocked: isOrgAccessLocked({
+        status: o.status,
+        accessLocksAt: o.accessLocksAt,
+      }),
       seatCount: o.seatCount,
       usedSeats: o.usedSeats,
       createdAt: o.createdAt.toISOString(),
@@ -59,20 +90,26 @@ export class OrganizationsService {
     };
   }
 
-  /** Resolves an id-or-slug route param to the real org id. `getRow` accepts
-   *  either, so every other lookup must too — querying `orgMember.orgId` with a
-   *  slug silently finds nothing and 403s instead of 404-ing. */
-  private async resolveOrgId(idOrSlug: string): Promise<string> {
-    return (await this.getRow(idOrSlug)).id;
+  private async uniqueSlug(base: string): Promise<string> {
+    let slug = slugify(base) || "org";
+    let n = 2;
+    while (await this.repo.findOrgBySlug(slug)) {
+      slug = `${slugify(base) || "org"}-${n++}`;
+    }
+    return slug;
   }
 
-  /** Platform ADMIN can manage any org; an org's own ADMIN member can manage it. */
+  /** Platform ADMIN can manage any org; an org's own ADMIN member can manage
+   *  it — unless the org's access is currently locked by suspension, which
+   *  even its own admin cannot lift (only the platform can reactivate). */
   private async assertOrgAdmin(user: RequestUser, idOrSlug: string): Promise<string> {
-    const orgId = await this.resolveOrgId(idOrSlug);
-    if (user.role === "ADMIN") return orgId;
-    const member = await this.repo.findAdminMembership(orgId, user.id);
+    const org = await this.getRow(idOrSlug);
+    if (user.role === "ADMIN") return org.id;
+    const member = await this.repo.findAdminMembership(org.id, user.id);
     if (!member) throw new ForbiddenException("Not an admin of this organization");
-    return orgId;
+    if (isOrgAccessLocked(org))
+      throw new ForbiddenException("This organization's access is currently suspended");
+    return org.id;
   }
 
   /** Accepts either the org id or its slug (the web app routes by slug). */
@@ -83,18 +120,47 @@ export class OrganizationsService {
   }
 
   // ── platform admin ───────────────────────────────────────────────────────
-  async create(input: CreateOrganizationInput): Promise<OrganizationDto> {
-    const exists = await this.repo.findOrgBySlug(input.slug);
-    if (exists) throw new BadRequestException("Slug already in use");
-    const org = await this.repo.createOrganization({
-      name: input.name,
-      slug: input.slug,
-      domain: input.domain,
-      adminEmail: input.adminEmail,
-      seatCount: input.seatCount,
-      status: "TRIAL",
-    });
-    return this.toDto(org);
+  /**
+   * Creates the org and provisions its admin account directly — a temp
+   * password + a "your organization is ready" email, not the self-service
+   * invite/claim flow ordinary members use. The slug is generated from the
+   * name; admins never type one.
+   */
+  async create(input: CreateOrganizationInput): Promise<CreateOrganizationResultDto> {
+    const adminEmail = input.adminEmail.toLowerCase();
+    if (await this.repo.findUserByEmail(adminEmail))
+      throw new BadRequestException(
+        "This email already has a SkillStream account — use a different admin email",
+      );
+
+    const slug = await this.uniqueSlug(input.name);
+    const tempPassword = generateTempPassword();
+    const passwordHash = await argon2.hash(tempPassword, { type: argon2.argon2id });
+    const adminName = input.adminName?.trim() || adminEmail.split("@")[0];
+
+    const org = await this.prisma.$transaction((tx) =>
+      this.repo.createOrganizationWithAdmin(
+        {
+          name: input.name,
+          slug,
+          domain: input.domain,
+          adminEmail,
+          seatCount: input.seatCount,
+          status: "TRIAL",
+        },
+        { email: adminEmail, name: adminName, passwordHash },
+        tx,
+      ),
+    );
+
+    let credentialsEmailSent = true;
+    try {
+      await this.email.sendOrgAdminCredentials(adminEmail, adminName, org.name, tempPassword);
+    } catch {
+      credentialsEmailSent = false;
+    }
+
+    return { ...this.toDto(org), tempPassword, credentialsEmailSent };
   }
 
   async list(): Promise<OrganizationDto[]> {
@@ -120,11 +186,34 @@ export class OrganizationsService {
     input: UpdateOrganizationInput,
   ): Promise<OrganizationDto> {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    if (user.role !== "ADMIN" && (input.seatCount !== undefined || input.status !== undefined))
+    if (
+      user.role !== "ADMIN" &&
+      (input.seatCount !== undefined ||
+        input.status !== undefined ||
+        input.suspensionMode !== undefined ||
+        input.graceDays !== undefined)
+    )
       throw new ForbiddenException(
         "Seat count and status are managed by SkillStream — contact support",
       );
-    await this.repo.updateOrganization(orgId, input);
+
+    const { suspensionMode, graceDays, ...rest } = input;
+    const data: Prisma.OrganizationUpdateInput = { ...rest };
+    if (input.status === "SUSPENDED") {
+      const mode = suspensionMode ?? "LOCK_NOW";
+      if (mode === "GRACE_PERIOD" && !graceDays)
+        throw new BadRequestException("graceDays is required for a grace-period suspension");
+      data.suspensionMode = mode;
+      data.accessLocksAt =
+        mode === "GRACE_PERIOD"
+          ? new Date(Date.now() + graceDays! * 86_400_000)
+          : new Date();
+    } else if (input.status === "ACTIVE" || input.status === "TRIAL") {
+      data.suspensionMode = null;
+      data.accessLocksAt = null;
+    }
+
+    await this.repo.updateOrganization(orgId, data);
     return this.toDto(await this.getRow(orgId));
   }
 
@@ -299,15 +388,17 @@ export class OrganizationsService {
     return { ok: true as const };
   }
 
-  /** Courses assigned to an org — visible to any member (or platform admin). */
-  /** Any member (not just admins) can see the org's assigned courses. */
+  /** Courses assigned to an org — visible to any member (or platform admin),
+   *  unless the org's access is currently locked by suspension. */
   async listCourses(user: RequestUser, idOrSlug: string) {
-    const orgId = await this.resolveOrgId(idOrSlug);
+    const org = await this.getRow(idOrSlug);
     if (user.role !== "ADMIN") {
-      const member = await this.repo.findOrgMembership(orgId, user.id);
+      const member = await this.repo.findOrgMembership(org.id, user.id);
       if (!member) throw new ForbiddenException("Not a member of this organization");
+      if (isOrgAccessLocked(org))
+        throw new ForbiddenException("This organization's access is currently suspended");
     }
-    const rows = await this.repo.findOrgCourses(orgId);
+    const rows = await this.repo.findOrgCourses(org.id);
     return rows.map(toCourseSummary);
   }
 

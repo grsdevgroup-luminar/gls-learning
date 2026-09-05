@@ -33,6 +33,7 @@ import { JobsModule } from "./modules/jobs/jobs.module";
 import { HealthController } from "./modules/health/health.controller";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { MustChangePasswordGuard } from "./common/guards/must-change-password.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { LoggingModule } from "./logging/logging.module";
@@ -92,6 +93,7 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: MustChangePasswordGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

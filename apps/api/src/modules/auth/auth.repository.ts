@@ -18,6 +18,13 @@ export class AuthRepository {
     });
   }
 
+  clearMustChangePassword(userId: string, tx?: Db) {
+    return this.db(tx).user.update({
+      where: { id: userId },
+      data: { mustChangePassword: false },
+    });
+  }
+
   deleteRefreshTokensByUser(userId: string, tx?: Db) {
     return this.db(tx).refreshToken.deleteMany({ where: { userId } });
   }

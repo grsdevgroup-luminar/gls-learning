@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import {
   completionPct,
   isLessonSequentiallyAccessible,
+  isOrgAccessLocked,
   isCourseComplete,
   type CertificateDto,
   type EnrollmentDto,
@@ -162,6 +163,12 @@ export class EnrollmentService {
     return n > 0;
   }
 
+  /** Thin wrapper so other modules (e.g. CoursesService) can check org
+   *  membership without taking a dependency on the organizations module. */
+  async isOrgMember(orgId: string, userId: string): Promise<boolean> {
+    return !!(await this.repo.findOrgMembership(orgId, userId));
+  }
+
   /** Completed ids for an enrolled learner, used to build the gated learner
    * course view without exposing attachment URLs for locked lessons. */
   async completedLessonIds(userId: string, courseId: string): Promise<string[]> {
@@ -181,6 +188,10 @@ export class EnrollmentService {
       lesson.section.courseId,
     );
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+
+    const course = lesson.section.course;
+    if (course.visibility === "PRIVATE" && course.org && isOrgAccessLocked(course.org))
+      throw new ForbiddenException("This organization's access is currently suspended");
 
     const completed = await this.repo.findCompletedLessonIds(enrollment.id);
     const orderedLessonIds = lesson.section.course.sections.flatMap((section) =>
@@ -215,6 +226,10 @@ export class EnrollmentService {
         : null;
       if (!member)
         throw new ForbiddenException("This course is restricted to its organization");
+      // New enrollments are blocked the moment an org is suspended, mode-
+      // agnostic — a grace period only preserves access already granted.
+      if (course.org?.status === "SUSPENDED")
+        throw new ForbiddenException("This organization's access is currently suspended");
     } else if (course.basePriceCents > 0) {
       throw new ForbiddenException("This course requires purchase");
     }

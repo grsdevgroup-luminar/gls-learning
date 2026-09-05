@@ -59,6 +59,7 @@ export class EnrollmentRepository {
         status: true,
         visibility: true,
         orgId: true,
+        org: { select: { status: true } },
       },
     });
   }
@@ -125,7 +126,9 @@ export class EnrollmentRepository {
     });
   }
 
-  /** Course order is authoritative for sequential lesson access. */
+  /** Course order is authoritative for sequential lesson access. Also carries
+   *  the org-suspension fields so `assertLessonAccessible` can gate org-PRIVATE
+   *  playback without a second query. */
   findLessonAccessContext(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
@@ -136,6 +139,9 @@ export class EnrollmentRepository {
             courseId: true,
             course: {
               select: {
+                visibility: true,
+                orgId: true,
+                org: { select: { status: true, accessLocksAt: true } },
                 sections: {
                   orderBy: { order: "asc" },
                   select: {

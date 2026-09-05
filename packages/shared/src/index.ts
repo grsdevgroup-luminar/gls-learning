@@ -9,6 +9,7 @@ export * from "./countries.js";
 export * from "./phone.js";
 export * from "./coupon.js";
 export * from "./progress.js";
+export * from "./org-access.js";
 export * from "./contracts/common.js";
 export * from "./contracts/auth.js";
 export * from "./contracts/catalog.js";

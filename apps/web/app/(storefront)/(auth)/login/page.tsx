@@ -16,7 +16,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { loginSchema, type AuthUserDto } from "@skillstream/shared";
+import { loginSchema } from "@skillstream/shared";
+import { destinationFor } from "@/lib/auth/destination";
 
 function LoginForm() {
   const login = useLogin();
@@ -26,23 +27,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  function destinationFor(me: AuthUserDto): string {
-    const next = params.get("next");
-    // Role portals take priority over a stale/previous return path. Otherwise
-    // an admin can authenticate successfully and still land in /dashboard.
-    if (me.role === "ADMIN") return "/admin";
-    if (me.role === "INSTRUCTOR") return "/instructor";
-    if (me.role === "SALES_AGENT") return "/sales-agent";
-    if (me.role === "ORG_ADMIN") return "/org";
-    // A pending instructor application means this account's identity right
-    // now is "applicant," not "student" — send them to their application
-    // status page instead of the student dashboard so the two journeys never
-    // mix. A rejected application doesn't redirect: that user is just a
-    // student again.
-    if (me.instructorStatus === "PENDING") return "/instructor";
-    return next || "/dashboard";
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,12 +42,19 @@ function LoginForm() {
       // Keep client session consumers (header/store/portal controls) aligned
       // with the identity that was just authenticated before navigation.
       queryClient.setQueryData(SESSION_QUERY_KEY, me);
+      // An admin-provisioned account (temp password) must set its own
+      // password before it can do anything else — every other API call would
+      // 403 anyway, so route straight there instead of the normal destination.
+      if (me.mustChangePassword) {
+        window.location.href = "/force-password-change";
+        return;
+      }
       toast.success("Welcome back!", { description: `Signed in as ${me.name}` });
       // Hard navigation, not router.push: the destination route may already be
       // sitting in Next's client router cache from a pre-login prefetch (e.g. a
       // visible nav link to /admin or /dashboard), which would serve the stale
       // "redirect to /login" response instead of re-checking the fresh session.
-      window.location.href = destinationFor(me);
+      window.location.href = destinationFor(me, params.get("next"));
     } catch (err) {
       const message = err instanceof ApiError ? err.displayMessage : "Login failed";
       toast.error("Could not sign in", { description: message });
