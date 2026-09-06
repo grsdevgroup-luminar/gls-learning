@@ -24,6 +24,7 @@ import {
 } from "./pipes/avatar-file.pipe";
 import {
   changePasswordSchema,
+  forcePasswordChangeSchema,
   forgotPasswordSchema,
   instructorSignupSchema,
   loginSchema,
@@ -32,6 +33,7 @@ import {
   updateProfileSchema,
   type AuthTokensDto,
   type ChangePasswordInput,
+  type ForcePasswordChangeInput,
   type ForgotPasswordInput,
   type InstructorSignupInput,
   type LoginInput,
@@ -40,7 +42,12 @@ import {
   type UpdateProfileInput,
 } from "@skillstream/shared";
 import { ZodBody } from "../../common/utils/swagger";
-import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
+import {
+  AllowPendingPasswordChange,
+  CurrentUser,
+  Public,
+  type RequestUser,
+} from "../../common/decorators/decorators";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { Env } from "../../config/env";
 import { AuthService, type SessionMeta } from "./auth.service";
@@ -163,10 +170,26 @@ export class AuthController {
     return { ok: true };
   }
 
+  @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   @Get("me")
   me(@CurrentUser() user: RequestUser) {
     return this.auth.me(user.id);
+  }
+
+  @AllowPendingPasswordChange()
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @Post("force-password-change")
+  @HttpCode(200)
+  async forcePasswordChange(
+    @CurrentUser() user: RequestUser,
+    @ZodBody(forcePasswordChangeSchema) body: ForcePasswordChangeInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthTokensDto> {
+    const tokens = await this.auth.forcePasswordChange(user.id, body, this.metaFrom(req));
+    this.setAuthCookies(res, tokens);
+    return { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn };
   }
 
   @Public()

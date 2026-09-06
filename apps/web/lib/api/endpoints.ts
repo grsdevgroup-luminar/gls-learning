@@ -35,6 +35,8 @@ import type {
   UploadCompleteDto,
   UploadStatusDto,
   CreateTusUploadInput,
+  CreateOrganizationInput,
+  CreateOrganizationResultDto,
   OrganizationDto,
   Paginated,
   PlaybackDto,
@@ -449,17 +451,26 @@ export const api = {
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
 
-/** Own-course listing includes revenue (owner-only field). */
-export type InstructorCourseDto = CourseSummaryDto & { revenueCents: number };
+/** Own-course listing includes revenue (owner-only field). `orgAssignmentCount`
+ *  is only ever populated by the admin course list, not the instructor's own. */
+export type InstructorCourseDto = CourseSummaryDto & {
+  revenueCents: number;
+  orgAssignmentCount?: number;
+};
 
 // ── organizations (B2B portal) ─────────────────────────────────────────────
 
 export const orgApi = {
+  /** Provisions the org's admin account directly (temp password) — the
+   *  response is the only time the raw password is ever returned. */
+  create: (body: CreateOrganizationInput) =>
+    apiFetch<CreateOrganizationResultDto>("/organizations", { method: "POST", body }),
+  list: () => apiFetch<OrganizationDto[]>("/organizations"),
   bySlug: (idOrSlug: string) =>
     apiFetch<OrganizationDto>(`/organizations/${idOrSlug}`),
   mine: () => apiFetch<OrganizationDto[]>("/me/organizations"),
-  /** `seatCount` and `status` are platform-admin only — the API rejects them
-   *  from an org admin. */
+  /** `seatCount`, `status`, `suspensionMode` and `graceDays` are platform-admin
+   *  only — the API rejects them from an org admin. */
   update: (
     orgId: string,
     body: Partial<{
@@ -468,6 +479,8 @@ export const orgApi = {
       logoUrl: string;
       seatCount: number;
       status: OrganizationDto["status"];
+      suspensionMode: NonNullable<OrganizationDto["suspensionMode"]>;
+      graceDays: number;
     }>,
   ) => apiFetch<OrganizationDto>(`/organizations/${orgId}`, { method: "PATCH", body }),
   invite: (orgId: string, email: string, role: "ADMIN" | "MEMBER") =>
@@ -560,6 +573,8 @@ export interface CourseFieldsInput {
   thumbnail?: string;
   language?: string;
   basePriceCents?: number;
+  /** Platform-admin only — the API rejects this field from anyone else. */
+  visibility?: "PUBLIC" | "PRIVATE";
 }
 export interface LessonFieldsInput {
   title: string;

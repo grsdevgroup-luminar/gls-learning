@@ -8,6 +8,7 @@ import { QueryProvider } from "@/lib/api/query-provider";
 import { SessionProvider } from "@/lib/api/session";
 import { StoreProvider } from "@/lib/context/store";
 import { PageTitle } from "@/components/shared/page-title";
+import { ForcePasswordChangeGate } from "@/components/shared/force-password-change-gate";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <TooltipProvider delay={150}>
               <AuroraField />
               <PageTitle />
+              <ForcePasswordChangeGate />
               {children}
               <Toaster richColors position="top-center" />
             </TooltipProvider>

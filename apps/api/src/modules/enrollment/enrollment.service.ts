@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import {
   completionPct,
   isLessonSequentiallyAccessible,
+  isOrgAccessLocked,
   isCourseComplete,
   type CertificateDto,
   type EnrollmentDto,
@@ -166,6 +167,20 @@ export class EnrollmentService {
     return n > 0;
   }
 
+  /** Thin wrapper so other modules (e.g. CoursesService) can check org
+   *  membership without taking a dependency on the organizations module. */
+  async isOrgMember(orgId: string, userId: string): Promise<boolean> {
+    return !!(await this.repo.findOrgMembership(orgId, userId));
+  }
+
+  /** A course can now be assigned to several orgs — this is "is the user a
+   *  member of at least one of them," in a single query rather than looping
+   *  `isOrgMember` per org. */
+  async isOrgMemberOfAny(orgIds: string[], userId: string): Promise<boolean> {
+    if (orgIds.length === 0) return false;
+    return !!(await this.repo.findAnyOrgMembership(orgIds, userId));
+  }
+
   /** Completed ids for an enrolled learner, used to build the gated learner
    * course view without exposing attachment URLs for locked lessons. */
   async completedLessonIds(userId: string, courseId: string): Promise<string[]> {
@@ -177,7 +192,7 @@ export class EnrollmentService {
 
   /** Throws unless the learner is enrolled and all preceding lessons are done. */
   async assertLessonAccessible(userId: string, lessonId: string): Promise<void> {
-    const lesson = await this.repo.findLessonAccessContext(lessonId);
+    const lesson = await this.repo.findLessonAccessContext(lessonId, userId);
     if (!lesson) throw new NotFoundException("Lesson not found");
 
     const enrollment = await this.repo.findIdByUserAndCourse(
@@ -185,6 +200,21 @@ export class EnrollmentService {
       lesson.section.courseId,
     );
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+
+    const course = lesson.section.course;
+    if (course.visibility === "PRIVATE") {
+      // Every org this course is assigned to that the user is also a member
+      // of. Empty means the user's access predates the course/org
+      // relationship changing (e.g. unassigned since they enrolled) — no
+      // suspension to check, same as the old single-org "org is null" case.
+      // Otherwise, access continues as long as *any* one of those orgs isn't
+      // currently locked (grace period respected).
+      const memberOrgs = course.orgAssignments
+        .map((a) => a.org)
+        .filter((org) => org.members.length > 0);
+      if (memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org)))
+        throw new ForbiddenException("This organization's access is currently suspended");
+    }
 
     const completed = await this.repo.findCompletedLessonIds(enrollment.id);
     const orderedLessonIds = lesson.section.course.sections.flatMap((section) =>
@@ -208,17 +238,24 @@ export class EnrollmentService {
    * checkout.
    */
   async enrollFree(userId: string, courseId: string): Promise<EnrollmentDto> {
-    const course = await this.repo.findCourseAccess(courseId);
+    const course = await this.repo.findCourseAccess(courseId, userId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
 
     if (course.visibility === "PRIVATE") {
-      // Org-private course: membership in the owning org grants seat-based access.
-      const member = course.orgId
-        ? await this.repo.findOrgMembership(course.orgId, userId)
-        : null;
-      if (!member)
+      // Org-private course: membership in any org it's assigned to grants
+      // seat-based access — a course can now be shared across several orgs.
+      const memberOrgs = course.orgAssignments
+        .map((a) => a.org)
+        .filter((org) => org.members.length > 0);
+      if (memberOrgs.length === 0)
         throw new ForbiddenException("This course is restricted to its organization");
+      // New enrollments are blocked immediately once *every* org this user
+      // could enroll through is suspended (mode-agnostic — a grace period
+      // only preserves access already granted, never a fresh enrollment).
+      // At least one active org is enough to let the enrollment through.
+      if (memberOrgs.every((org) => org.status === "SUSPENDED"))
+        throw new ForbiddenException("This organization's access is currently suspended");
     } else if (course.basePriceCents > 0) {
       throw new ForbiddenException("This course requires purchase");
     }

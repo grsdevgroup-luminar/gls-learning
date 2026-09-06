@@ -2,6 +2,7 @@ import { z } from "zod";
 import { passwordSchema } from "./auth.js";
 import { learningCategorySchema } from "./catalog.js";
 import { isValidPhone } from "../phone.js";
+import { CourseVisibility } from "../enums.js";
 
 export const MAX_COURSE_DESCRIPTION_LENGTH = 2000;
 import { countryCodeSchema } from "./auth.js";
@@ -49,6 +50,12 @@ export const createCourseSchema = z.object({
   originalPriceCents: z.number().int().min(0).nullable().optional(),
   whatYouLearn: z.array(z.string()).default([]),
   requirements: z.array(z.string()).default([]),
+  /** Platform-admin only — AuthoringService rejects this from anyone else.
+   *  Independent of org assignment: PRIVATE hides a course from the public
+   *  catalog entirely; which org(s) can then access it is a separate,
+   *  later step (OrganizationsService.assignCourse). Only settable once a
+   *  course is PUBLISHED. */
+  visibility: z.nativeEnum(CourseVisibility).optional(),
 });
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 

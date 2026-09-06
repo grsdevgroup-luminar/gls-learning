@@ -51,14 +51,29 @@ export class EnrollmentRepository {
     return this.prisma.enrollment.count({ where: { userId, courseId } });
   }
 
-  findCourseAccess(courseId: string) {
+  /** `userId` scopes `orgAssignments.org.members` to just this caller, so
+   *  the service can tell — in one query — which (if any) of the course's
+   *  assigned orgs this user actually belongs to, and each one's status. A
+   *  course can now be assigned to several orgs; a PRIVATE course grants
+   *  access through any one of them. */
+  findCourseAccess(courseId: string, userId: string) {
     return this.prisma.course.findUnique({
       where: { id: courseId },
       select: {
         basePriceCents: true,
         status: true,
         visibility: true,
-        orgId: true,
+        orgAssignments: {
+          select: {
+            org: {
+              select: {
+                id: true,
+                status: true,
+                members: { where: { userId }, select: { id: true } },
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -66,6 +81,12 @@ export class EnrollmentRepository {
   findOrgMembership(orgId: string, userId: string) {
     return this.prisma.orgMember.findFirst({
       where: { orgId, userId },
+    });
+  }
+
+  findAnyOrgMembership(orgIds: string[], userId: string) {
+    return this.prisma.orgMember.findFirst({
+      where: { userId, orgId: { in: orgIds } },
     });
   }
 
@@ -125,8 +146,12 @@ export class EnrollmentRepository {
     });
   }
 
-  /** Course order is authoritative for sequential lesson access. */
-  findLessonAccessContext(lessonId: string) {
+  /** Course order is authoritative for sequential lesson access. Also carries
+   *  the org-suspension fields (scoped to this user's memberships among the
+   *  course's assigned orgs — see `findCourseAccess`) so `assertLessonAccessible`
+   *  can gate org-PRIVATE playback across multiple assigned orgs without a
+   *  second query. */
+  findLessonAccessContext(lessonId: string, userId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
       select: {
@@ -136,6 +161,19 @@ export class EnrollmentRepository {
             courseId: true,
             course: {
               select: {
+                visibility: true,
+                orgAssignments: {
+                  select: {
+                    org: {
+                      select: {
+                        id: true,
+                        status: true,
+                        accessLocksAt: true,
+                        members: { where: { userId }, select: { id: true } },
+                      },
+                    },
+                  },
+                },
                 sections: {
                   orderBy: { order: "asc" },
                   select: {

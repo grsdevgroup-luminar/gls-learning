@@ -13,6 +13,7 @@ import { normalizeEmail } from "@skillstream/shared";
 import type {
   AuthUserDto,
   ChangePasswordInput,
+  ForcePasswordChangeInput,
   ForgotPasswordInput,
   InstructorSignupInput,
   LoginInput,
@@ -158,6 +159,7 @@ export class AuthService {
       phone: user.phone,
       role: user.role,
       emailVerified: user.emailVerified,
+      mustChangePassword: user.mustChangePassword,
       // No InstructorProfile row yet means either a pure student or a
       // pending/rejected applicant — check the latest application so the
       // frontend can route applicants to /instructor instead of /dashboard
@@ -284,6 +286,20 @@ export class AuthService {
     const passwordHash = await argon2.hash(input.newPassword, { type: argon2.argon2id });
     await this.repo.updateUserPassword(userId, passwordHash);
     return { ok: true };
+  }
+
+  async forcePasswordChange(
+    userId: string,
+    input: ForcePasswordChangeInput,
+    meta: SessionMeta,
+  ) {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+    const passwordHash = await argon2.hash(input.newPassword, { type: argon2.argon2id });
+    await this.repo.updateUserPassword(userId, passwordHash);
+    await this.repo.clearMustChangePassword(userId);
+    await this.repo.deleteRefreshTokensByUser(userId);
+    return this.issueSession(user.id, user.email, user.role, meta);
   }
 
   private async issueSession(
