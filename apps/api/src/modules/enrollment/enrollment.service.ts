@@ -59,6 +59,7 @@ function mapCertificate(
   return {
     serial: cert.serial,
     learnerName: cert.learnerName,
+    courseNumber: cert.courseNumber,
     pdfUrl: cert.pdfUrl ?? certificatePdfUrl(apiBase, cert.serial),
     issuedAt: cert.issuedAt.toISOString(),
   };
@@ -139,11 +140,14 @@ export class EnrollmentService {
     return certs.map((c) => ({
       serial: c.serial,
       learnerName: c.learnerName,
+      courseNumber: c.courseNumber,
       pdfUrl: c.pdfUrl ?? certificatePdfUrl(this.apiBase, c.serial),
       issuedAt: c.issuedAt.toISOString(),
       courseId: c.enrollment.courseId,
       courseTitle: (c.enrollment.course as { title: string }).title,
       courseSlug: (c.enrollment.course as { slug: string }).slug,
+      courseStartDate: c.enrollment.enrolledAt.toISOString(),
+      courseEndDate: (c.enrollment.completedAt ?? c.issuedAt).toISOString(),
     }));
   }
 
@@ -369,7 +373,7 @@ export class EnrollmentService {
       await this.repo.countLessonsAndCompleted(courseId, enrollmentId);
     const done = isCourseComplete(completedCount, lessonCount);
     await this.updateStatus(enrollmentId, done);
-    const certificate = await this.manageCertificate(userId, enrollmentId, done);
+    const certificate = await this.manageCertificate(userId, enrollmentId, courseId, done);
     return this.buildResult(lessonId, completed, lessonCount, completedCount, done, certificate);
   }
 
@@ -389,6 +393,7 @@ export class EnrollmentService {
   private async manageCertificate(
     userId: string,
     enrollmentId: string,
+    courseId: string,
     done: boolean,
   ): Promise<CertificateDto | null> {
     const existing = await this.repo.findCertificateByEnrollment(enrollmentId);
@@ -397,7 +402,8 @@ export class EnrollmentService {
     if (!done) return null;
 
     const user = await this.repo.findUserName(userId);
-    if (!user) return null;
+    const course = await this.repo.findCourseNumber(courseId);
+    if (!user || !course) return null;
 
     const notifyInput: NotifyInput = {
       userId,
@@ -416,6 +422,7 @@ export class EnrollmentService {
             enrollmentId,
             serial,
             user.name,
+            course.courseNumber,
             tx,
           );
           await this.notifications.notify(notifyInput, tx);

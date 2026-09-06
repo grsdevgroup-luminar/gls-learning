@@ -15,6 +15,16 @@ const levelEnum = z.enum([
 ]);
 const lessonTypeEnum = z.enum(["VIDEO", "QUIZ", "ARTICLE"]);
 
+export const ISO_STANDARD_OPTIONS = [
+  "ISO 9001:2015 — Quality Management",
+  "ISO 14001:2015 — Environmental Management",
+  "ISO 45001:2018 — Occupational Health and Safety",
+  "ISO 27001:2022 — Information Security",
+  "ISO 22000:2018 — Food Safety Management",
+  "ISO 13485:2016 — Medical Devices Quality Management",
+  "ISO 50001:2018 — Energy Management",
+] as const;
+
 export const createCourseSchema = z.object({
   title: z.string().min(1).max(160),
   slug: z
@@ -32,6 +42,7 @@ export const createCourseSchema = z.object({
     )
     .default(""),
   category: learningCategorySchema,
+  isoStandard: z.string().max(200, "ISO Standard cannot exceed 200 characters").default(""),
   level: levelEnum.default("ALL_LEVELS"),
   thumbnail: z.string().default(""),
   language: z.string().default("English"),

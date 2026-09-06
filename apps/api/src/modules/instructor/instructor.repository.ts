@@ -141,6 +141,30 @@ export class InstructorRepository {
     });
   }
 
+  /** Live per-instructor rollup. `InstructorProfile.studentCount` is
+   *  incremented on enrollment but `ratingAvg` is never written, so the
+   *  earnings page needs a real-time aggregate over the instructor's
+   *  published courses. Weighted by `reviewCount` so a course with 100
+   *  reviews outweighs one with 2. */
+  async computeInstructorStats(instructorId: string) {
+    const courses = await this.prisma.course.findMany({
+      where: { instructorId, status: "PUBLISHED" },
+      select: { studentCount: true, ratingAvg: true, reviewCount: true },
+    });
+    let students = 0;
+    let ratingSum = 0;
+    let reviewSum = 0;
+    for (const c of courses) {
+      students += c.studentCount;
+      ratingSum += c.ratingAvg * c.reviewCount;
+      reviewSum += c.reviewCount;
+    }
+    return {
+      studentCount: students,
+      ratingAvg: reviewSum > 0 ? ratingSum / reviewSum : 0,
+    };
+  }
+
   upsertInstructorProfile(
     userId: string,
     update: Prisma.InstructorProfileUpdateInput,

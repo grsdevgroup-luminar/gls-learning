@@ -22,7 +22,11 @@ export class AdminRepository {
       this.prisma.enrollment.count(),
       this.prisma.enrollment.count({ where: { status: "COMPLETED" } }),
       this.prisma.user.count({ where: { role: "STUDENT" } }),
-      this.prisma.user.count({ where: { role: "INSTRUCTOR" } }),
+      // Match the Active Instructors roster, which is based on approved
+      // instructor profiles rather than the user's role field alone.
+      this.prisma.user.count({
+        where: { instructorProfile: { status: "APPROVED" } },
+      }),
       this.prisma.course.count({ where: { status: "PUBLISHED" } }),
       this.prisma.order.count({ where: { status: "PAID" } }),
       this.prisma.order.count({ where: { status: "REFUNDED" } }),

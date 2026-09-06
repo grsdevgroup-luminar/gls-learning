@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { ReviewStatus } from "@prisma/client";
 import {
   adminCourseQuerySchema,
+  adminOrderQuerySchema,
   patchCouponSchema,
   refundOrderSchema,
   reviewStatusSchema,
@@ -20,6 +21,7 @@ import {
   updateUserStatusSchema,
   upsertAutomationRuleSchema,
   type AdminCourseQuery,
+  type AdminOrderQuery,
   type PatchCouponInput,
   type RefundOrderInput,
   type ReviewStatusInput,
@@ -80,7 +82,7 @@ export class AdminController {
   }
 
   @Get("orders")
-  orders(@ZodQuery(searchQuerySchema) query: SearchQuery) {
+  orders(@ZodQuery(adminOrderQuerySchema) query: AdminOrderQuery) {
     return this.admin.orders(query);
   }
 

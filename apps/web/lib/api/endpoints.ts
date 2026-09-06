@@ -54,6 +54,9 @@ import type {
   PayoutDto,
   PayoutAccountDto,
   PayoutAccountInput,
+  PayoutBreakdownDto,
+  PayoutStripeStatusDto,
+  StripeOnboardLinkDto,
   CheckoutQuoteInput,
   CheckoutSessionInput,
   CheckoutSessionDto,
@@ -109,6 +112,9 @@ export type {
   PayoutBalanceDto,
   PayoutDto,
   PayoutAccountDto,
+  PayoutBreakdownDto,
+  PayoutStripeStatusDto,
+  StripeOnboardLinkDto,
 } from "@skillstream/shared";
 
 /** `GET /me/certificates` returns certificates enriched with course info
@@ -116,11 +122,14 @@ export type {
 export interface CertificateDto {
   serial: string;
   learnerName: string;
+  courseNumber: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
   courseTitle: string;
   courseSlug: string;
+  courseStartDate: string;
+  courseEndDate: string;
 }
 
 /** Exported so server-side prefetches (serverApi) can build the identical
@@ -215,6 +224,8 @@ export const api = {
   myOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/me/orders${qs(params)}`),
   myOrder: (orderId: string) => apiFetch<OrderDto>(`/me/orders/${orderId}`),
+  cancelOrder: (orderId: string) =>
+    apiFetch<OrderDto>(`/me/orders/${orderId}/cancel`, { method: "POST" }),
   myOrderStats: () => apiFetch<MyOrderStatsDto>("/me/orders/stats"),
   devSimulatePayment: (orderId: string) =>
     apiFetch<OrderDto>(`/payments/dev/simulate/${orderId}`, { method: "POST" }),
@@ -390,9 +401,28 @@ export const api = {
   payoutAccount: () => apiFetch<PayoutAccountDto | null>("/me/payout-account"),
   setPayoutAccount: (body: PayoutAccountInput) =>
     apiFetch<PayoutAccountDto>("/me/payout-account", { method: "POST", body }),
-  requestPayout: () => apiFetch<PayoutDto>("/me/payouts", { method: "POST" }),
-  adminPayouts: (status?: string) =>
-    apiFetch<PayoutDto[]>(`/admin/payouts${status ? `?status=${status}` : ""}`),
+  requestPayout: (amountCents?: number) =>
+    apiFetch<PayoutDto>("/me/payouts", {
+      method: "POST",
+      body: amountCents !== undefined ? { amountCents } : undefined,
+    }),
+  quotePayout: (amountCents: number) =>
+    apiFetch<PayoutBreakdownDto>("/me/payouts/quote", {
+      method: "POST",
+      body: { amountCents },
+    }),
+  stripeOnboardLink: () =>
+    apiFetch<StripeOnboardLinkDto>("/me/payout-account/stripe/onboard-link", {
+      method: "POST",
+    }),
+  stripeAccountStatus: () =>
+    apiFetch<PayoutStripeStatusDto>("/me/payout-account/stripe/status"),
+  adminPayouts: (params: {
+    status?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+  } = {}) => apiFetch<PayoutDto[]>(`/admin/payouts${qs(params)}`),
   approvePayout: (id: string) =>
     apiFetch<PayoutDto>(`/admin/payouts/${id}/approve`, { method: "POST" }),
   markPayoutPaid: (id: string) =>
@@ -538,6 +568,7 @@ export interface CourseFieldsInput {
   subtitle?: string;
   description?: string;
   category?: string;
+  isoStandard?: string;
   level?: CourseLevelInput;
   thumbnail?: string;
   language?: string;

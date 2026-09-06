@@ -17,6 +17,7 @@
       "commands": [
         "pnpm --filter @skillstream/api exec prisma generate",
         "pnpm --filter @skillstream/shared build",
+        "pnpm --filter @skillstream/api exec playwright install chromium",
         "pnpm --filter @skillstream/api build"
       ]
     }

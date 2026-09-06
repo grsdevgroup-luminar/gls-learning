@@ -58,7 +58,11 @@ export function PasswordCard() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Lock className="h-4 w-4 text-primary" /> Password
           </CardTitle>
-          <CardDescription>Choose a strong password of at least 8 characters.</CardDescription>
+          <CardDescription>
+            Use at least 8 characters with at least one uppercase letter (A–Z),
+            one lowercase letter (a–z), one number (0–9), and one special
+            character (for example, !@#$%).
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.05}>

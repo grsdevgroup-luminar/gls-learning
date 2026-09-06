@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MAX_COURSE_DESCRIPTION_LENGTH,
+  ISO_STANDARD_OPTIONS,
   type CourseDetailDto,
   type LessonResourceDto,
 } from "@skillstream/shared";
@@ -133,7 +134,7 @@ function quizDurationSec(quiz: Pick<BuilderQuiz, "questions" | "minutesPerQuesti
 }
 
 const thumbSeeds = [
-  "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
+  "course", "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
   "speaking", "social", "finance", "mindfulness", "language",
 ];
 
@@ -184,10 +185,12 @@ export function CourseBuilder({
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [category, setCategory] = useState("");
+  const [isoStandard, setIsoStandard] = useState("");
+  const [customIsoStandard, setCustomIsoStandard] = useState("");
   const [level, setLevel] = useState<keyof typeof LEVEL_TO_API>("Beginner");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("49.99");
-  const [thumbnail, setThumbnail] = useState("react");
+  const [thumbnail, setThumbnail] = useState("course");
   const [thumbDrag, setThumbDrag] = useState(false);
   const [thumbError, setThumbError] = useState("");
   const thumbInputRef = useRef<HTMLInputElement>(null);
@@ -227,10 +230,18 @@ export function CourseBuilder({
     setTitle(detail.title);
     setSubtitle(detail.subtitle);
     setCategory(detail.category);
+    const savedIsoStandard = detail.isoStandard ?? "";
+    const isPresetIsoStandard = (ISO_STANDARD_OPTIONS as readonly string[]).includes(savedIsoStandard);
+    setIsoStandard(isPresetIsoStandard || !savedIsoStandard ? savedIsoStandard : "OTHER");
+    setCustomIsoStandard(
+      savedIsoStandard && !isPresetIsoStandard
+        ? savedIsoStandard
+        : "",
+    );
     setLevel(LEVEL_FROM_API[detail.level] ?? "Beginner");
     setDescription(detail.description);
     setPrice((detail.basePriceCents / 100).toFixed(2));
-    setThumbnail(detail.thumbnail || "react");
+    setThumbnail(detail.thumbnail || "course");
     setPublished(detail.status === "PUBLISHED");
     setVisibility(detail.visibility);
     setSections(sectionsFromDetail(detail));
@@ -365,6 +376,7 @@ export function CourseBuilder({
         subtitle,
         description,
         category: categoryValue,
+        isoStandard: isoStandard === "OTHER" ? customIsoStandard.trim() : isoStandard,
         level: LEVEL_TO_API[level],
         thumbnail,
         basePriceCents: Math.max(0, Math.round((Number(price) || 0) * 100)),
@@ -623,6 +635,35 @@ export function CourseBuilder({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="course-iso-standard">ISO Standard</Label>
+                  <Select
+                    value={isoStandard}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setIsoStandard(value);
+                      if (value !== "OTHER") setCustomIsoStandard("");
+                    }}
+                  >
+                    <SelectTrigger id="course-iso-standard" className="w-full">
+                      <SelectValue placeholder="Select an ISO standard" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ISO_STANDARD_OPTIONS.map((standard) => (
+                        <SelectItem key={standard} value={standard}>{standard}</SelectItem>
+                      ))}
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isoStandard === "OTHER" && (
+                    <Input
+                      value={customIsoStandard}
+                      onChange={(event) => setCustomIsoStandard(event.target.value)}
+                      placeholder="Enter ISO standard"
+                      maxLength={200}
+                    />
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">

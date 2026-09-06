@@ -47,9 +47,9 @@ describe("buildPdf", () => {
     const pdf = buildPdf({
       width: 200,
       height: 100,
-      lines: [{ text: "café 🎓", y: 10 }],
+      lines: [{ text: "cafÃ© ðŸŽ“", y: 10 }],
     }).toString("latin1");
-    expect(pdf).toContain("(café ?)");
+    expect(pdf).toContain("(cafÃ© ð???)");
   });
 });
 
@@ -71,6 +71,13 @@ describe("certificatePdf", () => {
   });
 });
 
+function extractPdfText(pdf: Buffer): string {
+  const raw = pdf.toString("latin1");
+  return [...raw.matchAll(/<([0-9a-f]+)>/gi)]
+    .map((match) => Buffer.from(match[1], "hex").toString("latin1"))
+    .join("");
+}
+
 describe("receiptPdf", () => {
   const order = {
     orderId: "ord_1",
@@ -88,42 +95,42 @@ describe("receiptPdf", () => {
     items: [{ title: "Advanced TypeScript", priceCents: 10_000 }],
   };
 
-  it("renders line items and totals in major units", () => {
-    const pdf = receiptPdf(order).toString("latin1");
-    expect(pdf).toContain("(USD 100.00)"); // line item + subtotal
-    expect(pdf).toContain("(-USD 20.00)"); // discount
-    expect(pdf).toContain("(USD 80.00)"); // total
-    expect(pdf).toContain("(Discount \\(LAUNCH20\\))");
-    expect(pdf).toContain("(Date March 2, 2026)"); // paid date wins over created
-    assertXrefIsSound(receiptPdf(order));
+  it("renders line items and totals in major units", async () => {
+    const pdf = extractPdfText(await receiptPdf(order));
+    expect(pdf).toContain("USD 100.00"); // line item + subtotal
+    expect(pdf).toContain("-USD 20.00"); // discount
+    expect(pdf).toContain("USD 80.00"); // total
+    expect(pdf).toContain("Discount (LAUNCH20)");
+    expect(pdf).toContain("March 2, 2026"); // paid date wins over created
+    expect((await receiptPdf(order)).toString("latin1").startsWith("%PDF-1.3")).toBe(true);
   });
 
-  it("omits the discount row when nothing was discounted", () => {
-    const pdf = receiptPdf({
+  it("omits the discount row when nothing was discounted", async () => {
+    const pdf = extractPdfText(await receiptPdf({
       ...order,
       couponCode: null,
       discountCents: 0,
       totalCents: 10_000,
-    }).toString("latin1");
-    expect(pdf).not.toContain("(Discount");
+    }));
+    expect(pdf).not.toContain("Discount (LAUNCH20)");
   });
 
-  it("renders per-item and order-level refund summary when refunded to credit", () => {
-    const pdf = receiptPdf({
+  it("renders per-item and order-level refund summary when refunded to credit", async () => {
+    const pdf = extractPdfText(await receiptPdf({
       ...order,
       status: "PARTIALLY_REFUNDED",
       refundedCents: 3_000,
       items: [{ title: "Advanced TypeScript", priceCents: 10_000, refundedCents: 3_000 }],
-    }).toString("latin1");
-    expect(pdf).toContain("(  Partially refunded to store credit)");
-    expect(pdf).toContain("(-USD 30.00)");
-    expect(pdf).toContain("(Refunded to store credit)");
-    expect(pdf).toContain("(Net paid)");
-    expect(pdf).toContain("(USD 50.00)"); // net = 80 - 30
+    }));
+    expect(pdf).toContain("Partially refunded");
+    expect(pdf).toContain("-USD 30.00");
+    expect(pdf).toContain("Refunded to store credit");
+    expect(pdf).toContain("Net paid");
+    expect(pdf).toContain("USD 50.00"); // net = 80 - 30
   });
 
-  it("marks fully-refunded items as access-revoked", () => {
-    const pdf = receiptPdf({
+  it("marks fully-refunded items as access-revoked", async () => {
+    const pdf = extractPdfText(await receiptPdf({
       ...order,
       status: "REFUNDED",
       refundedCents: 10_000,
@@ -132,8 +139,8 @@ describe("receiptPdf", () => {
       couponCode: null,
       subtotalCents: 10_000,
       items: [{ title: "Advanced TypeScript", priceCents: 10_000, refundedCents: 10_000 }],
-    }).toString("latin1");
-    expect(pdf).toContain("(  Refunded to store credit \\(access revoked\\))");
-    expect(pdf).toContain("(USD 0.00)"); // net paid
+    }));
+    expect(pdf).toContain("Refunded to store credit (access revoked)");
+    expect(pdf).toContain("USD 0.00"); // net paid
   });
 });

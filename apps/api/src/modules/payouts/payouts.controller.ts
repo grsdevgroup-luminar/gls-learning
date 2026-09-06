@@ -1,14 +1,19 @@
-import { Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { PayoutStatus } from "@prisma/client";
 import {
+  AdminPayoutQuerySchema,
   PayoutAccountSchema,
+  QuotePayoutSchema,
   RejectPayoutSchema,
+  RequestPayoutSchema,
+  type AdminPayoutQuery,
   type PayoutAccountInput,
+  type QuotePayoutInput,
   type RejectPayoutInput,
+  type RequestPayoutInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
-import { ZodBody } from "../../common/utils/swagger";
+import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { PayoutsService } from "./payouts.service";
 
 @ApiTags("payouts")
@@ -41,16 +46,44 @@ export class PayoutsController {
     return this.payouts.setAccount(user, body);
   }
 
+  // Stripe Connect Express — instructor onboarding + status polling.
+  @Post("me/payout-account/stripe/onboard-link")
+  stripeOnboardLink(@CurrentUser() user: RequestUser) {
+    return this.payouts.createStripeOnboardLink(user);
+  }
+
+  @Get("me/payout-account/stripe/status")
+  stripeStatus(@CurrentUser() user: RequestUser) {
+    return this.payouts.getStripeStatus(user);
+  }
+
+  /** Live fee preview for the withdrawal modal. Pure read; no side effects. */
+  @Post("me/payouts/quote")
+  quote(
+    @CurrentUser() user: RequestUser,
+    @ZodBody(QuotePayoutSchema) body: QuotePayoutInput,
+  ) {
+    return this.payouts.quote(user, body.amountCents);
+  }
+
+  /** Body is optional — omitting `amountCents` drains the full available
+   *  balance (backward-compatible with the pre-partial-payout clients). */
   @Post("me/payouts")
-  request(@CurrentUser() user: RequestUser) {
-    return this.payouts.request(user);
+  request(
+    @CurrentUser() user: RequestUser,
+    @Body() rawBody?: unknown,
+  ) {
+    const body: RequestPayoutInput = rawBody
+      ? RequestPayoutSchema.parse(rawBody)
+      : {};
+    return this.payouts.request(user, body);
   }
 
   // ── admin ──
   @Roles("ADMIN")
   @Get("admin/payouts")
-  listAll(@Query("status") status?: PayoutStatus) {
-    return this.payouts.listAll(status);
+  listAll(@ZodQuery(AdminPayoutQuerySchema) query: AdminPayoutQuery) {
+    return this.payouts.listAll(query);
   }
 
   @Roles("ADMIN")

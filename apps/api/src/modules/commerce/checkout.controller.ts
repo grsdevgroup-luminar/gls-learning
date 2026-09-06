@@ -122,6 +122,12 @@ export class CheckoutController {
     return this.orders.myOrder(user.id, id);
   }
 
+  @Post("me/orders/:id/cancel")
+  @ApiOperation({ summary: "Record cancellation of an unpaid checkout" })
+  cancelOrder(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.orders.cancelPending(user.id, id);
+  }
+
   /** Receipt for one of the caller's own paid orders. */
   @Get("me/orders/:id/receipt")
   @Header("Content-Type", "application/pdf")

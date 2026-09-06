@@ -4,11 +4,11 @@ import { isIsoCountryCode } from "../countries.js";
 
 export const passwordSchema = z
   .string()
-  .min(8, "Password must be at least 8 characters")
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character")
+  .min(8, "Password must be at least 8 characters long")
+  .regex(/[A-Z]/, "Password must include an uppercase letter (A–Z)")
+  .regex(/[a-z]/, "Password must include a lowercase letter (a–z)")
+  .regex(/[0-9]/, "Password must include a number (0–9)")
+  .regex(/[^A-Za-z0-9]/, "Password must include a special character (for example, !@#$%)")
   .max(128);
 
 const emailFormatSchema = z.string().email("Enter a valid email address");

@@ -27,12 +27,22 @@ export class CertificatesService {
 
   async verify(serial: string): Promise<CertificateVerificationDto> {
     const cert = await this.findBySerial(serial);
+    const verificationUrl = certificateVerifyUrl(
+      this.config.get("FRONTEND_URL", { infer: true }),
+      cert.serial,
+    );
     return {
       valid: true,
       serial: cert.serial,
       learnerName: cert.learnerName,
       courseTitle: cert.enrollment.course.title,
       courseSlug: cert.enrollment.course.slug,
+      uniqueId: cert.serial,
+      courseNumber: cert.courseNumber,
+      courseStartDate: cert.enrollment.enrolledAt.toISOString(),
+      courseEndDate: (cert.enrollment.completedAt ?? cert.issuedAt).toISOString(),
+      verificationUrl,
+      isoStandard: cert.enrollment.course.isoStandard,
       issuedAt: cert.issuedAt.toISOString(),
     };
   }

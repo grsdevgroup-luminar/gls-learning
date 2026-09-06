@@ -117,7 +117,7 @@ export class OrdersService {
     )
       throw new BadRequestException("No receipt for an unpaid order");
 
-    return receiptPdf({
+    return await receiptPdf({
       orderId: order.id,
       buyerName: order.user.name,
       buyerEmail: order.user.email,
@@ -129,6 +129,7 @@ export class OrdersService {
       couponCode: order.couponCode,
       subtotalCents: order.subtotalCents,
       discountCents: order.discountCents,
+      creditAppliedCents: order.creditAppliedCents,
       totalCents: order.totalCents,
       refundedCents: order.refundedCents,
       items: order.items.map((i) => ({
@@ -145,13 +146,15 @@ export class OrdersService {
   ): Promise<Paginated<OrderDto>> {
     const q = query.q?.trim();
     // Restrict to caller's own orders and, when a search term is present,
-    // match against order id or a purchased course title (order items).
+    // match against the case-sensitive order id or a case-insensitive
+    // purchased course title (order items). Order IDs are identifiers, so
+    // their letter casing must be preserved during search.
     const where: Prisma.OrderWhereInput = {
       userId,
       ...(q
         ? {
             OR: [
-              { id: { contains: q, mode: "insensitive" } },
+              { id: { contains: q } },
               {
                 items: {
                   some: {
@@ -185,6 +188,22 @@ export class OrdersService {
     const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
     if (!order) throw new NotFoundException("Order not found");
     return this.toDto(order);
+  }
+
+  /**
+   * Records an explicit provider cancellation. A payment webhook can arrive
+   * concurrently, so the repository only changes an order that is still
+   * PENDING; a settled order remains settled.
+   */
+  async cancelPending(userId: string, orderId: string): Promise<OrderDto> {
+    const order = await this.repo.findByIdAndUserWithUser(orderId, userId);
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.status === "PENDING") {
+      await this.repo.markFailedIfPending(orderId, userId);
+    }
+    const updated = await this.repo.findById(orderId);
+    if (!updated) throw new NotFoundException("Order not found");
+    return this.toDto(updated);
   }
 
   async myOrderStats(userId: string): Promise<MyOrderStatsDto> {

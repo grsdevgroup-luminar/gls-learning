@@ -36,6 +36,20 @@ const rawEnvSchema = z.object({
   REDIS_URL: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Stripe Connect Express onboarding. `RETURN_URL` = where Stripe sends the
+  // instructor after they finish; `REFRESH_URL` = where Stripe sends them if
+  // the hosted link expires mid-flow. Both required when payouts are enabled.
+  STRIPE_CONNECT_RETURN_URL: z.string().url().optional(),
+  STRIPE_CONNECT_REFRESH_URL: z.string().url().optional(),
+  // Instructor payout fee model. Platform commission expressed in basis points
+  // (500 = 5%). Minimum net (post-fee) below which a request is rejected.
+  PAYOUT_PLATFORM_FEE_BPS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(10_000)
+    .default(500),
+  PAYOUT_MIN_NET_CENTS: z.coerce.number().int().min(100).default(2_500),
   PAYPAL_CLIENT_ID: z.string().optional(),
   PAYPAL_CLIENT_SECRET: z.string().optional(),
   // SSLCommerz: store credentials from https://developer.sslcommerz.com. Without
@@ -92,6 +106,7 @@ const rawEnvSchema = z.object({
   EMAIL_REPLY_TO: z.string().email().optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@skillstream.dev"),
   FRONTEND_URL: z.string().url().default("http://localhost:3001"),
+  PLAYWRIGHT_EXECUTABLE_PATH: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
 
   // Swagger docs. In production the docs are only mounted when both are set —
@@ -194,6 +209,24 @@ export const envSchema = rawEnvSchema
         path: ["SMTP_HOST"],
         message: "SMTP_HOST is required when EMAIL_DRIVER=smtp",
       });
+    }
+    // Stripe Connect payouts require both redirect URLs whenever a Stripe key
+    // is configured — onboarding can't complete without them.
+    if (env.STRIPE_SECRET_KEY) {
+      if (!env.STRIPE_CONNECT_RETURN_URL) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["STRIPE_CONNECT_RETURN_URL"],
+          message: "STRIPE_CONNECT_RETURN_URL is required when STRIPE_SECRET_KEY is set",
+        });
+      }
+      if (!env.STRIPE_CONNECT_REFRESH_URL) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["STRIPE_CONNECT_REFRESH_URL"],
+          message: "STRIPE_CONNECT_REFRESH_URL is required when STRIPE_SECRET_KEY is set",
+        });
+      }
     }
     if (env.STORAGE_DRIVER === "s3") {
       const required = {

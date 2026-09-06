@@ -72,10 +72,12 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
   }
   return {
     id: row.id,
+    courseNumber: row.courseNumber,
     slug: row.slug,
     title: row.title,
     subtitle: row.subtitle,
     category: row.category,
+    isoStandard: row.isoStandard,
     level: row.level,
     thumbnail: row.thumbnail,
     status: row.status,
@@ -138,10 +140,12 @@ export function toCourseDetail(
 
   return {
     id: row.id,
+    courseNumber: row.courseNumber,
     slug: row.slug,
     title: row.title,
     subtitle: row.subtitle,
     category: row.category,
+    isoStandard: row.isoStandard,
     level: row.level,
     thumbnail: row.thumbnail,
     status: row.status,
