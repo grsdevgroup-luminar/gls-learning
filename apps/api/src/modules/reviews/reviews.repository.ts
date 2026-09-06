@@ -66,12 +66,40 @@ export class ReviewsRepository {
     });
   }
 
-  findManyForAdmin(status?: Prisma.ReviewWhereInput["status"]) {
+  findManyAndCountForAdmin(
+    where: Prisma.ReviewWhereInput,
+    page: { page: number; pageSize: number },
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        include: reviewInclude,
+        orderBy: { createdAt: "desc" },
+        skip: (page.page - 1) * page.pageSize,
+        take: page.pageSize,
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+  }
+
+  adminStats() {
+    return this.prisma.$transaction([
+      this.prisma.review.aggregate({
+        where: { status: "APPROVED" },
+        _avg: { rating: true },
+        _count: true,
+      }),
+      this.prisma.review.count({ where: { status: "PENDING" } }),
+    ]);
+  }
+
+  findDistinctCourses() {
     return this.prisma.review.findMany({
-      where: status ? { status } : undefined,
-      include: reviewInclude,
-      orderBy: { createdAt: "desc" },
-      take: 200,
+      distinct: ["courseId"],
+      select: {
+        courseId: true,
+        course: { select: { title: true } },
+      },
     });
   }
 

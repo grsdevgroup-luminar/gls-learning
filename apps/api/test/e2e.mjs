@@ -554,7 +554,75 @@ async function adminModeration() {
     );
   }
 
+  {
+    const r = await req("GET", "/admin/reviews", { token: t });
+    check(
+      "admin reviews is paginated",
+      r.status === 200 && Array.isArray(r.json?.items),
+      `${r.status} keys=${r.json && Object.keys(r.json)}`,
+    );
+  }
+
+  {
+    const r = await req("GET", "/admin/reviews/stats", { token: t });
+    check(
+      "admin review stats",
+      r.status === 200 && typeof r.json?.pending === "number" && typeof r.json?.approved === "number",
+      `${r.status} ${JSON.stringify(r.json)}`,
+    );
+  }
+
+  {
+    const r = await req("GET", "/admin/reviews/courses", { token: t });
+    check(
+      "admin review course options",
+      r.status === 200 && Array.isArray(r.json),
+      `${r.status}`,
+    );
+  }
+
   if (state.reviewId) {
+    {
+      const r = await req("GET", "/admin/reviews?status=PENDING&pageSize=100", { token: t });
+      const items = r.json?.items;
+      check(
+        "admin reviews status=PENDING returns only PENDING",
+        r.status === 200 && Array.isArray(items) && items.every((x) => x.status === "PENDING"),
+        `${r.status} n=${items?.length}`,
+      );
+      check(
+        "admin reviews pending list includes e2e review",
+        Array.isArray(items) && items.some((x) => x.id === state.reviewId),
+        `n=${items?.length}`,
+      );
+    }
+    if (state.course?.id) {
+      const r = await req("GET", `/admin/reviews?courseId=${encodeURIComponent(state.course.id)}&pageSize=100`, { token: t });
+      const items = r.json?.items;
+      check(
+        "admin reviews courseId filter",
+        r.status === 200 && Array.isArray(items) && items.every((x) => x.courseId === state.course.id),
+        `${r.status} n=${items?.length}`,
+      );
+    }
+    {
+      const r = await req("GET", "/admin/reviews?rating=5&pageSize=100", { token: t });
+      const items = r.json?.items;
+      check(
+        "admin reviews rating=5 returns only 5-star",
+        r.status === 200 && Array.isArray(items) && items.every((x) => x.rating === 5),
+        `${r.status} n=${items?.length}`,
+      );
+    }
+    {
+      const r = await req("GET", "/admin/reviews?q=E2E&pageSize=100", { token: t });
+      const items = r.json?.items;
+      check(
+        "admin reviews search q=E2E",
+        r.status === 200 && Array.isArray(items) && items.some((x) => x.id === state.reviewId),
+        `${r.status} n=${items?.length}`,
+      );
+    }
     const r = await req("PATCH", `/admin/reviews/${state.reviewId}/status`, { token: t, body: { status: "APPROVED" } });
     check("admin approves review", r.status === 200, `${r.status} ${msg(r)}`);
   }

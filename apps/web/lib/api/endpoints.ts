@@ -3,6 +3,8 @@ import type {
   AdminCourseStatsDto,
   AdminOrderStatsDto,
   AdminOverviewDto,
+  AdminReviewCourseOptionDto,
+  AdminReviewStatsDto,
   AdminStudentStatsDto,
   AdminPricingDto,
   AdminStudentDto,
@@ -368,9 +370,11 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/automation-rules/${id}`, { method: "DELETE" }),
   adminReminderLogs: () => apiFetch<ReminderLogDto[]>("/admin/reminder-logs"),
 
-  // NB: returns a bare array (not Paginated) — the API takes a status filter.
   adminReviews: (params: Record<string, string | number | undefined> = {}) =>
-    apiFetch<ReviewDto[]>(`/admin/reviews${qs(params)}`),
+    apiFetch<Paginated<ReviewDto>>(`/admin/reviews${qs(params)}`),
+  adminReviewStats: () => apiFetch<AdminReviewStatsDto>("/admin/reviews/stats"),
+  adminReviewCourses: () =>
+    apiFetch<AdminReviewCourseOptionDto[]>("/admin/reviews/courses"),
   updateReviewStatus: (reviewId: string, status: "APPROVED" | "HIDDEN") =>
     apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { status } }),
 
@@ -693,7 +697,10 @@ export const adminApi = {
   updateUserStatus: api.updateUserStatus,
   deleteUser: api.deleteUser,
   refundOrder: api.refundOrder,
-  reviews: api.adminReviews,
+  reviews: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminReviews(params),
+  reviewStats: () => api.adminReviewStats(),
+  reviewCourses: () => api.adminReviewCourses(),
   updateReviewStatus: api.updateReviewStatus,
   instructorApplications: (params: Record<string, string | number | undefined> = {}) =>
     api.adminInstructorApplications(params),

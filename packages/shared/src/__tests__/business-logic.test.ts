@@ -17,6 +17,7 @@ import {
   ReviewAgentApplicationSchema,
   UpdateAgentSchema,
 } from "../contracts/sales-agent.js";
+import { adminReviewQuerySchema } from "../contracts/reviews.js";
 import { emailSchema, normalizeEmail, countryCodeSchema } from "../contracts/auth.js";
 import {
   activeCourseSearchQuery,
@@ -224,5 +225,25 @@ describe("course catalog search", () => {
     const long = "a".repeat(MAX_COURSE_SEARCH_LENGTH + 1);
     expect(courseListQuerySchema.safeParse({ q: long, sort: "popular" }).success).toBe(false);
     expect(courseListQuerySchema.safeParse({ q: "cloud", sort: "popular" }).success).toBe(true);
+  });
+});
+
+describe("adminReviewQuerySchema", () => {
+  it("defaults pagination and coerces rating from query strings", () => {
+    const parsed = adminReviewQuerySchema.parse({
+      rating: "5",
+      status: "PENDING",
+      q: " audio ",
+    });
+    expect(parsed.page).toBe(1);
+    expect(parsed.pageSize).toBe(10);
+    expect(parsed.rating).toBe(5);
+    expect(parsed.status).toBe("PENDING");
+    expect(parsed.q).toBe("audio");
+  });
+
+  it("rejects invalid status and out-of-range rating", () => {
+    expect(adminReviewQuerySchema.safeParse({ status: "all" }).success).toBe(false);
+    expect(adminReviewQuerySchema.safeParse({ rating: "0" }).success).toBe(false);
   });
 });

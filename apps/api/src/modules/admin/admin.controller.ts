@@ -5,13 +5,12 @@ import {
   Param,
   Patch,
   Post,
-  Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { ReviewStatus } from "@prisma/client";
 import {
   adminCourseQuerySchema,
   adminOrderQuerySchema,
+  adminReviewQuerySchema,
   patchCouponSchema,
   refundOrderSchema,
   reviewStatusSchema,
@@ -22,6 +21,7 @@ import {
   upsertAutomationRuleSchema,
   type AdminCourseQuery,
   type AdminOrderQuery,
+  type AdminReviewQuery,
   type PatchCouponInput,
   type RefundOrderInput,
   type ReviewStatusInput,
@@ -154,9 +154,19 @@ export class AdminController {
   }
 
   // reviews moderation
+  @Get("reviews/stats")
+  reviewsStats() {
+    return this.reviews.adminStats();
+  }
+
+  @Get("reviews/courses")
+  reviewCourses() {
+    return this.reviews.adminCourses();
+  }
+
   @Get("reviews")
-  reviewsList(@Query("status") status?: ReviewStatus) {
-    return this.reviews.adminList(status);
+  reviewsList(@ZodQuery(adminReviewQuerySchema) query: AdminReviewQuery) {
+    return this.reviews.adminList(query);
   }
 
   @Patch("reviews/:id/status")
