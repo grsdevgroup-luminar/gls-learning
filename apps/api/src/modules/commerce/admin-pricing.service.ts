@@ -1,17 +1,27 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
-import type {
-  AdminPricingDto,
-  AdminRegionDto,
-  AdminTierDto,
-  PatchRegionInput,
-  PatchTierInput,
-  UpsertTierInput,
+import {
+  DEFAULT_REGION,
+  flagFor,
+  nameFor,
+  type AdminFxRateDto,
+  type AdminPricingDto,
+  type AdminRegionDto,
+  type AdminTierDto,
+  type CreateRegionInput,
+  type PatchRegionInput,
+  type PatchTierInput,
+  type UpsertTierInput,
 } from "@skillstream/shared";
+import type { Env } from "../../config/env";
+import { fetchUsdRates, rateFromFeed } from "../jobs/fx-feed";
 import { PricingRepository } from "./pricing.repository";
 
 /** The FX job runs daily; no write in this long means it isn't landing. */
@@ -19,7 +29,31 @@ const FX_STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AdminPricingService {
-  constructor(private readonly repo: PricingRepository) {}
+  constructor(
+    private readonly repo: PricingRepository,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
+
+  /** Same feed as the daily FX job — used to prefill a new country's rate. */
+  async lookupFxRate(currency: string): Promise<AdminFxRateDto> {
+    const code = currency.toUpperCase();
+    if (code === "USD") return { currency: code, rate: 1 };
+
+    let rates: Record<string, unknown>;
+    try {
+      rates = await fetchUsdRates(this.config.get("FX_RATES_URL", { infer: true }));
+    } catch (err) {
+      throw new ServiceUnavailableException(
+        `FX feed is unavailable: ${(err as Error).message}`,
+      );
+    }
+
+    const rate = rateFromFeed(rates, code);
+    if (rate === undefined) {
+      throw new BadRequestException(`No FX rate for ${code}`);
+    }
+    return { currency: code, rate };
+  }
 
   async getAll(): Promise<AdminPricingDto> {
     const [tiers, regions] = await this.repo.findAllTiersAndRegions();
@@ -93,6 +127,50 @@ export class AdminPricingService {
     return this.getAll();
   }
 
+  async createRegion(input: CreateRegionInput): Promise<AdminPricingDto> {
+    const code = input.code.toUpperCase();
+    const existing = await this.repo.findRegionByCode(code);
+    if (existing) throw new ConflictException("That country is already in the pricing table");
+
+    const country = nameFor(code);
+    if (!country) throw new BadRequestException("Unknown country code");
+
+    const override =
+      input.multiplier !== undefined ? true : (input.override ?? false);
+
+    // No FK from Region.tierId → PricingTier, so a missing id would otherwise
+    // persist. Validate independently of whether a custom multiplier is set.
+    const tier = input.tierId
+      ? await this.repo.findTierById(input.tierId)
+      : null;
+    if (input.tierId && !tier)
+      throw new BadRequestException("Assigned tier does not exist");
+
+    let multiplier = 1;
+    if (override && input.multiplier !== undefined) {
+      multiplier = input.multiplier;
+    } else if (tier) {
+      multiplier = tier.multiplier;
+    }
+
+    await this.repo.createRegion({
+      code,
+      country,
+      flag: flagFor(code),
+      currency: input.currency,
+      symbol: input.symbol,
+      locale: input.locale ?? "en-US",
+      fxRate: input.fxRate,
+      // Same stamp as PATCH — a hand-set rate is fresh until the FX job (or
+      // another edit) replaces it. Leaving this null marks non-USD as stale.
+      fxUpdatedAt: new Date(),
+      multiplier,
+      tierId: input.tierId,
+      override,
+    });
+    return this.getAll();
+  }
+
   async updateRegion(
     code: string,
     input: PatchRegionInput,
@@ -101,6 +179,12 @@ export class AdminPricingService {
     if (!region) throw new NotFoundException("Region not found");
 
     const nextTierId = input.tierId ?? region.tierId;
+    const tier = nextTierId
+      ? await this.repo.findTierById(nextTierId)
+      : null;
+    if (nextTierId && !tier)
+      throw new BadRequestException("Assigned tier does not exist");
+
     // Setting a multiplier implies a custom override; explicit override:false clears it.
     const override =
       input.multiplier !== undefined
@@ -111,12 +195,6 @@ export class AdminPricingService {
     if (override && input.multiplier !== undefined) {
       multiplier = input.multiplier;
     } else if (!override) {
-      // Inherit from the (possibly newly assigned) tier.
-      const tier = nextTierId
-        ? await this.repo.findTierById(nextTierId)
-        : null;
-      if (nextTierId && !tier)
-        throw new BadRequestException("Assigned tier does not exist");
       multiplier = tier?.multiplier ?? region.multiplier;
     }
 
@@ -133,6 +211,16 @@ export class AdminPricingService {
       currency: input.currency,
       symbol: input.symbol,
     });
+    return this.getAll();
+  }
+
+  async deleteRegion(code: string): Promise<AdminPricingDto> {
+    const region = await this.repo.findRegionByCode(code.toUpperCase());
+    if (!region) throw new NotFoundException("Region not found");
+    if (region.code === DEFAULT_REGION) {
+      throw new BadRequestException("The default region cannot be deleted");
+    }
+    await this.repo.deleteRegion(region.code);
     return this.getAll();
   }
 }

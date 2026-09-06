@@ -60,4 +60,12 @@ export class PricingRepository {
   ) {
     return this.db(tx).region.update({ where: { code }, data });
   }
+
+  createRegion(data: Prisma.RegionCreateInput, tx?: Db) {
+    return this.db(tx).region.create({ data });
+  }
+
+  deleteRegion(code: string, tx?: Db) {
+    return this.db(tx).region.delete({ where: { code } });
+  }
 }

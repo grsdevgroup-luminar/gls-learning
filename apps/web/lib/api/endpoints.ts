@@ -537,6 +537,16 @@ export const pricingAdminApi = {
     apiFetch<AdminPricingDto>(`/admin/pricing/tiers/${id}`, { method: "PATCH", body }),
   deleteTier: (id: string) =>
     apiFetch<AdminPricingDto>(`/admin/pricing/tiers/${id}`, { method: "DELETE" }),
+  createRegion: (body: {
+    code: string;
+    currency: string;
+    symbol: string;
+    fxRate: number;
+    locale?: string;
+    tierId?: string;
+    override?: boolean;
+    multiplier?: number;
+  }) => apiFetch<AdminPricingDto>("/admin/pricing/regions", { method: "POST", body }),
   updateRegion: (
     code: string,
     body: Partial<{
@@ -548,6 +558,12 @@ export const pricingAdminApi = {
       multiplier: number;
     }>,
   ) => apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "PATCH", body }),
+  deleteRegion: (code: string) =>
+    apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "DELETE" }),
+  fxRate: (currency: string) =>
+    apiFetch<{ currency: string; rate: number }>(
+      `/admin/pricing/fx-rate${qs({ currency })}`,
+    ),
 };
 
 // ── authoring (instructor/admin course builder) ────────────────────────────
