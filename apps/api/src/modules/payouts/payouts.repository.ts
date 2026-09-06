@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Payout, PayoutStatus, Prisma } from "@prisma/client";
-import type { PayoutAccountInput } from "@skillstream/shared";
+import type { AdminPayoutQuery, PayoutAccountInput } from "@skillstream/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Db } from "../../common/types";
 
@@ -66,9 +66,31 @@ export class PayoutsRepository {
     });
   }
 
-  findAll(status?: Payout["status"]) {
+  findAll(filters: AdminPayoutQuery = {}) {
+    const { status, q, from, to } = filters;
+    const requestedAt =
+      from || to
+        ? {
+            ...(from && { gte: new Date(from) }),
+            ...(to && { lte: new Date(to) }),
+          }
+        : undefined;
+    const search = q
+      ? {
+          OR: [
+            { payee: { name: { contains: q, mode: "insensitive" as const } } },
+            { payee: { email: { contains: q, mode: "insensitive" as const } } },
+            { destination: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : undefined;
+    const where: Prisma.PayoutWhereInput = {
+      ...(status && { status }),
+      ...(requestedAt && { requestedAt }),
+      ...(search && search),
+    };
     return this.prisma.payout.findMany({
-      where: status ? { status } : undefined,
+      where,
       orderBy: [{ status: "asc" }, { requestedAt: "desc" }],
       include: { payee: { select: { name: true, email: true } } },
     });

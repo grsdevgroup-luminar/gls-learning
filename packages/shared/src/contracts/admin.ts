@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { CouponScope, CouponType } from "../enums.js";
-import { CourseStatus, OrderStatus } from "../enums.js";
+import { CourseStatus, CourseVisibility, OrderStatus } from "../enums.js";
 import {
   ReminderChannel,
   ReminderStatus,
@@ -51,9 +51,15 @@ export interface AdminCourseStatsDto {
   published: number;
 }
 
-/** Admin courses list query: search, pagination, and status filter. */
+/** Admin courses list query: search, pagination, status/visibility/category
+ *  filters, and `unassignedToOrgId` — used by the org "Add courses" picker
+ *  to list published courses (public or private) not yet assigned to a
+ *  given org (see OrganizationsService.assignCourse). */
 export const adminCourseQuerySchema = searchQuerySchema.extend({
   status: z.nativeEnum(CourseStatus).optional(),
+  visibility: z.nativeEnum(CourseVisibility).optional(),
+  category: z.string().optional(),
+  unassignedToOrgId: z.string().optional(),
 });
 export type AdminCourseQuery = z.infer<typeof adminCourseQuerySchema>;
 

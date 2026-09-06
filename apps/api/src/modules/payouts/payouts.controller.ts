@@ -1,18 +1,19 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { PayoutStatus } from "@prisma/client";
 import {
+  AdminPayoutQuerySchema,
   PayoutAccountSchema,
   QuotePayoutSchema,
   RejectPayoutSchema,
   RequestPayoutSchema,
+  type AdminPayoutQuery,
   type PayoutAccountInput,
   type QuotePayoutInput,
   type RejectPayoutInput,
   type RequestPayoutInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
-import { ZodBody } from "../../common/utils/swagger";
+import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { PayoutsService } from "./payouts.service";
 
 @ApiTags("payouts")
@@ -81,8 +82,8 @@ export class PayoutsController {
   // ── admin ──
   @Roles("ADMIN")
   @Get("admin/payouts")
-  listAll(@Query("status") status?: PayoutStatus) {
-    return this.payouts.listAll(status);
+  listAll(@ZodQuery(AdminPayoutQuerySchema) query: AdminPayoutQuery) {
+    return this.payouts.listAll(query);
   }
 
   @Roles("ADMIN")

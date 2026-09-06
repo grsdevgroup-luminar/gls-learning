@@ -10,6 +10,7 @@ import {
 } from "@skillstream/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
+import type { RequestUser } from "../../common/decorators/decorators";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { STORAGE_DRIVER } from "../storage/storage.constants";
 import type { StorageDriver } from "../storage/storage.driver";
@@ -126,12 +127,19 @@ export class CoursesService {
     return rows.map(toCourseSummary);
   }
 
-  async bySlug(slug: string): Promise<CourseDetailDto> {
+  async bySlug(slug: string, user?: RequestUser): Promise<CourseDetailDto> {
     const rows = await Promise.all(
       slugCandidates(slug).map((candidate) => this.repo.findBySlug(candidate)),
     );
     const row = rows.find((candidate) => candidate !== null);
     if (!row) throw new NotFoundException("Course not found");
+    if (row.status !== "PUBLISHED" && user?.role !== "ADMIN")
+      throw new NotFoundException("Course not found");
+    if (row.visibility === "PRIVATE" && user?.role !== "ADMIN") {
+      const orgIds = row.orgAssignments.map((a) => a.orgId);
+      const member = user ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id) : false;
+      if (!member) throw new NotFoundException("Course not found");
+    }
     const detail = toCourseDetail(row);
     // Preview lessons expose resources publicly (see mapper); their uploaded
     // files need fresh signed URLs just like the enrolled learning path.

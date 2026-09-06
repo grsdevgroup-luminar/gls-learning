@@ -115,7 +115,7 @@ export default function BillingPage() {
     <div className="space-y-6 p-4 md:space-y-8 md:p-8">
       <div>
         <h1 className="text-xl font-bold tracking-tight md:text-2xl">Billing</h1>
-        <p className="text-sm text-muted-foreground md:text-base">Your past purchases and receipts. Cards are handled by Stripe and PayPal at checkout ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â nothing is stored here.</p>
+        <p className="text-sm text-muted-foreground md:text-base">Your past purchases and receipts. Cards are handled by Stripe and PayPal at checkout — nothing is stored here.</p>
       </div>
 
       <Card className="flex h-[calc(100vh-12rem)] min-h-[420px] flex-col overflow-hidden">

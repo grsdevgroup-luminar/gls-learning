@@ -53,6 +53,26 @@ export class EmailService {
       throw new Error("Email delivery failed");
     }
   }
+  
+  async sendOrgAdminCredentials(
+    to: string,
+    adminName: string,
+    orgName: string,
+    tempPassword: string,
+  ): Promise<void> {
+    const link = `${this.frontendUrl}/login`;
+    try {
+      await this.provider.send({
+        to,
+        subject: `Your ${orgName} organization is ready on SkillStream`,
+        html: this.orgAdminCredentialsHtml(adminName, orgName, to, tempPassword, link),
+        text: `Hi ${adminName},\n\nYour organization "${orgName}" has been created on SkillStream. Sign in with:\n\nEmail: ${to}\nTemporary password: ${tempPassword}\n\nYou'll be asked to set a new password on first login.\n\nSign in: ${link}\n\n— The SkillStream team`,
+      });
+    } catch (err) {
+      this.logger.error("Failed to send org admin credentials email", err as Error);
+      throw new Error("Email delivery failed");
+    }
+  }
 
   /** Engagement reminder (marketing automation). `subject` is the already-
    *  rendered template line and doubles as the body's headline. */
@@ -282,6 +302,49 @@ export class EmailService {
           <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none">Accept invitation</a>
           <p style="margin:24px 0 0;color:#9ca3af;font-size:13px">This invitation expires in <strong>7 days</strong>. If you weren't expecting this, you can ignore this email.</p>
           <p style="margin:8px 0 0;color:#9ca3af;font-size:12px;word-break:break-all">Or copy this URL: ${link}</p>
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} SkillStream. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private orgAdminCredentialsHtml(
+    adminName: string,
+    orgName: string,
+    adminEmail: string,
+    tempPassword: string,
+    link: string,
+  ): string {
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your organization is ready</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;margin:0;padding:0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 20px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;text-align:center">
+          <span style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px">SkillStream</span>
+        </td></tr>
+        <tr><td style="padding:36px 40px">
+          <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827">${escape(orgName)} is ready</h1>
+          <p style="margin:0 0 20px;color:#6b7280;font-size:15px">Hi ${escape(adminName)}, your organization has been set up on SkillStream. Sign in with the credentials below — you'll be asked to choose your own password right away.</p>
+          <table width="100%" style="background:#f9fafb;border-radius:8px;margin:0 0 24px">
+            <tr><td style="padding:16px 20px">
+              <p style="margin:0 0 6px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.04em">Email</p>
+              <p style="margin:0 0 14px;color:#111827;font-size:15px;font-weight:600">${escape(adminEmail)}</p>
+              <p style="margin:0 0 6px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.04em">Temporary password</p>
+              <p style="margin:0;color:#111827;font-size:16px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escape(tempPassword)}</p>
+            </td></tr>
+          </table>
+          <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none">Sign in</a>
+          <p style="margin:24px 0 0;color:#9ca3af;font-size:13px">For security, you must set a new password the first time you sign in.</p>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
           <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} SkillStream. All rights reserved.</p>

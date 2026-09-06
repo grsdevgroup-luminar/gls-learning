@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CourseLevel, CourseStatus, LessonType } from "../enums.js";
+import type { CourseLevel, CourseStatus, CourseVisibility, LessonType } from "../enums.js";
 
 export const courseSortSchema = z
   .enum(["popular", "newest", "rating", "price_asc", "price_desc"])
@@ -130,6 +130,10 @@ export interface CourseSummaryDto {
   level: CourseLevel;
   thumbnail: string;
   status: CourseStatus;
+  /** Independent of org assignment — PRIVATE means excluded from the public
+   *  catalog/direct-link; which org(s) can access it is separate (see the
+   *  admin course list's `orgAssignmentCount`, not exposed here). */
+  visibility: CourseVisibility;
   bestseller: boolean;
   language: string;
   basePriceCents: number;

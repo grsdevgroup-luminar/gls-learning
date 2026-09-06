@@ -1,5 +1,9 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import type {
+  AdminReviewCourseOptionDto,
+  AdminReviewQuery,
+  AdminReviewStatsDto,
   CreateReviewInput,
   Paginated,
   PaginationQuery,
@@ -97,9 +101,47 @@ export class ReviewsService {
   }
 
   // ── admin moderation ─────────────────────────────────────────────────────
-  async adminList(status?: ReviewStatusInput["status"]): Promise<ReviewDto[]> {
-    const rows = await this.repo.findManyForAdmin(status);
-    return rows.map((r) => this.toDto(r));
+  async adminList(query: AdminReviewQuery): Promise<Paginated<ReviewDto>> {
+    const q = query.q?.trim();
+    const where: Prisma.ReviewWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.courseId ? { courseId: query.courseId } : {}),
+      ...(query.rating ? { rating: query.rating } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" } },
+              { body: { contains: q, mode: "insensitive" } },
+              { user: { name: { contains: q, mode: "insensitive" } } },
+              { course: { title: { contains: q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.repo.findManyAndCountForAdmin(where, query);
+    return {
+      items: rows.map((r) => this.toDto(r)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async adminStats(): Promise<AdminReviewStatsDto> {
+    const [approvedAgg, pending] = await this.repo.adminStats();
+    return {
+      avgRating: approvedAgg._avg.rating ?? 0,
+      approved: approvedAgg._count,
+      pending,
+    };
+  }
+
+  async adminCourses(): Promise<AdminReviewCourseOptionDto[]> {
+    const rows = await this.repo.findDistinctCourses();
+    return rows
+      .map((r) => ({ id: r.courseId, title: r.course.title }))
+      .sort((a, b) => a.title.localeCompare(b.title));
   }
 
   async setStatus(

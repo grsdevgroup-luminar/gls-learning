@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isIsoCountryCode } from "../countries.js";
 
 // Admin-facing pricing management. The Region table is the checkout source of
 // truth (its `multiplier` is what pricing uses); a tier is a named multiplier
@@ -33,6 +34,34 @@ export const PatchRegionSchema = z
   })
   .refine((v) => Object.keys(v).length > 0, "No fields to update");
 export type PatchRegionInput = z.infer<typeof PatchRegionSchema>;
+
+/** Add a country to the pricing table. `code` is ISO 3166-1 alpha-2. */
+export const CreateRegionSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .length(2)
+    .refine((c) => isIsoCountryCode(c), "Unknown country code"),
+  tierId: z.string().min(1).optional(),
+  currency: z.string().trim().min(2).max(8).toUpperCase(),
+  symbol: z.string().trim().min(1).max(6),
+  locale: z.string().trim().min(2).max(16).optional(),
+  fxRate: z.number().positive().max(100000),
+  override: z.boolean().optional(),
+  multiplier: multiplier.optional(),
+});
+export type CreateRegionInput = z.infer<typeof CreateRegionSchema>;
+
+export const AdminFxRateQuerySchema = z.object({
+  currency: z.string().trim().toUpperCase().min(3).max(8),
+});
+export type AdminFxRateQuery = z.infer<typeof AdminFxRateQuerySchema>;
+
+export interface AdminFxRateDto {
+  currency: string;
+  rate: number;
+}
 
 export interface AdminTierDto {
   id: string;

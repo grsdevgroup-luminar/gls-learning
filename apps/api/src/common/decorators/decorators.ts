@@ -10,11 +10,19 @@ export interface RequestUser {
   id: string;
   email: string;
   role: UserRole;
+  mustChangePassword: boolean;
 }
 
 /** Marks a route as public (skips JwtAuthGuard). */
 export const IS_PUBLIC_KEY = "isPublic";
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+
+/** Marks a route reachable even while the caller's account is flagged
+ *  `mustChangePassword` — otherwise MustChangePasswordGuard blocks it. Only
+ *  the identity check and the force-password-change endpoint itself need this. */
+export const ALLOW_PENDING_PASSWORD_CHANGE_KEY = "allowPendingPasswordChange";
+export const AllowPendingPasswordChange = () =>
+  SetMetadata(ALLOW_PENDING_PASSWORD_CHANGE_KEY, true);
 
 /** Restricts a route to the given roles (enforced by RolesGuard). */
 export const ROLES_KEY = "roles";

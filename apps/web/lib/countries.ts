@@ -3,6 +3,8 @@ import {
   ISO_COUNTRY_CODES,
   isIsoCountryCode,
   nameFor as sharedNameFor,
+  flagFor as sharedFlagFor,
+  tenderFor as sharedTenderFor,
 } from "@skillstream/shared";
 
 export type { Country } from "@skillstream/shared";
@@ -28,12 +30,5 @@ export function nameFor(code: string): string | undefined {
   return sharedNameFor(code);
 }
 
-/** Convert an ISO 3166-1 alpha-2 code to its flag emoji. */
-export function flagFor(code: string): string {
-  if (code.length !== 2) return "";
-  const A = 0x1f1e6;
-  return String.fromCodePoint(
-    A + code.charCodeAt(0) - 65,
-    A + code.charCodeAt(1) - 65,
-  );
-}
+export const flagFor = sharedFlagFor;
+export const tenderFor = sharedTenderFor;

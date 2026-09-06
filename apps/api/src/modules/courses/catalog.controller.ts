@@ -33,8 +33,8 @@ export class CatalogController {
 
   @Public()
   @Get("courses/:slug")
-  bySlug(@Param("slug") slug: string) {
-    return this.courses.bySlug(slug);
+  bySlug(@Param("slug") slug: string, @CurrentUser() user?: RequestUser) {
+    return this.courses.bySlug(slug, user);
   }
 
   @Get("me/courses/:courseId/learning")

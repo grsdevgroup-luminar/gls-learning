@@ -73,6 +73,11 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+export const forcePasswordChangeSchema = z.object({
+  newPassword: passwordSchema,
+});
+export type ForcePasswordChangeInput = z.infer<typeof forcePasswordChangeSchema>;
+
 /** The authenticated user shape returned by GET /auth/me. Never includes the
  *  password hash or tokens. */
 export interface AuthUserDto {
@@ -85,6 +90,9 @@ export interface AuthUserDto {
   phone: string | null;
   role: UserRole;
   emailVerified: boolean;
+  /** True for an admin-provisioned account (temp password) that hasn't set
+   *  its own password yet — the frontend must redirect to force-password-change. */
+  mustChangePassword: boolean;
   instructorStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
 }
 

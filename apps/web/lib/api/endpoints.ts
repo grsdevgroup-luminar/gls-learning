@@ -3,6 +3,8 @@ import type {
   AdminCourseStatsDto,
   AdminOrderStatsDto,
   AdminOverviewDto,
+  AdminReviewCourseOptionDto,
+  AdminReviewStatsDto,
   AdminStudentStatsDto,
   AdminPricingDto,
   AdminStudentDto,
@@ -35,6 +37,8 @@ import type {
   UploadCompleteDto,
   UploadStatusDto,
   CreateTusUploadInput,
+  CreateOrganizationInput,
+  CreateOrganizationResultDto,
   OrganizationDto,
   Paginated,
   PlaybackDto,
@@ -366,9 +370,11 @@ export const api = {
     apiFetch<{ ok: true }>(`/admin/automation-rules/${id}`, { method: "DELETE" }),
   adminReminderLogs: () => apiFetch<ReminderLogDto[]>("/admin/reminder-logs"),
 
-  // NB: returns a bare array (not Paginated) — the API takes a status filter.
   adminReviews: (params: Record<string, string | number | undefined> = {}) =>
-    apiFetch<ReviewDto[]>(`/admin/reviews${qs(params)}`),
+    apiFetch<Paginated<ReviewDto>>(`/admin/reviews${qs(params)}`),
+  adminReviewStats: () => apiFetch<AdminReviewStatsDto>("/admin/reviews/stats"),
+  adminReviewCourses: () =>
+    apiFetch<AdminReviewCourseOptionDto[]>("/admin/reviews/courses"),
   updateReviewStatus: (reviewId: string, status: "APPROVED" | "HIDDEN") =>
     apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { status } }),
 
@@ -415,8 +421,12 @@ export const api = {
     }),
   stripeAccountStatus: () =>
     apiFetch<PayoutStripeStatusDto>("/me/payout-account/stripe/status"),
-  adminPayouts: (status?: string) =>
-    apiFetch<PayoutDto[]>(`/admin/payouts${status ? `?status=${status}` : ""}`),
+  adminPayouts: (params: {
+    status?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+  } = {}) => apiFetch<PayoutDto[]>(`/admin/payouts${qs(params)}`),
   approvePayout: (id: string) =>
     apiFetch<PayoutDto>(`/admin/payouts/${id}/approve`, { method: "POST" }),
   markPayoutPaid: (id: string) =>
@@ -445,17 +455,26 @@ export const api = {
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
 
-/** Own-course listing includes revenue (owner-only field). */
-export type InstructorCourseDto = CourseSummaryDto & { revenueCents: number };
+/** Own-course listing includes revenue (owner-only field). `orgAssignmentCount`
+ *  is only ever populated by the admin course list, not the instructor's own. */
+export type InstructorCourseDto = CourseSummaryDto & {
+  revenueCents: number;
+  orgAssignmentCount?: number;
+};
 
 // ── organizations (B2B portal) ─────────────────────────────────────────────
 
 export const orgApi = {
+  /** Provisions the org's admin account directly (temp password) — the
+   *  response is the only time the raw password is ever returned. */
+  create: (body: CreateOrganizationInput) =>
+    apiFetch<CreateOrganizationResultDto>("/organizations", { method: "POST", body }),
+  list: () => apiFetch<OrganizationDto[]>("/organizations"),
   bySlug: (idOrSlug: string) =>
     apiFetch<OrganizationDto>(`/organizations/${idOrSlug}`),
   mine: () => apiFetch<OrganizationDto[]>("/me/organizations"),
-  /** `seatCount` and `status` are platform-admin only — the API rejects them
-   *  from an org admin. */
+  /** `seatCount`, `status`, `suspensionMode` and `graceDays` are platform-admin
+   *  only — the API rejects them from an org admin. */
   update: (
     orgId: string,
     body: Partial<{
@@ -464,6 +483,8 @@ export const orgApi = {
       logoUrl: string;
       seatCount: number;
       status: OrganizationDto["status"];
+      suspensionMode: NonNullable<OrganizationDto["suspensionMode"]>;
+      graceDays: number;
     }>,
   ) => apiFetch<OrganizationDto>(`/organizations/${orgId}`, { method: "PATCH", body }),
   invite: (orgId: string, email: string, role: "ADMIN" | "MEMBER") =>
@@ -516,6 +537,16 @@ export const pricingAdminApi = {
     apiFetch<AdminPricingDto>(`/admin/pricing/tiers/${id}`, { method: "PATCH", body }),
   deleteTier: (id: string) =>
     apiFetch<AdminPricingDto>(`/admin/pricing/tiers/${id}`, { method: "DELETE" }),
+  createRegion: (body: {
+    code: string;
+    currency: string;
+    symbol: string;
+    fxRate: number;
+    locale?: string;
+    tierId?: string;
+    override?: boolean;
+    multiplier?: number;
+  }) => apiFetch<AdminPricingDto>("/admin/pricing/regions", { method: "POST", body }),
   updateRegion: (
     code: string,
     body: Partial<{
@@ -527,6 +558,12 @@ export const pricingAdminApi = {
       multiplier: number;
     }>,
   ) => apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "PATCH", body }),
+  deleteRegion: (code: string) =>
+    apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "DELETE" }),
+  fxRate: (currency: string) =>
+    apiFetch<{ currency: string; rate: number }>(
+      `/admin/pricing/fx-rate${qs({ currency })}`,
+    ),
 };
 
 // ── authoring (instructor/admin course builder) ────────────────────────────
@@ -556,6 +593,8 @@ export interface CourseFieldsInput {
   thumbnail?: string;
   language?: string;
   basePriceCents?: number;
+  /** Platform-admin only — the API rejects this field from anyone else. */
+  visibility?: "PUBLIC" | "PRIVATE";
 }
 export interface LessonFieldsInput {
   title: string;
@@ -674,7 +713,10 @@ export const adminApi = {
   updateUserStatus: api.updateUserStatus,
   deleteUser: api.deleteUser,
   refundOrder: api.refundOrder,
-  reviews: api.adminReviews,
+  reviews: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminReviews(params),
+  reviewStats: () => api.adminReviewStats(),
+  reviewCourses: () => api.adminReviewCourses(),
   updateReviewStatus: api.updateReviewStatus,
   instructorApplications: (params: Record<string, string | number | undefined> = {}) =>
     api.adminInstructorApplications(params),

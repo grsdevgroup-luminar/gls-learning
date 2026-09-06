@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   regionalPriceCents,
@@ -30,9 +30,15 @@ import {
 } from "@/components/ui/table";
 import { AlertTriangle, Globe2, Layers, MapPin, Plus, Info, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { CountrySelect } from "@/components/shared/country-select";
+import { tenderFor } from "@/lib/countries";
 
 const KEY = ["admin", "pricing"] as const;
 const pct = (m: number) => `${Math.round(m * 100)}%`;
+
+function formatFxInput(rate: number) {
+  return rate.toFixed(2);
+}
 
 export default function AdminPricing() {
   const qc = useQueryClient();
@@ -59,6 +65,12 @@ export default function AdminPricing() {
     mutationFn: ({ code, ...body }: { code: string } & Parameters<typeof pricingAdminApi.updateRegion>[1]) =>
       pricingAdminApi.updateRegion(code, body),
     onSuccess: (d) => { apply(d); toast.success("Region updated"); },
+    onError: onErr,
+  });
+  const createRegion = useMutation({
+    mutationFn: (body: Parameters<typeof pricingAdminApi.createRegion>[0]) =>
+      pricingAdminApi.createRegion(body),
+    onSuccess: (d) => { apply(d); toast.success("Country added"); },
     onError: onErr,
   });
 
@@ -130,9 +142,18 @@ export default function AdminPricing() {
 
       {/* Regions table — tier assignment + overrides live here */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Countries</CardTitle>
-          <CardDescription>Assign each country to a tier, or set a custom override that beats the tier.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Countries</CardTitle>
+            <CardDescription>Assign each country to a tier, or set a custom override that beats the tier.</CardDescription>
+          </div>
+          <CreateRegionDialog
+            tiers={tiers}
+            existingCodes={regions.map((r) => r.code)}
+            trigger={<Button size="sm"><Plus /> Add country</Button>}
+            onSave={(body) => createRegion.mutateAsync(body)}
+            saving={createRegion.isPending}
+          />
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -294,6 +315,175 @@ function FxFreshness({ region }: { region: AdminRegionDto }) {
       {region.fxStale && <AlertTriangle className="mr-0.5 inline h-2.5 w-2.5" />}
       rate {region.fxUpdatedAt ? relativeDate(region.fxUpdatedAt) : "never refreshed"}
     </div>
+  );
+}
+
+function CreateRegionDialog({
+  tiers, existingCodes, trigger, onSave, saving,
+}: {
+  tiers: AdminTierDto[];
+  existingCodes: string[];
+  trigger: React.ReactNode;
+  onSave: (body: Parameters<typeof pricingAdminApi.createRegion>[0]) => Promise<unknown>;
+  saving: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [tierId, setTierId] = useState<string>(tiers[0]?.id ?? "");
+  const [currency, setCurrency] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [fx, setFx] = useState("");
+  const [override, setOverride] = useState(false);
+  const [percent, setPercent] = useState("100");
+
+  const fxQuery = useQuery({
+    queryKey: ["admin", "pricing", "fx-rate", currency],
+    queryFn: () => pricingAdminApi.fxRate(currency),
+    enabled: open && Boolean(currency) && currency !== "USD",
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (currency === "USD") setFx(formatFxInput(1));
+    else if (fxQuery.data) setFx(formatFxInput(fxQuery.data.rate));
+  }, [currency, fxQuery.data]);
+
+  function reset() {
+    setCode("");
+    setTierId(tiers[0]?.id ?? "");
+    setCurrency("");
+    setSymbol("");
+    setFx("");
+    setOverride(false);
+    setPercent("100");
+  }
+
+  function save() {
+    if (!code) {
+      toast.error("Pick a country");
+      return;
+    }
+    const tender = tenderFor(code);
+    if (!tender) {
+      toast.error("No standard currency for that country");
+      return;
+    }
+    const fxNum = Number(fx);
+    if (!Number.isFinite(fxNum) || fxNum <= 0) {
+      toast.error("Enter a positive FX rate");
+      return;
+    }
+    const body: Parameters<typeof pricingAdminApi.createRegion>[0] = {
+      code,
+      currency: tender.currency,
+      symbol: tender.symbol,
+      fxRate: fxNum,
+      tierId: tierId || undefined,
+    };
+    if (override) {
+      const p = Number(percent);
+      if (!Number.isFinite(p) || p < 1 || p > 200) {
+        toast.error("Custom % must be 1–200");
+        return;
+      }
+      body.multiplier = p / 100;
+    }
+    onSave(body)
+      .then(() => {
+        setOpen(false);
+        reset();
+      })
+      .catch(() => undefined);
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) reset();
+      }}
+    >
+      <DialogTrigger render={trigger as React.ReactElement} />
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Add country</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label>Country</Label>
+            <CountrySelect
+              value={code}
+              onChange={(next) => {
+                setCode(next);
+                const tender = tenderFor(next);
+                const nextCurrency = tender?.currency ?? "";
+                setCurrency(nextCurrency);
+                setSymbol(tender?.symbol ?? "");
+                // Same ISO code → keep the already-fetched rate (FR → DE is still EUR).
+                if (nextCurrency === currency) return;
+                setFx(nextCurrency === "USD" ? formatFxInput(1) : "");
+              }}
+              placeholder="Select a country"
+              excludeCodes={existingCodes}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Tier</Label>
+            <Select value={tierId} onValueChange={(v) => { if (v) setTierId(v); }}>
+              <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+              <SelectContent>
+                {tiers.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Currency</Label>
+              <Input value={currency} readOnly placeholder="—" />
+            </div>
+            <div className="space-y-1">
+              <Label>Symbol</Label>
+              <Input value={symbol} readOnly placeholder="—" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>FX rate (USD → local)</Label>
+            <Input
+              value={fxQuery.isPending ? "" : fx}
+              onChange={(e) => setFx(e.target.value)}
+              inputMode="decimal"
+              className="w-32"
+              placeholder={fxQuery.isPending ? "Fetching…" : "—"}
+              disabled={fxQuery.isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              {fxQuery.isError
+                ? "Feed had no rate — enter one, or the daily job will retry later. Display only; checkout charges in USD."
+                : "From the FX feed. Display only — checkout charges in USD."}
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+            Custom price (override the tier)
+          </label>
+          {override && (
+            <div className="space-y-1">
+              <Label>Price (% of base)</Label>
+              <div className="relative w-32">
+                <Input value={percent} onChange={(e) => setPercent(e.target.value)} inputMode="numeric" className="pr-7" />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={save} disabled={saving || fxQuery.isPending}>
+            {saving ? "Saving…" : "Add"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

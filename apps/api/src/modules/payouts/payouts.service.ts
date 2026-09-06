@@ -9,6 +9,7 @@ import { PayeeType, Payout } from "@prisma/client";
 import {
   MIN_PAYOUT_CENTS,
   STRIPE_CONNECTED_ACCOUNT_RE,
+  type AdminPayoutQuery,
   type PayoutAccountDto,
   type PayoutAccountInput,
   type PayoutBalanceDto,
@@ -263,8 +264,8 @@ export class PayoutsService {
   }
 
   // ── admin ──────────────────────────────────────────────────────────────────
-  async listAll(status?: Payout["status"]): Promise<PayoutDto[]> {
-    const rows = await this.repo.findAll(status);
+  async listAll(filters: AdminPayoutQuery = {}): Promise<PayoutDto[]> {
+    const rows = await this.repo.findAll(filters);
     return rows.map((r) => this.toDto(r, r.payee));
   }
 
