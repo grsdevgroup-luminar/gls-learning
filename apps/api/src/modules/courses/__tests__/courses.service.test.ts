@@ -22,7 +22,7 @@ function makeCourseRow(overrides: Record<string, unknown> = {}) {
     thumbnail: null,
     status: "PUBLISHED",
     visibility: "PUBLIC",
-    orgId: null,
+    orgAssignments: [] as { orgId: string }[],
     bestseller: false,
     language: "en",
     basePriceCents: 0,
@@ -46,7 +46,7 @@ function makeService(repoOverrides: Partial<CoursesRepository> = {}) {
     ...repoOverrides,
   } as unknown as CoursesRepository;
   const enrollment = {
-    isOrgMember: vi.fn().mockResolvedValue(false),
+    isOrgMemberOfAny: vi.fn().mockResolvedValue(false),
   } as unknown as EnrollmentService;
   const categoriesRepo = {} as CategoriesService;
   const storage = {} as StorageDriver;
@@ -81,7 +81,7 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     const { service } = makeService({
       findBySlug: vi
         .fn()
-        .mockResolvedValue(makeCourseRow({ visibility: "PRIVATE", orgId: "org_1" })),
+        .mockResolvedValue(makeCourseRow({ visibility: "PRIVATE", orgAssignments: [{ orgId: "org_1" }] })),
     });
     await expect(service.bySlug("intro-to-x")).rejects.toThrow(NotFoundException);
   });
@@ -90,20 +90,23 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     const { service, enrollment } = makeService({
       findBySlug: vi
         .fn()
-        .mockResolvedValue(makeCourseRow({ visibility: "PRIVATE", orgId: "org_1" })),
+        .mockResolvedValue(makeCourseRow({ visibility: "PRIVATE", orgAssignments: [{ orgId: "org_1" }] })),
     });
-    vi.mocked(enrollment.isOrgMember).mockResolvedValue(false);
+    vi.mocked(enrollment.isOrgMemberOfAny).mockResolvedValue(false);
     await expect(service.bySlug("intro-to-x", stranger)).rejects.toThrow(NotFoundException);
   });
 
-  it("returns a PRIVATE org course to a member of that org", async () => {
+  it("returns a PRIVATE course assigned to multiple orgs to a member of any one of them", async () => {
     const { service, enrollment } = makeService({
-      findBySlug: vi
-        .fn()
-        .mockResolvedValue(makeCourseRow({ visibility: "PRIVATE", orgId: "org_1" })),
+      findBySlug: vi.fn().mockResolvedValue(
+        makeCourseRow({
+          visibility: "PRIVATE",
+          orgAssignments: [{ orgId: "org_1" }, { orgId: "org_2" }],
+        }),
+      ),
     });
-    vi.mocked(enrollment.isOrgMember).mockResolvedValue(true);
+    vi.mocked(enrollment.isOrgMemberOfAny).mockResolvedValue(true);
     await expect(service.bySlug("intro-to-x", member)).resolves.toMatchObject({ id: "course_1" });
-    expect(enrollment.isOrgMember).toHaveBeenCalledWith("org_1", member.id);
+    expect(enrollment.isOrgMemberOfAny).toHaveBeenCalledWith(["org_1", "org_2"], member.id);
   });
 });

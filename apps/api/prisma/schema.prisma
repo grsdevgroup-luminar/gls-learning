@@ -375,23 +375,44 @@ model Course {
   updatedAt          DateTime     @updatedAt
   publishedAt        DateTime?
 
+  /// Independent of org assignment — see CourseOrgAssignment. PRIVATE hides a
+  /// course from the public catalog/direct-link entirely; org membership (via
+  /// an assignment row) is what grants access. Assigning a course to an org
+  /// never changes this field either way (assignment = distribution, not
+  /// privacy) — see OrganizationsService.assignCourse.
   visibility CourseVisibility @default(PUBLIC)
-  orgId      String?
-  org        Organization?    @relation(fields: [orgId], references: [id])
 
-  sections    Section[]
-  enrollments Enrollment[]
-  reviews     Review[]
-  comments    Comment[]
-  orderItems  OrderItem[]
-  coupons     Coupon[]
-  cartItems   CartItem[]
-  uploads     Upload[]
+  sections       Section[]
+  enrollments    Enrollment[]
+  reviews        Review[]
+  comments       Comment[]
+  orderItems     OrderItem[]
+  coupons        Coupon[]
+  cartItems      CartItem[]
+  uploads        Upload[]
+  orgAssignments CourseOrgAssignment[]
 
   @@index([status])
   @@index([instructorId])
   @@index([category])
   @@index([visibility])
+}
+
+/// A course made available to a company account. Many-to-many: one course can
+/// be curated into several orgs, and one org can have many courses. For a
+/// PRIVATE course this row is what grants access at all; for a PUBLIC course
+/// it's pure curation (the course was already open to everyone).
+model CourseOrgAssignment {
+  id        String       @id @default(cuid())
+  courseId  String
+  course    Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([courseId, orgId])
+  @@index([courseId])
+  @@index([orgId])
 }
 
 model Section {
@@ -947,9 +968,9 @@ model Organization {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  members     OrgMember[]
-  invitations OrgInvitation[]
-  courses     Course[]
+  members           OrgMember[]
+  invitations       OrgInvitation[]
+  courseAssignments CourseOrgAssignment[]
 
   @@index([status])
 }

@@ -86,7 +86,7 @@ export class OrganizationsService {
         role: m.role,
         joinedAt: m.joinedAt.toISOString(),
       })),
-      privateCourseCount: o._count.courses,
+      assignedCourseCount: o._count.courseAssignments,
     };
   }
 
@@ -110,6 +110,16 @@ export class OrganizationsService {
     if (isOrgAccessLocked(org))
       throw new ForbiddenException("This organization's access is currently suspended");
     return org.id;
+  }
+
+  /** Which courses a company gets is a platform decision, not something a
+   *  customer's own admin can grant themselves — same policy as seats/status. */
+  private async assertPlatformAdmin(user: RequestUser, idOrSlug: string) {
+    if (user.role !== "ADMIN")
+      throw new ForbiddenException(
+        "Course assignments are managed by SkillStream — contact support",
+      );
+    return this.getRow(idOrSlug);
   }
 
   /** Accepts either the org id or its slug (the web app routes by slug). */
@@ -349,28 +359,38 @@ export class OrganizationsService {
     return this.toDto(await this.getRow(orgId));
   }
 
-  // ── private course assignment ─────────────────────────────────────────────
+  // ── course assignment (many-to-many; public or private, admin only) ───────
+  /** Assignment is pure distribution/curation — it never changes a course's
+   *  visibility. A course must be Published (regardless of Public/Private)
+   *  so an org's list never shows a broken "Enroll" button. */
   async assignCourse(
     user: RequestUser,
     idOrSlug: string,
     input: AssignOrgCourseInput,
   ): Promise<OrganizationDto> {
-    const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    await this.repo.assignCourseToOrg(input.courseId, orgId);
-    return this.toDto(await this.getRow(orgId));
+    const org = await this.assertPlatformAdmin(user, idOrSlug);
+    const course = await this.repo.findCourseStatus(input.courseId);
+    if (!course) throw new NotFoundException("Course not found");
+    if (course.status !== "PUBLISHED")
+      throw new BadRequestException("Publish this course before assigning it to an organization");
+    if (await this.repo.findCourseInOrg(input.courseId, org.id))
+      throw new BadRequestException("This course is already assigned to this organization");
+    await this.repo.assignCourseToOrg(input.courseId, org.id);
+    return this.toDto(await this.getRow(org.id));
   }
 
-  /** Detach a private course from the org and return it to the public catalog. */
+  /** Detach a course from this org — a Private course stays Private (it may
+   *  still be assigned to other orgs); visibility is never touched here. */
   async unassignCourse(
     user: RequestUser,
     idOrSlug: string,
     courseId: string,
   ): Promise<OrganizationDto> {
-    const orgId = await this.assertOrgAdmin(user, idOrSlug);
-    const course = await this.repo.findCourseInOrg(courseId, orgId);
+    const org = await this.assertPlatformAdmin(user, idOrSlug);
+    const course = await this.repo.findCourseInOrg(courseId, org.id);
     if (!course) throw new NotFoundException("Course is not assigned to this organization");
-    await this.repo.unassignCourseFromOrg(courseId);
-    return this.toDto(await this.getRow(orgId));
+    await this.repo.unassignCourseFromOrg(courseId, org.id);
+    return this.toDto(await this.getRow(org.id));
   }
 
   // ── invitation management ─────────────────────────────────────────────────

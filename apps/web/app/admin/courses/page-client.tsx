@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatUsd, compactNumber } from "@/lib/format";
 import {
-  Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket,
+  Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
@@ -35,6 +35,7 @@ import {
 } from "../_components/admin-table";
 
 type ApiStatus = "PUBLISHED" | "DRAFT" | "REVIEW";
+type ApiVisibility = "PUBLIC" | "PRIVATE";
 
 const statusStyle: Record<ApiStatus, string> = {
   PUBLISHED: "text-success",
@@ -47,6 +48,7 @@ export default function AdminCourses() {
   const [qInput, setQInput] = useState("");
   const q = useDebouncedSearch(qInput);
   const [status, setStatus] = useState<"all" | ApiStatus>("all");
+  const [visibility, setVisibility] = useState<"all" | ApiVisibility>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
   const [deleteTarget, setDeleteTarget] = useState<InstructorCourseDto | null>(null);
@@ -56,11 +58,12 @@ export default function AdminCourses() {
   }, [q]);
 
   const { data: coursePage, isLoading } = useQuery({
-    queryKey: ["admin", "courses", "list", { q, status, page, pageSize }],
+    queryKey: ["admin", "courses", "list", { q, status, visibility, page, pageSize }],
     queryFn: () =>
       adminApi.courses({
         q: q || undefined,
         status: status === "all" ? undefined : status,
+        visibility: visibility === "all" ? undefined : visibility,
         page,
         pageSize,
       }),
@@ -142,6 +145,22 @@ export default function AdminCourses() {
             </Button>
           ))}
         </div>
+        <div className="flex gap-1">
+          {(["all", "PUBLIC", "PRIVATE"] as const).map((v) => (
+            <Button
+              key={v}
+              size="sm"
+              variant={visibility === v ? "default" : "outline"}
+              onClick={() => {
+                setVisibility(v);
+                setPage(1);
+              }}
+              className="capitalize"
+            >
+              {v.toLowerCase()}
+            </Button>
+          ))}
+        </div>
         <div className="ml-auto">
           <AdminRowsPerPage
             value={pageSize}
@@ -159,6 +178,8 @@ export default function AdminCourses() {
               <TableRow className={stickyHeaderRowClass}>
                 <TableHead className={`pl-6 ${stickyHeaderCellClass}`}>Course</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Status</TableHead>
+                <TableHead className={stickyHeaderCellClass}>Visibility</TableHead>
+                <TableHead className={stickyHeaderCellClass}>Orgs</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Students</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Rating</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Price</TableHead>
@@ -182,6 +203,26 @@ export default function AdminCourses() {
                     <Badge variant="outline" className={`capitalize ${statusStyle[c.status as ApiStatus] ?? ""}`}>
                       {c.status.toLowerCase()}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {c.visibility === "PRIVATE" ? (
+                      <Badge variant="outline" className="border-primary/30 text-primary">
+                        <Lock data-icon="inline-start" /> Private
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        <Globe data-icon="inline-start" /> Public
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {c.orgAssignmentCount ? (
+                      <span className="inline-flex items-center gap-1 text-sm">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" /> {c.orgAssignmentCount}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>{compactNumber(c.studentCount)}</TableCell>
                   <TableCell>{c.ratingAvg > 0 ? <Stars rating={c.ratingAvg} size={12} showValue /> : <span className="text-muted-foreground">—</span>}</TableCell>

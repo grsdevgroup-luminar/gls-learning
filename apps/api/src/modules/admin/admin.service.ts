@@ -303,10 +303,19 @@ export class AdminService {
     return { total, active, atRisk: total - active };
   }
 
+  /** `visibility`/`category`/`unassignedToOrgId` back the org-assignment
+   *  dialog's "Add courses" picker (list published courses — public or
+   *  private — not yet assigned to a given org); the admin table itself
+   *  only ever passes `status`/`q`. */
   async courses(query: AdminCourseQuery) {
     const q = query.q?.trim();
     const where: Prisma.CourseWhereInput = {
       ...(query.status ? { status: query.status } : {}),
+      ...(query.visibility ? { visibility: query.visibility } : {}),
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.unassignedToOrgId
+        ? { orgAssignments: { none: { orgId: query.unassignedToOrgId } } }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -322,11 +331,13 @@ export class AdminService {
       query.page,
       query.pageSize,
     );
-    // Admin view also exposes revenue (not part of the public summary).
+    // Admin view also exposes revenue and org-assignment count (neither part
+    // of the public summary).
     return {
       items: rows.map((r) => ({
         ...toCourseSummary(r),
         revenueCents: r.revenueCents,
+        orgAssignmentCount: r._count.orgAssignments,
       })),
       page: query.page,
       pageSize: query.pageSize,

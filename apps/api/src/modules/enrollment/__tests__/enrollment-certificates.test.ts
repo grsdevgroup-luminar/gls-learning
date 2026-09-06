@@ -38,8 +38,7 @@ function lessonAccessContext(orderedLessonIds: string[], targetLessonId: string)
       courseId,
       course: {
         visibility: "PUBLIC" as const,
-        orgId: null,
-        org: null,
+        orgAssignments: [] as { org: { id: string; status: string; accessLocksAt: Date | null; members: { id: string }[] } }[],
         sections: [
           {
             lessons: orderedLessonIds.map((id) => ({ id })),

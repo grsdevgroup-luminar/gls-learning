@@ -19,6 +19,10 @@ export type CourseSummaryRow = Prisma.CourseGetPayload<{
 
 const detailInclude = {
   instructor: { include: { instructorProfile: true } },
+  // Only the org ids are needed — just enough for CoursesService.bySlug()'s
+  // "is this caller a member of any org this PRIVATE course is assigned to"
+  // check. Never mapped into CourseDetailDto (admin-only concern).
+  orgAssignments: { select: { orgId: true } },
   sections: {
     orderBy: { order: "asc" },
     include: {
@@ -75,6 +79,7 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
     level: row.level,
     thumbnail: row.thumbnail,
     status: row.status,
+    visibility: row.visibility,
     bestseller: row.bestseller,
     language: row.language,
     basePriceCents: row.basePriceCents,
@@ -140,6 +145,7 @@ export function toCourseDetail(
     level: row.level,
     thumbnail: row.thumbnail,
     status: row.status,
+    visibility: row.visibility,
     bestseller: row.bestseller,
     language: row.language,
     basePriceCents: row.basePriceCents,

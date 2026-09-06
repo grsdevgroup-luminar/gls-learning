@@ -421,8 +421,12 @@ export const api = {
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
 
-/** Own-course listing includes revenue (owner-only field). */
-export type InstructorCourseDto = CourseSummaryDto & { revenueCents: number };
+/** Own-course listing includes revenue (owner-only field). `orgAssignmentCount`
+ *  is only ever populated by the admin course list, not the instructor's own. */
+export type InstructorCourseDto = CourseSummaryDto & {
+  revenueCents: number;
+  orgAssignmentCount?: number;
+};
 
 // ── organizations (B2B portal) ─────────────────────────────────────────────
 
@@ -538,6 +542,8 @@ export interface CourseFieldsInput {
   thumbnail?: string;
   language?: string;
   basePriceCents?: number;
+  /** Platform-admin only — the API rejects this field from anyone else. */
+  visibility?: "PUBLIC" | "PRIVATE";
 }
 export interface LessonFieldsInput {
   title: string;

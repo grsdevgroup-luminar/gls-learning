@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { OrganizationDto } from "@skillstream/shared";
-import { Building2, BookOpen, Play, Plus, Lock, PauseCircle } from "lucide-react";
+import { Building2, BookOpen, Play, Plus, Lock, Globe, PauseCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CourseGridSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
 
@@ -128,9 +128,15 @@ function OrgCourseList({
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{c.title}</div>
                       <div className="mt-1 text-xs text-muted-foreground">{c.category} · {c.level}</div>
-                      <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">
-                        <Lock className="h-3 w-3" /> Private · included
-                      </div>
+                      {c.visibility === "PRIVATE" ? (
+                        <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">
+                          <Lock className="h-3 w-3" /> Private · included
+                        </div>
+                      ) : (
+                        <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Globe className="h-3 w-3" /> Public · included
+                        </div>
+                      )}
                     </div>
                   </div>
                   {enrolled ? (

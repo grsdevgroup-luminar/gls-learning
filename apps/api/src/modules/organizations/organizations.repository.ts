@@ -6,7 +6,7 @@ import type { Db } from "../../common/types";
 
 export const ORG_INCLUDE = {
   members: { orderBy: { joinedAt: "asc" } },
-  _count: { select: { courses: true } },
+  _count: { select: { courseAssignments: true } },
 } satisfies Prisma.OrganizationInclude;
 
 export type OrgRow = Prisma.OrganizationGetPayload<{
@@ -193,24 +193,35 @@ export class OrganizationsRepository {
     });
   }
 
-  assignCourseToOrg(courseId: string, orgId: string) {
-    return this.prisma.course.update({
+  /** Precondition check for assignment — a course must be Published before
+   *  it can appear in any org's list (public or private assignment). */
+  findCourseStatus(courseId: string) {
+    return this.prisma.course.findUnique({
       where: { id: courseId },
-      data: { orgId, visibility: "PRIVATE" },
+      select: { status: true },
     });
+  }
+
+  /** Many-to-many — a course keeps whatever `visibility` it already has.
+   *  Assignment is pure distribution: for a PUBLIC course it's curation (the
+   *  course was already open to everyone); for a PRIVATE course this row is
+   *  what actually grants that org's members access. */
+  assignCourseToOrg(courseId: string, orgId: string) {
+    return this.prisma.courseOrgAssignment.create({ data: { courseId, orgId } });
   }
 
   findCourseInOrg(courseId: string, orgId: string) {
-    return this.prisma.course.findFirst({
-      where: { id: courseId, orgId },
+    return this.prisma.courseOrgAssignment.findUnique({
+      where: { courseId_orgId: { courseId, orgId } },
     });
   }
 
-  unassignCourseFromOrg(courseId: string) {
-    return this.prisma.course.update({
-      where: { id: courseId },
-      data: { orgId: null, visibility: "PUBLIC" },
-    });
+  /** Never touches `visibility` — a PRIVATE course stays PRIVATE (even with
+   *  zero remaining assignments) until an admin deliberately flips it back to
+   *  PUBLIC via course CRUD (AuthoringService.update, blocked while any
+   *  assignment remains). */
+  unassignCourseFromOrg(courseId: string, orgId: string) {
+    return this.prisma.courseOrgAssignment.deleteMany({ where: { courseId, orgId } });
   }
 
   findActiveInvitations(orgId: string) {
@@ -238,7 +249,7 @@ export class OrganizationsRepository {
 
   findOrgCourses(orgId: string) {
     return this.prisma.course.findMany({
-      where: { orgId },
+      where: { orgAssignments: { some: { orgId } } },
       include: COURSE_SUMMARY_INCLUDE,
       orderBy: { updatedAt: "desc" },
     });

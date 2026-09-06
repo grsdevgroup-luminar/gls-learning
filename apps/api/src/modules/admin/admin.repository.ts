@@ -135,7 +135,10 @@ export class AdminRepository {
     return this.prisma.$transaction([
       this.prisma.course.findMany({
         where,
-        include: COURSE_SUMMARY_INCLUDE,
+        // Admin-only extras (org-assignment count) on top of the shared
+        // summary shape — not added to COURSE_SUMMARY_INCLUDE itself, which
+        // every other consumer (public catalog, org course lists) also uses.
+        include: { ...COURSE_SUMMARY_INCLUDE, _count: { select: { orgAssignments: true } } },
         orderBy: { updatedAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,

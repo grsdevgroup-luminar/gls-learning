@@ -62,7 +62,9 @@ export const OrganizationDto = z.object({
   usedSeats: z.number(),
   createdAt: z.string(),
   members: z.array(OrgMemberDto),
-  privateCourseCount: z.number(),
+  /** Courses assigned to this org — public or private; assignment is
+   *  distribution/curation, not a privacy signal, so this counts both. */
+  assignedCourseCount: z.number(),
 });
 export type OrganizationDto = z.infer<typeof OrganizationDto>;
 

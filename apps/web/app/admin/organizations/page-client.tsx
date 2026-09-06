@@ -16,12 +16,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, Users, BookOpen, Plus, Search, BookOpenCheck } from "lucide-react";
+import { Building2, Users, BookOpen, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { PlanDialog } from "./plan-dialog";
 import { CredentialsPanel } from "./credentials-panel";
-import { AssignCourseDialog } from "@/components/shared/assign-course-dialog";
+import { ManageOrgCoursesDialog } from "@/components/shared/manage-org-courses-dialog";
 
 const statusColors: Record<string, string> = {
   ACTIVE: "text-success",
@@ -61,7 +61,7 @@ export default function AdminOrganizations() {
     { icon: Building2, label: "Total orgs", value: orgs.length },
     { icon: Building2, label: "Active", value: orgs?.filter((o) => o.status === "ACTIVE").length ?? 0 },
     { icon: Users, label: "Total members", value: orgs?.reduce((s, o) => s + o.usedSeats, 0) ?? 0 },
-    { icon: BookOpen, label: "Course assignments", value: orgs?.reduce((s, o) => s + o.privateCourseCount, 0) ?? 0 },
+    { icon: BookOpen, label: "Course assignments", value: orgs?.reduce((s, o) => s + o.assignedCourseCount, 0) ?? 0 },
   ];
 
   if (isLoading) {
@@ -180,7 +180,7 @@ export default function AdminOrganizations() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{o.domain ?? "—"}</TableCell>
                     <TableCell className="text-sm">{o.usedSeats} / {o.seatCount}</TableCell>
-                    <TableCell className="text-sm">{o.privateCourseCount}</TableCell>
+                    <TableCell className="text-sm">{o.assignedCourseCount}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={statusColors[o.status] ?? ""}>
                         {o.status.charAt(0) + o.status.slice(1).toLowerCase()}
@@ -191,13 +191,7 @@ export default function AdminOrganizations() {
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
-                        <AssignCourseDialog
-                          orgId={o.id}
-                          assignedIds={new Set()}
-                          renderTrigger={<Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" />}
-                        >
-                          <BookOpenCheck className="h-3 w-3" /> Assign course
-                        </AssignCourseDialog>
+                        <ManageOrgCoursesDialog orgId={o.id} orgName={o.name} />
                         <PlanDialog org={o} />
                       </div>
                     </TableCell>

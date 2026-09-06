@@ -19,8 +19,14 @@ export class AuthoringRepository {
   findCourseInstructor(courseId: string) {
     return this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { instructorId: true, category: true },
+      select: { instructorId: true, category: true, status: true, visibility: true },
     });
+  }
+
+  /** How many orgs a course is currently assigned to — used to block
+   *  unpublishing or un-privatizing a course that's actively in use by an org. */
+  countOrgAssignments(courseId: string) {
+    return this.prisma.courseOrgAssignment.count({ where: { courseId } });
   }
 
   findSectionCourseId(sectionId: string) {

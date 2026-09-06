@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -120,7 +121,24 @@ export class AuthoringService {
   }
 
   async update(user: RequestUser, id: string, input: UpdateCourseInput) {
-    await this.assertCourseAccess(id, user);
+    const course = await this.assertCourseAccess(id, user);
+    if (input.visibility !== undefined) {
+      // Which orgs a course is assigned to is a platform-admin distribution
+      // decision (see OrganizationsService.assertPlatformAdmin) — visibility
+      // gets the same restriction, for the same reason: a customer's own
+      // instructor shouldn't be able to pull a course out of (or into) the
+      // public catalog unilaterally.
+      if (user.role !== "ADMIN")
+        throw new ForbiddenException(
+          "Course visibility is managed by SkillStream — contact support",
+        );
+      if (input.visibility === "PRIVATE" && course.status !== "PUBLISHED")
+        throw new BadRequestException("Publish this course before making it private");
+      if (input.visibility === "PUBLIC" && (await this.repo.countOrgAssignments(id)) > 0)
+        throw new BadRequestException(
+          "Unassign this course from its organization(s) before making it public",
+        );
+    }
     const category = input.category
       ? await this.categories.ensureForAuthor(input.category, user)
       : undefined;
@@ -135,6 +153,14 @@ export class AuthoringService {
   async setStatus(user: RequestUser, id: string, input: CourseStatusInput) {
     const course = await this.assertCourseAccess(id, user);
     if (input.status === "PUBLISHED") await this.categories.assertActive(course.category);
+    // A course an org is actively using (public or private assignment — an
+    // org's course list has no status filter) can't be pulled back to
+    // Draft/Review out from under it: members would see a course card whose
+    // "Enroll" silently 404s, since enrollment always requires PUBLISHED.
+    if (input.status !== "PUBLISHED" && (await this.repo.countOrgAssignments(id)) > 0)
+      throw new BadRequestException(
+        "Unassign this course from its organization(s) before unpublishing it",
+      );
     // Check prior state BEFORE update to detect first publish.
     const prior = await this.repo.findCoursePriorStatus(id);
     const isFirstPublish = input.status === "PUBLISHED" && !prior?.publishedAt;

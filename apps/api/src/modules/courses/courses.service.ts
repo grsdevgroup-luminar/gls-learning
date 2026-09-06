@@ -121,7 +121,8 @@ export class CoursesService {
     if (row.status !== "PUBLISHED" && user?.role !== "ADMIN")
       throw new NotFoundException("Course not found");
     if (row.visibility === "PRIVATE" && user?.role !== "ADMIN") {
-      const member = row.orgId && user ? await this.enrollment.isOrgMember(row.orgId, user.id) : false;
+      const orgIds = row.orgAssignments.map((a) => a.orgId);
+      const member = user ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id) : false;
       if (!member) throw new NotFoundException("Course not found");
     }
     const detail = toCourseDetail(row);

@@ -28,7 +28,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2, FileText, Upload, Link2, ExternalLink, ChevronDown,
+  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2, FileText, Upload, Link2, ExternalLink, ChevronDown, Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -196,6 +196,7 @@ export function CourseBuilder({
   const subtitleTooLong = subtitle.length > MAX_SUBTITLE_LENGTH;
   const descriptionTooLong = description.length > MAX_COURSE_DESCRIPTION_LENGTH;
   const [published, setPublished] = useState(false);
+  const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [saving, setSaving] = useState(false);
   const [dragSection, setDragSection] = useState<number | null>(null);
   // Collapsed-by-id, UI-only — not persisted. Sections start expanded.
@@ -231,6 +232,7 @@ export function CourseBuilder({
     setPrice((detail.basePriceCents / 100).toFixed(2));
     setThumbnail(detail.thumbnail || "react");
     setPublished(detail.status === "PUBLISHED");
+    setVisibility(detail.visibility);
     setSections(sectionsFromDetail(detail));
   }
 
@@ -464,6 +466,13 @@ export function CourseBuilder({
         action === "publish" ? "PUBLISHED" : action === "review" ? "REVIEW" : "DRAFT";
       if (saved.status !== targetStatus) {
         await authoringApi.setCourseStatus(id, targetStatus);
+      }
+
+      // Visibility change, applied last so a same-save "publish + make
+      // private" combo sees the course as already Published server-side —
+      // the API requires PUBLISHED before it will accept PRIVATE.
+      if (mode === "admin" && courseId && visibility !== detail?.visibility) {
+        await authoringApi.updateCourse(id, { visibility });
       }
 
       void qc.invalidateQueries({ queryKey: ["authoring", "course", id] });
@@ -808,6 +817,25 @@ export function CourseBuilder({
                   <div className="flex items-center justify-between">
                     <Label htmlFor="pub">Publish course</Label>
                     <Switch id="pub" checked={published} onCheckedChange={setPublished} />
+                  </div>
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Label htmlFor="priv">Private course</Label>
+                      </div>
+                      <Switch
+                        id="priv"
+                        checked={visibility === "PRIVATE"}
+                        onCheckedChange={(checked) => setVisibility(checked ? "PRIVATE" : "PUBLIC")}
+                        disabled={!published}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      {published
+                        ? "Hides this course from the public catalog. Assign it to specific organizations from the Organizations page to control who can access it."
+                        : "Publish the course first to make it private."}
+                    </p>
                   </div>
                 </CardContent>
               </Card>

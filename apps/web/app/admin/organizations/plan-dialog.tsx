@@ -79,7 +79,7 @@ export function PlanDialog({ org }: { org: OrganizationDto }) {
             <Label className="text-xs">Status</Label>
             <Select value={status} onValueChange={(v) => v && setStatus(v as OrganizationDto["status"])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent alignItemWithTrigger={false}>
                 {["TRIAL", "ACTIVE", "SUSPENDED"].map((s) => (
                   <SelectItem key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</SelectItem>
                 ))}

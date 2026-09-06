@@ -101,7 +101,7 @@ area — see the schema's own section comments for the authoritative model list:
 | Marketing | `AutomationRule`, `ReminderLog` |
 | Ops | `PlatformSettings` (singleton row), `AuditLog`, `WebhookEvent` |
 | Sales agents | `SalesAgent`, `SalesAgentApplication`, `SalesAgentReferral` |
-| B2B orgs | `Organization`, `OrgMember`, `OrgInvitation` |
+| B2B orgs | `Organization`, `OrgMember`, `OrgInvitation` — see [ORGANIZATION_ENROLLMENT.md](./ORGANIZATION_ENROLLMENT.md) for the full admin/org-admin/member flow and suspension policy |
 | Payouts | `PayoutAccount`, `Payout` |
 
 Conventions that hold everywhere:

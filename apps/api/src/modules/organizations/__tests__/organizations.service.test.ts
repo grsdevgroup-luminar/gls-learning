@@ -36,7 +36,7 @@ function makeOrgRow(overrides: Partial<OrgRow> = {}): OrgRow {
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     members: [],
-    _count: { courses: 0 },
+    _count: { courseAssignments: 0 },
     ...overrides,
   } as unknown as OrgRow;
 }
@@ -49,6 +49,8 @@ function makeService(repoOverrides: Partial<OrganizationsRepository> = {}) {
     findAdminMembership: vi.fn(),
     findOrgMembership: vi.fn(),
     findOrgCourses: vi.fn().mockResolvedValue([]),
+    findCourseStatus: vi.fn().mockResolvedValue({ status: "PUBLISHED" }),
+    findCourseInOrg: vi.fn().mockResolvedValue(null),
     ...repoOverrides,
   } as unknown as OrganizationsRepository;
 
@@ -238,5 +240,125 @@ describe("OrganizationsService — lock enforcement", () => {
     await expect(
       service.listCourses({ ...orgAdminUser, role: "STUDENT" }, "org_1"),
     ).rejects.toThrow(ForbiddenException);
+  });
+});
+
+describe("OrganizationsService — course assignment is platform-admin only", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("rejects an org's own admin trying to assign a course", async () => {
+    const { service, repo } = makeService({
+      findAdminMembership: vi.fn().mockResolvedValue({ id: "member_1" }),
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+
+    await expect(
+      service.assignCourse(orgAdminUser, "org_1", { courseId: "course_1" }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("rejects an org's own admin trying to unassign a course", async () => {
+    const { service, repo } = makeService({
+      findAdminMembership: vi.fn().mockResolvedValue({ id: "member_1" }),
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+
+    await expect(
+      service.unassignCourse(orgAdminUser, "org_1", "course_1"),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("lets the platform ADMIN assign a published PUBLIC course", async () => {
+    const assignCourseToOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({ assignCourseToOrg });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+    vi.mocked(repo.findCourseStatus).mockResolvedValue({ status: "PUBLISHED" });
+
+    await service.assignCourse(platformAdmin, "org_1", { courseId: "course_1" });
+    expect(assignCourseToOrg).toHaveBeenCalledWith("course_1", "org_1");
+  });
+
+  it("lets the platform ADMIN assign a published PRIVATE course — no visibility precondition", async () => {
+    const assignCourseToOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({ assignCourseToOrg });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+    vi.mocked(repo.findCourseStatus).mockResolvedValue({ status: "PUBLISHED" });
+
+    await service.assignCourse(platformAdmin, "org_1", { courseId: "course_1" });
+    expect(assignCourseToOrg).toHaveBeenCalledWith("course_1", "org_1");
+  });
+
+  it("rejects assigning a course that isn't Published yet", async () => {
+    const assignCourseToOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({ assignCourseToOrg });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+    vi.mocked(repo.findCourseStatus).mockResolvedValue({ status: "DRAFT" });
+
+    await expect(
+      service.assignCourse(platformAdmin, "org_1", { courseId: "course_1" }),
+    ).rejects.toThrow(BadRequestException);
+    expect(assignCourseToOrg).not.toHaveBeenCalled();
+  });
+
+  it("rejects re-assigning a course already assigned to the org", async () => {
+    const assignCourseToOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({
+      assignCourseToOrg,
+      findCourseInOrg: vi.fn().mockResolvedValue({ id: "assignment_1" }),
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+    vi.mocked(repo.findCourseStatus).mockResolvedValue({ status: "PUBLISHED" });
+
+    await expect(
+      service.assignCourse(platformAdmin, "org_1", { courseId: "course_1" }),
+    ).rejects.toThrow(BadRequestException);
+    expect(assignCourseToOrg).not.toHaveBeenCalled();
+  });
+
+  it("allows the same course to be assigned to a second, different org", async () => {
+    const assignCourseToOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({
+      assignCourseToOrg,
+      findCourseInOrg: vi.fn().mockResolvedValue(null),
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow({ id: "org_2", slug: "org-two" }));
+    vi.mocked(repo.findCourseStatus).mockResolvedValue({ status: "PUBLISHED" });
+
+    await service.assignCourse(platformAdmin, "org_2", { courseId: "course_1" });
+    expect(assignCourseToOrg).toHaveBeenCalledWith("course_1", "org_2");
+  });
+
+  it("lets the platform ADMIN unassign a course", async () => {
+    const unassignCourseFromOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({
+      findCourseInOrg: vi.fn().mockResolvedValue({ id: "course_1" }),
+      unassignCourseFromOrg,
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+
+    await service.unassignCourse(platformAdmin, "org_1", "course_1");
+    expect(unassignCourseFromOrg).toHaveBeenCalledWith("course_1", "org_1");
+  });
+
+  it("unassignCourse never touches visibility — a Private course stays Private after unassignment", async () => {
+    // OrganizationsRepository has no course-visibility-mutating method at
+    // all (that lives solely in AuthoringRepository/AuthoringService) — the
+    // regression this guards against is a future edit routing unassignment
+    // through assignCourseToOrg or some other course-mutating call instead
+    // of the plain deleteMany the repo does today.
+    const unassignCourseFromOrg = vi.fn().mockResolvedValue(undefined);
+    const assignCourseToOrg = vi.fn().mockResolvedValue(undefined);
+    const { service, repo } = makeService({
+      findCourseInOrg: vi.fn().mockResolvedValue({ id: "course_1" }),
+      unassignCourseFromOrg,
+      assignCourseToOrg,
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(makeOrgRow());
+
+    await service.unassignCourse(platformAdmin, "org_1", "course_1");
+
+    expect(unassignCourseFromOrg).toHaveBeenCalledTimes(1);
+    expect(unassignCourseFromOrg).toHaveBeenCalledWith("course_1", "org_1");
+    expect(assignCourseToOrg).not.toHaveBeenCalled();
   });
 });
