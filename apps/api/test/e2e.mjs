@@ -406,6 +406,49 @@ async function commerce() {
   if (state.tier) {
     r = await req("PATCH", `/admin/pricing/tiers/${state.tier}`, { token: state.admin.token, body: { multiplier: 0.6 } });
     check("update pricing tier", r.status === 200, `${r.status} ${msg(r)}`);
+
+    // Isolated region fixture: Åland Islands is never seeded. Sweep a leftover
+    // from a previous failed run, then require a real create (not 409).
+    state.pricingRegion = "AX";
+    await req("DELETE", `/admin/pricing/regions/${state.pricingRegion}`, { token: state.admin.token });
+
+    r = await req("POST", "/admin/pricing/regions", {
+      token: state.admin.token,
+      body: {
+        code: "tv",
+        currency: "AUD",
+        symbol: "$",
+        fxRate: 1.5,
+        tierId: "missing-tier",
+        multiplier: 0.5,
+      },
+    });
+    check(
+      "create region with unknown tierId rejected even with custom multiplier",
+      r.status === 400,
+      `${r.status} ${msg(r)}`,
+    );
+
+    r = await req("POST", "/admin/pricing/regions", {
+      token: state.admin.token,
+      body: { code: "ax", currency: "eur", symbol: "€", fxRate: 0.92, tierId: state.tier },
+    });
+    const created = r.json?.regions?.find((x) => x.code === "AX");
+    check(
+      "create pricing region from ISO code",
+      (r.status === 201 || r.status === 200) && created?.country === "Åland Islands" && !!created?.flag,
+      `${r.status} ${msg(r)} country=${created?.country}`,
+    );
+    check(
+      "new region FX rate is not stale",
+      !!created?.fxUpdatedAt && created?.fxStale === false,
+      `fxStale=${created?.fxStale} fxUpdatedAt=${created?.fxUpdatedAt}`,
+    );
+    r = await req("POST", "/admin/pricing/regions", {
+      token: state.admin.token,
+      body: { code: "AX", currency: "EUR", symbol: "€", fxRate: 0.92 },
+    });
+    check("duplicate pricing region rejected", r.status === 409, `${r.status}`);
   }
 
   r = await req("POST", "/checkout/quote", { token: state.student.token, body: { courseIds: [state.course.id], regionCode: state.region } });
@@ -819,6 +862,7 @@ async function cleanup() {
   if (state.quiz) await del("delete quiz", `/quizzes/${state.quiz}`, it);
   if (state.lessonVideo) await del("delete lesson", `/lessons/${state.lessonVideo}`, it);
   if (state.s2) await del("delete section", `/sections/${state.s2}`, it);
+  if (state.pricingRegion) await del("delete pricing region", `/admin/pricing/regions/${state.pricingRegion}`, t);
   if (state.tier) await del("delete pricing tier", `/admin/pricing/tiers/${state.tier}`, t);
   if (state.course) {
     const r = await req("DELETE", `/courses/${state.course.id}`, { token: it });

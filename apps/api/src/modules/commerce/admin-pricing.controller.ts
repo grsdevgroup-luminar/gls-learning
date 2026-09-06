@@ -8,9 +8,11 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
+  CreateRegionSchema,
   PatchRegionSchema,
   PatchTierSchema,
   UpsertTierSchema,
+  type CreateRegionInput,
   type PatchRegionInput,
   type PatchTierInput,
   type UpsertTierInput,
@@ -51,11 +53,23 @@ export class AdminPricingController {
     return this.pricing.deleteTier(id);
   }
 
+  @Post("regions")
+  createRegion(
+    @ZodBody(CreateRegionSchema) body: CreateRegionInput,
+  ) {
+    return this.pricing.createRegion(body);
+  }
+
   @Patch("regions/:code")
   updateRegion(
     @Param("code") code: string,
     @ZodBody(PatchRegionSchema) body: PatchRegionInput,
   ) {
     return this.pricing.updateRegion(code, body);
+  }
+
+  @Delete("regions/:code")
+  deleteRegion(@Param("code") code: string) {
+    return this.pricing.deleteRegion(code);
   }
 }

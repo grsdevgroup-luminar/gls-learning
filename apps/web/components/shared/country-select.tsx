@@ -16,20 +16,29 @@ export function CountrySelect({
   value,
   onChange,
   placeholder = 'Select your country',
+  excludeCodes = [],
 }: {
   value: string;
   onChange: (code: string) => void;
   placeholder?: string;
+  /** ISO codes already in use — hidden from the picker. */
+  excludeCodes?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedSearch(query);
 
+  const available = useMemo(() => {
+    if (excludeCodes.length === 0) return COUNTRIES;
+    const skip = new Set(excludeCodes.map((c) => c.toUpperCase()));
+    return COUNTRIES.filter((c) => !skip.has(c.code));
+  }, [excludeCodes]);
+
   const filteredCountries = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase();
-    if (!q) return COUNTRIES;
-    return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q));
-  }, [debouncedQuery]);
+    if (!q) return available;
+    return available.filter((c) => c.name.toLowerCase().includes(q));
+  }, [available, debouncedQuery]);
 
   if (COUNTRIES.length === 0) {
     return (

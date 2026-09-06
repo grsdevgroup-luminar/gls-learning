@@ -269,3 +269,14 @@ export function isIsoCountryCode(code: string): boolean {
 export function nameFor(code: string): string | undefined {
   return BY_CODE.get(code.toUpperCase())?.name;
 }
+
+/** Convert an ISO 3166-1 alpha-2 code to its flag emoji. */
+export function flagFor(code: string): string {
+  const c = code.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return "";
+  const A = 0x1f1e6;
+  return String.fromCodePoint(
+    A + c.charCodeAt(0) - 65,
+    A + c.charCodeAt(1) - 65,
+  );
+}

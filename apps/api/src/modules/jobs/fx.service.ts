@@ -51,15 +51,19 @@ export class FxService {
     const skipped: string[] = [];
     for (const region of regions) {
       // USD is the base — always exactly 1, never worth a feed round-trip.
-      const rate = region.currency === "USD" ? 1 : rates[region.currency];
+      if (region.currency === "USD") continue;
+      const rate = rates[region.currency];
       if (!this.isSaneRate(rate)) {
         skipped.push(region.currency);
         continue;
       }
-      // Sub-0.01% moves aren't visible in a rounded display hint; skip the write.
-      if (Math.abs(rate - region.fxRate) / region.fxRate < 0.0001) continue;
+      // Always stamp fxUpdatedAt on a successful check. Skipping the write when
+      // the number hasn't moved left the old timestamp in place, so a healthy
+      // feed still looked stale after FX_STALE_AFTER_MS.
       await this.repo.updateRegionRate(region.code, rate, new Date());
-      updated += 1;
+      if (Math.abs(rate - region.fxRate) / region.fxRate >= 0.0001) {
+        updated += 1;
+      }
     }
 
     if (skipped.length > 0) {

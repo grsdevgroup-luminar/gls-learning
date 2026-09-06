@@ -13,6 +13,8 @@ import {
   quizPassed,
 } from "../progress.js";
 import { CouponType, CouponScope, SalesAgentStatus } from "../enums.js";
+import { flagFor } from "../countries.js";
+import { CreateRegionSchema } from "../contracts/pricing.js";
 import {
   ReviewAgentApplicationSchema,
   UpdateAgentSchema,
@@ -245,5 +247,37 @@ describe("adminReviewQuerySchema", () => {
   it("rejects invalid status and out-of-range rating", () => {
     expect(adminReviewQuerySchema.safeParse({ status: "all" }).success).toBe(false);
     expect(adminReviewQuerySchema.safeParse({ rating: "0" }).success).toBe(false);
+  });
+});
+
+describe("CreateRegionSchema", () => {
+  it("uppercases ISO codes and currency from the shared country list", () => {
+    const parsed = CreateRegionSchema.parse({
+      code: "fr",
+      currency: "eur",
+      symbol: "€",
+      fxRate: 0.92,
+    });
+    expect(parsed.code).toBe("FR");
+    expect(parsed.currency).toBe("EUR");
+  });
+
+  it("rejects unknown country codes", () => {
+    expect(
+      CreateRegionSchema.safeParse({
+        code: "XX",
+        currency: "USD",
+        symbol: "$",
+        fxRate: 1,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("flagFor", () => {
+  it("maps an alpha-2 code to a flag emoji", () => {
+    expect(flagFor("US")).toBe("🇺🇸");
+    expect(flagFor("bd")).toBe("🇧🇩");
+    expect(flagFor("X")).toBe("");
   });
 });

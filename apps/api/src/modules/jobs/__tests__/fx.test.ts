@@ -90,11 +90,13 @@ describe("FxService.refresh", () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it("does not write when the rate has not meaningfully moved", async () => {
+  it("stamps fxUpdatedAt when the rate has not meaningfully moved", async () => {
     mockFeed({ result: "success", rates: { BDT: 117.001, GBP: 0.79 } });
     const { service, update } = makeService(REGIONS);
 
     expect(await service.refresh()).toEqual({ updated: 0, skipped: [] });
-    expect(update).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith("BD", 117.001, expect.any(Date));
+    expect(update).toHaveBeenCalledWith("GB", 0.79, expect.any(Date));
+    expect(update).not.toHaveBeenCalledWith("US", expect.anything(), expect.anything());
   });
 });
