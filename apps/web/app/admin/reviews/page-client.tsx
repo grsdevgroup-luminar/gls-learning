@@ -1,45 +1,105 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ReviewDto } from "@/lib/api/endpoints";
+import { ReviewStatus } from "@skillstream/shared";
+import { adminApi, type ReviewDto } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { initials, relativeDate } from "@/lib/format";
+import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { Stars } from "@/components/shared/stars";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Check, EyeOff, MessageSquare, Star, Flag } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Check, EyeOff, MessageSquare, Search, Star, Flag } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AdminPagination,
+  AdminRowsPerPage,
+  ADMIN_PAGE_SIZE_OPTIONS,
+} from "../_components/admin-pagination";
+
+const STATUS_FILTERS = ["all", ...Object.values(ReviewStatus)] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const STATUS_LABELS: Record<Exclude<StatusFilter, "all">, string> = {
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  HIDDEN: "Hidden",
+};
+
+const RATING_FILTERS = ["all", "5", "4", "3", "2", "1"] as const;
+type RatingFilter = (typeof RATING_FILTERS)[number];
 
 export default function AdminReviews() {
   const qc = useQueryClient();
-  const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ["admin", "reviews"],
-    queryFn: () => api.adminReviews(),
+  const [qInput, setQInput] = useState("");
+  const q = useDebouncedSearch(qInput);
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [courseId, setCourseId] = useState("all");
+  const [rating, setRating] = useState<RatingFilter>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
+
+  const { data: reviewPage, isLoading, error } = useQuery({
+    queryKey: ["admin", "reviews", "list", { q, status, courseId, rating, page, pageSize }],
+    queryFn: () =>
+      adminApi.reviews({
+        q: q || undefined,
+        status: status === "all" ? undefined : status,
+        courseId: courseId === "all" ? undefined : courseId,
+        rating: rating === "all" ? undefined : Number(rating),
+        page,
+        pageSize,
+      }),
+    placeholderData: (prev) => prev,
   });
 
-  const setStatus = useMutation({
+  const { data: statsData } = useQuery({
+    queryKey: ["admin", "reviews", "stats"],
+    queryFn: adminApi.reviewStats,
+  });
+
+  const { data: courses = [] } = useQuery({
+    queryKey: ["admin", "reviews", "courses"],
+    queryFn: adminApi.reviewCourses,
+  });
+
+  const setStatusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "APPROVED" | "HIDDEN" }) =>
-      api.updateReviewStatus(id, status),
-    onSuccess: (_r, { status }) => {
-      qc.invalidateQueries({ queryKey: ["admin", "reviews"] });
-      toast.success(status === "APPROVED" ? "Review approved" : "Review hidden");
+      adminApi.updateReviewStatus(id, status),
+    onSuccess: (_r, { status: next }) => {
+      void qc.invalidateQueries({ queryKey: ["admin", "reviews"] });
+      toast.success(
+        next === "APPROVED" ? "Review approved" : "Review hidden",
+      );
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 
-  const pending = reviews?.filter((r) => r.status === "PENDING") ?? [];
-  const approved = reviews?.filter((r) => r.status === "APPROVED") ?? [];
-  const avg = approved.length
-    ? approved.reduce((s, r) => s + r.rating, 0) / approved.length
-    : 0;
+  const reviews = reviewPage?.items ?? [];
+  const totalPages = reviewPage?.totalPages ?? 1;
 
-  const stats = [
-    { icon: Star, label: "Avg. rating", value: avg.toFixed(2) },
-    { icon: MessageSquare, label: "Approved reviews", value: approved.length },
-    { icon: Flag, label: "Pending moderation", value: pending.length },
-  ];
+  useEffect(() => {
+    if (reviewPage && page > reviewPage.totalPages) setPage(reviewPage.totalPages);
+  }, [reviewPage, page]);
+
+  const stats = statsData
+    ? [
+        { icon: Star, label: "Avg. rating", value: statsData.avgRating.toFixed(2) },
+        { icon: MessageSquare, label: "Approved reviews", value: statsData.approved },
+        { icon: Flag, label: "Pending moderation", value: statsData.pending },
+      ]
+    : [];
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -49,80 +109,173 @@ export default function AdminReviews() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        {stats.map((s) => (
+        {(stats.length ? stats : [
+          { icon: Star, label: "Avg. rating", value: "…" },
+          { icon: MessageSquare, label: "Approved reviews", value: "…" },
+          { icon: Flag, label: "Pending moderation", value: "…" },
+        ]).map((s) => (
           <Card key={s.label}>
             <CardContent className="flex items-center gap-3 pt-6">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><s.icon className="h-5 w-5" /></div>
-              <div><div className="text-2xl font-bold leading-none">{s.value}</div><div className="text-xs text-muted-foreground">{s.label}</div></div>
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                <s.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold leading-none">{s.value}</div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {isLoading && (
-        <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading reviews…</CardContent></Card>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative sm:max-w-xs sm:flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Search title, body, author, course…"
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={status}
+          onValueChange={(value) => {
+            if (!value) return;
+            setStatus(value as StatusFilter);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[11.5rem]" aria-label="Filter by status">
+            <SelectValue>
+              {status === "all" ? "All statuses" : STATUS_LABELS[status]}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_FILTERS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s === "all" ? "All statuses" : STATUS_LABELS[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={courseId}
+          onValueChange={(value) => {
+            if (!value) return;
+            setCourseId(value);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[14rem]" aria-label="Filter by course">
+            <SelectValue>
+              {courseId === "all"
+                ? "All courses"
+                : courses.find((c) => c.id === courseId)?.title ?? "All courses"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All courses</SelectItem>
+            {courses.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={rating}
+          onValueChange={(value) => {
+            if (!value) return;
+            setRating(value as RatingFilter);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[10.5rem]" aria-label="Filter by rating">
+            <SelectValue>
+              {rating === "all" ? "All ratings" : `${rating} star${rating === "1" ? "" : "s"}`}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {RATING_FILTERS.map((r) => (
+              <SelectItem key={r} value={r}>
+                {r === "all" ? "All ratings" : `${r} star${r === "1" ? "" : "s"}`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="sm:ml-auto">
+          <AdminRowsPerPage
+            value={pageSize}
+            onChange={(value) => {
+              setPageSize(value);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-sm text-destructive">Failed to load reviews.</p>
       )}
 
-      {pending.length > 0 && (
-        <div>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
-            Pending moderation <Badge className="bg-warning text-warning-foreground hover:bg-warning">{pending.length}</Badge>
-          </h2>
-          <div className="space-y-3">
-        {pending?.map((r) => (
-              <Card key={r.id} className="border-warning/30">
-                <CardContent className="pt-6">
-                  <ReviewBody r={r} />
-                  <div className="mt-3 flex gap-2">
+      {isLoading && !reviewPage && (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Loading reviews…
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && reviews.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            No reviews match these filters.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {reviews.map((r) => (
+            <Card
+              key={r.id}
+              className={r.status === "PENDING" ? "border-warning/30" : undefined}
+            >
+              <CardContent className="pt-6">
+                <ReviewBody r={r} />
+                <div className="mt-3 flex gap-2">
+                  {r.status !== "APPROVED" && (
                     <Button
                       size="sm"
-                      disabled={setStatus.isPending}
-                      onClick={() => setStatus.mutate({ id: r.id, status: "APPROVED" })}
+                      disabled={setStatusMut.isPending}
+                      onClick={() => setStatusMut.mutate({ id: r.id, status: "APPROVED" })}
                     >
-                      <Check /> Approve
+                      <Check /> {r.status === "HIDDEN" ? "Unhide" : "Approve"}
                     </Button>
+                  )}
+                  {r.status !== "HIDDEN" && (
                     <Button
                       size="sm"
-                      variant="outline"
-                      disabled={setStatus.isPending}
-                      onClick={() => setStatus.mutate({ id: r.id, status: "HIDDEN" })}
+                      variant={r.status === "APPROVED" ? "ghost" : "outline"}
+                      disabled={setStatusMut.isPending}
+                      onClick={() => setStatusMut.mutate({ id: r.id, status: "HIDDEN" })}
                     >
                       <EyeOff /> Hide
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
-      <div>
-        <h2 className="mb-3 text-lg font-bold">Published reviews</h2>
-        {!isLoading && approved.length === 0 ? (
-          <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No approved reviews yet.</CardContent></Card>
-        ) : (
-          <div className="space-y-3">
-            {approved.slice(0, 12).map((r) => (
-              <Card key={r.id}>
-                <CardContent className="pt-6">
-                  <ReviewBody r={r} />
-                  <div className="mt-3">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={setStatus.isPending}
-                      onClick={() => setStatus.mutate({ id: r.id, status: "HIDDEN" })}
-                    >
-                      <EyeOff /> Hide
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        total={reviewPage?.total}
+        itemLabel="review"
+      />
     </div>
   );
 }
@@ -130,15 +283,33 @@ export default function AdminReviews() {
 function ReviewBody({ r }: { r: ReviewDto }) {
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9"><AvatarFallback className="text-xs">{initials(r.author)}</AvatarFallback></Avatar>
+          <Avatar className="h-9 w-9">
+            <AvatarFallback className="text-xs">{initials(r.author)}</AvatarFallback>
+          </Avatar>
           <div>
             <div className="text-sm font-medium">{r.author}</div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Stars rating={r.rating} size={11} /> · {relativeDate(r.createdAt)}</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Stars rating={r.rating} size={11} /> · {relativeDate(r.createdAt)}
+            </div>
           </div>
         </div>
-        <Badge variant="outline" className="text-xs">{r.courseTitle}</Badge>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge variant="outline" className="text-xs">{r.courseTitle}</Badge>
+          <Badge
+            variant="outline"
+            className={
+              r.status === "PENDING"
+                ? "text-xs text-warning"
+                : r.status === "HIDDEN"
+                  ? "text-xs text-muted-foreground"
+                  : "text-xs text-success"
+            }
+          >
+            {STATUS_LABELS[r.status]}
+          </Badge>
+        </div>
       </div>
       <h4 className="mt-2 text-sm font-semibold">{r.title}</h4>
       {r.body && <p className="text-sm text-muted-foreground">{r.body}</p>}
