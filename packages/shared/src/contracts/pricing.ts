@@ -53,6 +53,16 @@ export const CreateRegionSchema = z.object({
 });
 export type CreateRegionInput = z.infer<typeof CreateRegionSchema>;
 
+export const AdminFxRateQuerySchema = z.object({
+  currency: z.string().trim().toUpperCase().min(3).max(8),
+});
+export type AdminFxRateQuery = z.infer<typeof AdminFxRateQuerySchema>;
+
+export interface AdminFxRateDto {
+  currency: string;
+  rate: number;
+}
+
 export interface AdminTierDto {
   id: string;
   name: string;

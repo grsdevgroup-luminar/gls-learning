@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   regionalPriceCents,
@@ -31,9 +31,14 @@ import {
 import { AlertTriangle, Globe2, Layers, MapPin, Plus, Info, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CountrySelect } from "@/components/shared/country-select";
+import { tenderFor } from "@/lib/countries";
 
 const KEY = ["admin", "pricing"] as const;
 const pct = (m: number) => `${Math.round(m * 100)}%`;
+
+function formatFxInput(rate: number) {
+  return rate.toFixed(2);
+}
 
 export default function AdminPricing() {
   const qc = useQueryClient();
@@ -325,18 +330,31 @@ function CreateRegionDialog({
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
   const [tierId, setTierId] = useState<string>(tiers[0]?.id ?? "");
-  const [currency, setCurrency] = useState("USD");
-  const [symbol, setSymbol] = useState("$");
-  const [fx, setFx] = useState("1");
+  const [currency, setCurrency] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [fx, setFx] = useState("");
   const [override, setOverride] = useState(false);
   const [percent, setPercent] = useState("100");
+
+  const fxQuery = useQuery({
+    queryKey: ["admin", "pricing", "fx-rate", currency],
+    queryFn: () => pricingAdminApi.fxRate(currency),
+    enabled: open && Boolean(currency) && currency !== "USD",
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (currency === "USD") setFx(formatFxInput(1));
+    else if (fxQuery.data) setFx(formatFxInput(fxQuery.data.rate));
+  }, [currency, fxQuery.data]);
 
   function reset() {
     setCode("");
     setTierId(tiers[0]?.id ?? "");
-    setCurrency("USD");
-    setSymbol("$");
-    setFx("1");
+    setCurrency("");
+    setSymbol("");
+    setFx("");
     setOverride(false);
     setPercent("100");
   }
@@ -346,15 +364,20 @@ function CreateRegionDialog({
       toast.error("Pick a country");
       return;
     }
+    const tender = tenderFor(code);
+    if (!tender) {
+      toast.error("No standard currency for that country");
+      return;
+    }
     const fxNum = Number(fx);
-    if (!currency.trim() || !symbol.trim() || !Number.isFinite(fxNum) || fxNum <= 0) {
-      toast.error("Enter a currency, symbol, and a positive FX rate");
+    if (!Number.isFinite(fxNum) || fxNum <= 0) {
+      toast.error("Enter a positive FX rate");
       return;
     }
     const body: Parameters<typeof pricingAdminApi.createRegion>[0] = {
       code,
-      currency: currency.trim(),
-      symbol: symbol.trim(),
+      currency: tender.currency,
+      symbol: tender.symbol,
       fxRate: fxNum,
       tierId: tierId || undefined,
     };
@@ -390,7 +413,16 @@ function CreateRegionDialog({
             <Label>Country</Label>
             <CountrySelect
               value={code}
-              onChange={setCode}
+              onChange={(next) => {
+                setCode(next);
+                const tender = tenderFor(next);
+                const nextCurrency = tender?.currency ?? "";
+                setCurrency(nextCurrency);
+                setSymbol(tender?.symbol ?? "");
+                // Same ISO code → keep the already-fetched rate (FR → DE is still EUR).
+                if (nextCurrency === currency) return;
+                setFx(nextCurrency === "USD" ? formatFxInput(1) : "");
+              }}
               placeholder="Select a country"
               excludeCodes={existingCodes}
             />
@@ -407,17 +439,28 @@ function CreateRegionDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Currency</Label>
-              <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="EUR" />
+              <Input value={currency} readOnly placeholder="—" />
             </div>
             <div className="space-y-1">
               <Label>Symbol</Label>
-              <Input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="€" />
+              <Input value={symbol} readOnly placeholder="—" />
             </div>
           </div>
           <div className="space-y-1">
             <Label>FX rate (USD → local)</Label>
-            <Input value={fx} onChange={(e) => setFx(e.target.value)} inputMode="decimal" className="w-32" />
-            <p className="text-xs text-muted-foreground">Display only — checkout charges in USD. The daily FX job will refresh this when the currency is in the feed.</p>
+            <Input
+              value={fxQuery.isPending ? "" : fx}
+              onChange={(e) => setFx(e.target.value)}
+              inputMode="decimal"
+              className="w-32"
+              placeholder={fxQuery.isPending ? "Fetching…" : "—"}
+              disabled={fxQuery.isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              {fxQuery.isError
+                ? "Feed had no rate — enter one, or the daily job will retry later. Display only; checkout charges in USD."
+                : "From the FX feed. Display only — checkout charges in USD."}
+            </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
@@ -435,7 +478,9 @@ function CreateRegionDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Add"}</Button>
+          <Button onClick={save} disabled={saving || fxQuery.isPending}>
+            {saving ? "Saving…" : "Add"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

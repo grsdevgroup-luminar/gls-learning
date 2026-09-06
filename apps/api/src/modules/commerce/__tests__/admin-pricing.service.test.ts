@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BadRequestException } from "@nestjs/common";
+import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
+import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
 import { AdminPricingService } from "../admin-pricing.service";
 import type { PricingRepository } from "../pricing.repository";
 
@@ -11,7 +11,8 @@ function makeService(repoOverrides: Partial<PricingRepository> = {}) {
     findAllTiersAndRegions: vi.fn().mockResolvedValue([[], []]),
     ...repoOverrides,
   } as unknown as PricingRepository;
-  return { service: new AdminPricingService(repo), repo };
+  const config = { get: () => "https://fx.example/latest/USD" };
+  return { service: new AdminPricingService(repo, config as never), repo };
 }
 
 const baseInput = {
@@ -70,5 +71,49 @@ describe("AdminPricingService.createRegion", () => {
     const fr = dto.regions.find((r) => r.code === "FR");
     expect(fr?.fxStale).toBe(false);
     expect(fr?.fxUpdatedAt).toBeTruthy();
+  });
+});
+
+describe("AdminPricingService.lookupFxRate", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns 1 for USD without hitting the feed", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { service } = makeService();
+    await expect(service.lookupFxRate("usd")).resolves.toEqual({ currency: "USD", rate: 1 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the feed rate for a covered currency, rounded to 2 dp", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: "success", rates: { EUR: 0.92147 } }),
+      }),
+    );
+    const { service } = makeService();
+    await expect(service.lookupFxRate("eur")).resolves.toEqual({ currency: "EUR", rate: 0.92 });
+  });
+
+  it("rejects a currency the feed omits", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: "success", rates: { EUR: 0.92 } }),
+      }),
+    );
+    const { service } = makeService();
+    await expect(service.lookupFxRate("BDT")).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("surfaces an unreachable feed as unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ETIMEDOUT")));
+    const { service } = makeService();
+    await expect(service.lookupFxRate("EUR")).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });

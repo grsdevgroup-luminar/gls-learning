@@ -12,13 +12,15 @@ import {
   PatchRegionSchema,
   PatchTierSchema,
   UpsertTierSchema,
+  AdminFxRateQuerySchema,
+  type AdminFxRateQuery,
   type CreateRegionInput,
   type PatchRegionInput,
   type PatchTierInput,
   type UpsertTierInput,
 } from "@skillstream/shared";
 import { Roles } from "../../common/decorators/decorators";
-import { ZodBody } from "../../common/utils/swagger";
+import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AdminPricingService } from "./admin-pricing.service";
 
 @ApiTags("admin-pricing")
@@ -31,6 +33,11 @@ export class AdminPricingController {
   @Get()
   getAll() {
     return this.pricing.getAll();
+  }
+
+  @Get("fx-rate")
+  lookupFxRate(@ZodQuery(AdminFxRateQuerySchema) query: AdminFxRateQuery) {
+    return this.pricing.lookupFxRate(query.currency);
   }
 
   @Post("tiers")

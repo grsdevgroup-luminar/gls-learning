@@ -3,12 +3,15 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 import {
   DEFAULT_REGION,
   flagFor,
   nameFor,
+  type AdminFxRateDto,
   type AdminPricingDto,
   type AdminRegionDto,
   type AdminTierDto,
@@ -17,6 +20,8 @@ import {
   type PatchTierInput,
   type UpsertTierInput,
 } from "@skillstream/shared";
+import type { Env } from "../../config/env";
+import { fetchUsdRates, rateFromFeed } from "../jobs/fx-feed";
 import { PricingRepository } from "./pricing.repository";
 
 /** The FX job runs daily; no write in this long means it isn't landing. */
@@ -24,7 +29,31 @@ const FX_STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AdminPricingService {
-  constructor(private readonly repo: PricingRepository) {}
+  constructor(
+    private readonly repo: PricingRepository,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
+
+  /** Same feed as the daily FX job — used to prefill a new country's rate. */
+  async lookupFxRate(currency: string): Promise<AdminFxRateDto> {
+    const code = currency.toUpperCase();
+    if (code === "USD") return { currency: code, rate: 1 };
+
+    let rates: Record<string, unknown>;
+    try {
+      rates = await fetchUsdRates(this.config.get("FX_RATES_URL", { infer: true }));
+    } catch (err) {
+      throw new ServiceUnavailableException(
+        `FX feed is unavailable: ${(err as Error).message}`,
+      );
+    }
+
+    const rate = rateFromFeed(rates, code);
+    if (rate === undefined) {
+      throw new BadRequestException(`No FX rate for ${code}`);
+    }
+    return { currency: code, rate };
+  }
 
   async getAll(): Promise<AdminPricingDto> {
     const [tiers, regions] = await this.repo.findAllTiersAndRegions();

@@ -4,6 +4,7 @@ import {
   isIsoCountryCode,
   nameFor as sharedNameFor,
   flagFor as sharedFlagFor,
+  tenderFor as sharedTenderFor,
 } from "@skillstream/shared";
 
 export type { Country } from "@skillstream/shared";
@@ -30,3 +31,4 @@ export function nameFor(code: string): string | undefined {
 }
 
 export const flagFor = sharedFlagFor;
+export const tenderFor = sharedTenderFor;

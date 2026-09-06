@@ -13,8 +13,8 @@ import {
   quizPassed,
 } from "../progress.js";
 import { CouponType, CouponScope, SalesAgentStatus } from "../enums.js";
-import { flagFor } from "../countries.js";
-import { CreateRegionSchema } from "../contracts/pricing.js";
+import { flagFor, tenderFor } from "../countries.js";
+import { CreateRegionSchema, AdminFxRateQuerySchema } from "../contracts/pricing.js";
 import {
   ReviewAgentApplicationSchema,
   UpdateAgentSchema,
@@ -274,10 +274,32 @@ describe("CreateRegionSchema", () => {
   });
 });
 
+describe("AdminFxRateQuerySchema", () => {
+  it("uppercases the ISO 4217 code", () => {
+    expect(AdminFxRateQuerySchema.parse({ currency: "eur" }).currency).toBe("EUR");
+  });
+});
+
 describe("flagFor", () => {
   it("maps an alpha-2 code to a flag emoji", () => {
     expect(flagFor("US")).toBe("🇺🇸");
     expect(flagFor("bd")).toBe("🇧🇩");
     expect(flagFor("X")).toBe("");
+  });
+});
+
+describe("tenderFor", () => {
+  it("returns ISO 4217 currency and a display symbol for known countries", () => {
+    expect(tenderFor("FR")).toEqual({ currency: "EUR", symbol: "€" });
+    expect(tenderFor("us")).toEqual({ currency: "USD", symbol: "$" });
+    expect(tenderFor("BD")).toEqual({ currency: "BDT", symbol: "৳" });
+    expect(tenderFor("IN")).toEqual({ currency: "INR", symbol: "₹" });
+    expect(tenderFor("BG")).toEqual({ currency: "EUR", symbol: "€" });
+    expect(tenderFor("CW")).toEqual({ currency: "XCG", symbol: "Cg" });
+    expect(tenderFor("SX")).toEqual({ currency: "XCG", symbol: "Cg" });
+  });
+
+  it("omits places without a well-known tender", () => {
+    expect(tenderFor("AQ")).toBeUndefined();
   });
 });

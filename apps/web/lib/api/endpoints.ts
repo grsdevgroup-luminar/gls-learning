@@ -560,6 +560,10 @@ export const pricingAdminApi = {
   ) => apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "PATCH", body }),
   deleteRegion: (code: string) =>
     apiFetch<AdminPricingDto>(`/admin/pricing/regions/${code}`, { method: "DELETE" }),
+  fxRate: (currency: string) =>
+    apiFetch<{ currency: string; rate: number }>(
+      `/admin/pricing/fx-rate${qs({ currency })}`,
+    ),
 };
 
 // ── authoring (instructor/admin course builder) ────────────────────────────
