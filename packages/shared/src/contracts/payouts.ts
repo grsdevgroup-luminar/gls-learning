@@ -59,6 +59,16 @@ export const RejectPayoutSchema = z.object({
 });
 export type RejectPayoutInput = z.infer<typeof RejectPayoutSchema>;
 
+/** Admin list filters for `GET /admin/payouts`. `q` matches payee name/email
+ *  and destination (case-insensitive). `from`/`to` bound `requestedAt`. */
+export const AdminPayoutQuerySchema = z.object({
+  status: z.nativeEnum(PayoutStatus).optional(),
+  q: z.string().trim().max(200).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+export type AdminPayoutQuery = z.infer<typeof AdminPayoutQuerySchema>;
+
 /** Body for `POST /me/payouts`. When `amountCents` is omitted the server
  *  withdraws the full available balance (backward-compatible). */
 export const RequestPayoutSchema = z.object({

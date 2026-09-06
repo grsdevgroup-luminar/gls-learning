@@ -415,8 +415,12 @@ export const api = {
     }),
   stripeAccountStatus: () =>
     apiFetch<PayoutStripeStatusDto>("/me/payout-account/stripe/status"),
-  adminPayouts: (status?: string) =>
-    apiFetch<PayoutDto[]>(`/admin/payouts${status ? `?status=${status}` : ""}`),
+  adminPayouts: (params: {
+    status?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+  } = {}) => apiFetch<PayoutDto[]>(`/admin/payouts${qs(params)}`),
   approvePayout: (id: string) =>
     apiFetch<PayoutDto>(`/admin/payouts/${id}/approve`, { method: "POST" }),
   markPayoutPaid: (id: string) =>
