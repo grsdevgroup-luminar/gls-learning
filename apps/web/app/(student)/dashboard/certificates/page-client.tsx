@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, downloadFile } from '@/lib/api/client';
 import { CertificateTemplate } from '@/components/shared/certificate-template';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -113,19 +113,19 @@ export default function CertificatesPage() {
     toast.error('Sharing is not available in this browser');
   };
 
-  const downloadCertificate = (cert: CertificateDto) => {
-  setDownloading(cert.serial);
-
-  try {
-    window.location.assign(
-      `/certificates/${encodeURIComponent(cert.serial)}/print`,
-    );
-  } catch {
-    toast.error("Could not open certificate PDF page");
-  } finally {
-    setDownloading(null);
-  }
-};
+  const downloadCertificate = async (cert: CertificateDto) => {
+    setDownloading(cert.serial);
+    try {
+      await downloadFile(
+        `/certificates/me/${encodeURIComponent(cert.serial)}/pdf`,
+        `skillstream-certificate-${cert.serial}.pdf`,
+      );
+    } catch {
+      toast.error('Could not download certificate PDF');
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   return (
     <div className="space-y-8 p-6 md:p-8">

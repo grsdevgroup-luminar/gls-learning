@@ -86,16 +86,12 @@ export function CoursePreferencesModal({
         return current.filter((item) => item !== category);
       }
 
-      if (current.length === 3) {
-        return current;
-      }
-
       return [...current, category];
     });
   }
 
   async function save() {
-    if (selectedCategories.length < 3 || (!studentOnly && selectedCategories.length !== 3)) {
+    if (selectedCategories.length < 3) {
       return;
     }
 
@@ -146,9 +142,7 @@ export function CoursePreferencesModal({
             </DialogTitle>
 
             <DialogDescription className="max-w-xl text-sm sm:text-base">
-              {studentOnly
-                ? "Choose at least three categories to personalize your course recommendations."
-                : "Choose exactly three categories to personalize your course recommendations."}
+              Choose at least three categories to personalize your course recommendations.
             </DialogDescription>
           </DialogHeader>
 
@@ -160,9 +154,6 @@ export function CoursePreferencesModal({
             >
               {categories.map((category) => {
                 const selected = selectedCategories.includes(category);
-                const unavailable =
-                  !studentOnly && selectedCategories.length === 3 && !selected;
-
                 const CategoryIcon = categoryIcons[category] ?? BookOpen;
 
                 return (
@@ -170,7 +161,7 @@ export function CoursePreferencesModal({
                     key={category}
                     type="button"
                     aria-pressed={selected}
-                    disabled={unavailable || savePreferences.isPending || categoriesLoading}
+                    disabled={savePreferences.isPending || categoriesLoading}
                     onClick={() => toggleCategory(category)}
                     className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${selected
                       ? "border-primary bg-primary text-primary-foreground"
@@ -217,7 +208,7 @@ export function CoursePreferencesModal({
           >
             {studentOnly
               ? `${selectedCategories.length} selected${selectedCategories.length < 3 ? ` · choose ${3 - selectedCategories.length} more` : ""}`
-              : `${selectedCategories.length}/3 selected`}
+              : `${selectedCategories.length} selected`}
           </span>
 
           <Button
@@ -235,7 +226,6 @@ export function CoursePreferencesModal({
             "
             disabled={
               selectedCategories.length < 3 ||
-              (!studentOnly && selectedCategories.length !== 3) ||
               savePreferences.isPending
             }
             onClick={() => void save()}

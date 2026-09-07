@@ -423,7 +423,7 @@ function RatingControl({ courseId }: { courseId: string }) {
   const { getMyReview, submitReview, mounted } = useStore();
   const existing = mounted ? getMyReview(courseId) : undefined;
   const [rating, setRating] = useState(0);
-  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [open, setOpen] = useState(false);
 
   const value = rating || existing?.rating || 0;
@@ -433,7 +433,12 @@ function RatingControl({ courseId }: { courseId: string }) {
       toast.error("Pick a star rating first");
       return;
     }
-    submitReview(courseId, value, title.trim() || existing?.title || "Course rating", existing?.body || "");
+    const trimmedBody = body.trim() || existing?.body || "";
+    if (!trimmedBody) {
+      toast.error("Please write a review before submitting");
+      return;
+    }
+    submitReview(courseId, value, trimmedBody);
     setOpen(false);
     toast.success("Thanks for your rating!", { description: `${value} of 5 stars` });
   }
@@ -454,11 +459,13 @@ function RatingControl({ courseId }: { courseId: string }) {
           <p className="mt-0.5 text-xs text-muted-foreground">Your feedback helps other learners.</p>
         </div>
         <StarRatingInput value={value} onChange={setRating} size={26} className="justify-center py-1" />
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={existing?.title || "Add a short headline (optional)"}
-          className="h-8"
+        <Textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder={existing?.body || "Write your review"}
+          className="min-h-20 resize-y"
+          maxLength={4000}
+          required
         />
         <Button size="sm" className="w-full" onClick={submit}>
           {existing ? "Update rating" : "Submit rating"}

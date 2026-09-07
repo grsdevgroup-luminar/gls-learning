@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { instructorSignupSchema } from "@skillstream/shared";
 import { ApplySocialLinks, type SocialLinkField } from "./apply-social-links";
 
+const OTHER_EXPERTISE = "__other__";
+
 type FieldErrors = Partial<Record<keyof ReturnType<typeof buildPayload>, string>>;
 
 function buildPayload(fields: {
@@ -68,6 +70,7 @@ export function InstructorSignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState("");
   const [expertise, setExpertise] = useState("");
+  const [customExpertise, setCustomExpertise] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [sampleUrl, setSampleUrl] = useState("");
@@ -79,6 +82,7 @@ export function InstructorSignupForm() {
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const expertiseValue = expertise || categories[0] || "";
+  const isCustomExpertise = expertise === OTHER_EXPERTISE;
 
   const socialSetters: Record<SocialLinkField, (value: string) => void> = {
     linkedinUrl: setLinkedinUrl,
@@ -101,7 +105,8 @@ export function InstructorSignupForm() {
     e.preventDefault();
     const payload = buildPayload({
       name, email, password, country,
-      expertise: expertiseValue, headline, bio, sampleUrl,
+      expertise: isCustomExpertise ? customExpertise : expertiseValue,
+      headline, bio, sampleUrl,
       linkedinUrl, twitterUrl, youtubeUrl, facebookUrl, otherUrl,
     });
     const result = instructorSignupSchema.safeParse(payload);
@@ -199,13 +204,34 @@ export function InstructorSignupForm() {
                     aria-invalid={!!fieldErrors.headline}
                   />
                 </FormField>
-                <FormField label="Primary expertise">
-                  <Select value={expertiseValue} onValueChange={(v) => v && setExpertise(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                <FormField label="Primary expertise" error={fieldErrors.expertise}>
+                  <Select
+                    value={expertiseValue}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      setExpertise(v);
+                      clearError("expertise");
+                    }}
+                  >
+                    <SelectTrigger aria-invalid={!!fieldErrors.expertise}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      <SelectItem value={OTHER_EXPERTISE}>Others</SelectItem>
                     </SelectContent>
                   </Select>
+                  {isCustomExpertise && (
+                    <Input
+                      value={customExpertise}
+                      onChange={(e) => {
+                        setCustomExpertise(e.target.value);
+                        clearError("expertise");
+                      }}
+                      placeholder="Enter your area of expertise"
+                      maxLength={80}
+                      aria-label="Custom primary expertise"
+                      aria-invalid={!!fieldErrors.expertise}
+                    />
+                  )}
                 </FormField>
               </div>
               <FormField label="Teaching sample or portfolio (optional)" error={fieldErrors.sampleUrl}>

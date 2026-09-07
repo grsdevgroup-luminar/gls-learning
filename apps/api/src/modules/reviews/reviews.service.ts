@@ -22,7 +22,7 @@ export class ReviewsService {
     private readonly enrollment: EnrollmentService,
     private readonly alerts: AdminAlertsService,
     private readonly notifications: NotificationsService,
-  ) {}
+  ) { }
 
   private toDto(r: ReviewRow): ReviewDto {
     return {
@@ -31,7 +31,6 @@ export class ReviewsService {
       author: r.user.name,
       avatar: r.user.avatar,
       rating: r.rating,
-      title: r.title,
       body: r.body,
       status: r.status,
       helpful: r.helpful,
@@ -71,9 +70,13 @@ export class ReviewsService {
     courseId: string,
     input: CreateReviewInput,
   ): Promise<ReviewDto> {
-    const enrolled = await this.enrollment.isEnrolled(userId, courseId);
-    if (!enrolled)
-      throw new ForbiddenException("Only enrolled students can review");
+    const canReview = await this.enrollment.canReview(userId, courseId);
+
+    if (!canReview) {
+      throw new ForbiddenException(
+        "You must be enrolled in this course before submitting a review",
+      );
+    }
 
     const review = await this.repo.upsertReview(userId, courseId, input);
     await this.recompute(courseId);
@@ -109,13 +112,12 @@ export class ReviewsService {
       ...(query.rating ? { rating: query.rating } : {}),
       ...(q
         ? {
-            OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { body: { contains: q, mode: "insensitive" } },
-              { user: { name: { contains: q, mode: "insensitive" } } },
-              { course: { title: { contains: q, mode: "insensitive" } } },
-            ],
-          }
+          OR: [
+            { body: { contains: q, mode: "insensitive" } },
+            { user: { name: { contains: q, mode: "insensitive" } } },
+            { course: { title: { contains: q, mode: "insensitive" } } },
+          ],
+        }
         : {}),
     };
     const [rows, total] = await this.repo.findManyAndCountForAdmin(where, query);
@@ -148,7 +150,7 @@ export class ReviewsService {
     reviewId: string,
     input: ReviewStatusInput,
   ): Promise<ReviewDto> {
-    const review = await this.repo.updateStatus(reviewId, input.status);
+    const review = await this.repo.updateStatus(reviewId, input.action);
     await this.recompute(review.courseId);
     return this.toDto(review);
   }

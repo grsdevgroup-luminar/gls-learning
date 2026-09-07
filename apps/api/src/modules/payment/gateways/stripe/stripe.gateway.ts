@@ -9,6 +9,7 @@ import Stripe from "stripe";
 import type { Env } from "../../../../config/env";
 import type {
   PaymentGateway,
+  PendingPaymentResolution,
   PaymentUrls,
   StartPaymentResult,
   WebhookInput,
@@ -65,6 +66,54 @@ export class StripeGateway implements PaymentGateway {
       redirectUrl: session.url ?? undefined,
       providerRef: session.id,
     };
+  }
+
+  /**
+   * A student can leave Stripe without visiting our cancel URL, leaving the
+   * local order PENDING. Before a retry creates a fresh checkout, reconcile
+   * that old Stripe Session: never discard a completed payment, and expire an
+   * unpaid session so it cannot be charged after its order is abandoned.
+   */
+  async reconcilePendingPayment(order: OrderRow): Promise<PendingPaymentResolution> {
+    if (!order.providerRef || !this.client) return { status: "RESUME" };
+
+    const resolutionFor = (session: Stripe.Checkout.Session): PendingPaymentResolution => {
+      if (session.payment_status === "paid") {
+        return {
+          status: "PAID",
+          providerPaymentId:
+            typeof session.payment_intent === "string" ? session.payment_intent : undefined,
+        };
+      }
+      if (session.status === "expired") return { status: "ABANDONED" };
+      return { status: "RESUME" };
+    };
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await this.client.checkout.sessions.retrieve(order.providerRef);
+    } catch {
+      // A temporary provider lookup failure must not turn a potentially paid
+      // order into a failed one. Keep the existing session resumable instead.
+      return { status: "RESUME" };
+    }
+
+    const initial = resolutionFor(session);
+    if (initial.status !== "RESUME" || session.status !== "open") return initial;
+
+    try {
+      await this.client.checkout.sessions.expire(session.id);
+      return { status: "ABANDONED" };
+    } catch {
+      // Completion can win the race with expiration. Re-read the session so a
+      // successful payment is fulfilled rather than incorrectly abandoned.
+      try {
+        session = await this.client.checkout.sessions.retrieve(session.id);
+        return resolutionFor(session);
+      } catch {
+        return { status: "RESUME" };
+      }
+    }
   }
 
   async refund(order: OrderRow): Promise<void> {

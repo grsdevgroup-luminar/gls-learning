@@ -167,26 +167,46 @@ export class CheckoutService {
       throw new BadRequestException("You already own these courses");
 
     // A new checkout attempt may use a fresh idempotency key (for example
-    // after returning from a canceled provider session). Do not create a
-    // second pending order for a course that is already awaiting payment.
-    // Mixed carts continue with only the courses that do not have a pending
-    // order; the existing pending order remains available to resume.
+    // after the student closes a hosted payment page). Reconcile any existing
+    // pending gateway session before deciding whether it can be replaced. This
+    // keeps one active pending order per course without trapping a student in
+    // a completed, expired, or abandoned Stripe Checkout Session.
     const pendingOrders =
       await this.repo.findPendingOrdersByUserAndCourseIds(
         userId,
         purchasableCourseIds,
+      );
+    for (const pendingOrder of pendingOrders) {
+      const resolution = await this.payments.reconcilePendingPayment(pendingOrder);
+      if (resolution.status === "PAID") {
+        await this.orders.fulfill(pendingOrder.id, resolution.providerPaymentId);
+      } else if (resolution.status === "ABANDONED") {
+        await this.repo.markFailedIfPending(pendingOrder.id, userId);
+      }
+    }
+
+    // A delayed webhook may have just been reconciled above, so recalculate
+    // ownership and remaining pending orders from the authoritative database.
+    const ownedAfterReconciliation = await this.repo.findOwnedEnrollments(
+      userId,
+      purchasableCourseIds,
     );
-    const pendingCourseIds = new Set(
-      pendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
-    );
-    const courseIds = purchasableCourseIds.filter(
-      (id) => !pendingCourseIds.has(id),
-    );
+    const ownedAfterSet = new Set(ownedAfterReconciliation.map((o) => o.courseId));
+    const courseIds = purchasableCourseIds.filter((id) => !ownedAfterSet.has(id));
     if (courseIds.length === 0)
-      return this.resurrectSession(pendingOrders[0]);
+      throw new BadRequestException("You already own these courses");
+
+    const remainingPendingOrders =
+      await this.repo.findPendingOrdersByUserAndCourseIds(userId, courseIds);
+    const pendingCourseIds = new Set(
+      remainingPendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
+    );
+    const newCourseIds = courseIds.filter((id) => !pendingCourseIds.has(id));
+    if (newCourseIds.length === 0)
+      return this.resurrectSession(remainingPendingOrders[0]);
 
     // Recompute the quote authoritatively — client-sent prices are ignored.
-    const quote = await this.quote({ ...input, courseIds }, userId);
+    const quote = await this.quote({ ...input, courseIds: newCourseIds }, userId);
     if (quote.lines.length === 0)
       throw new BadRequestException("No purchasable courses in cart");
 

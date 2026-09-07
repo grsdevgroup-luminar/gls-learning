@@ -9,7 +9,10 @@ import type { CheckoutSessionDto } from "@skillstream/shared";
 import type { Env } from "../../config/env";
 import { OrdersService } from "../commerce/orders.service";
 import { PaymentGatewayFactory } from "./factory/payment-gateway.factory";
-import type { WebhookInput } from "./interfaces/payment-gateway.interface";
+import type {
+  PendingPaymentResolution,
+  WebhookInput,
+} from "./interfaces/payment-gateway.interface";
 import { PaymentsRepository } from "./payments.repository";
 import type { OrderRow } from "./types";
 
@@ -84,6 +87,12 @@ export class PaymentsService {
       providerRef,
       devSimulateToken,
     };
+  }
+
+  /** Inspect a pending provider session before replacing it on a retry. */
+  async reconcilePendingPayment(order: OrderRow): Promise<PendingPaymentResolution> {
+    const gateway = this.factory.getGateway(order.gateway.toLowerCase());
+    return gateway.reconcilePendingPayment?.(order) ?? { status: "RESUME" };
   }
 
   async refundGatewayPayment(order: OrderRow): Promise<void> {

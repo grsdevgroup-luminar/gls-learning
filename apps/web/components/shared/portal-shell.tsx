@@ -77,8 +77,9 @@ export interface NavItem {
   label: string;
   icon: NavIconName;
   exact?: boolean;
-  /** Small count pill rendered after the label (e.g. pending items needing review). */
   badgeCount?: number;
+  /** Additional terms used by the command palette without changing the sidebar label. */
+  searchKeywords?: string[];
 }
 
 export function PortalShell({
@@ -138,12 +139,7 @@ export function PortalShell({
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
               )}
             />
-            <span className="flex-1">{it.label}</span>
-            {!!it.badgeCount && (
-              <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-warning/15 px-1 text-[10px] font-semibold text-warning">
-                {it.badgeCount}
-              </span>
-            )}
+            {it.label}
           </Link>
         );
       })}
@@ -152,9 +148,9 @@ export function PortalShell({
 
   const SidebarInner = (
     <div className="flex h-full min-h-0 flex-col">
-       <div className="flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-sidebar-border pl-4 pr-3">
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          <Logo className="shrink-0 [&_img]:w-16" iconOnly />
+      <div className="flex h-16 shrink-0 items-center gap-1 border-b border-sidebar-border pl-4 pr-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Logo className="shrink-0" iconOnly />
           <span className="min-w-0 truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {badge}
           </span>

@@ -47,9 +47,9 @@ describe("buildPdf", () => {
     const pdf = buildPdf({
       width: 200,
       height: 100,
-      lines: [{ text: "cafÃ© ðŸŽ“", y: 10 }],
+      lines: [{ text: "café 🎓", y: 10 }],
     }).toString("latin1");
-    expect(pdf).toContain("(cafÃ© ð???)");
+    expect(pdf).toContain("(café ?)");
   });
 });
 

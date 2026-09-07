@@ -19,7 +19,7 @@ import {
   ReviewAgentApplicationSchema,
   UpdateAgentSchema,
 } from "../contracts/sales-agent.js";
-import { adminReviewQuerySchema } from "../contracts/reviews.js";
+import { adminReviewQuerySchema, createReviewSchema } from "../contracts/reviews.js";
 import { emailSchema, normalizeEmail, countryCodeSchema } from "../contracts/auth.js";
 import {
   activeCourseSearchQuery,
@@ -247,6 +247,19 @@ describe("adminReviewQuerySchema", () => {
   it("rejects invalid status and out-of-range rating", () => {
     expect(adminReviewQuerySchema.safeParse({ status: "all" }).success).toBe(false);
     expect(adminReviewQuerySchema.safeParse({ rating: "0" }).success).toBe(false);
+  });
+});
+
+describe("createReviewSchema", () => {
+  const validReview = { rating: 5, body: "Useful and clear." };
+
+  it("requires a non-empty written review", () => {
+    expect(createReviewSchema.safeParse({ ...validReview, body: "" }).success).toBe(false);
+    expect(createReviewSchema.safeParse({ ...validReview, body: "   " }).success).toBe(false);
+  });
+
+  it("accepts a rating with a written review", () => {
+    expect(createReviewSchema.safeParse(validReview).success).toBe(true);
   });
 });
 

@@ -18,24 +18,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const email = user?.email ?? "";
 
   const items: NavItem[] = [
-    { href: "/admin", label: "Overview", icon: "LayoutDashboard", exact: true },
-    { href: "/admin/courses", label: "Courses", icon: "BookOpen" },
+    { href: "/admin", label: "Overview", icon: "LayoutDashboard", exact: true, searchKeywords: ["dashboard", "home", "analytics", "summary"] },
+    { href: "/admin/courses", label: "Courses", icon: "BookOpen", searchKeywords: ["course management", "course catalog", "lessons", "content"] },
     {
       href: "/admin/instructors",
       label: "Instructors",
       icon: "GraduationCap",
       badgeCount: applicationStats?.pending,
+      searchKeywords: ["instructor management", "applications", "approval", "teachers"],
     },
-    { href: "/admin/agents", label: "Sales Agents", icon: "UserCheck" },
-    { href: "/admin/payouts", label: "Payouts", icon: "Wallet" },
-    { href: "/admin/organizations", label: "Organizations", icon: "Building2" },
-    { href: "/admin/students", label: "Students", icon: "Users" },
-    { href: "/admin/orders", label: "Orders", icon: "ShoppingBag" },
-    { href: "/admin/coupons", label: "Coupons", icon: "Ticket" },
-    { href: "/admin/pricing", label: "Pricing", icon: "Globe2" },
-    { href: "/admin/reviews", label: "Reviews", icon: "Star" },
-    { href: "/admin/marketing", label: "Automation", icon: "Megaphone" },
-    { href: "/admin/settings", label: "Settings", icon: "Settings" },
+    { href: "/admin/agents", label: "Sales Agents", icon: "UserCheck", searchKeywords: ["sales management", "applications", "referrals", "agents"] },
+    { href: "/admin/payouts", label: "Payouts", icon: "Wallet", searchKeywords: ["payments", "withdrawals", "earnings", "finance"] },
+    { href: "/admin/organizations", label: "Organizations", icon: "Building2", searchKeywords: ["companies", "teams", "company management", "members"] },
+    { href: "/admin/students", label: "Students", icon: "Users", searchKeywords: ["student management", "learners", "users", "profiles"] },
+    { href: "/admin/orders", label: "Orders", icon: "ShoppingBag", searchKeywords: ["purchases", "transactions", "sales"] },
+    { href: "/admin/coupons", label: "Coupons", icon: "Ticket", searchKeywords: ["discounts", "promo codes", "promotions", "offers"] },
+    { href: "/admin/pricing", label: "Pricing", icon: "Globe2", searchKeywords: ["regional pricing", "currencies", "exchange rates", "regions"] },
+    { href: "/admin/reviews", label: "Reviews", icon: "Star", searchKeywords: ["review moderation", "review management", "ratings", "feedback", "approval"] },
+    { href: "/admin/marketing", label: "Automation", icon: "Megaphone", searchKeywords: ["marketing", "notifications", "campaigns", "rules"] },
+    { href: "/admin/settings", label: "Settings", icon: "Settings", searchKeywords: ["configuration", "preferences", "system"] },
   ];
 
   return (

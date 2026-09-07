@@ -615,9 +615,12 @@ model Review {
   userId    String
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   rating    Int
+  // Legacy storage retained for database compatibility; not exposed in review APIs or UI.
   title     String
   body      String
   status    ReviewStatus @default(PENDING)
+  // Keeps the moderation state to restore when an admin unhides the review.
+  statusBeforeHidden ReviewStatus?
   helpful   Int          @default(0)
   createdAt DateTime     @default(now())
 

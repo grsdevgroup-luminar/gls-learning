@@ -4,13 +4,16 @@ import { searchQuerySchema } from "./common.js";
 
 export const createReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
-  title: z.string().min(1, "Review title is required").max(160, "Review title must be 160 characters or fewer"),
-  body: z.string().trim().max(4000, "Review must be 4,000 characters or fewer"),
+  body: z
+    .string()
+    .trim()
+    .min(1, "Review is required")
+    .max(4000, "Review must be 4,000 characters or fewer"),
 });
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 
 export const reviewStatusSchema = z.object({
-  status: z.enum(["PENDING", "APPROVED", "HIDDEN"]),
+  action: z.enum(["APPROVE", "HIDE", "UNHIDE"]),
 });
 export type ReviewStatusInput = z.infer<typeof reviewStatusSchema>;
 
@@ -39,7 +42,6 @@ export interface ReviewDto {
   author: string;
   avatar: string | null;
   rating: number;
-  title: string;
   body: string;
   status: ReviewStatus;
   helpful: number;

@@ -46,8 +46,15 @@ export async function serverApiCached<T>(
   path: string,
   revalidateSeconds: number,
   options: ApiRequestOptions = {},
+  tags: string[] = [],
 ): Promise<T> {
-  return apiFetch<T>(path, { ...options, next: { revalidate: revalidateSeconds } });
+  return apiFetch<T>(path, {
+    ...options,
+    next: {
+      revalidate: revalidateSeconds,
+      ...(tags.length > 0 ? { tags } : {}),
+    },
+  });
 }
 
 /** serverApiCached that returns null on 404 instead of throwing. */
@@ -55,9 +62,10 @@ export async function serverApiCachedOptional<T>(
   path: string,
   revalidateSeconds: number,
   options: ApiRequestOptions = {},
+  tags: string[] = [],
 ): Promise<T | null> {
   try {
-    return await serverApiCached<T>(path, revalidateSeconds, options);
+    return await serverApiCached<T>(path, revalidateSeconds, options, tags);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;

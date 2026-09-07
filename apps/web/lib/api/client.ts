@@ -17,7 +17,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
  * Single-flight refresh: the 15-minute access-token cookie expires long before
  * the 7-day refresh cookie, so browser calls hit 401 mid-session. This POSTs
  * /auth/refresh once and lets the Set-Cookie install a fresh access token.
- * Deduped module-wide so a burst of parallel 401s triggers ONE rotation â€”
+ * Deduped module-wide so a burst of parallel 401s triggers ONE rotation —
  * refresh tokens are single-use, so N concurrent refreshes would invalidate
  * each other and log the user out.
  */
@@ -38,10 +38,8 @@ function refreshSession(): Promise<boolean> {
 /**
  * When both access and refresh tokens are dead, every subsequent request 401s
  * with no way to recover in-page. The middleware only checks that the
- * refresh_token cookie *exists*, not that it's valid, so an expired-but-present
- * cookie sails past the proxy and lands here. Bounce the browser to /login with
- * a `next` param so they land back where they were after signing in. Skipped
- * for the auth endpoints themselves (would loop) and when already on /login.
+ * refresh_token cookie exists, not that it is valid, so redirect to login and
+ * preserve the current location for returning after authentication.
  */
 let redirectingToLogin = false;
 function redirectToLogin(): void {
@@ -79,7 +77,7 @@ function parseResponseBody(text: string, res: Response): unknown {
  * credentials so the httpOnly auth cookies travel with the request. Parses
  * problem-detail errors into ApiError. On a browser 401 it transparently
  * refreshes the session once and retries (SSR calls carry cookieHeader and are
- * skipped â€” a Server Component can't persist rotated cookies mid-render).
+ * skipped — a Server Component can't persist rotated cookies mid-render).
  */
 export async function apiFetch<T>(
   path: string,
@@ -134,7 +132,7 @@ export async function apiFetch<T>(
   return data as T;
 }
 
-/** Absolute URL for an API path â€” for links the browser navigates to directly
+/** Absolute URL for an API path — for links the browser navigates to directly
  *  (PDFs, downloads) rather than fetches. */
 export function apiUrl(path: string): string {
   return `${BASE_URL}${path}`;
@@ -142,7 +140,7 @@ export function apiUrl(path: string): string {
 
 /**
  * Multipart upload wrapper. Uses the same 401-retry dance as apiFetch but lets
- * the browser set the multipart boundary in Content-Type â€” hard-coding it here
+ * the browser set the multipart boundary in Content-Type — hard-coding it here
  * would strip the `boundary=...` suffix and every request would 400.
  */
 export async function apiFetchMultipart<T>(
@@ -192,12 +190,7 @@ export async function apiFetchMultipart<T>(
   return data as T;
 }
 
-/**
- * Fetches a cookie-authenticated file. A plain <a href> would work only while
- * the API stays same-site; fetching with credentials and handing the browser a
- * blob works regardless, and surfaces API errors to callers instead of rendering a JSON
- * error page in a new tab.
- */
+/** Fetches a cookie-authenticated file for previewing in a new tab. */
 export async function fetchFile(path: string): Promise<Blob> {
   const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include" });
   let res = await send();
@@ -205,7 +198,7 @@ export async function fetchFile(path: string): Promise<Blob> {
     if (await refreshSession()) {
       res = await send();
     }
-    if (res.status === 401) {
+    if (res.status === 401 && !isAuthPath(path)) {
       redirectToLogin();
     }
   }
@@ -216,6 +209,12 @@ export async function fetchFile(path: string): Promise<Blob> {
   return res.blob();
 }
 
+/**
+ * Downloads a cookie-authenticated file. A plain <a href> would work only while
+ * the API stays same-site; fetching with credentials and handing the browser a
+ * blob works regardless, and surfaces API errors instead of rendering a JSON
+ * error page in a new tab.
+ */
 export async function downloadFile(path: string, filename: string): Promise<void> {
   const url = URL.createObjectURL(await fetchFile(path));
   const a = document.createElement("a");

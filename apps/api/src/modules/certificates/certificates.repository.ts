@@ -26,10 +26,10 @@ export class CertificatesRepository {
     });
   }
 
-  findByIdForUser(id: string, userId: string) {
+  findBySerialForUser(serial: string, userId: string) {
     return this.prisma.certificate.findFirst({
       where: {
-        id,
+        serial,
         enrollment: { userId },
       },
       select: {

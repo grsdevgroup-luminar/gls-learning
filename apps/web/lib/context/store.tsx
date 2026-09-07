@@ -54,7 +54,6 @@ export type Role =
 
 export interface MyReview {
   rating: number;
-  title: string;
   body: string;
   date: string;
 }
@@ -107,7 +106,6 @@ interface StoreContextValue {
   submitReview: (
     courseId: string,
     rating: number,
-    title: string,
     body: string,
   ) => void;
   // courses
@@ -250,7 +248,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     staleTime: 30_000,
   });
   const enrolled = useMemo(
-    () => (enrollments ?? []).map((e) => e.courseId),
+    () =>
+      (enrollments ?? [])
+        .filter(
+          (e) =>
+            e.status === "IN_PROGRESS" || e.status === "COMPLETED",
+        )
+        .map((e) => e.courseId),
     [enrollments],
   );
   const progress = useMemo(
@@ -336,9 +340,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const run = shouldMerge
       ? cartApi.merge({
-          courseIds: guestItems,
-          couponCode: guestCoupon ?? undefined,
-        })
+        courseIds: guestItems,
+        couponCode: guestCoupon ?? undefined,
+      })
       : cartApi.get();
 
     run
@@ -506,12 +510,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     completedCount: (courseId) => (progress[courseId] ?? []).length,
     // reviews
     getMyReview: (courseId) => myReviews[courseId],
-    submitReview: (courseId, rating, title, body) => {
+    submitReview: (courseId, rating, body) => {
       setMyReviews((m) => ({
         ...m,
-        [courseId]: { rating, title, body, date: new Date().toISOString().slice(0, 10) },
+        [courseId]: { rating, body, date: new Date().toISOString().slice(0, 10) },
       }));
-      void api.submitReview(courseId, { rating, title, body }).catch((err) => {
+      void api.submitReview(courseId, { rating, body }).catch((err) => {
         // Roll the optimistic copy back so the UI doesn't claim a review landed.
         setMyReviews((m) => {
           const rest = { ...m };

@@ -84,7 +84,6 @@ export interface Review {
   avatar: string;
   rating: number;
   date: string; // ISO
-  title: string;
   body: string;
   status: 'approved' | 'pending' | 'hidden';
   helpful: number;

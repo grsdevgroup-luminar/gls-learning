@@ -50,6 +50,18 @@ export class EnrollmentRepository {
   countByUserAndCourse(userId: string, courseId: string) {
     return this.prisma.enrollment.count({ where: { userId, courseId } });
   }
+  findActiveByUserAndCourse(userId: string, courseId: string) {
+  return this.prisma.enrollment.findFirst({
+    where: {
+      userId,
+      courseId,
+      status: {
+        in: ["IN_PROGRESS", "COMPLETED"],
+      },
+    },
+    select: { id: true },
+  });
+}
 
   /** `userId` scopes `orgAssignments.org.members` to just this caller, so
    *  the service can tell — in one query — which (if any) of the course's

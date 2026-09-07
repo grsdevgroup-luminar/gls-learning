@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -49,12 +49,13 @@ export class ReviewsRepository {
   upsertReview(
     userId: string,
     courseId: string,
-    input: { rating: number; title: string; body: string },
+    input: { rating: number; body: string },
   ) {
     return this.prisma.review.upsert({
       where: { courseId_userId: { courseId, userId } },
       update: { ...input, status: "PENDING" },
-      create: { courseId, userId, ...input, status: "PENDING" },
+      // Keep the legacy database column populated without exposing it as a user field.
+      create: { courseId, userId, title: "", ...input, status: "PENDING" },
       include: reviewInclude,
     });
   }
@@ -103,11 +104,42 @@ export class ReviewsRepository {
     });
   }
 
-  updateStatus(reviewId: string, status: Prisma.ReviewUpdateInput["status"]) {
-    return this.prisma.review.update({
-      where: { id: reviewId },
-      data: { status },
-      include: reviewInclude,
+  async updateStatus(reviewId: string, action: "APPROVE" | "HIDE" | "UNHIDE") {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.review.findUnique({
+        where: { id: reviewId },
+        select: { status: true, statusBeforeHidden: true },
+      });
+
+      if (!current) {
+        // Preserve Prisma's normal not-found behavior and error shape.
+        return tx.review.update({
+          where: { id: reviewId },
+          data: { status: action === "HIDE" ? "HIDDEN" : "APPROVED" },
+          include: reviewInclude,
+        });
+      }
+
+      if (action === "UNHIDE" && current.status !== "HIDDEN") {
+        throw new BadRequestException("Only hidden reviews can be unhidden");
+      }
+
+      const isUnhiding = action === "UNHIDE" && current.status === "HIDDEN";
+      const restoredStatus = current.statusBeforeHidden ?? "PENDING";
+
+      return tx.review.update({
+        where: { id: reviewId },
+        data: isUnhiding
+          ? { status: restoredStatus, statusBeforeHidden: null }
+          : action === "HIDE"
+            ? {
+                status: "HIDDEN",
+                // Do not overwrite the original status if this is already hidden.
+                statusBeforeHidden: current.status === "HIDDEN" ? current.statusBeforeHidden : current.status,
+              }
+            : { status: "APPROVED", statusBeforeHidden: null },
+        include: reviewInclude,
+      });
     });
   }
 

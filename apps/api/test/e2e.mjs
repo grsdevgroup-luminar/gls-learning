@@ -554,11 +554,11 @@ async function quizTaking() {
 async function reviewsAndComments() {
   G("reviews");
   const t = state.student.token;
-  let r = await req("POST", `/courses/${state.course.id}/reviews`, { token: t, body: { rating: 5, title: "E2E review", body: "Posted by the automated feature sweep." } });
+  let r = await req("POST", `/courses/${state.course.id}/reviews`, { token: t, body: { rating: 5, body: "Posted by the automated feature sweep." } });
   check("post review as enrolled student", r.status === 201 || r.status === 200, `${r.status} ${msg(r)}`);
   state.reviewId = r.json?.id;
 
-  r = await req("POST", `/courses/${state.course.id}/reviews`, { token: t, body: { rating: 9, title: "bad", body: "rating out of range" } });
+  r = await req("POST", `/courses/${state.course.id}/reviews`, { token: t, body: { rating: 9, body: "rating out of range" } });
   check("invalid rating rejected", r.status === 400, `${r.status} ${msg(r)}`);
 
   r = await req("GET", `/me/courses/${state.course.id}/review`, { token: t });

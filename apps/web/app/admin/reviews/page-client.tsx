@@ -75,15 +75,61 @@ export default function AdminReviews() {
   });
 
   const setStatusMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "APPROVED" | "HIDDEN" }) =>
-      adminApi.updateReviewStatus(id, status),
-    onSuccess: (_r, { status: next }) => {
-      void qc.invalidateQueries({ queryKey: ["admin", "reviews"] });
+    mutationFn: ({ id, action }: { id: string; action: "APPROVE" | "HIDE" | "UNHIDE" }) =>
+      adminApi.updateReviewStatus(id, action),
+    onMutate: async ({ id, action }) => {
+      await qc.cancelQueries({ queryKey: ["admin", "reviews", "list"] });
+      const snapshots = qc.getQueriesData<{ items: ReviewDto[] }>({
+        queryKey: ["admin", "reviews", "list"],
+      });
+
+      // Update the visible row immediately. Unhide optimistically returns to
+      // PENDING; the server response below corrects this for previously
+      // approved reviews.
+      qc.setQueriesData<{ items: ReviewDto[] }>(
+        { queryKey: ["admin", "reviews", "list"] },
+        (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            items: current.items.map((review) =>
+              review.id === id
+                ? { ...review, status: action === "UNHIDE" ? "PENDING" : action === "HIDE" ? "HIDDEN" : "APPROVED" }
+                : review,
+            ),
+          };
+        },
+      );
+
+      return { snapshots };
+    },
+    onSuccess: (review, { id, action }) => {
+      // Replace the optimistic row with the authoritative API response.
+      qc.setQueriesData<{ items: ReviewDto[] }>(
+        { queryKey: ["admin", "reviews", "list"] },
+        (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            items: current.items.map((item) => (item.id === id ? review : item)),
+          };
+        },
+      );
+      void qc.invalidateQueries({ queryKey: ["admin", "reviews", "stats"] });
+      localStorage.setItem(
+        "review-status-updated",
+        JSON.stringify({ reviewId: id, timestamp: Date.now() }),
+      );
       toast.success(
-        next === "APPROVED" ? "Review approved" : "Review hidden",
+        action === "UNHIDE" ? "Review unhidden" : action === "APPROVE" ? "Review approved" : "Review hidden",
       );
     },
-    onError: (e) => toast.error(getApiErrorMessage(e)),
+    onError: (e, _variables, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => {
+        qc.setQueryData(queryKey, data);
+      });
+      toast.error(getApiErrorMessage(e));
+    },
   });
 
   const reviews = reviewPage?.items ?? [];
@@ -247,7 +293,7 @@ export default function AdminReviews() {
                     <Button
                       size="sm"
                       disabled={setStatusMut.isPending}
-                      onClick={() => setStatusMut.mutate({ id: r.id, status: "APPROVED" })}
+                      onClick={() => setStatusMut.mutate({ id: r.id, action: r.status === "HIDDEN" ? "UNHIDE" : "APPROVE" })}
                     >
                       <Check /> {r.status === "HIDDEN" ? "Unhide" : "Approve"}
                     </Button>
@@ -257,7 +303,7 @@ export default function AdminReviews() {
                       size="sm"
                       variant={r.status === "APPROVED" ? "ghost" : "outline"}
                       disabled={setStatusMut.isPending}
-                      onClick={() => setStatusMut.mutate({ id: r.id, status: "HIDDEN" })}
+                      onClick={() => setStatusMut.mutate({ id: r.id, action: "HIDE" })}
                     >
                       <EyeOff /> Hide
                     </Button>
@@ -311,7 +357,6 @@ function ReviewBody({ r }: { r: ReviewDto }) {
           </Badge>
         </div>
       </div>
-      <h4 className="mt-2 text-sm font-semibold">{r.title}</h4>
       {r.body && <p className="text-sm text-muted-foreground">{r.body}</p>}
     </div>
   );

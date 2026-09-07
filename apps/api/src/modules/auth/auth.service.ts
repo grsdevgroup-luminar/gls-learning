@@ -58,10 +58,6 @@ export class AuthService {
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
-  /** Every account starts as a STUDENT regardless of entry point — the
-   *  dedicated instructor-signup journey (registerInstructor) elevates to
-   *  INSTRUCTOR only later, on admin approval, same as the apply-from-an-
-   *  existing-account path. */
   private async createStudentAccount(input: {
     name: string;
     email: string;
@@ -92,9 +88,6 @@ export class AuthService {
     return this.issueSession(user.id, user.email, user.role, meta);
   }
 
-  /** The dedicated instructor signup journey: creates the account and submits
-   *  the instructor application in one step, so applying to teach never
-   *  requires first creating (or logging into) a separate student account. */
   async registerInstructor(input: InstructorSignupInput, meta: SessionMeta) {
     const user = await this.createStudentAccount(input);
     await this.instructor.createSignupApplication(
