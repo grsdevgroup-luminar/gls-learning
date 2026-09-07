@@ -375,8 +375,8 @@ export const api = {
   adminReviewStats: () => apiFetch<AdminReviewStatsDto>("/admin/reviews/stats"),
   adminReviewCourses: () =>
     apiFetch<AdminReviewCourseOptionDto[]>("/admin/reviews/courses"),
-  updateReviewStatus: (reviewId: string, status: "APPROVED" | "HIDDEN") =>
-    apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { status } }),
+  updateReviewStatus: (reviewId: string, action: "APPROVE" | "HIDE" | "UNHIDE") =>
+    apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { action } }),
 
   // sales agent (self-service)
   applySalesAgent: (body: {

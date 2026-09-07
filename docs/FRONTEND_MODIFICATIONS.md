@@ -1,5 +1,201 @@
 # Changelog
 
+## 2026-09-07 — Review Moderation Cache Synchronization
+
+### Fixed
+
+- Fixed hidden/unhidden review changes remaining stale on storefront course pages until a manual reload or cache expiry.
+- Added cache tags to cached course detail and course review requests.
+- Revalidated course review and course-page caches after successful Admin Review status updates.
+- Added cross-tab browser notification so an already-open course page refreshes when an admin changes a review status.
+- Added optimistic Admin Review row updates with rollback on failure and authoritative response reconciliation, avoiding a full review-list refetch for each action.
+
+### Changed Files
+
+- `apps/web/lib/api/server.ts`
+  - Supports cache tags for cached and optional cached server API requests.
+
+- `apps/web/app/(storefront)/courses/[slug]/page.tsx`
+  - Tags course detail and review requests for targeted invalidation.
+
+- `apps/web/app/api/[...path]/route.ts`
+  - Revalidates review and course-page tags after successful admin review status changes.
+
+- `apps/web/app/admin/reviews/page-client.tsx`
+  - Broadcasts successful review status changes to other browser tabs.
+  - Updates the affected review row immediately, restores the previous data on failure, and refreshes only review statistics.
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/reviews-section.tsx`
+  - Refreshes the open course page when a review status update is received.
+
+### Verification
+
+- Passed `pnpm --filter @skillstream/web typecheck`.
+
+## 2026-09-07 — Admin Panel Search Improvements
+
+### Fixed
+
+- Expanded the Admin Panel search box beyond dashboard-visible labels to support navigation across admin modules, features, pages, and accessible published courses.
+- Added searchable aliases for common admin tasks, including course management, instructor applications, student management, review moderation, discounts, payments, regional pricing, and system settings.
+- Removed the previous eight-course limit so every published course available in the catalog can be found through search.
+- Updated the search prompt to clarify that modules, features, pages, and courses are searchable.
+
+### Changed Files
+
+- `apps/web/components/shared/command-palette.tsx`
+  - Searches labels, hints, and feature keywords.
+  - Includes the complete published course catalog.
+
+- `apps/web/components/shared/portal-shell.tsx`
+  - Supports optional search keywords for navigation items.
+
+- `apps/web/app/admin/layout.tsx`
+  - Adds feature aliases for all Admin Panel navigation sections.
+
+### Verification
+
+- Passed `pnpm --filter @skillstream/web typecheck`.
+- Passed `git diff --check` for the search changes.
+
+## 2026-09-07 — Recommended Course Review Authorization Changes
+
+### Security Requirement
+
+- Only students with a valid course enrollment may submit or edit a course review.
+- Valid enrollment statuses are `IN_PROGRESS` and `COMPLETED`.
+- Students without an enrollment, students with an `ABANDONED` enrollment, and students with only an unpaid checkout or cart item must not be allowed to review.
+
+### Implementation Guide
+
+1. Add `findActiveByUserAndCourse()` in `apps/api/src/modules/enrollment/enrollment.repository.ts`.
+   - Query by `userId` and `courseId`.
+   - Restrict the enrollment status to `IN_PROGRESS` or `COMPLETED`.
+
+2. Add `canReview()` in `apps/api/src/modules/enrollment/enrollment.service.ts`.
+   - Call the repository method and return a boolean.
+   - Keep the existing general `isEnrolled()` behavior unchanged for other features.
+
+3. Enforce authorization in `apps/api/src/modules/reviews/reviews.service.ts`.
+   - Check `canReview()` before creating or updating a review.
+   - Reject unauthorized requests with HTTP `403 Forbidden`.
+   - Do not upsert the review, recalculate ratings, or send notifications after rejection.
+
+4. Filter frontend enrollment state in `apps/web/lib/context/store.tsx`.
+   - Include only `IN_PROGRESS` and `COMPLETED` enrollments in the course IDs used by `isEnrolled()`.
+
+5. Keep the existing conditional review UI in `apps/web/app/(storefront)/courses/[slug]/_components/reviews-section.tsx`.
+   - The review dialog should render only when `isEnrolled(course.id)` is true.
+   - This improves the user experience but does not replace the backend authorization check.
+
+6. Add regression tests covering no enrollment, abandoned enrollment, in-progress enrollment, completed enrollment, unpaid checkout, and direct API requests.
+
+### Expected Behavior
+
+- Non-enrolled students do not see the review option.
+- Abandoned enrollments do not qualify for review access.
+- Enrolled students can submit and edit reviews.
+- Direct API requests from unauthorized students return `403 Forbidden` and create no review.
+- A purchased course becomes reviewable only after payment fulfillment creates the enrollment.
+
+### Verification
+
+- Run `pnpm --filter @skillstream/api build`.
+- Run `pnpm --filter @skillstream/web typecheck`.
+- Run the API review authorization tests.
+- Manually verify both the hidden UI state and direct API rejection for a non-enrolled student.
+
+## 2026-09-07
+
+### Fixed
+
+- Fixed Course Review submissions allowing students to submit a rating without written review content.
+- Made both the Rating and Review fields mandatory in the course review dialog.
+- Prevented submission when no star rating is selected or when the written review is empty or contains only whitespace.
+- Added clear validation messages prompting students to select a rating or write a review before continuing.
+- Applied the same written-review requirement to the compact rating control available from the learning page, so all course review submission paths enforce the same rule.
+- Added server-side validation to reject empty review bodies, ensuring incomplete reviews cannot be submitted through direct API requests.
+- Removed the unnecessary Review Title field from the student review form and all review displays.
+- Reviews now consist of a required star rating and written review body only.
+- Fixed Admin Review Management so unhiding a review no longer automatically approves it.
+- Preserved the review status from before hiding:
+  - Hidden pending reviews return to `PENDING` and remain in the approval queue.
+  - Hidden approved reviews return to `APPROVED`.
+  - Legacy hidden reviews without a saved prior status safely return to `PENDING`.
+- Made moderation operations explicit: `APPROVE`, `HIDE`, and `UNHIDE` are handled as separate actions.
+- Prevented an `UNHIDE` request from approving a review that is not currently hidden.
+
+### Changed Files
+
+- `apps/web/app/(storefront)/courses/[slug]/_components/review-dialog.tsx`
+  - Validates the required rating and written review before submission.
+  - Removes the Review Title input and keeps Rating and Review as the only submission fields.
+
+- `apps/web/app/learn/[slug]/_components/learn-client.tsx`
+  - Adds a required written-review field to the compact learner rating control.
+  - Removes the unnecessary title input.
+  - Prevents incomplete rating/review submissions.
+
+- `packages/shared/src/contracts/reviews.ts`
+  - Requires the review body to contain at least one non-whitespace character.
+  - Removes the review title from create-review input and review response types.
+
+- `packages/shared/src/__tests__/business-logic.test.ts`
+  - Adds regression coverage for empty and whitespace-only review bodies.
+
+- `apps/web/app/admin/reviews/page-client.tsx`
+  - Distinguishes approve, hide, and unhide actions in the admin interface and feedback messages.
+
+- `apps/api/src/modules/reviews/reviews.repository.ts`
+  - Restores the review’s pre-hidden moderation status during unhide operations.
+
+- `apps/api/prisma/schema.prisma`
+  - Adds nullable `statusBeforeHidden` review metadata for status restoration.
+
+- `apps/api/prisma/migrations/20260907130000_preserve_review_status_on_unhide/migration.sql`
+  - Adds the database column used to preserve the previous moderation status.
+
+### Verification
+
+- Passed:
+  - `pnpm --filter @skillstream/shared test`
+  - `pnpm --filter @skillstream/shared build`
+  - `pnpm --filter @skillstream/web typecheck`
+  - `git diff --check`
+
+## 2026-09-06
+
+### Fixed
+
+- Fixed retrying an abandoned Stripe checkout for a course that still had a pending order.
+- The retry now checks the previous Stripe Checkout Session before reusing it:
+  - Paid sessions fulfil the original order so the student receives their course.
+  - Open or expired unpaid sessions are expired and their order is marked failed.
+  - A new checkout attempt then creates one fresh pending order and Stripe sandbox session.
+- This keeps the one-pending-order-per-course protection while preventing Stripe from reopening a stale session that displays “You are all done here.”
+
+### Changed Files
+
+- `apps/api/src/modules/commerce/checkout.service.ts`
+  - Reconciles overlapping pending orders before creating a retry checkout.
+- `apps/api/src/modules/payment/payments.service.ts`
+- `apps/api/src/modules/payment/interfaces/payment-gateway.interface.ts`
+- `apps/api/src/modules/payment/gateways/stripe/stripe.gateway.ts`
+  - Added safe Stripe Session status reconciliation and expiration for abandoned retries.
+
+## 2026-09-05
+
+### Changed
+
+- Updated the shared student learning-preferences modal used during sign-up and from the dashboard so learners must select at least three categories, with no upper limit.
+- Removed the sign-up-only three-category cap and updated selection counts, helper text, save validation, and category controls to support additional selections.
+
+### Changed Files
+
+- `apps/web/components/shared/course-preferences-modal.tsx`
+  - Allows any number of available learning categories to be selected.
+  - Keeps saving disabled until at least three categories are selected.
+
 ## 2026-08-31
 
 ### Fixed
@@ -16,7 +212,7 @@
 - Adjusted the desktop split so the video takes most of the available height while the lesson tabs retain a visible minimum area.
 
 - Fixed the course review modal close icon being clipped by the popup overflow boundary.
-- Added visible 160-character title and 4,000-character review limits with live counters.
+- Added a visible 4,000-character review limit with a live counter.
 
 ### Changed Files
 
@@ -30,9 +226,9 @@
   - Prevents the player section from introducing its own scrollbar.
 
 - `apps/web/app/(storefront)/courses/[slug]/_components/review-dialog.tsx`
-  - Removed popup overflow clipping and added review title/body length feedback.
+  - Removed popup overflow clipping and added review body length feedback.
 - `packages/shared/src/contracts/reviews.ts`
-  - Added clear review title and body validation messages.
+  - Added clear review body validation messages.
 
 ## 2026-08-30
 

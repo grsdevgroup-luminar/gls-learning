@@ -5,16 +5,6 @@ const names = [
   "Noah K.", "Sofia R.", "Daniel T.", "Aisha B.", "Mateo G.",
   "Hana L.", "Omar F.", "Grace P.", "Tomas V.", "Yuki N.",
 ];
-const titles = [
-  "Exactly what I needed",
-  "Best course on the topic",
-  "Clear and practical",
-  "Worth every penny",
-  "Finally it clicked",
-  "Great instructor",
-  "A bit fast but excellent",
-  "Highly recommend",
-];
 const bodies = [
   "The pacing is perfect and the projects are genuinely useful. I shipped something at work the same week.",
   "I've taken a lot of courses and this is the one that finally made the concepts stick. The examples are real-world.",
@@ -55,7 +45,6 @@ function gen(courseId: string, count: number): Review[] {
       avatar: "",
       rating,
       date: d.toISOString().slice(0, 10),
-      title: titles[(rid * 3 + i) % titles.length],
       body: bodies[(rid * 2 + i) % bodies.length],
       status: i === 0 && courseId === "c_react" ? "pending" : "approved",
       helpful: Math.floor(r3 * 64),
@@ -69,13 +58,13 @@ export const reviews: Review[] = courseIds.flatMap((id) => gen(id, 6));
 reviews.push(
   {
     id: "r_pending1", courseId: "c_ml", author: "Kabir H.", avatar: "", rating: 2,
-    date: "2026-06-20", title: "Audio issues in section 3",
+    date: "2026-06-20",
     body: "Content is good but a few videos in section 3 have low audio. Can this be fixed?",
     status: "pending", helpful: 0,
   },
   {
     id: "r_pending2", courseId: "c_design", author: "Anon", avatar: "", rating: 1,
-    date: "2026-06-22", title: "buy followers cheap >> spam-link.example",
+    date: "2026-06-22",
     body: "promotional spam content here",
     status: "pending", helpful: 0,
   },

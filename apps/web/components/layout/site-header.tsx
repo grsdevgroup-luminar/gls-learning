@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -23,16 +23,8 @@ import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
-import {
-  activeCourseSearchQuery,
-  normalizeCourseSearchQuery,
-  onCourseSearchInputChange,
-  shouldPreserveSearchInputOverUrlSync,
-} from "@/lib/course-search";
 import { toast } from "sonner";
 import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
-
-const noOpSubscribe = () => () => {};
 
 export function SiteHeader() {
   const { cart, mounted } = useStore();
@@ -41,33 +33,22 @@ export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const urlQ =
-    pathname === "/courses"
-      ? normalizeCourseSearchQuery(searchParams.get("q") ?? "")
-      : "";
+  const urlQ = pathname === "/courses" ? (searchParams.get("q") ?? "") : "";
   const [q, setQ] = useState(urlQ);
   const [syncedQ, setSyncedQ] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(q);
-  /** Normalized `q` last pushed to the URL — read only in the sync effect below. */
-  const pendingUrlQRef = useRef<string | null>(null);
-  // Keep session-dependent markup identical for SSR and the browser's first
-  // render. The browser becomes hydrated in a follow-up render, after which
-  // the session-dependent controls can safely appear.
-  const hydrated = useSyncExternalStore(
-    noOpSubscribe,
-    () => true,
-    () => false,
-  );
-  const sessionReady = hydrated && !isLoading;
-  const headerRole = sessionReady ? role : "GUEST";
-  const isAuthed = sessionReady && !!user;
+  const isAuthed = !!user;
 
-  const pushSearchToUrl = useCallback((query: string) => {
-    const normalized = activeCourseSearchQuery(query);
+  if (syncedQ !== urlQ) {
+    setSyncedQ(urlQ);
+    setQ(urlQ);
+  }
+
+  const search = useCallback((query: string) => {
     if (pathname === "/courses") {
       const nextParams = new URLSearchParams(searchParams.toString());
-      if (!normalized) nextParams.delete("q");
-      else nextParams.set("q", normalized);
+      if (query.length < 2) nextParams.delete("q");
+      else nextParams.set("q", query);
 
       const nextQueryString = nextParams.toString();
       const nextHref = nextQueryString ? `/courses?${nextQueryString}` : "/courses";
@@ -75,51 +56,22 @@ export function SiteHeader() {
       const currentHref = currentQueryString ? `/courses?${currentQueryString}` : "/courses";
       if (nextHref === currentHref) return;
 
-      pendingUrlQRef.current = normalized;
       router.push(nextHref);
       return;
     }
 
-    if (!normalized) return;
+    if (query.length < 2) return;
 
-    // Instructor navigation uses the shared header search, but the query must
-    // not become a CatalogClient filter. The instructor course list and the
-    // catalog's dedicated filters are separate search contexts.
-    if (pathname.startsWith("/instructor")) {
-      router.push("/courses");
-      return;
-    }
-
-    pendingUrlQRef.current = normalized;
-    router.push(`/courses?q=${encodeURIComponent(normalized)}`);
+    router.push(`/courses?q=${encodeURIComponent(query)}`);
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
-    if (syncedQ !== urlQ) {
-      const pending = pendingUrlQRef.current;
-      pendingUrlQRef.current = null;
-      // URL changed (our debounced push, Back, or external nav) — mirror into input.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync searchParams to controlled input
-      setSyncedQ(urlQ);
-      if (pending !== null && urlQ === pending) {
-        setQ((current) =>
-          shouldPreserveSearchInputOverUrlSync(current, urlQ, pending) ? current : urlQ,
-        );
-      } else {
-        setQ(urlQ);
-      }
-
-      // Do not push q/debouncedQ from the stale render that observed this URL change.
-      return;
-    }
-
-    if (debouncedQ !== q.trim()) return;
-    pushSearchToUrl(debouncedQ);
-  }, [debouncedQ, q, pushSearchToUrl, syncedQ, urlQ]);
+    search(debouncedQ);
+  }, [debouncedQ, search]);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    pushSearchToUrl(q);
+    search(q.trim());
   }
 
   async function logout() {
@@ -133,7 +85,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/55">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55">
       {/* aurora hairline under the header */}
       <span
         aria-hidden
@@ -145,15 +97,9 @@ export function SiteHeader() {
           <Button render={<Link href="/courses" />} variant="ghost" size="sm">
             Courses
           </Button>
-          {headerRole === "INSTRUCTOR" ? (
-            <Button render={<Link href="/instructor" />} variant="ghost" size="sm">
-              Instructor
-            </Button>
-          ) : !isAuthed ? (
-            <Button render={<Link href="/teach" />} variant="ghost" size="sm">
-              Teach
-            </Button>
-          ) : null}
+          <Button render={<Link href={role === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
+            {role === "INSTRUCTOR" ? "Instructor" : "Teach"}
+          </Button>
         </nav>
 
         <form onSubmit={submitSearch} className="relative ml-2 hidden flex-1 lg:block">
@@ -167,7 +113,7 @@ export function SiteHeader() {
           <Input
             type="search"
             value={q}
-            onChange={(e) => onCourseSearchInputChange(e.target.value, q, setQ)}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="Search for courses, topics, skills…"
             className="pl-9"
             minLength={2}
@@ -219,7 +165,7 @@ export function SiteHeader() {
             </Button>
           </div>
 
-          {!sessionReady ? null : isAuthed ? (
+          {isLoading ? null : isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="rounded-full" />}
@@ -238,7 +184,7 @@ export function SiteHeader() {
                       {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
                     </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {user?.email ?? ""}
+                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@grs-learning.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>

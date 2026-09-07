@@ -16,6 +16,7 @@ type Cmd = {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   group: string;
+  keywords?: string[];
 };
 
 export function CommandPalette({ items }: { items: NavItem[] }) {
@@ -45,10 +46,10 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
       href: it.href,
       icon: getNavIcon(it.icon),
       group: "Navigation",
+      keywords: it.searchKeywords,
     })) ?? [];
     const courseCmds: Cmd[] = courses
       .filter((c) => c.status === "PUBLISHED")
-      .slice(0, 8)
       .map((c) => ({
         id: c.id,
         label: c.title,
@@ -56,6 +57,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
         href: `/learn/${c.slug}`,
         icon: GraduationCap,
         group: "Courses",
+        keywords: ["course", "learning", "class", "lesson"],
       }));
     return [...nav, ...courseCmds];
   }, [items, courses]);
@@ -63,7 +65,13 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
   const results = useMemo(() => {
     const needle = debouncedQ.trim().toLowerCase();
     if (!needle) return commands;
-    return commands?.filter((c) => c.label.toLowerCase().includes(needle)) ?? [];
+    return commands?.filter((c) => {
+      const searchableText = [c.label, c.hint, ...(c.keywords ?? [])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchableText.includes(needle);
+    }) ?? [];
   }, [debouncedQ, commands]);
 
   // Reset the highlight whenever the query changes — adjusting state during
@@ -109,7 +117,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
         className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-muted-foreground shadow-xs transition-colors hover:text-foreground"
       >
         <Search className="size-4" />
-        <span className="flex-1 text-left">Search…</span>
+        <span className="flex-1 text-left">Search features and more…</span>
         <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium">
           ⌘K
         </kbd>
@@ -128,7 +136,7 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Search pages and courses…"
+              placeholder="Search modules, features, pages, and courses…"
               className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>

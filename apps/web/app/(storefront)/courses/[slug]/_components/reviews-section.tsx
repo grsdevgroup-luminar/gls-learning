@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { CourseDetailDto, ReviewDto } from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
 import { useSession } from "@/lib/api/session";
@@ -21,8 +23,18 @@ export function ReviewsSection({
   course: CourseDetailDto;
   initialReviews: ReviewDto[];
 }) {
+  const router = useRouter();
   const { isEnrolled, getMyReview, submitReview, mounted } = useStore();
   const { user } = useSession();
+
+  useEffect(() => {
+    function handleReviewUpdate(event: StorageEvent) {
+      if (event.key === "review-status-updated") router.refresh();
+    }
+
+    window.addEventListener("storage", handleReviewUpdate);
+    return () => window.removeEventListener("storage", handleReviewUpdate);
+  }, [router]);
 
   const enrolled = isEnrolled(course.id);
   const myReview = mounted ? getMyReview(course.id) : undefined;
@@ -36,7 +48,6 @@ export function ReviewsSection({
           avatar: null,
           rating: myReview.rating,
           createdAt: myReview.date,
-          title: myReview.title,
           body: myReview.body,
           status: "APPROVED",
           helpful: 0,
@@ -87,7 +98,6 @@ export function ReviewsSection({
                 </div>
               </div>
             </div>
-            <h4 className="mt-2 text-sm font-semibold">{r.title}</h4>
             {r.body && <p className="mt-1 text-sm text-muted-foreground">{r.body}</p>}
             <button className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <ThumbsUp className="h-3.5 w-3.5" /> Helpful ({r.helpful})

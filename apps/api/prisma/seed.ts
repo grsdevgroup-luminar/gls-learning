@@ -326,7 +326,7 @@ async function main() {
         courseId: r.courseId,
         userId,
         rating: r.rating,
-        title: r.title,
+        title: "",
         body: r.body,
         status: REVIEW_STATUS[r.status],
         helpful: r.helpful,

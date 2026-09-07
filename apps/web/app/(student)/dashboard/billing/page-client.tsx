@@ -98,7 +98,7 @@ export default function BillingPage() {
       return;
     }
     setViewing(orderId);
-    preview.document.title = "Loading receiptÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦";
+    preview.document.title = "Loading receipt...";
     try {
       const url = URL.createObjectURL(await fetchFile(`/me/orders/${orderId}/receipt`));
       preview.location.href = url;
@@ -147,7 +147,7 @@ export default function BillingPage() {
                 <Input
                   value={qInput}
                   onChange={(e) => setQInput(e.target.value)}
-                  placeholder="Search by order id or course nameÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦"
+                  placeholder="Search by order id or course name…"
                   className="pl-9"
                   aria-label="Search orders"
                 />
@@ -232,7 +232,7 @@ export default function BillingPage() {
                           })}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {o.items[0]?.title ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"}
+                          {o.items[0]?.title ?? "—"}
                           {o.items.length > 1 && (
                             <span className="text-muted-foreground"> +{o.items.length - 1}</span>
                           )}

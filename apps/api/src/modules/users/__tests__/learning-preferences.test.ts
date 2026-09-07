@@ -21,7 +21,7 @@ describe("updateLearningPreferencesSchema", () => {
     ]);
   });
 
-  it("accepts three or more distinct areas and defaults optional keywords", () => {
+  it("accepts three or more distinct areas without an upper limit and defaults optional keywords", () => {
     const parsed = updateLearningPreferencesSchema.parse({
       categories: [
         "Development",

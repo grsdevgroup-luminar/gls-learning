@@ -17,7 +17,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
  * Single-flight refresh: the 15-minute access-token cookie expires long before
  * the 7-day refresh cookie, so browser calls hit 401 mid-session. This POSTs
  * /auth/refresh once and lets the Set-Cookie install a fresh access token.
- * Deduped module-wide so a burst of parallel 401s triggers ONE rotation â€”
+ * Deduped module-wide so a burst of parallel 401s triggers ONE rotation —
  * refresh tokens are single-use, so N concurrent refreshes would invalidate
  * each other and log the user out.
  */
@@ -36,50 +36,11 @@ function refreshSession(): Promise<boolean> {
 }
 
 /**
- * When both access and refresh tokens are dead, every subsequent request 401s
- * with no way to recover in-page. The middleware only checks that the
- * refresh_token cookie *exists*, not that it's valid, so an expired-but-present
- * cookie sails past the proxy and lands here. Bounce the browser to /login with
- * a `next` param so they land back where they were after signing in. Skipped
- * for the auth endpoints themselves (would loop) and when already on /login.
- */
-let redirectingToLogin = false;
-function redirectToLogin(): void {
-  if (typeof window === "undefined" || redirectingToLogin) return;
-  const { pathname, search } = window.location;
-  if (pathname === "/login" || pathname.startsWith("/login/")) return;
-  redirectingToLogin = true;
-  const next = encodeURIComponent(`${pathname}${search}`);
-  window.location.assign(`/login?next=${next}`);
-}
-
-function isAuthPath(path: string): boolean {
-  return (
-    path.startsWith("/auth/refresh") ||
-    path.startsWith("/auth/login") ||
-    path.startsWith("/auth/logout") ||
-    path.startsWith("/auth/me")
-  );
-}
-
-function parseResponseBody(text: string, res: Response): unknown {
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    if (!res.ok) {
-      throw new ApiError(res.status, null, res.statusText);
-    }
-    throw new ApiError(502, null, "Invalid response from server");
-  }
-}
-
-/**
  * Core fetch wrapper used by both the browser and server clients. Always sends
  * credentials so the httpOnly auth cookies travel with the request. Parses
  * problem-detail errors into ApiError. On a browser 401 it transparently
  * refreshes the session once and retries (SSR calls carry cookieHeader and are
- * skipped â€” a Server Component can't persist rotated cookies mid-render).
+ * skipped — a Server Component can't persist rotated cookies mid-render).
  */
 export async function apiFetch<T>(
   path: string,
@@ -103,20 +64,16 @@ export async function apiFetch<T>(
     res.status === 401 &&
     typeof window !== "undefined" &&
     !cookieHeader &&
-    !path.startsWith("/auth/refresh")
+    !path.startsWith("/auth/refresh") &&
+    (await refreshSession())
   ) {
-    if (await refreshSession()) {
-      res = await send();
-    }
-    if (res.status === 401 && !isAuthPath(path)) {
-      redirectToLogin();
-    }
+    res = await send();
   }
 
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = parseResponseBody(text, res);
+  const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
     const problem = data as ProblemDetail | null;
@@ -134,7 +91,7 @@ export async function apiFetch<T>(
   return data as T;
 }
 
-/** Absolute URL for an API path â€” for links the browser navigates to directly
+/** Absolute URL for an API path — for links the browser navigates to directly
  *  (PDFs, downloads) rather than fetches. */
 export function apiUrl(path: string): string {
   return `${BASE_URL}${path}`;
@@ -142,7 +99,7 @@ export function apiUrl(path: string): string {
 
 /**
  * Multipart upload wrapper. Uses the same 401-retry dance as apiFetch but lets
- * the browser set the multipart boundary in Content-Type â€” hard-coding it here
+ * the browser set the multipart boundary in Content-Type — hard-coding it here
  * would strip the `boundary=...` suffix and every request would 400.
  */
 export async function apiFetchMultipart<T>(
@@ -162,20 +119,16 @@ export async function apiFetchMultipart<T>(
   if (
     res.status === 401 &&
     typeof window !== "undefined" &&
-    !path.startsWith("/auth/refresh")
+    !path.startsWith("/auth/refresh") &&
+    (await refreshSession())
   ) {
-    if (await refreshSession()) {
-      res = await send();
-    }
-    if (res.status === 401 && !isAuthPath(path)) {
-      redirectToLogin();
-    }
+    res = await send();
   }
 
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = parseResponseBody(text, res);
+  const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
     const problem = data as ProblemDetail | null;
@@ -192,23 +145,9 @@ export async function apiFetchMultipart<T>(
   return data as T;
 }
 
-/**
- * Fetches a cookie-authenticated file. A plain <a href> would work only while
- * the API stays same-site; fetching with credentials and handing the browser a
- * blob works regardless, and surfaces API errors to callers instead of rendering a JSON
- * error page in a new tab.
- */
+/** Fetches a cookie-authenticated file for previewing in a new tab. */
 export async function fetchFile(path: string): Promise<Blob> {
-  const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include" });
-  let res = await send();
-  if (res.status === 401 && typeof window !== "undefined") {
-    if (await refreshSession()) {
-      res = await send();
-    }
-    if (res.status === 401) {
-      redirectToLogin();
-    }
-  }
+  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
   if (!res.ok) {
     const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
     throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
@@ -216,8 +155,19 @@ export async function fetchFile(path: string): Promise<Blob> {
   return res.blob();
 }
 
+/**
+ * Downloads a cookie-authenticated file. A plain <a href> would work only while
+ * the API stays same-site; fetching with credentials and handing the browser a
+ * blob works regardless, and surfaces API errors instead of rendering a JSON
+ * error page in a new tab.
+ */
 export async function downloadFile(path: string, filename: string): Promise<void> {
-  const url = URL.createObjectURL(await fetchFile(path));
+  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
+    throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
+  }
+  const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

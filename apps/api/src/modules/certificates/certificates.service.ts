@@ -49,6 +49,18 @@ export class CertificatesService {
 
   async pdf(serial: string): Promise<Buffer> {
     const cert = await this.findBySerial(serial);
+    return this.renderPdf(cert);
+  }
+
+  async pdfForUser(serial: string, userId: string): Promise<Buffer> {
+    const cert = await this.repo.findBySerialForUser(serial, userId);
+    if (!cert) throw new NotFoundException("Certificate not found");
+    return this.renderPdf(cert);
+  }
+
+  private renderPdf(
+    cert: NonNullable<Awaited<ReturnType<CertificatesRepository["findBySerial"]>>>,
+  ): Buffer {
     return certificatePdf({
       learnerName: cert.learnerName,
       courseTitle: cert.enrollment.course.title,

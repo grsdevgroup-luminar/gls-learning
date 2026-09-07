@@ -21,7 +21,12 @@ import { CourseDetail } from "./_components/course-detail";
 export const revalidate = 60;
 
 async function fetchCourse(slug: string) {
-  return serverApiCachedOptional<CourseDetailDto>(`/courses/${slug}`, revalidate);
+  return serverApiCachedOptional<CourseDetailDto>(
+    `/courses/${slug}`,
+    revalidate,
+    {},
+    ["course-pages"],
+  );
 }
 
 export async function generateMetadata({
@@ -54,9 +59,11 @@ export default async function CoursePage({
   if (!dto) notFound();
 
   const reviewPage = await serverApiCached<Paginated<ReviewDto>>(
-    `/courses/${dto.id}/reviews`,
-    revalidate,
-  ).catch(() => null);
+  `/courses/${dto.id}/reviews`,
+  revalidate,
+  {},
+  ["course-reviews"],
+);
 
   const reviews = reviewPage?.items ?? [];
 

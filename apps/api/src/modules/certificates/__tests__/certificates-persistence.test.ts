@@ -9,11 +9,17 @@ const issuedAt = new Date("2026-09-01T12:00:00.000Z");
 const certRow = {
   serial: "CERT-ABC123DEF456",
   learnerName: "Ada Lovelace",
+  courseNumber: "TS-101",
   issuedAt,
   enrollment: {
+    userId: "user_1",
+    enrolledAt: new Date("2026-08-01T12:00:00.000Z"),
+    completedAt: new Date("2026-09-01T12:00:00.000Z"),
     course: {
+      courseNumber: "TS-101",
       title: "Advanced TypeScript",
       slug: "advanced-typescript",
+      isoStandard: "ISO-9001",
     },
   },
 };
@@ -27,7 +33,6 @@ function makeService(repo: Partial<CertificatesRepository>) {
   const config = {
     get: vi.fn((key: keyof Env) => {
       if (key === "FRONTEND_URL") return "https://app.example";
-      if (key === "API_BASE_URL") return "https://api.example";
       return undefined;
     }),
   } as unknown as ConfigService<Env, true>;
@@ -51,6 +56,12 @@ describe("CertificatesService persistence after progress changes", () => {
       learnerName: certRow.learnerName,
       courseTitle: certRow.enrollment.course.title,
       courseSlug: certRow.enrollment.course.slug,
+      uniqueId: certRow.serial,
+      courseNumber: certRow.courseNumber,
+      courseStartDate: certRow.enrollment.enrolledAt.toISOString(),
+      courseEndDate: certRow.enrollment.completedAt.toISOString(),
+      verificationUrl: `https://app.example/verify/${certRow.serial}`,
+      isoStandard: certRow.enrollment.course.isoStandard,
       issuedAt: issuedAt.toISOString(),
     });
   });

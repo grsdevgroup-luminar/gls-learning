@@ -73,7 +73,7 @@ export class EnrollmentService {
     private readonly config: ConfigService<Env, true>,
     private readonly alerts: AdminAlertsService,
     private readonly notifications: NotificationsService,
-  ) {}
+  ) { }
 
   private get apiBase(): string {
     return apiBaseUrl(this.config);
@@ -165,6 +165,15 @@ export class EnrollmentService {
   async isEnrolled(userId: string, courseId: string): Promise<boolean> {
     const n = await this.repo.countByUserAndCourse(userId, courseId);
     return n > 0;
+  }
+  
+  async canReview(userId: string, courseId: string): Promise<boolean> {
+    const enrollment = await this.repo.findActiveByUserAndCourse(
+      userId,
+      courseId,
+    );
+
+    return Boolean(enrollment);
   }
 
   /** Thin wrapper so other modules (e.g. CoursesService) can check org
