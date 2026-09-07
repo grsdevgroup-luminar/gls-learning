@@ -36,6 +36,43 @@ function refreshSession(): Promise<boolean> {
 }
 
 /**
+ * When both access and refresh tokens are dead, every subsequent request 401s
+ * with no way to recover in-page. The middleware only checks that the
+ * refresh_token cookie exists, not that it is valid, so redirect to login and
+ * preserve the current location for returning after authentication.
+ */
+let redirectingToLogin = false;
+function redirectToLogin(): void {
+  if (typeof window === "undefined" || redirectingToLogin) return;
+  const { pathname, search } = window.location;
+  if (pathname === "/login" || pathname.startsWith("/login/")) return;
+  redirectingToLogin = true;
+  const next = encodeURIComponent(`${pathname}${search}`);
+  window.location.assign(`/login?next=${next}`);
+}
+
+function isAuthPath(path: string): boolean {
+  return (
+    path.startsWith("/auth/refresh") ||
+    path.startsWith("/auth/login") ||
+    path.startsWith("/auth/logout") ||
+    path.startsWith("/auth/me")
+  );
+}
+
+function parseResponseBody(text: string, res: Response): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (!res.ok) {
+      throw new ApiError(res.status, null, res.statusText);
+    }
+    throw new ApiError(502, null, "Invalid response from server");
+  }
+}
+
+/**
  * Core fetch wrapper used by both the browser and server clients. Always sends
  * credentials so the httpOnly auth cookies travel with the request. Parses
  * problem-detail errors into ApiError. On a browser 401 it transparently
@@ -64,16 +101,20 @@ export async function apiFetch<T>(
     res.status === 401 &&
     typeof window !== "undefined" &&
     !cookieHeader &&
-    !path.startsWith("/auth/refresh") &&
-    (await refreshSession())
+    !path.startsWith("/auth/refresh")
   ) {
-    res = await send();
+    if (await refreshSession()) {
+      res = await send();
+    }
+    if (res.status === 401 && !isAuthPath(path)) {
+      redirectToLogin();
+    }
   }
 
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponseBody(text, res);
 
   if (!res.ok) {
     const problem = data as ProblemDetail | null;
@@ -119,16 +160,20 @@ export async function apiFetchMultipart<T>(
   if (
     res.status === 401 &&
     typeof window !== "undefined" &&
-    !path.startsWith("/auth/refresh") &&
-    (await refreshSession())
+    !path.startsWith("/auth/refresh")
   ) {
-    res = await send();
+    if (await refreshSession()) {
+      res = await send();
+    }
+    if (res.status === 401 && !isAuthPath(path)) {
+      redirectToLogin();
+    }
   }
 
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponseBody(text, res);
 
   if (!res.ok) {
     const problem = data as ProblemDetail | null;
@@ -147,7 +192,16 @@ export async function apiFetchMultipart<T>(
 
 /** Fetches a cookie-authenticated file for previewing in a new tab. */
 export async function fetchFile(path: string): Promise<Blob> {
-  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  let res = await send();
+  if (res.status === 401 && typeof window !== "undefined") {
+    if (await refreshSession()) {
+      res = await send();
+    }
+    if (res.status === 401 && !isAuthPath(path)) {
+      redirectToLogin();
+    }
+  }
   if (!res.ok) {
     const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
     throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
@@ -162,12 +216,7 @@ export async function fetchFile(path: string): Promise<Blob> {
  * error page in a new tab.
  */
 export async function downloadFile(path: string, filename: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
-  if (!res.ok) {
-    const problem = (await res.json().catch(() => null)) as ProblemDetail | null;
-    throw new ApiError(res.status, problem, problem?.message?.toString() ?? res.statusText);
-  }
-  const url = URL.createObjectURL(await res.blob());
+  const url = URL.createObjectURL(await fetchFile(path));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
