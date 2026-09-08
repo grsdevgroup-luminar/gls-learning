@@ -118,12 +118,22 @@ export interface CloudflareVideoStatus {
   readyToStream: boolean;
   state: string;
   errorReasonText: string | null;
+  /** Playback length in seconds once Cloudflare has finished probing the asset. */
+  durationSec: number | null;
+}
+
+/** Cloudflare Stream exposes `duration` as a float (seconds) on the video API. */
+export function normalizeCloudflareDurationSec(duration: unknown): number | null {
+  const n = typeof duration === "number" ? duration : Number(duration);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
 }
 
 export function parseCloudflareVideoStatus(json: {
   success: boolean;
   result?: {
     readyToStream?: boolean;
+    duration?: number;
     status?: { state?: string; errorReasonText?: string };
   };
 }): CloudflareVideoStatus | null {
@@ -132,6 +142,7 @@ export function parseCloudflareVideoStatus(json: {
     readyToStream: !!json.result.readyToStream,
     state: json.result.status?.state ?? "unknown",
     errorReasonText: json.result.status?.errorReasonText ?? null,
+    durationSec: normalizeCloudflareDurationSec(json.result.duration),
   };
 }
 

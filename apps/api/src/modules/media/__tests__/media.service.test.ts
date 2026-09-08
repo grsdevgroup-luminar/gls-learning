@@ -83,6 +83,7 @@ function makeService(overrides: {
     findByCloudflareUid: vi.fn(),
     markReadyFromEncoding: vi.fn().mockResolvedValue(true),
     markFailedFromEncoding: vi.fn().mockResolvedValue(true),
+    backfillLessonDurationIfMissing: vi.fn().mockResolvedValue(false),
     ...overrides.uploads,
   } as unknown as UploadRepository;
 
@@ -144,6 +145,43 @@ describe("MediaService.handleStreamWebhook", () => {
 
     expect(uploads.markReadyFromEncoding).toHaveBeenCalledWith(upload.id);
     expect(uploads.markFailedFromEncoding).not.toHaveBeenCalled();
+  });
+
+  it("backfills lesson duration from Cloudflare when upload becomes READY", async () => {
+    const body = JSON.stringify({
+      uid: "cf_vid_1",
+      readyToStream: true,
+      status: { state: "ready" },
+    });
+    const { raw, header } = signWebhook(body);
+    const upload = makeUpload({ lessonId: "lesson_1" });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            readyToStream: true,
+            duration: 599.4,
+            status: { state: "ready" },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const { service, uploads } = makeService({
+      uploads: {
+        findByCloudflareUid: vi.fn().mockResolvedValue(upload),
+        backfillLessonDurationIfMissing: vi.fn().mockResolvedValue(true),
+      },
+    });
+
+    await service.handleStreamWebhook(raw, header);
+
+    expect(uploads.backfillLessonDurationIfMissing).toHaveBeenCalledWith(
+      "lesson_1",
+      599,
+    );
+    fetchSpy.mockRestore();
   });
 
   it("acknowledges unknown Cloudflare UIDs without writing", async () => {

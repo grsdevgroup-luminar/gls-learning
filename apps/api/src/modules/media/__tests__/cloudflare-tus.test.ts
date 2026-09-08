@@ -55,7 +55,20 @@ describe("parseCloudflareVideoStatus", () => {
           status: { state: "inprogress", errorReasonText: "" },
         },
       }),
-    ).toMatchObject({ state: "inprogress", readyToStream: false });
+    ).toMatchObject({ state: "inprogress", readyToStream: false, durationSec: null });
+  });
+
+  it("extracts and rounds playback duration", () => {
+    expect(
+      parseCloudflareVideoStatus({
+        success: true,
+        result: {
+          readyToStream: true,
+          duration: 599.6,
+          status: { state: "ready" },
+        },
+      }),
+    ).toMatchObject({ readyToStream: true, durationSec: 600 });
   });
 });
 

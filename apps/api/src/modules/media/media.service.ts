@@ -303,6 +303,10 @@ export class MediaService {
       ? await this.uploads.markReady(upload.id)
       : await this.uploads.markProcessing(upload.id);
 
+    if (cfStatus.readyToStream) {
+      await this.syncLessonDurationForUpload(updated, cfStatus);
+    }
+
     return this.toUploadCompleteDto(updated);
   }
 
@@ -354,6 +358,10 @@ export class MediaService {
     tx?: Db,
   ): Promise<void> {
     await this.uploads.attachToLesson(cloudflareUid, lessonId, courseId, tx);
+    const upload = await this.uploads.findByCloudflareUid(cloudflareUid);
+    if (upload?.status === UploadStatus.READY) {
+      await this.syncLessonDurationForUpload(upload);
+    }
   }
 
   /** Clears lesson association when a video is removed from a lesson. */
@@ -628,7 +636,10 @@ export class MediaService {
         cfStatus.errorReasonText ?? "Cloudflare reported an encoding error",
       );
     } else if (cfStatus.readyToStream) {
-      await this.uploads.markReadyFromEncoding(upload.id);
+      const marked = await this.uploads.markReadyFromEncoding(upload.id);
+      if (marked) {
+        await this.syncLessonDurationForUpload(upload, cfStatus);
+      }
     } else {
       return upload;
     }
@@ -653,6 +664,7 @@ export class MediaService {
       const updated = await this.uploads.markReadyFromEncoding(upload.id);
       if (updated) {
         this.logger.log(`Upload ${upload.id} marked READY via Stream webhook`);
+        await this.syncLessonDurationForUpload(upload);
       }
       return;
     }
@@ -676,6 +688,34 @@ export class MediaService {
       await deleteCloudflareStreamVideo(accountId, token, uid);
     } catch {
       /* Best-effort — async cleanup jobs handle persistent failures. */
+    }
+  }
+
+  /**
+   * Fills `Lesson.durationSec` from Cloudflare when the lesson still has 0.
+   * Does not overwrite author-set or client-provided durations.
+   */
+  private async syncLessonDurationForUpload(
+    upload: Pick<Upload, "lessonId" | "cloudflareUid">,
+    cfStatus?: CloudflareVideoStatus | null,
+  ): Promise<void> {
+    if (!upload.lessonId || !upload.cloudflareUid) return;
+
+    let durationSec = cfStatus?.durationSec ?? null;
+    if (durationSec === null) {
+      const status = await this.fetchCloudflareVideo(upload.cloudflareUid);
+      durationSec = status?.durationSec ?? null;
+    }
+    if (durationSec === null || durationSec <= 0) return;
+
+    const updated = await this.uploads.backfillLessonDurationIfMissing(
+      upload.lessonId,
+      durationSec,
+    );
+    if (updated) {
+      this.logger.log(
+        `Lesson ${upload.lessonId} durationSec set to ${durationSec}s from Cloudflare (${upload.cloudflareUid})`,
+      );
     }
   }
 }
