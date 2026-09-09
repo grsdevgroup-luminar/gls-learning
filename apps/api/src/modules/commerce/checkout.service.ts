@@ -184,13 +184,15 @@ export class CheckoutService {
         .filter((order) => order.gateway !== input.gateway)
         .map((order) => this.repo.markFailedIfPending(order.id, userId)),
     );
-    const pendingOrders = openOrders.filter(
+    const remainingPendingOrders = openOrders.filter(
       (order) => order.gateway === input.gateway,
     );
     const pendingCourseIds = new Set(
       remainingPendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
     );
-    const newCourseIds = courseIds.filter((id) => !pendingCourseIds.has(id));
+    const newCourseIds = purchasableCourseIds.filter(
+      (id) => !pendingCourseIds.has(id),
+    );
     if (newCourseIds.length === 0)
       return this.resurrectSession(remainingPendingOrders[0]);
 
