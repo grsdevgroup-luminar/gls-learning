@@ -28,7 +28,7 @@ function SuccessContent() {
   // instant (see NOTIFICATION_SYSTEM_PLAN.md — tiered real-time delivery):
   // fast-poll this order's own status directly rather than waiting on the
   // ambient notification bell's slow 20-30s poll.
-  const { data: order, isLoading } = useQuery({
+  const { data: order } = useQuery({
     queryKey: qk.myOrder(orderId ?? ""),
     queryFn: () => api.myOrder(orderId as string),
     enabled: !!orderId,
@@ -53,17 +53,17 @@ function SuccessContent() {
   return (
     <div className="mx-auto max-w-xl px-4 py-20 text-center">
       <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-success/15">
-        {pending && isLoading ? (
+        {pending ? (
           <Loader2 className="h-11 w-11 animate-spin text-success" />
         ) : (
           <CheckCircle2 className="h-11 w-11 text-success" />
         )}
       </div>
       <h1 className="text-3xl font-bold tracking-tight">
-        {pending && isLoading ? "Confirming your payment…" : "You're enrolled! 🎉"}
+        {pending ? "Confirming your payment…" : "You're enrolled! 🎉"}
       </h1>
       <p className="mt-3 text-muted-foreground">
-        {pending && isLoading
+        {pending
           ? "Hang tight — we're finalizing your order."
           : "Your purchase is complete. Your courses are unlocked and ready."}
       </p>

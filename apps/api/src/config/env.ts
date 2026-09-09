@@ -52,6 +52,13 @@ const rawEnvSchema = z.object({
   PAYOUT_MIN_NET_CENTS: z.coerce.number().int().min(100).default(2_500),
   PAYPAL_CLIENT_ID: z.string().optional(),
   PAYPAL_CLIENT_SECRET: z.string().optional(),
+  // Sandbox (`api-m.sandbox.paypal.com`) vs live (`api-m.paypal.com`). Defaults
+  // to sandbox in non-prod. Set to "true" in prod when the credentials come
+  // from a sandbox app — live host rejects sandbox creds with `invalid_client`.
+  PAYPAL_SANDBOX: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === undefined ? undefined : v === "true"),
   // SSLCommerz: store credentials from https://developer.sslcommerz.com. Without
   // both, the gateway is treated as unconfigured (dev-simulate outside prod).
   SSLCOMMERZ_STORE_ID: z.string().optional(),

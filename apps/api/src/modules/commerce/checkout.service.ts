@@ -167,37 +167,26 @@ export class CheckoutService {
       throw new BadRequestException("You already own these courses");
 
     // A new checkout attempt may use a fresh idempotency key (for example
-    // after the student closes a hosted payment page). Reconcile any existing
-    // pending gateway session before deciding whether it can be replaced. This
-    // keeps one active pending order per course without trapping a student in
-    // a completed, expired, or abandoned Stripe Checkout Session.
-    const pendingOrders =
+    // after returning from a canceled provider session). Do not create a
+    // second pending order for a course that is already awaiting payment.
+    // Mixed carts continue with only the courses that do not have a pending
+    // order; the existing pending order remains available to resume.
+    const openOrders =
       await this.repo.findPendingOrdersByUserAndCourseIds(
         userId,
         purchasableCourseIds,
-      );
-    for (const pendingOrder of pendingOrders) {
-      const resolution = await this.payments.reconcilePendingPayment(pendingOrder);
-      if (resolution.status === "PAID") {
-        await this.orders.fulfill(pendingOrder.id, resolution.providerPaymentId);
-      } else if (resolution.status === "ABANDONED") {
-        await this.repo.markFailedIfPending(pendingOrder.id, userId);
-      }
-    }
-
-    // A delayed webhook may have just been reconciled above, so recalculate
-    // ownership and remaining pending orders from the authoritative database.
-    const ownedAfterReconciliation = await this.repo.findOwnedEnrollments(
-      userId,
-      purchasableCourseIds,
     );
-    const ownedAfterSet = new Set(ownedAfterReconciliation.map((o) => o.courseId));
-    const courseIds = purchasableCourseIds.filter((id) => !ownedAfterSet.has(id));
-    if (courseIds.length === 0)
-      throw new BadRequestException("You already own these courses");
-
-    const remainingPendingOrders =
-      await this.repo.findPendingOrdersByUserAndCourseIds(userId, courseIds);
+    // Choosing a different payment method abandons the earlier attempt. Without
+    // this, the pending order from the previous gateway would be resurrected
+    // and the user sent back to the gateway they just switched away from.
+    await Promise.all(
+      openOrders
+        .filter((order) => order.gateway !== input.gateway)
+        .map((order) => this.repo.markFailedIfPending(order.id, userId)),
+    );
+    const pendingOrders = openOrders.filter(
+      (order) => order.gateway === input.gateway,
+    );
     const pendingCourseIds = new Set(
       remainingPendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
     );

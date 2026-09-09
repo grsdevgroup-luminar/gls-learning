@@ -42,10 +42,13 @@ export class PaypalGateway implements PaymentGateway {
     return this.config.get("NODE_ENV", { infer: true }) === "production";
   }
 
+  /** Sandbox vs live host. Non-prod defaults to sandbox; prod must opt in. */
   private baseUrl(): string {
-    return this.isProd
-      ? "https://api-m.paypal.com"
-      : "https://api-m.sandbox.paypal.com";
+    const sandbox = this.config.get("PAYPAL_SANDBOX", { infer: true });
+    const useSandbox = sandbox ?? !this.isProd;
+    return useSandbox
+      ? "https://api-m.sandbox.paypal.com"
+      : "https://api-m.paypal.com";
   }
 
   private async accessToken(): Promise<string> {
@@ -60,7 +63,17 @@ export class PaypalGateway implements PaymentGateway {
       },
       body: "grant_type=client_credentials",
     });
-    const json = (await res.json()) as { access_token: string };
+    if (!res.ok) {
+      // Most often `invalid_client`: sandbox credentials pointed at the live
+      // host (or vice versa). Surface it instead of returning an undefined
+      // token that fails opaquely one request later.
+      throw new ServiceUnavailableException(
+        `PayPal auth failed (${res.status}): ${await res.text()}`,
+      );
+    }
+    const json = (await res.json()) as { access_token?: string };
+    if (!json.access_token)
+      throw new ServiceUnavailableException("PayPal auth returned no token");
     return json.access_token;
   }
 
@@ -98,14 +111,23 @@ export class PaypalGateway implements PaymentGateway {
         },
       }),
     });
+    if (!res.ok) {
+      throw new ServiceUnavailableException(
+        `PayPal order creation failed (${res.status}): ${await res.text()}`,
+      );
+    }
     const json = (await res.json()) as {
       id: string;
       links?: { rel: string; href: string }[];
     };
-    return {
-      providerRef: json.id,
-      redirectUrl: json.links?.find((l) => l.rel === "approve")?.href,
-    };
+    const redirectUrl = json.links?.find((l) => l.rel === "approve")?.href;
+    // Without an approve link there is nowhere to send the buyer. Failing here
+    // keeps the caller from treating an unstarted payment as a started one.
+    if (!redirectUrl)
+      throw new ServiceUnavailableException(
+        "PayPal returned no approval link",
+      );
+    return { providerRef: json.id, redirectUrl };
   }
 
   async refund(order: OrderRow): Promise<void> {

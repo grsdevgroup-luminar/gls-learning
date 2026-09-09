@@ -148,9 +148,13 @@ export default function CheckoutPage() {
       // Dev environment without gateway credentials → simulate the payment.
       // Payment is confirmed synchronously here, so clearing the cart before
       // routing to the success page is safe.
-      if (session.devSimulateToken) {
-        await api.devSimulatePayment(session.orderId);
+      if (!session.devSimulateToken) {
+        // No redirect URL and no dev token means the gateway session never
+        // opened. Routing to the success page here would show a confirmation
+        // for an order nobody paid for.
+        throw new Error("Payment could not be started. Please try again.");
       }
+      await api.devSimulatePayment(session.orderId);
       clearCart();
       router.push(`/checkout/success?order=${session.orderId}`);
     } catch (err) {
