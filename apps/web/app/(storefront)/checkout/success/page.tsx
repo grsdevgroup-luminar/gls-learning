@@ -12,17 +12,35 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, ArrowRight, ReceiptText, PlayCircle, Loader2 } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
+/** ~60s of 2s polls before giving up on a confirmation that never arrives. */
+const POLL_LIMIT = 30;
+
 function SuccessContent() {
   const qc = useQueryClient();
   const params = useSearchParams();
   const orderId = params.get("order");
   const { clearCart } = useStore();
   const clearedRef = useRef(false);
+  const settledRef = useRef(false);
 
   // Fresh enrollments so the dashboard reflects the purchase immediately.
   useEffect(() => {
     void qc.invalidateQueries({ queryKey: ["enrollments"] });
   }, [qc]);
+
+  // A PayPal approval is not a payment: the buyer lands back here with the
+  // order still uncaptured. Settle it once on arrival rather than waiting for
+  // the webhook, which would otherwise leave this page polling an unpaid order.
+  useEffect(() => {
+    if (!orderId || settledRef.current) return;
+    settledRef.current = true;
+    void api
+      .settleOrder(orderId)
+      .catch(() => undefined)
+      .finally(() => {
+        void qc.invalidateQueries({ queryKey: qk.myOrder(orderId) });
+      });
+  }, [orderId, qc]);
 
   // This is the one screen in the app where payment confirmation needs to feel
   // instant (see NOTIFICATION_SYSTEM_PLAN.md — tiered real-time delivery):
@@ -33,8 +51,13 @@ function SuccessContent() {
     queryFn: () => api.myOrder(orderId as string),
     enabled: !!orderId,
     retry: false,
-    // Stripe/PayPal webhooks may lag a moment behind the redirect.
-    refetchInterval: (q) => (q.state.data?.status === "PAID" ? false : 2000),
+    // Stripe/PayPal webhooks may lag a moment behind the redirect. Give them a
+    // minute, then stop — an order still unpaid by now needs support, not a
+    // poll running for as long as the tab stays open.
+    refetchInterval: (q) => {
+      if (q.state.data?.status === "PAID") return false;
+      return q.state.dataUpdateCount > POLL_LIMIT ? false : 2000;
+    },
   });
   const pending = !!orderId && order?.status !== "PAID";
 

@@ -9,6 +9,7 @@ import type { Env } from "../../../../config/env";
 import type {
   PaymentGateway,
   PaymentUrls,
+  PendingPaymentResolution,
   StartPaymentResult,
   WebhookInput,
   WebhookResult,
@@ -23,6 +24,22 @@ export type PaypalWebhookBody = {
     custom_id?: string;
     purchase_units?: { custom_id?: string }[];
   };
+};
+
+/** Orders v2 GET/capture response — only the fields we act on. */
+type PaypalOrderResponse = {
+  id?: string;
+  status?: string;
+  purchase_units?: {
+    custom_id?: string;
+    payments?: {
+      captures?: {
+        id?: string;
+        status?: string;
+        amount?: { currency_code?: string; value?: string };
+      }[];
+    };
+  }[];
 };
 
 @Injectable()
@@ -130,6 +147,81 @@ export class PaypalGateway implements PaymentGateway {
     return { providerRef: json.id, redirectUrl };
   }
 
+  /**
+   * Approving a PayPal order does not move money — `intent: "CAPTURE"` still
+   * requires an explicit capture call. The buyer returns from PayPal to our
+   * success URL, and this settles that approval: capture when the order is
+   * APPROVED, report PAID when it is already COMPLETED (webhook or a duplicate
+   * return beat us to it), otherwise leave the order resumable.
+   */
+  async reconcilePendingPayment(
+    order: OrderRow,
+  ): Promise<PendingPaymentResolution> {
+    if (!order.providerRef || !this.isConfigured()) return { status: "RESUME" };
+
+    const token = await this.accessToken();
+    const res = await fetch(
+      `${this.baseUrl()}/v2/checkout/orders/${order.providerRef}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) return { status: "RESUME" };
+    const json = (await res.json()) as PaypalOrderResponse;
+
+    if (json.status === "COMPLETED") return this.paidFrom(json, order);
+    if (json.status !== "APPROVED") return { status: "RESUME" };
+
+    const captureRes = await fetch(
+      `${this.baseUrl()}/v2/checkout/orders/${order.providerRef}/capture`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          // A double-submitted return URL must not capture twice.
+          "PayPal-Request-Id": `capture_${order.id}`,
+        },
+        body: "{}",
+      },
+    );
+    if (!captureRes.ok)
+      throw new ServiceUnavailableException(
+        `PayPal capture failed (${captureRes.status}): ${await captureRes.text()}`,
+      );
+    const captured = (await captureRes.json()) as PaypalOrderResponse;
+    if (captured.status !== "COMPLETED") return { status: "RESUME" };
+    return this.paidFrom(captured, order);
+  }
+
+  /**
+   * Trusts nothing from the PayPal payload beyond what it can check: the
+   * capture must belong to this order and be for the exact amount we asked
+   * for, so a tampered or mismatched order id can never unlock a course.
+   */
+  private paidFrom(
+    json: PaypalOrderResponse,
+    order: OrderRow,
+  ): PendingPaymentResolution {
+    const unit = json.purchase_units?.[0];
+    const capture = unit?.payments?.captures?.find(
+      (c) => c.status === "COMPLETED",
+    );
+    if (!capture?.id) return { status: "RESUME" };
+
+    if (unit?.custom_id && unit.custom_id !== order.id)
+      throw new BadRequestException("PayPal capture belongs to another order");
+
+    const expected = (order.totalCents / 100).toFixed(2);
+    if (
+      capture.amount?.value !== expected ||
+      capture.amount?.currency_code !== order.currency
+    )
+      throw new BadRequestException(
+        `PayPal captured ${capture.amount?.currency_code} ${capture.amount?.value}, expected ${order.currency} ${expected}`,
+      );
+
+    return { status: "PAID", providerPaymentId: capture.id };
+  }
+
   async refund(order: OrderRow): Promise<void> {
     if (!order.providerPaymentId || order.providerPaymentId === "dev_simulated")
       return;
@@ -162,10 +254,10 @@ export class PaypalGateway implements PaymentGateway {
       throw new BadRequestException("Invalid PayPal event");
 
     const result: WebhookResult = { eventId };
-    if (
-      type === "CHECKOUT.ORDER.APPROVED" ||
-      type === "PAYMENT.CAPTURE.COMPLETED"
-    ) {
+    // Only a completed capture means money moved. CHECKOUT.ORDER.APPROVED
+    // fires when the buyer clicks approve and is deliberately ignored —
+    // fulfilling on it would hand out the course before anyone was charged.
+    if (type === "PAYMENT.CAPTURE.COMPLETED") {
       result.orderId =
         body?.resource?.purchase_units?.[0]?.custom_id ??
         body?.resource?.custom_id;

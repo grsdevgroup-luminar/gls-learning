@@ -53,6 +53,17 @@ export class PaymentsController {
     return { received: true };
   }
 
+  /** Called by the checkout success page when the buyer returns from the
+   *  provider, so a PayPal approval is captured without waiting on a webhook. */
+  @Post("payments/settle/:orderId")
+  @HttpCode(200)
+  settle(
+    @CurrentUser() user: RequestUser,
+    @Param("orderId") orderId: string,
+  ) {
+    return this.payments.settlePendingOrder(user.id, orderId);
+  }
+
   @Post("payments/dev/simulate/:orderId")
   @HttpCode(200)
   devSimulate(

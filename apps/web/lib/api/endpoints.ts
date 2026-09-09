@@ -229,6 +229,9 @@ export const api = {
   cancelOrder: (orderId: string) =>
     apiFetch<OrderDto>(`/me/orders/${orderId}/cancel`, { method: "POST" }),
   myOrderStats: () => apiFetch<MyOrderStatsDto>("/me/orders/stats"),
+  /** Captures a provider approval the buyer just returned with (PayPal). */
+  settleOrder: (orderId: string) =>
+    apiFetch<OrderDto>(`/payments/settle/${orderId}`, { method: "POST" }),
   devSimulatePayment: (orderId: string) =>
     apiFetch<OrderDto>(`/payments/dev/simulate/${orderId}`, { method: "POST" }),
 

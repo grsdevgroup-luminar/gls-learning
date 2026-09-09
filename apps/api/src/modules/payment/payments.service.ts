@@ -1,11 +1,12 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PaymentGateway as PaymentGatewayName } from "@prisma/client";
-import type { CheckoutSessionDto } from "@skillstream/shared";
+import type { CheckoutSessionDto, OrderDto } from "@skillstream/shared";
 import type { Env } from "../../config/env";
 import { OrdersService } from "../commerce/orders.service";
 import { PaymentGatewayFactory } from "./factory/payment-gateway.factory";
@@ -93,6 +94,25 @@ export class PaymentsService {
   async reconcilePendingPayment(order: OrderRow): Promise<PendingPaymentResolution> {
     const gateway = this.factory.getGateway(order.gateway.toLowerCase());
     return gateway.reconcilePendingPayment?.(order) ?? { status: "RESUME" };
+  }
+
+  /**
+   * Settles an order the buyer has just returned from the provider with. PayPal
+   * needs this: approval alone leaves the order uncaptured, so waiting on the
+   * webhook would strand the success page on an unpaid order. Safe to call more
+   * than once — a settled order short-circuits and `fulfill` is idempotent.
+   */
+  async settlePendingOrder(userId: string, orderId: string): Promise<OrderDto> {
+    const order = await this.orders.findById(orderId);
+    if (!order || order.userId !== userId)
+      throw new NotFoundException("Order not found");
+
+    if (order.status === "PENDING") {
+      const resolution = await this.reconcilePendingPayment(order);
+      if (resolution.status === "PAID")
+        await this.orders.fulfill(order.id, resolution.providerPaymentId);
+    }
+    return this.orders.myOrder(userId, orderId);
   }
 
   async refundGatewayPayment(order: OrderRow): Promise<void> {
