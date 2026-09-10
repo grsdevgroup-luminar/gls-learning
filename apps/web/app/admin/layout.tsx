@@ -36,6 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/pricing", label: "Pricing", icon: "Globe2", searchKeywords: ["regional pricing", "currencies", "exchange rates", "regions"] },
     { href: "/admin/reviews", label: "Reviews", icon: "Star", searchKeywords: ["review moderation", "review management", "ratings", "feedback", "approval"] },
     { href: "/admin/marketing", label: "Automation", icon: "Megaphone", searchKeywords: ["marketing", "notifications", "campaigns", "rules"] },
+    { href: "/admin/email-templates", label: "Email Templates", icon: "Mail", searchKeywords: ["mail", "notifications", "subject", "templates", "copy"] },
     { href: "/admin/settings", label: "Settings", icon: "Settings", searchKeywords: ["configuration", "preferences", "system"] },
   ];
 

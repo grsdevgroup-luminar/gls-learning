@@ -46,5 +46,6 @@ export const qk = {
   adminSettings: ["admin-settings"] as const,
   automationRules: ["automation-rules"] as const,
   reminderLogs: ["reminder-logs"] as const,
+  emailTemplates: ["email-templates"] as const,
   catalog: ["store", "courses"] as const,
 };

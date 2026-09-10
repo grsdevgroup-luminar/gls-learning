@@ -19,6 +19,8 @@ import {
   upsertCouponSchema,
   updateUserStatusSchema,
   upsertAutomationRuleSchema,
+  upsertEmailTemplateSchema,
+  previewEmailTemplateSchema,
   type AdminCourseQuery,
   type AdminOrderQuery,
   type AdminReviewQuery,
@@ -30,10 +32,14 @@ import {
   type UpsertCouponInput,
   type UpdateUserStatusInput,
   type UpsertAutomationRuleInput,
+  type UpsertEmailTemplateInput,
+  type PreviewEmailTemplateInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AdminService } from "./admin.service";
+import { EmailService } from "../email/email.service";
+import { EmailTemplatesService } from "../email/email-templates.service";
 import { ReviewsService } from "../reviews/reviews.service";
 
 @ApiTags("admin")
@@ -44,6 +50,8 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly reviews: ReviewsService,
+    private readonly emailTemplates: EmailTemplatesService,
+    private readonly email: EmailService,
   ) {}
 
   @Get("overview")
@@ -206,5 +214,46 @@ export class AdminController {
   @Get("reminder-logs")
   reminderLogs() {
     return this.admin.listReminderLogs();
+  }
+
+  // email templates
+  @Get("email-templates")
+  listEmailTemplates() {
+    return this.emailTemplates.list();
+  }
+
+  @Get("email-templates/:key")
+  getEmailTemplate(@Param("key") key: string) {
+    return this.emailTemplates.get(key);
+  }
+
+  @Patch("email-templates/:key")
+  updateEmailTemplate(
+    @Param("key") key: string,
+    @ZodBody(upsertEmailTemplateSchema) body: UpsertEmailTemplateInput,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.emailTemplates.upsert(key, body, user.id);
+  }
+
+  @Delete("email-templates/:key")
+  resetEmailTemplate(@Param("key") key: string) {
+    return this.emailTemplates.resetToDefault(key);
+  }
+
+  @Post("email-templates/:key/preview")
+  async previewEmailTemplate(
+    @Param("key") key: string,
+    @ZodBody(previewEmailTemplateSchema) body: PreviewEmailTemplateInput,
+  ) {
+    const draft = body.subject && body.body ? { ...body, subject: body.subject, body: body.body } : undefined;
+    const { subject, html } = await this.emailTemplates.preview(key, draft);
+    return { subject, html };
+  }
+
+  @Post("email-templates/:key/test-send")
+  async testSendEmailTemplate(@Param("key") key: string, @CurrentUser() user: RequestUser) {
+    await this.email.sendTestEmail(key, user.email);
+    return { ok: true };
   }
 }

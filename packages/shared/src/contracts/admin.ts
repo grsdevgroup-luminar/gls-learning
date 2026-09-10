@@ -260,3 +260,50 @@ export const upsertAutomationRuleSchema = z.object({
   active: z.boolean().default(true),
 });
 export type UpsertAutomationRuleInput = z.infer<typeof upsertAutomationRuleSchema>;
+
+// ── Email templates ─────────────────────────────────────────────────────────
+
+export type EmailTemplateCategory =
+  | "auth"
+  | "organizations"
+  | "commerce"
+  | "applications"
+  | "payouts"
+  | "admin_alerts";
+
+export interface EmailTemplateVariableDto {
+  name: string;
+  description: string;
+  sample: string;
+}
+
+export interface EmailTemplateDto {
+  key: string;
+  label: string;
+  category: EmailTemplateCategory;
+  description: string;
+  subject: string;
+  body: string;
+  ctaLabel?: string;
+  variables: EmailTemplateVariableDto[];
+  isCustomized: boolean;
+  updatedAt?: string;
+  updatedByName?: string | null;
+}
+
+export const upsertEmailTemplateSchema = z.object({
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(4000),
+  ctaLabel: z.string().max(60).optional(),
+});
+export type UpsertEmailTemplateInput = z.infer<typeof upsertEmailTemplateSchema>;
+
+/** Same shape, all optional — an empty body previews the saved override/
+ *  default, a full one previews unsaved edits from the admin editor. */
+export const previewEmailTemplateSchema = upsertEmailTemplateSchema.partial();
+export type PreviewEmailTemplateInput = z.infer<typeof previewEmailTemplateSchema>;
+
+export interface EmailTemplatePreviewDto {
+  subject: string;
+  html: string;
+}

@@ -168,6 +168,7 @@ enum ReminderStatus {
   OPENED
   CLICKED
   BOUNCED
+  FAILED
 }
 
 /// In-app notification events, Phase 1. Each maps to one write inside the same
@@ -203,24 +204,24 @@ enum NotificationEvent {
 // ─── Identity & roles ─────────────────────────────────────────────────────────
 
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  passwordHash    String
-  name            String
-  nameChangeCount Int      @default(0)
-  avatar          String?
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  passwordHash       String
+  name               String
+  nameChangeCount    Int      @default(0)
+  avatar             String?
   /// Internal storage key for a platform-uploaded avatar (e.g.
   /// `avatars/{userId}/{ulid}.jpg`). Null when the user set an external URL.
   /// Kept separate so the resolver can re-sign S3 URLs on session read.
-  avatarKey       String?
-  country         String?
+  avatarKey          String?
+  country            String?
   /// E.164, e.g. +8801712345678. Optional: SMS reminders are skipped without it.
-  phone           String?
-  role            UserRole @default(STUDENT)
-  emailVerified   Boolean  @default(false)
-  mustChangePassword Boolean @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  phone              String?
+  role               UserRole @default(STUDENT)
+  emailVerified      Boolean  @default(false)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   studentProfile          StudentProfile?
   instructorProfile       InstructorProfile?
@@ -249,6 +250,7 @@ model User {
   /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
   unreadNotificationCount Int                   @default(0)
   uploads                 Upload[]
+  editedEmailTemplates    EmailTemplate[]
 
   @@index([role])
 }
@@ -609,20 +611,20 @@ model Certificate {
 // ─── Engagement ───────────────────────────────────────────────────────────────
 
 model Review {
-  id        String       @id @default(cuid())
-  courseId  String
-  course    Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rating    Int
+  id                 String        @id @default(cuid())
+  courseId           String
+  course             Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating             Int
   // Legacy storage retained for database compatibility; not exposed in review APIs or UI.
-  title     String
-  body      String
-  status    ReviewStatus @default(PENDING)
+  title              String
+  body               String
+  status             ReviewStatus  @default(PENDING)
   // Keeps the moderation state to restore when an admin unhides the review.
   statusBeforeHidden ReviewStatus?
-  helpful   Int          @default(0)
-  createdAt DateTime     @default(now())
+  helpful            Int           @default(0)
+  createdAt          DateTime      @default(now())
 
   @@unique([courseId, userId])
   @@index([courseId, status])
@@ -808,15 +810,33 @@ model AutomationRule {
   updatedAt DateTime          @updatedAt
 }
 
+/// Admin-editable override of one email type's subject/body. `key` matches an
+/// entry in the code-side EMAIL_TEMPLATES registry (apps/api/src/modules/email/
+/// email-templates.registry.ts) — a plain string, not an enum, so new email
+/// types never need a migration. Absence of a row means "use the registry
+/// default", so this table only ever holds customizations, never the full set.
+model EmailTemplate {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  subject         String
+  body            String
+  ctaLabel        String?
+  updatedByUserId String?
+  updatedBy       User?    @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
 model ReminderLog {
   id        String          @id @default(cuid())
   userId    String?
   user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   ruleId    String?
   channel   ReminderChannel
-  /// A ReminderTrigger or NotificationEvent value — plain string so this log
-  /// covers both the marketing-automation sweep and Phase 1's transactional
-  /// events, not just the original 5 reminder triggers.
+  /// A ReminderTrigger, NotificationEvent, or EmailTemplate.key value — plain
+  /// string so this log covers the marketing-automation sweep, Phase 1's
+  /// transactional events, and every EmailTemplate-backed send, not just the
+  /// original 5 reminder triggers.
   trigger   String
   subject   String
   status    ReminderStatus  @default(SENT)
@@ -962,19 +982,19 @@ model SalesAgentReferral {
 // ─── B2B Organizations ────────────────────────────────────────────────────────
 
 model Organization {
-  id         String    @id @default(cuid())
-  slug       String    @unique
-  name       String
-  domain     String?
-  logoUrl    String?
-  adminEmail String
-  status     OrgStatus @default(TRIAL)
+  id             String             @id @default(cuid())
+  slug           String             @unique
+  name           String
+  domain         String?
+  logoUrl        String?
+  adminEmail     String
+  status         OrgStatus          @default(TRIAL)
   suspensionMode OrgSuspensionMode?
   accessLocksAt  DateTime?
-  seatCount  Int       @default(10)
-  usedSeats  Int       @default(0)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  seatCount      Int                @default(10)
+  usedSeats      Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   members           OrgMember[]
   invitations       OrgInvitation[]

@@ -44,6 +44,7 @@
     "cookie-parser": "^1.4.7",
     "helmet": "^8.3.0",
     "ioredis": "^5.4.2",
+    "liquidjs": "^10.21.0",
     "multer": "^2.2.0",
     "nodemailer": "^9.1.0",
     "passport": "^0.7.0",

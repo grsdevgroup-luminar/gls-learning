@@ -152,6 +152,7 @@ export const ReminderStatus = {
   OPENED: "OPENED",
   CLICKED: "CLICKED",
   BOUNCED: "BOUNCED",
+  FAILED: "FAILED",
 } as const;
 export type ReminderStatus =
   (typeof ReminderStatus)[keyof typeof ReminderStatus];
