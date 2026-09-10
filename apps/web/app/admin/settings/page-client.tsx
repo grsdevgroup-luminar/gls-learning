@@ -36,8 +36,6 @@ export default function AdminSettings() {
   const [general, setGeneral] = useState({
     platformName: '',
     supportEmail: '',
-    baseCurrency: '',
-    defaultLanguage: '',
   });
 
   // Seed the draft from the server value whenever it (re)loads — adjusting
@@ -50,8 +48,6 @@ export default function AdminSettings() {
     setGeneral({
       platformName: settings.platformName,
       supportEmail: settings.supportEmail,
-      baseCurrency: settings.baseCurrency,
-      defaultLanguage: settings.defaultLanguage,
     });
   }
 
@@ -121,22 +117,6 @@ export default function AdminSettings() {
                 type="email"
                 value={general.supportEmail}
                 onChange={(e) => setGeneral({ ...general, supportEmail: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Base currency</Label>
-              <Input
-                value={general.baseCurrency}
-                onChange={(e) => setGeneral({ ...general, baseCurrency: e.target.value })}
-                maxLength={3}
-                className="uppercase"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Default language</Label>
-              <Input
-                value={general.defaultLanguage}
-                onChange={(e) => setGeneral({ ...general, defaultLanguage: e.target.value })}
               />
             </div>
           </div>
