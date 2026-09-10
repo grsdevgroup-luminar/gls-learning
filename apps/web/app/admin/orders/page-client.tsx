@@ -63,6 +63,14 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_FILTERS = ["all", ...Object.values(OrderStatus)] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
+const GATEWAY_FILTERS = [
+  { value: "all", label: "All gateways" },
+  { value: "STRIPE", label: "Stripe" },
+  { value: "PAYPAL", label: "PayPal" },
+  { value: "SSLCOMMERZ", label: "SSLCommerz" },
+] as const;
+type GatewayFilter = (typeof GATEWAY_FILTERS)[number]["value"];
+
 /** Cap the refundable pool at the money-paid portion. Credit-applied cents
  *  can't be handed back as new credit without compounding the ledger. */
 function orderRefundablePool(order: OrderDto): number {
@@ -93,6 +101,7 @@ export default function AdminOrders() {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [gateway, setGateway] = useState<GatewayFilter>("all");
   const [refundTarget, setRefundTarget] = useState<OrderDto | null>(null);
 
   // Debounce search box so every keystroke doesn't hit the API.
@@ -105,11 +114,12 @@ export default function AdminOrders() {
   }, [qInput]);
 
   const { data: orderPage, isLoading, error } = useQuery({
-    queryKey: ["admin", "orders", "list", { q, status, page, pageSize }],
+    queryKey: ["admin", "orders", "list", { q, status, gateway, page, pageSize }],
     queryFn: () =>
       adminApi.orders({
         q: q || undefined,
         status: status === "all" ? undefined : status,
+        gateway: gateway === "all" ? undefined : gateway,
         page,
         pageSize,
       }),
@@ -235,6 +245,27 @@ export default function AdminOrders() {
             {STATUS_FILTERS.map((s) => (
               <SelectItem key={s} value={s}>
                 {s === "all" ? "All statuses" : STATUS_LABELS[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={gateway}
+          onValueChange={(value) => {
+            if (!value) return;
+            setGateway(value as GatewayFilter);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[12.5rem]" aria-label="Filter by gateway">
+            <SelectValue>
+              {GATEWAY_FILTERS.find((option) => option.value === gateway)?.label}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {GATEWAY_FILTERS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>

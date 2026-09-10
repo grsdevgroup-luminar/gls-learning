@@ -381,6 +381,15 @@ export function CourseBuilder({
         thumbnail,
         basePriceCents: Math.max(0, Math.round((Number(price) || 0) * 100)),
       };
+      const targetStatus =
+        action === "publish" ? "PUBLISHED" : action === "review" ? "REVIEW" : "DRAFT";
+
+      // Validate before any existing-course writes. The status endpoint still
+      // validates when it commits, but this prevents partial saves when an
+      // organization assignment blocks Draft/Review.
+      if (courseId && detail?.status !== targetStatus) {
+        await authoringApi.validateCourseStatus(courseId, targetStatus);
+      }
       const saved = courseId
         ? await authoringApi.updateCourse(courseId, fields)
         : await authoringApi.createCourse(fields);
@@ -474,8 +483,6 @@ export function CourseBuilder({
       }
 
       // Status transition.
-      const targetStatus =
-        action === "publish" ? "PUBLISHED" : action === "review" ? "REVIEW" : "DRAFT";
       if (saved.status !== targetStatus) {
         await authoringApi.setCourseStatus(id, targetStatus);
       }

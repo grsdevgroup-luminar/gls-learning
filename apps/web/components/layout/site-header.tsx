@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -23,8 +23,23 @@ import { useStore } from "@/lib/context/store";
 import { useSession, useLogout } from "@/lib/api/session";
 import { initials } from "@/lib/format";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import {
+  activeCourseSearchQuery,
+  shouldPreserveSearchInputOverUrlSync,
+} from "@/lib/course-search";
 import { toast } from "sonner";
-import { ShoppingCart, Search, LayoutDashboard, GraduationCap, User, LogOut, Shield, PenSquare, Link2, Building2 } from "lucide-react";
+import {
+  ShoppingCart,
+  Search,
+  LayoutDashboard,
+  GraduationCap,
+  User,
+  LogOut,
+  Shield,
+  PenSquare,
+  Link2,
+  Building2,
+} from "lucide-react";
 
 export function SiteHeader() {
   const { cart, mounted } = useStore();
@@ -37,41 +52,72 @@ export function SiteHeader() {
   const [q, setQ] = useState(urlQ);
   const [syncedQ, setSyncedQ] = useState(urlQ);
   const debouncedQ = useDebouncedSearch(q);
+  // Tracks URL changes initiated by this input, so a stale debounced value
+  // cannot overwrite a newer value the user has already typed.
+  const pendingUrlQRef = useRef<string | null>(null);
   const isAuthed = !!user;
+  const isInstructor = !isLoading && role === "INSTRUCTOR";
 
-  if (syncedQ !== urlQ) {
-    setSyncedQ(urlQ);
-    setQ(urlQ);
-  }
+  const pushSearchToUrl = useCallback(
+    (query: string) => {
+      const normalized = activeCourseSearchQuery(query);
+      if (pathname === "/courses") {
+        const nextParams = new URLSearchParams(searchParams.toString());
+        if (!normalized) nextParams.delete("q");
+        else nextParams.set("q", normalized);
 
-  const search = useCallback((query: string) => {
-    if (pathname === "/courses") {
-      const nextParams = new URLSearchParams(searchParams.toString());
-      if (query.length < 2) nextParams.delete("q");
-      else nextParams.set("q", query);
+        const nextQueryString = nextParams.toString();
+        const nextHref = nextQueryString
+          ? `/courses?${nextQueryString}`
+          : "/courses";
+        const currentQueryString = searchParams.toString();
+        const currentHref = currentQueryString
+          ? `/courses?${currentQueryString}`
+          : "/courses";
+        if (nextHref === currentHref) return;
 
-      const nextQueryString = nextParams.toString();
-      const nextHref = nextQueryString ? `/courses?${nextQueryString}` : "/courses";
-      const currentQueryString = searchParams.toString();
-      const currentHref = currentQueryString ? `/courses?${currentQueryString}` : "/courses";
-      if (nextHref === currentHref) return;
+        pendingUrlQRef.current = normalized;
+        router.push(nextHref);
+        return;
+      }
 
-      router.push(nextHref);
+      if (!normalized) return;
+
+      pendingUrlQRef.current = normalized;
+      router.push(`/courses?q=${encodeURIComponent(normalized)}`);
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
+    if (syncedQ !== urlQ) {
+      const pending = pendingUrlQRef.current;
+      pendingUrlQRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror navigation state into the controlled search input
+      setSyncedQ(urlQ);
+      if (pending !== null && urlQ === pending) {
+        setQ((current) =>
+          shouldPreserveSearchInputOverUrlSync(current, urlQ, pending)
+            ? current
+            : urlQ,
+        );
+      } else {
+        // Back/Forward or navigation from elsewhere: reflect the URL.
+        setQ(urlQ);
+      }
+      // Do not replay the stale debounced value from the render that observed
+      // this URL change.
       return;
     }
 
-    if (query.length < 2) return;
-
-    router.push(`/courses?q=${encodeURIComponent(query)}`);
-  }, [pathname, router, searchParams]);
-
-  useEffect(() => {
-    search(debouncedQ);
-  }, [debouncedQ, search]);
+    // Avoid pushing an intermediate value while the user is still typing.
+    if (debouncedQ !== q.trim()) return;
+    pushSearchToUrl(debouncedQ);
+  }, [debouncedQ, q, pushSearchToUrl, syncedQ, urlQ]);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    search(q.trim());
+    pushSearchToUrl(q);
   }
 
   async function logout() {
@@ -94,15 +140,28 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
         <Logo />
         <nav className="hidden items-center gap-1 md:flex">
-          <Button render={<Link href="/courses" />} variant="ghost" size="sm">
-            Courses
-          </Button>
-          <Button render={<Link href={role === "INSTRUCTOR" ? "/instructor" : "/teach"} />} variant="ghost" size="sm">
-            {role === "INSTRUCTOR" ? "Instructor" : "Teach"}
-          </Button>
+          {!isInstructor && (
+            <Button render={<Link href="/courses" />} variant="ghost" size="sm">
+              Courses
+            </Button>
+          )}
+          {!isLoading && (!isAuthed || role === "INSTRUCTOR") && (
+            <Button
+              render={
+                <Link href={role === "INSTRUCTOR" ? "/instructor" : "/teach"} />
+              }
+              variant="ghost"
+              size="sm"
+            >
+              {role === "INSTRUCTOR" ? "Instructor" : "Teach"}
+            </Button>
+          )}
         </nav>
 
-        <form onSubmit={submitSearch} className="relative ml-2 hidden flex-1 lg:block">
+        <form
+          onSubmit={submitSearch}
+          className="relative ml-2 hidden flex-1 lg:block"
+        >
           <button
             type="submit"
             aria-label="Search courses"
@@ -130,50 +189,68 @@ export function SiteHeader() {
               </>
             )}
             <span aria-hidden className="h-4 w-px bg-border" />
-            <Button
-              render={<Link href="/cart" />}
-              variant="ghost"
-              size="icon-sm"
-              className="relative rounded-full"
-              aria-label="Cart"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              {mounted && cart.length > 0 && (
-                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
-                  {cart.length}
-                </Badge>
-              )}
-            </Button>
+            {!isInstructor && (
+              <Button
+                render={<Link href="/cart" />}
+                variant="ghost"
+                size="icon-sm"
+                className="relative rounded-full"
+                aria-label="Cart"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {mounted && cart.length > 0 && (
+                  <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                    {cart.length}
+                  </Badge>
+                )}
+              </Button>
+            )}
           </div>
 
           <div className="flex items-center gap-1 sm:hidden">
             <ThemeToggle />
             {isAuthed && <NotificationBell />}
-            <Button
-              render={<Link href="/cart" />}
-              variant="ghost"
-              size="icon"
-              className="relative"
-              aria-label="Cart"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              {mounted && cart.length > 0 && (
-                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
-                  {cart.length}
-                </Badge>
-              )}
-            </Button>
+            {!isInstructor && (
+              <Button
+                render={<Link href="/cart" />}
+                variant="ghost"
+                size="icon"
+                className="relative"
+                aria-label="Cart"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {mounted && cart.length > 0 && (
+                  <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                    {cart.length}
+                  </Badge>
+                )}
+              </Button>
+            )}
           </div>
 
           {isLoading ? null : isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon" className="rounded-full" />}
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                  />
+                }
               >
                 <Avatar className="h-8 w-8 ring-1 ring-border">
                   {user?.avatar && <AvatarImage src={user.avatar} alt="" />}
                   <AvatarFallback className="brand-gradient text-xs text-white">
-                    {role === "ADMIN" ? "AD" : role === "INSTRUCTOR" ? "IN" : role === "SALES_AGENT" ? "SA" : role === "ORG_ADMIN" ? "OA" : initials(user?.name ?? "User")}
+                    {role === "ADMIN"
+                      ? "AD"
+                      : role === "INSTRUCTOR"
+                        ? "IN"
+                        : role === "SALES_AGENT"
+                          ? "SA"
+                          : role === "ORG_ADMIN"
+                            ? "OA"
+                            : initials(user?.name ?? "User")}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
@@ -181,10 +258,26 @@ export function SiteHeader() {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>
                     <div className="font-medium">
-                      {role === "ADMIN" ? "Admin" : role === "INSTRUCTOR" ? "Instructor" : role === "SALES_AGENT" ? "Sales Agent" : role === "ORG_ADMIN" ? "Company Admin" : (user?.name ?? "Learner")}
+                      {role === "ADMIN"
+                        ? "Admin"
+                        : role === "INSTRUCTOR"
+                          ? "Instructor"
+                          : role === "SALES_AGENT"
+                            ? "Sales Agent"
+                            : role === "ORG_ADMIN"
+                              ? "Company Admin"
+                              : (user?.name ?? "Learner")}
                     </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "ADMIN" ? "admin@demo.com" : role === "INSTRUCTOR" ? "instructor@demo.com" : role === "SALES_AGENT" ? "agent@grs-learning.dev" : role === "ORG_ADMIN" ? "admin@org.com" : (user?.email ?? "")}
+                      {role === "ADMIN"
+                        ? "admin@demo.com"
+                        : role === "INSTRUCTOR"
+                          ? "instructor@demo.com"
+                          : role === "SALES_AGENT"
+                            ? "agent@grs-learning.dev"
+                            : role === "ORG_ADMIN"
+                              ? "admin@org.com"
+                              : (user?.email ?? "")}
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
@@ -198,7 +291,9 @@ export function SiteHeader() {
                     <DropdownMenuItem render={<Link href="/instructor" />}>
                       <LayoutDashboard /> Instructor dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/instructor/courses" />}>
+                    <DropdownMenuItem
+                      render={<Link href="/instructor/courses" />}
+                    >
                       <PenSquare /> My courses
                     </DropdownMenuItem>
                   </>
@@ -207,15 +302,21 @@ export function SiteHeader() {
                     <DropdownMenuItem render={<Link href="/sales-agent" />}>
                       <LayoutDashboard /> Agent dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/sales-agent/referrals" />}>
+                    <DropdownMenuItem
+                      render={<Link href="/sales-agent/referrals" />}
+                    >
                       <Link2 /> My referrals
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/sales-agent/earnings" />}>
+                    <DropdownMenuItem
+                      render={<Link href="/sales-agent/earnings" />}
+                    >
                       <Shield /> Earnings
                     </DropdownMenuItem>
                   </>
                 ) : role === "ORG_ADMIN" ? (
-                  <DropdownMenuItem render={<Link href="/admin/organizations" />}>
+                  <DropdownMenuItem
+                    render={<Link href="/admin/organizations" />}
+                  >
                     <Building2 /> Organization portal
                   </DropdownMenuItem>
                 ) : (
@@ -223,7 +324,9 @@ export function SiteHeader() {
                     <DropdownMenuItem render={<Link href="/dashboard" />}>
                       <LayoutDashboard /> Dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/dashboard/progress" />}>
+                    <DropdownMenuItem
+                      render={<Link href="/dashboard/progress" />}
+                    >
                       <GraduationCap /> My Learning
                     </DropdownMenuItem>
                     <DropdownMenuItem render={<Link href="/account" />}>

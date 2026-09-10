@@ -55,7 +55,7 @@ export function CountryField({
         )}
         <ChevronsUpDown className="h-4 w-4 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--anchor-width)] p-0">
+      <PopoverContent initialFocus={false} align="start" className="w-[var(--anchor-width)] p-0">
         <div className="relative border-b p-2">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -63,7 +63,6 @@ export function CountryField({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search country…"
             className="h-8 pl-8"
-            autoFocus
           />
         </div>
         <ul className="max-h-64 overflow-y-auto py-1">

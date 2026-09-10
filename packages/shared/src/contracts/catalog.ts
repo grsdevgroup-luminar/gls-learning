@@ -43,6 +43,11 @@ export function normalizeCourseSearchQuery(value: string): string {
   return value.trim().slice(0, MAX_COURSE_SEARCH_LENGTH);
 }
 
+/** Compare search text while ignoring spaces, punctuation, and casing. */
+export function compactCourseSearchQuery(value: string): string {
+  return value.normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+}
+
 /** Returns a trimmed, capped query when it meets the minimum length; otherwise "". */
 export function activeCourseSearchQuery(value: string): string {
   const query = normalizeCourseSearchQuery(value);
