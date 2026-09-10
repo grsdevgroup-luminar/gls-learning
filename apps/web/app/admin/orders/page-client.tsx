@@ -174,8 +174,8 @@ export default function AdminOrders() {
   const statsLoading = !orderStats;
 
   return (
-    <div className="space-y-6 p-6 md:p-8 flex flex-col h-screen">
-      <div>
+    <div className="flex flex-col space-y-6 p-6 md:h-dvh md:overflow-hidden md:p-8">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
         <p className="text-muted-foreground">Transactions across Stripe and PayPal.</p>
       </div>
@@ -254,7 +254,7 @@ export default function AdminOrders() {
         <p className="text-sm text-destructive shrink-0">Failed to load orders.</p>
       )}
 
-      <AdminTableCard>
+      <AdminTableCard className="min-h-0 flex-1" scrollClassName="max-h-none">
           <Table>
             <TableHeader>
               <TableRow className={stickyHeaderRowClass}>
@@ -294,13 +294,15 @@ export default function AdminOrders() {
       </AdminTableCard>
 
       {!isLoading && (
-        <AdminPagination
-          page={page}
-          totalPages={totalPages}
-          total={matchingTotal}
-          itemLabel="order"
-          onPageChange={setPage}
-        />
+        <div className="shrink-0">
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            total={matchingTotal}
+            itemLabel="order"
+            onPageChange={setPage}
+          />
+        </div>
       )}
 
       <RefundDialog

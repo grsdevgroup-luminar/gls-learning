@@ -13,11 +13,11 @@ export function AdminTableCard({
   scrollClassName?: string;
 }) {
   return (
-    <Card className={cn("min-h-0 p-0", className)}>
-      <CardContent className="min-h-0 px-0">
+    <Card className={cn("flex min-h-0 flex-col overflow-hidden p-0", className)}>
+      <CardContent className="flex min-h-0 flex-1 flex-col px-0">
         <div
           className={cn(
-            "max-h-[560px] overflow-y-auto [&_[data-slot=table-container]]:overflow-visible",
+            "min-h-0 flex-1 overflow-y-auto pb-1 max-h-[560px] [&_[data-slot=table-container]]:overflow-visible",
             scrollClassName,
           )}
         >
