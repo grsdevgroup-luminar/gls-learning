@@ -25,6 +25,11 @@ export function CertificateTemplate({ data, variant = "preview" }: CertificateTe
   return (
     <article className={`certificate-template certificate-template--${variant}`} aria-label="Achievement Certificate">
       <img className="certificate-template__background" src="/certificate/client-background.jpg" alt="" aria-hidden="true" />
+      <div className="certificate-template__logo-replacement" aria-hidden="true">
+        <img src="/GRS-Mark.svg" alt="" />
+      </div>
+      <span className="certificate-template__logo-divider-mask" aria-hidden="true" />
+      <span className="certificate-template__logo-divider" aria-hidden="true" />
       <main className="certificate-template__content">
         <h1><span>Achievement</span> <strong>Certificate</strong></h1>
         <p className="certificate-template__intro">This is to certify that:</p>

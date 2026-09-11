@@ -134,7 +134,7 @@ export function CategoryPicker({ value, onChange, disabled, canManage = false }:
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search categories"
-            className="pl-8"
+            className="search-input border-input bg-background pl-8 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           />
         </div>
         <div className="mt-1 max-h-56 overflow-y-auto">

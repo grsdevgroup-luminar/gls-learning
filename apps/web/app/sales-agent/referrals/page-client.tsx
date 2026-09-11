@@ -95,7 +95,7 @@ export default function AgentReferrals() {
 
       <div className="relative sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search student or course…" className="pl-9" />
+        <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search student or course…" className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
       </div>
 
       <AdminRowsPerPage

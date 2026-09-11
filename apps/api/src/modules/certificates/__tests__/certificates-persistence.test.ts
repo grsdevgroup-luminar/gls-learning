@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env } from "../../../config/env";
 import { CertificatesService } from "../certificates.service";
 import type { CertificatesRepository } from "../certificates.repository";
+import type { CertificatePdfService } from "../certificate-pdf.service";
 
 const issuedAt = new Date("2026-09-01T12:00:00.000Z");
 
@@ -37,8 +38,12 @@ function makeService(repo: Partial<CertificatesRepository>) {
     }),
   } as unknown as ConfigService<Env, true>;
 
+  const pdfService = {
+    render: vi.fn().mockResolvedValue(Buffer.from("%PDF-test")),
+  } as unknown as CertificatePdfService;
+
   return {
-    service: new CertificatesService(repository, config),
+    service: new CertificatesService(repository, config, pdfService),
     repository,
   };
 }

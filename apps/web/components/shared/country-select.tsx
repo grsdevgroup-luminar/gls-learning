@@ -77,7 +77,7 @@ export function CountrySelect({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search country…"
-            className="h-8 pl-8"
+            className="search-input h-8 border-input bg-background pl-8 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
             autoFocus
           />
         </div>

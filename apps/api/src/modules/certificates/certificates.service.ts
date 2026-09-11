@@ -2,15 +2,16 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { CertificateVerificationDto } from "@skillstream/shared";
 import { CertificatesRepository } from "./certificates.repository";
-import { certificatePdf } from "../../common/utils/pdf";
 import { apiBaseUrl, certificateVerifyUrl } from "../../common/utils/urls";
 import type { Env } from "../../config/env";
+import { CertificatePdfService } from "./certificate-pdf.service";
 
 @Injectable()
 export class CertificatesService {
   constructor(
     private readonly repo: CertificatesRepository,
     private readonly config: ConfigService<Env, true>,
+    private readonly certificatePdfService: CertificatePdfService,
   ) {}
 
   /**
@@ -49,29 +50,15 @@ export class CertificatesService {
 
   async pdf(serial: string): Promise<Buffer> {
     const cert = await this.findBySerial(serial);
-    return this.renderPdf(cert);
+    return this.certificatePdfService.render(cert.serial);
   }
 
   async pdfForUser(serial: string, userId: string): Promise<Buffer> {
     const cert = await this.repo.findBySerialForUser(serial, userId);
     if (!cert) throw new NotFoundException("Certificate not found");
-    return this.renderPdf(cert);
+    return this.certificatePdfService.render(cert.serial);
   }
 
-  private renderPdf(
-    cert: NonNullable<Awaited<ReturnType<CertificatesRepository["findBySerial"]>>>,
-  ): Buffer {
-    return certificatePdf({
-      learnerName: cert.learnerName,
-      courseTitle: cert.enrollment.course.title,
-      issuedAt: cert.issuedAt,
-      serial: cert.serial,
-      verifyUrl: certificateVerifyUrl(
-        this.config.get("FRONTEND_URL", { infer: true }),
-        cert.serial,
-      ),
-    });
-  }
 
   /** Where `CertificateDto.pdfUrl` points when the row has no stored file. */
   pdfUrlFor(serial: string): string {
