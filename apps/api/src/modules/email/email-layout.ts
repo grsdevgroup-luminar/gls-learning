@@ -1,4 +1,4 @@
-/** The one HTML shell every SkillStream email renders inside — replaces what
+/** The one HTML shell every GRS Learning email renders inside — replaces what
  *  used to be six near-identical private methods on EmailService. Only
  *  `headline`/`bodyHtml`/`cta*` are admin-editable content; the chrome around
  *  them (header, footer, button styling) is fixed. */
@@ -46,7 +46,7 @@ export function renderEmailLayout({
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
         <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;text-align:center">
-          <span style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px">SkillStream</span>
+          <span style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px">GRS Learning</span>
         </td></tr>
         <tr><td style="padding:36px 40px">
           <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#111827">${headline}</h1>
@@ -56,7 +56,7 @@ export function renderEmailLayout({
           ${footerNote ? `<p style="margin:24px 0 0;color:#9ca3af;font-size:13px">${footerNote}</p>` : ""}
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} SkillStream. All rights reserved.</p>
+          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} GRS Learning. All rights reserved.</p>
         </td></tr>
       </table>
     </td></tr>

@@ -68,7 +68,7 @@ export default function EmailTemplatesClient() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Email templates</h1>
           <p className="text-muted-foreground">
-            Customize the subject and copy of every email SkillStream sends. Unedited templates
+            Customize the subject and copy of every email GRS Learning sends. Unedited templates
             use our default copy.
           </p>
         </div>

@@ -34,7 +34,7 @@ export class ResendProvider implements EmailProvider {
   }
 
   async send(input: SendEmailInput): Promise<SendEmailResult> {
-    const from = input.from ?? `SkillStream <${this.defaultFrom}>`;
+    const from = input.from ?? `GRS Learning <${this.defaultFrom}>`;
     const replyTo = input.replyTo ?? this.defaultReplyTo;
 
     const { data, error } = await this.resend.emails.send({

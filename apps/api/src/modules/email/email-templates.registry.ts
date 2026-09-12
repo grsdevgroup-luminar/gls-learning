@@ -1,5 +1,5 @@
 /**
- * The catalog of every email SkillStream can send. Each entry's
+ * The catalog of every email GRS Learning can send. Each entry's
  * `defaultSubject`/`defaultBody` is the platform's built-in copy — an admin
  * override in the `EmailTemplate` table replaces it, but this registry is
  * always the fallback, so the feature can never leave an email type broken.
@@ -107,9 +107,9 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     label: "Welcome email",
     category: "auth",
     description: "Sent right after a student signs up.",
-    defaultSubject: "Welcome to SkillStream 🎉",
+    defaultSubject: "Welcome to GRS Learning 🎉",
     defaultBody:
-      "You're now part of the SkillStream learning community. Explore thousands of courses and start growing your skills today.",
+      "You're now part of the GRS Learning community. Explore thousands of courses and start growing your skills today.",
     ctaLabel: "Browse courses",
     variables: [v("first_name", "The new student's first name", "Priya")],
   },
@@ -118,13 +118,13 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     label: "Password reset",
     category: "auth",
     description: "Sent when a user requests a password reset link.",
-    defaultSubject: "Reset your SkillStream password",
+    defaultSubject: "Reset your GRS Learning password",
     defaultBody:
       "Hi {{first_name}}, we received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour — if you didn't request this, you can safely ignore this email.",
     ctaLabel: "Reset password",
     variables: [
       v("first_name", "The account holder's first name", "Priya"),
-      v("reset_link", "The one-time password-reset link", "https://skillstream.dev/reset-password?token=…"),
+      v("reset_link", "The one-time password-reset link", "https://grslearning.dev/reset-password?token=…"),
     ],
   },
   org_invite: {
@@ -132,14 +132,14 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     label: "Organization invite",
     category: "organizations",
     description: "Sent when an org admin invites someone to join their team.",
-    defaultSubject: "You've been invited to {{org_name}} on SkillStream",
+    defaultSubject: "You've been invited to {{org_name}} on GRS Learning",
     defaultBody:
-      "Your organization has invited you to join their team on SkillStream as {{role_label}}. Accept to get access to your company's courses. This invitation expires in 7 days.",
+      "Your organization has invited you to join their team on GRS Learning as {{role_label}}. Accept to get access to your company's courses. This invitation expires in 7 days.",
     ctaLabel: "Accept invitation",
     variables: [
       v("org_name", "The inviting organization's name", "Acme Corp"),
       v("role_label", "\"an admin\" or \"a member\"", "a member"),
-      v("invite_link", "The one-time invitation link", "https://skillstream.dev/join/…"),
+      v("invite_link", "The one-time invitation link", "https://grslearning.dev/join/…"),
     ],
   },
   org_admin_credentials: {
@@ -147,16 +147,16 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     label: "Organization admin credentials",
     category: "organizations",
     description: "Sent when a platform admin creates a new organization.",
-    defaultSubject: "Your {{org_name}} organization is ready on SkillStream",
+    defaultSubject: "Your {{org_name}} organization is ready on GRS Learning",
     defaultBody:
-      "Hi {{admin_name}}, your organization has been set up on SkillStream. Sign in with the credentials below — you'll be asked to choose your own password right away.",
+      "Hi {{admin_name}}, your organization has been set up on GRS Learning. Sign in with the credentials below — you'll be asked to choose your own password right away.",
     ctaLabel: "Sign in",
     variables: [
       v("admin_name", "The new org admin's name", "Priya"),
       v("org_name", "The organization's name", "Acme Corp"),
       v("admin_email", "The org admin's login email", "admin@acme.com"),
       v("temp_password", "The generated temporary password", "Xk3f-9Qz1"),
-      v("login_link", "The sign-in page link", "https://skillstream.dev/login"),
+      v("login_link", "The sign-in page link", "https://grslearning.dev/login"),
     ],
     sampleProtectedHtml: credentialsBoxHtml("admin@acme.com", "Xk3f-9Qz1"),
   },
@@ -165,7 +165,7 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     label: "Purchase receipt",
     category: "commerce",
     description: "Sent when an order is marked paid, PDF receipt attached.",
-    defaultSubject: "Your SkillStream receipt — {{total}}",
+    defaultSubject: "Your GRS Learning receipt — {{total}}",
     defaultBody:
       "Thanks for your purchase, {{first_name}}. Order {{order_id}}: {{items}}. Total paid: {{total}}. Your receipt is attached, and your courses are ready in your dashboard.",
     variables: [
