@@ -481,8 +481,6 @@ export class AdminService {
     return {
       platformName: s.platformName,
       supportEmail: s.supportEmail,
-      baseCurrency: s.baseCurrency,
-      defaultLanguage: s.defaultLanguage,
       stripeEnabled: s.stripeEnabled,
       paypalEnabled: s.paypalEnabled,
       sslcommerzEnabled: s.sslcommerzEnabled,
