@@ -22,6 +22,9 @@ export const adminReviewQuerySchema = searchQuerySchema.extend({
   status: z.nativeEnum(ReviewStatus).optional(),
   courseId: z.string().min(1).optional(),
   rating: z.coerce.number().int().min(1).max(5).optional(),
+  /** Deep-link a single review (e.g. from a notification) regardless of the
+   *  other filters. */
+  reviewId: z.string().min(1).optional(),
 });
 export type AdminReviewQuery = z.infer<typeof adminReviewQuerySchema>;
 

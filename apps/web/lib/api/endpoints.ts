@@ -474,6 +474,10 @@ export const api = {
     apiFetch<InstructorProfileDto | null>("/me/instructor", { cache: "no-store" }),
   instructorCourses: () =>
     apiFetch<InstructorCourseDto[]>("/me/instructor/courses"),
+  instructorCourseReviews: (
+    courseId: string,
+    params: Record<string, string | number | undefined> = {},
+  ) => apiFetch<Paginated<ReviewDto>>(`/me/courses/${courseId}/reviews${qs(params)}`),
   updateInstructorProfile: (body: UpdateInstructorProfileInput) =>
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
@@ -764,4 +768,8 @@ export const adminApi = {
 export const instructorApi = {
   profile: () => api.instructorProfile(),
   courses: () => api.instructorCourses(),
+  courseReviews: (
+    courseId: string,
+    params: Record<string, string | number | undefined> = {},
+  ) => api.instructorCourseReviews(courseId, params),
 };

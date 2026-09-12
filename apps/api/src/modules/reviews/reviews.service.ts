@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type {
   AdminReviewCourseOptionDto,
@@ -10,6 +10,7 @@ import type {
   ReviewDto,
   ReviewStatusInput,
 } from "@skillstream/shared";
+import type { RequestUser } from "../../common/decorators/decorators";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -95,7 +96,20 @@ export class ReviewsService {
           event: "COURSE_NEW_REVIEW",
           title: "New review",
           body: `${review.user.name} left a ${review.rating}-star review on "${course.title}".`,
-          href: `/instructor/courses/${courseId}`,
+          href: `/instructor/courses/${courseId}/reviews`,
+          skipEmail: true,
+        })
+        .catch(() => undefined);
+      // Reviews are pre-moderated (start PENDING, invisible to everyone but
+      // their author until approved) — admins are the only ones who can act,
+      // so they get the in-app alert deep-linked straight to this review,
+      // same gap as the purchase notification.
+      void this.notifications
+        .notifyAdmins({
+          event: "COURSE_NEW_REVIEW",
+          title: "New review pending approval",
+          body: `${review.user.name} left a ${review.rating}-star review on "${course.title}".`,
+          href: `/admin/reviews?reviewId=${review.id}`,
           skipEmail: true,
         })
         .catch(() => undefined);
@@ -103,10 +117,35 @@ export class ReviewsService {
     return this.toDto(review);
   }
 
+  /** The instructor's own preview of their course's reviews, any status —
+   *  the public listing only ever shows APPROVED ones, but the owner
+   *  shouldn't have to wait on moderation to see what was written. */
+  async forInstructorCourse(
+    user: RequestUser,
+    courseId: string,
+    page: PaginationQuery,
+  ): Promise<Paginated<ReviewDto>> {
+    const course = await this.repo.findCourseTitle(courseId);
+    if (!course) throw new NotFoundException("Course not found");
+    if (user.role !== "ADMIN" && course.instructorId !== user.id) {
+      throw new ForbiddenException("Not your course");
+    }
+
+    const [rows, total] = await this.repo.findManyAndCountForAdmin({ courseId }, page);
+    return {
+      items: rows.map((r) => this.toDto(r)),
+      page: page.page,
+      pageSize: page.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / page.pageSize)),
+    };
+  }
+
   // ── admin moderation ─────────────────────────────────────────────────────
   async adminList(query: AdminReviewQuery): Promise<Paginated<ReviewDto>> {
     const q = query.q?.trim();
     const where: Prisma.ReviewWhereInput = {
+      ...(query.reviewId ? { id: query.reviewId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.courseId ? { courseId: query.courseId } : {}),
       ...(query.rating ? { rating: query.rating } : {}),

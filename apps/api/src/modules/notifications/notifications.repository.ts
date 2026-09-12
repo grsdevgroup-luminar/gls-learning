@@ -108,8 +108,8 @@ export class NotificationFeedRepository {
     });
   }
 
-  findAdminUserIds() {
-    return this.prisma.user.findMany({
+  findAdminUserIds(tx?: Db) {
+    return this.db(tx).user.findMany({
       where: { role: "ADMIN" },
       select: { id: true },
     });

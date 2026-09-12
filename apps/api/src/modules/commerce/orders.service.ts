@@ -275,12 +275,27 @@ export class OrdersService {
             event: "COURSE_NEW_ENROLLMENT",
             title: "New enrollment",
             body: `A student enrolled in "${item.titleSnapshot}".`,
-            href: `/instructor/courses/${item.courseId}`,
+            href: `/instructor/courses/${item.courseId}/edit`,
             skipEmail: true,
           },
           tx,
         );
       }
+
+      // In-app only, no email — same Phase 3 ambient pattern as
+      // COURSE_NEW_ENROLLMENT above. Admins already have an opt-in email
+      // alert for new enrollments (AdminAlertsService.newEnrollment); this is
+      // the in-app feed the admin notification bell was missing entirely.
+      await this.notifications.notifyAdmins(
+        {
+          event: "ORDER_NEW_PURCHASE",
+          title: "New course purchase",
+          body: `A student purchased ${courseNames} for $${(order.totalCents / 100).toFixed(2)}.`,
+          href: "/admin/orders",
+          skipEmail: true,
+        },
+        tx,
+      );
 
       await this.repo.incrementStudentTotalSpent(
         order.userId,
