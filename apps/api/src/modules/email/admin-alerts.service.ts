@@ -50,24 +50,25 @@ export class AdminAlertsService {
   }
 
   private async send(
-    key: AdminAlertKey,
-    subject: string,
-    lines: string[],
+    toggleKey: AdminAlertKey,
+    templateKey: string,
+    vars: Record<string, unknown>,
   ): Promise<void> {
     try {
-      const admins = await this.recipients(key);
+      const admins = await this.recipients(toggleKey);
       await Promise.all(
-        admins.map((a) => this.email.sendAdminAlert(a.email, subject, lines)),
+        admins.map((a) => this.email.sendAdminAlert(templateKey, a.email, vars)),
       );
     } catch (err) {
-      this.logger.error(`admin alert "${key}" failed: ${(err as Error).message}`);
+      this.logger.error(`admin alert "${toggleKey}" failed: ${(err as Error).message}`);
     }
   }
 
   newEnrollment(learnerName: string, courseTitle: string): Promise<void> {
-    return this.send("newEnrollment", `New enrollment: ${courseTitle}`, [
-      `${learnerName} enrolled in “${courseTitle}”.`,
-    ]);
+    return this.send("newEnrollment", "admin_alert_new_enrollment", {
+      learner_name: learnerName,
+      course_title: courseTitle,
+    });
   }
 
   newReview(
@@ -75,10 +76,11 @@ export class AdminAlertsService {
     rating: number,
     authorName: string,
   ): Promise<void> {
-    return this.send("newReview", `New ${rating}★ review: ${courseTitle}`, [
-      `${authorName} left a ${rating}-star review on “${courseTitle}”.`,
-      "It stays hidden from the storefront until you approve it in Admin → Reviews.",
-    ]);
+    return this.send("newReview", "admin_alert_new_review", {
+      author_name: authorName,
+      rating: String(rating),
+      course_title: courseTitle,
+    });
   }
 
   /** Yesterday's takings — the "daily revenue summary" toggle. */
@@ -95,16 +97,13 @@ export class AdminAlertsService {
     const enrollments = await this.repo.countEnrollmentsBetween(start, end);
     const signups = await this.repo.countSignupsBetween(start, end);
 
-    await this.send(
-      "dailyRevenue",
-      `Daily summary — ${money(gross)} from ${orders.length} order${orders.length === 1 ? "" : "s"}`,
-      [
-        `Date: ${start.toISOString().slice(0, 10)} (UTC)`,
-        `Revenue: ${money(gross)} across ${orders.length} paid order(s)`,
-        `New enrollments: ${enrollments}`,
-        `New signups: ${signups}`,
-      ],
-    );
+    await this.send("dailyRevenue", "admin_alert_daily_revenue", {
+      date: start.toISOString().slice(0, 10),
+      revenue: money(gross),
+      order_count: String(orders.length),
+      enrollments: String(enrollments),
+      signups: String(signups),
+    });
   }
 
   /** Learners flagged AT_RISK — the "at-risk student digest" toggle. */
@@ -115,9 +114,9 @@ export class AdminAlertsService {
     const students = await this.repo.findAtRiskStudents();
     if (students.length === 0) return; // nothing to report — stay quiet
 
-    await this.send("atRiskDigest", `${students.length} student(s) at risk`, [
-      "These learners have stalled and may need a nudge:",
-      ...students.map((s) => `• ${s.user.name} (${s.user.email})`),
-    ]);
+    await this.send("atRiskDigest", "admin_alert_at_risk_digest", {
+      student_count: String(students.length),
+      student_list: students.map((s) => `• ${s.user.name} (${s.user.email})`).join("\n"),
+    });
   }
 }

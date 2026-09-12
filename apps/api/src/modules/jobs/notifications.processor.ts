@@ -62,7 +62,7 @@ export class NotificationsProcessor extends WorkerHost {
 
     if (channel === "EMAIL") {
       if (body) {
-        await this.email.sendNotificationEmail(user.email, user.name, subject, body, href);
+        await this.email.sendNotificationEmail(trigger, user.email, user.name, subject, body, href);
       } else {
         await this.email.sendReminder(user.email, user.name, subject);
       }

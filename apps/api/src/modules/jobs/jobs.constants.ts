@@ -3,3 +3,4 @@
 export const MAINTENANCE_QUEUE = "maintenance";
 export const NOTIFICATIONS_QUEUE = "notifications";
 export const STREAM_CLEANUP_QUEUE = "stream-cleanup";
+export const MAIL_QUEUE = "mail";
