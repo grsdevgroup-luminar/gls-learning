@@ -486,9 +486,11 @@ is elsewhere.) `app.module.ts` registers `NotificationsModule` itself, once.
 ### Email module
 
 - **`email/email.service.ts`** — added `sendNotificationEmail()` (title +
-  body + deep link, for Phase 1/2 events) and its private `notificationHtml()`
-  template, alongside the existing `sendReminder()` used for marketing
-  automation.
+  body + deep link, for Phase 1/2 events), alongside the existing
+  `sendReminder()` used for marketing automation. Its private
+  `notificationHtml()` template was later folded into the shared layout
+  renderer built for admin-editable email templates — see
+  [`EMAIL_TEMPLATES_PLAN.md`](EMAIL_TEMPLATES_PLAN.md).
 - **`email/admin-alerts.repository.ts`** — added `findAdminUsers()` (real
   `User` rows where `role: ADMIN`).
 - **`email/admin-alerts.service.ts`** — `recipient()` → `recipients()`
