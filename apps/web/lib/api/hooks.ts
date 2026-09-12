@@ -16,6 +16,8 @@ import type {
   UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
+  UpsertEmailTemplateInput,
+  PreviewEmailTemplateInput,
   UpdateLearningPreferencesInput,
 } from "@skillstream/shared";
 import { api } from "./endpoints";
@@ -328,6 +330,36 @@ export const ruleToInput = (r: AutomationRuleDto): UpsertAutomationRuleInput => 
   template: r.template,
   active: r.active,
 });
+
+// ── email templates ──────────────────────────────────────────────────────
+export const useEmailTemplates = () =>
+  useQuery({ queryKey: qk.emailTemplates, queryFn: api.adminEmailTemplates });
+
+export function useUpdateEmailTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, ...input }: UpsertEmailTemplateInput & { key: string }) =>
+      api.adminUpdateEmailTemplate(key, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.emailTemplates }),
+  });
+}
+
+export function useResetEmailTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (key: string) => api.adminResetEmailTemplate(key),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.emailTemplates }),
+  });
+}
+
+export const usePreviewEmailTemplate = () =>
+  useMutation({
+    mutationFn: ({ key, ...draft }: { key: string } & PreviewEmailTemplateInput) =>
+      api.adminPreviewEmailTemplate(key, draft),
+  });
+
+export const useSendTestEmail = () =>
+  useMutation({ mutationFn: (key: string) => api.adminSendTestEmail(key) });
 
 // ── coupons ───────────────────────────────────────────────────────────────
 export const useFeaturedCoupon = () =>

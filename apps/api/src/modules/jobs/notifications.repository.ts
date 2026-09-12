@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ReminderChannel } from "@prisma/client";
+import { ReminderChannel, ReminderStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -18,14 +18,15 @@ export class NotificationsRepository {
   }
 
   createReminderLog(data: {
-    userId: string;
+    userId?: string;
     channel: ReminderChannel;
     trigger: string;
     subject: string;
     ruleId?: string;
+    status?: ReminderStatus;
   }) {
     return this.prisma.reminderLog.create({
-      data: { ...data, status: "SENT" },
+      data: { ...data, status: data.status ?? "SENT" },
     });
   }
 

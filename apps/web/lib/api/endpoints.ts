@@ -16,13 +16,17 @@ import type {
   CourseSummaryDto,
   CreateCommentInput,
   CreateReviewInput,
+  EmailTemplateDto,
+  EmailTemplatePreviewDto,
   FeaturedCouponDto,
   PatchCouponInput,
   PlatformSettingsDto,
+  PreviewEmailTemplateInput,
   UpdateInstructorProfileInput,
   UpdatePlatformSettingsInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
+  UpsertEmailTemplateInput,
   ApplyInstructorInput,
   EnrollmentDto,
   InstructorApplicationDto,
@@ -89,6 +93,8 @@ export type {
   AutomationRuleDto,
   CommentDto,
   CouponDto,
+  EmailTemplateDto,
+  EmailTemplatePreviewDto,
   ReminderLogDto,
   FeaturedCouponDto,
   CourseDetailDto,
@@ -372,6 +378,20 @@ export const api = {
   adminDeleteAutomationRule: (id: string) =>
     apiFetch<{ ok: true }>(`/admin/automation-rules/${id}`, { method: "DELETE" }),
   adminReminderLogs: () => apiFetch<ReminderLogDto[]>("/admin/reminder-logs"),
+
+  // email templates
+  adminEmailTemplates: () => apiFetch<EmailTemplateDto[]>("/admin/email-templates"),
+  adminUpdateEmailTemplate: (key: string, input: UpsertEmailTemplateInput) =>
+    apiFetch<EmailTemplateDto>(`/admin/email-templates/${key}`, { method: "PATCH", body: input }),
+  adminResetEmailTemplate: (key: string) =>
+    apiFetch<{ ok: true }>(`/admin/email-templates/${key}`, { method: "DELETE" }),
+  adminPreviewEmailTemplate: (key: string, draft?: PreviewEmailTemplateInput) =>
+    apiFetch<EmailTemplatePreviewDto>(`/admin/email-templates/${key}/preview`, {
+      method: "POST",
+      body: draft ?? {},
+    }),
+  adminSendTestEmail: (key: string) =>
+    apiFetch<{ ok: true }>(`/admin/email-templates/${key}/test-send`, { method: "POST" }),
 
   adminReviews: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<ReviewDto>>(`/admin/reviews${qs(params)}`),

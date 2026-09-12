@@ -3,6 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AutomationRule, ReminderTrigger } from "@prisma/client";
 import { Queue } from "bullmq";
 import { completionPct } from "@skillstream/shared";
+import { firstName } from "../../common/utils/text";
 import { NOTIFICATIONS_QUEUE } from "./jobs.constants";
 import type { ReminderJobData } from "./notifications.processor";
 import { AutomationRepository } from "./automation.repository";
@@ -212,5 +213,3 @@ export class AutomationService {
     );
   }
 }
-
-const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
