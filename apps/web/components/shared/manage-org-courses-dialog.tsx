@@ -245,7 +245,7 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                         value={qInput}
                         onChange={(e) => setQInput(e.target.value)}
                         placeholder="Search courses…"
-                        className="h-8 pl-8 text-sm"
+                        className="search-input h-8 border-input bg-background pl-8 text-sm focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
                       />
                     </div>
                     <Select value={category} onValueChange={(v) => v && setCategory(v)}>

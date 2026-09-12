@@ -7,6 +7,7 @@ import {
   type CourseSummaryDto,
   type Paginated,
   LEARNING_CATEGORIES,
+  compactCourseSearchQuery,
 } from "@skillstream/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
@@ -77,23 +78,35 @@ export class CoursesService {
     if (query.minRating !== undefined) where.ratingAvg = { gte: query.minRating };
     if (query.q) {
       const search = query.q.trim();
-      const compactSearch = search.replace(/\s+/g, "").toLowerCase();
+      const compactSearch = compactCourseSearchQuery(search);
       const spacedCategoryMatches = LEARNING_CATEGORIES.filter(
-        (category) => category.replace(/\s+/g, "").toLowerCase() === compactSearch,
+        (category) => compactCourseSearchQuery(category) === compactSearch,
       );
       const searchTerms = [search, ...spacedCategoryMatches];
 
       // Include the canonical spaced category when a compact term such as
       // "webdevelopment" is searched, so that courses in the "Web Development"
       // category are returned even though their category field is not a direct
-      // match for the compact term.
-      if (spacedCategoryMatches.length) {
-        where.category = { in: spacedCategoryMatches };
-      }
-      where.OR = searchTerms.flatMap((term) => [
+      // match for the compact term. Keep any explicit category filter above;
+      // replacing it here would silently discard the user's selection.
+      const textMatches = searchTerms.flatMap((term) => [
         { title: { contains: term, mode: "insensitive" as const } },
         { category: { contains: term, mode: "insensitive" as const } },
       ]);
+
+      // Prisma's `contains` cannot ignore separators inside a field. Restrict
+      // the normal filtered query to ids found by the database's normalized
+      // title/category expression so compact searches also work.
+      const compactMatches = await this.repo.findIdsByCompactSearch(search);
+      const compactMatchIds = compactMatches.map(({ id }) => id);
+
+      // Keep both paths under the same OR: a compact title such as
+      // `learncloudcomputing` must not be found by the normalized lookup and
+      // then rejected because it does not also contain the unspaced string.
+      where.OR = [
+        ...textMatches,
+        ...(compactMatchIds.length > 0 ? [{ id: { in: compactMatchIds } }] : []),
+      ];
     }
 
     const [rows, total] = await this.repo.listAndCount(

@@ -23,6 +23,7 @@ import { adminReviewQuerySchema, createReviewSchema } from "../contracts/reviews
 import { emailSchema, normalizeEmail, countryCodeSchema } from "../contracts/auth.js";
 import {
   activeCourseSearchQuery,
+  compactCourseSearchQuery,
   courseListQuerySchema,
   MAX_COURSE_SEARCH_LENGTH,
   normalizeCourseSearchQuery,
@@ -216,6 +217,13 @@ describe("sales agent commission validation", () => {
 });
 
 describe("course catalog search", () => {
+  it("matches compact search text to spaced category names", () => {
+    expect(compactCourseSearchQuery("datascience")).toBe(
+      compactCourseSearchQuery("Data Science"),
+    );
+    expect(compactCourseSearchQuery("  UI/UX Design ")).toBe("uiuxdesign");
+  });
+
   it("caps and trims catalog search queries", () => {
     const long = "a".repeat(MAX_COURSE_SEARCH_LENGTH + 50);
     expect(normalizeCourseSearchQuery(`  ${long}  `)).toHaveLength(MAX_COURSE_SEARCH_LENGTH);

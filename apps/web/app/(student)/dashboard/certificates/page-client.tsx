@@ -28,6 +28,7 @@ interface CertificateDto {
   serial: string;
   learnerName: string;
   courseNumber: string;
+  isoStandard: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseId: string;
@@ -267,6 +268,7 @@ function templateData(cert: CertificateDto) {
     certificateNumber: cert.serial,
     uniqueId: cert.serial,
     courseNumber: cert.courseNumber,
+    isoStandard: cert.isoStandard,
     courseStartDate: formatDate(cert.courseStartDate),
     courseEndDate: formatDate(cert.courseEndDate),
     issueDate: formatDate(cert.issuedAt),

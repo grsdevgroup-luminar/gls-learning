@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { Logo } from '@/components/shared/logo';
+import { useSession } from '@/lib/api/session';
 
 const cols = [
   {
@@ -34,6 +37,9 @@ const cols = [
 ];
 
 export function SiteFooter() {
+  const { user, role, isLoading } = useSession();
+  const showTeachLink = !isLoading && (!user || role === 'INSTRUCTOR');
+
   return (
     <footer className="mt-auto border-t bg-muted/30">
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-12 md:grid-cols-5">
@@ -48,13 +54,15 @@ export function SiteFooter() {
           <div key={c.title}>
             <h4 className="mb-3 text-sm font-semibold">{c.title}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              {c.links.map(([label, href]) => (
+              {c.links
+                .filter(([label]) => label !== 'Teach on GRS Learning' || showTeachLink)
+                .map(([label, href]) => (
                 <li key={label}>
                   <Link href={href} className="hover:text-foreground">
                     {label}
                   </Link>
                 </li>
-              ))}
+                ))}
             </ul>
           </div>
         ))}

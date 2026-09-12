@@ -247,7 +247,7 @@ export default function AdminAgents() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div className="relative sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search agents..." className="pl-9" />
+          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search agents..." className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
         </div>
         <AdminRowsPerPage
           value={pageSize}

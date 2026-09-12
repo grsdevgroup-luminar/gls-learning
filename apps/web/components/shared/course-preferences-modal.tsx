@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   BrainCircuit,
   BookOpen,
@@ -15,9 +15,7 @@ import {
   Palette,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  type LearningCategory,
-} from "@skillstream/shared";
+import { type LearningCategory } from "@skillstream/shared";
 import { ApiError } from "@/lib/api/errors";
 import { useCategories, useSaveCoursePreferences } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
@@ -63,17 +61,24 @@ export function CoursePreferencesModal({
 }: CoursePreferencesModalProps) {
   const { role, isLoading: sessionLoading } = useSession();
   const savePreferences = useSaveCoursePreferences();
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const wasOpen = useRef(false);
+  const { data: categories = [], isLoading: categoriesLoading } =
+    useCategories();
 
-  const [selectedCategories, setSelectedCategories] =
-    useState<LearningCategory[]>([...initialCategories]);
+  const [selectedCategories, setSelectedCategories] = useState<
+    LearningCategory[]
+  >([...initialCategories]);
 
   useEffect(() => {
-    if (open) {
-      // Reset the draft each time the dialog opens so abandoned edits are discarded.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    const justOpened = open && !wasOpen.current;
+
+    if (justOpened) {
+      // Initialize a new draft only when the dialog opens. Background query
+      // refetches can replace initialCategories while the draft is being edited.
       setSelectedCategories([...initialCategories]);
     }
+
+    wasOpen.current = open;
   }, [open, initialCategories]);
 
   if (studentOnly && (sessionLoading || role !== "STUDENT")) {
@@ -142,7 +147,8 @@ export function CoursePreferencesModal({
             </DialogTitle>
 
             <DialogDescription className="max-w-xl text-sm sm:text-base">
-              Choose at least three categories to personalize your course recommendations.
+              Choose at least three categories to personalize your course
+              recommendations.
             </DialogDescription>
           </DialogHeader>
 
@@ -163,10 +169,11 @@ export function CoursePreferencesModal({
                     aria-pressed={selected}
                     disabled={savePreferences.isPending || categoriesLoading}
                     onClick={() => toggleCategory(category)}
-                    className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${selected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card hover:border-primary hover:bg-accent"
-                      }`}
+                    className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card hover:border-primary hover:bg-accent"
+                    }`}
                   >
                     <CategoryIcon
                       className="size-8 shrink-0 sm:size-6"
@@ -225,8 +232,7 @@ export function CoursePreferencesModal({
               sm:text-base
             "
             disabled={
-              selectedCategories.length < 3 ||
-              savePreferences.isPending
+              selectedCategories.length < 3 || savePreferences.isPending
             }
             onClick={() => void save()}
           >
@@ -235,8 +241,10 @@ export function CoursePreferencesModal({
                 <LoaderCircle className="animate-spin" />
                 Saving...
               </>
+            ) : studentOnly ? (
+              "Save preferences"
             ) : (
-              studentOnly ? "Save preferences" : "Show recommendations"
+              "Show recommendations"
             )}
           </Button>
         </div>

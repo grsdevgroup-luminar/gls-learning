@@ -63,9 +63,10 @@ export const adminCourseQuerySchema = searchQuerySchema.extend({
 });
 export type AdminCourseQuery = z.infer<typeof adminCourseQuerySchema>;
 
-/** Admin orders list query: search, pagination, and status filter. */
+/** Admin orders list query: search, pagination, and payment filters. */
 export const adminOrderQuerySchema = searchQuerySchema.extend({
   status: z.nativeEnum(OrderStatus).optional(),
+  gateway: z.enum(["STRIPE", "PAYPAL", "SSLCOMMERZ"]).optional(),
 });
 export type AdminOrderQuery = z.infer<typeof adminOrderQuerySchema>;
 

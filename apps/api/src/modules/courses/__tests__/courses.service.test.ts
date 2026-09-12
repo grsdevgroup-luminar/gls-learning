@@ -110,3 +110,21 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     expect(enrollment.isOrgMemberOfAny).toHaveBeenCalledWith(["org_1", "org_2"], member.id);
   });
 });
+
+describe("CoursesService.list — compact search", () => {
+  it("keeps normalized matches for multi-word compact queries", async () => {
+    const listAndCount = vi.fn().mockResolvedValue([[], 0]);
+    const findIdsByCompactSearch = vi.fn().mockResolvedValue([{ id: "course_1" }]);
+    const { service, repo } = makeService({ listAndCount, findIdsByCompactSearch });
+
+    await service.list({ q: "learncloudcomputing", sort: "popular", page: 1, pageSize: 12 });
+
+    const where = vi.mocked(repo.listAndCount).mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(where.OR).toEqual([
+      { title: { contains: "learncloudcomputing", mode: "insensitive" } },
+      { category: { contains: "learncloudcomputing", mode: "insensitive" } },
+      { id: { in: ["course_1"] } },
+    ]);
+    expect(findIdsByCompactSearch).toHaveBeenCalledOnce();
+  });
+});

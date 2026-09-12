@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-09-09 — Multi-pending-order checkout protection
+
+### Fixed
+
+- Prevented checkout from silently resuming only the first order when a cart overlaps multiple unfinished checkouts.
+- A pending order is resumed only when it exactly covers the complete remaining cart.
+- Partial or split pending checkouts now return a clear conflict message instead of allowing a purchase for only part of the cart.
+- New checkout quotes now include all remaining course IDs when no pending order can safely be resumed.
+- The existing checkout page keeps the cart and displays the backend error through its existing toast flow, so users are not charged for an incomplete cart.
+
+### Changed Files
+
+- apps/api/src/modules/commerce/checkout.service.ts — Validates pending-order coverage before resuming or creating a payment session.
+
+### Verification
+
+- Passed:
+  - Commerce-related TypeScript checks
+  - Web typecheck
+  - git diff --check
+
 ## 2026-09-07 — Review Moderation Cache Synchronization
 
 ### Fixed

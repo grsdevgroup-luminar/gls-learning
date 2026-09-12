@@ -6,6 +6,7 @@ export interface CertificateDto {
   serial: string;
   learnerName: string;
   courseNumber: string;
+  isoStandard?: string;
   pdfUrl: string | null;
   issuedAt: string;
   courseStartDate?: string;

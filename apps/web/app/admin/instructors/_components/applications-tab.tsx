@@ -89,7 +89,7 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search applications…" className="pl-9" />
+          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search applications…" className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
         </div>
         <div className="flex gap-1">
           {STATUS_FILTERS.map((s) => (
@@ -180,32 +180,33 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
           if (!open) setRejectReason("");
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg overflow-hidden">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="wrap-break-words pr-8 leading-snug">
               Reject application
               {rejectingId && applications.find((a) => a.id === rejectingId)
                 ? ` — ${applications.find((a) => a.id === rejectingId)!.name}`
                 : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-2 space-y-4">
+          <div className="mt-2 w-full space-y-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Rejection reason</label>
+              <label htmlFor="instructor-rejection-reason" className="text-sm font-medium">Rejection reason</label>
               <Textarea
+                id="instructor-rejection-reason"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Explain why this application wasn't approved — the applicant will see this."
-                className="min-h-24"
+                className="min-h-24 w-full resize-y"
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setRejectingId(null)}>
+            <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setRejectingId(null)}>
                 Cancel
               </Button>
               <Button
                 variant="outline"
-                className="text-destructive"
+                className="w-full text-destructive sm:w-auto"
                 disabled={!rejectReason.trim() || rejectInstructor.isPending}
                 onClick={() => rejectingId && rejectInstructor.mutate({ id: rejectingId, note: rejectReason.trim() })}
               >

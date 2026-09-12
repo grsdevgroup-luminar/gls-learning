@@ -155,15 +155,7 @@ export class AuthoringService {
 
   async setStatus(user: RequestUser, id: string, input: CourseStatusInput) {
     const course = await this.assertCourseAccess(id, user);
-    if (input.status === "PUBLISHED") await this.categories.assertActive(course.category);
-    // A course an org is actively using (public or private assignment — an
-    // org's course list has no status filter) can't be pulled back to
-    // Draft/Review out from under it: members would see a course card whose
-    // "Enroll" silently 404s, since enrollment always requires PUBLISHED.
-    if (input.status !== "PUBLISHED" && (await this.repo.countOrgAssignments(id)) > 0)
-      throw new BadRequestException(
-        "Unassign this course from its organization(s) before unpublishing it",
-      );
+    await this.validateStatusChange(course, id, input.status);
     // Check prior state BEFORE update to detect first publish.
     const prior = await this.repo.findCoursePriorStatus(id);
     const isFirstPublish = input.status === "PUBLISHED" && !prior?.publishedAt;
@@ -175,6 +167,25 @@ export class AuthoringService {
       prior?.instructorId,
     );
     return this.detail(id);
+  }
+
+  /** Validate without changing data so the builder can fail before saving fields. */
+  async validateStatus(user: RequestUser, id: string, input: CourseStatusInput) {
+    const course = await this.assertCourseAccess(id, user);
+    await this.validateStatusChange(course, id, input.status);
+    return { ok: true as const };
+  }
+
+  private async validateStatusChange(
+    course: { category: string },
+    id: string,
+    status: CourseStatusInput["status"],
+  ) {
+    if (status === "PUBLISHED") await this.categories.assertActive(course.category);
+    if (status !== "PUBLISHED" && (await this.repo.countOrgAssignments(id)) > 0)
+      throw new BadRequestException(
+        "Unassign this course from its organization(s) before unpublishing it",
+      );
   }
 
   async remove(user: RequestUser, id: string) {

@@ -25,6 +25,21 @@ export class CoursesRepository {
     ]);
   }
 
+  /** Find public course ids using a separator-insensitive title/category match.
+   * This makes searches such as `react18mastery` match "React 18 Mastery". */
+  findIdsByCompactSearch(keyword: string) {
+    return this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT "id"
+      FROM "Course"
+      WHERE "status" = 'PUBLISHED'
+        AND "visibility" = 'PUBLIC'
+        AND regexp_replace(
+          lower(concat_ws(' ', "title", "category")),
+          '[^[:alnum:]]', '', 'g'
+        ) LIKE '%' || regexp_replace(lower(${keyword}), '[^[:alnum:]]', '', 'g') || '%'
+    `);
+  }
+
   findDistinctCategories() {
     return this.prisma.course.findMany({
       where: { status: "PUBLISHED" },
