@@ -356,6 +356,7 @@ export class AdminService {
     const q = query.q?.trim();
     const where: Prisma.OrderWhereInput = {
       ...(query.status ? { status: query.status } : {}),
+      ...(query.gateway ? { gateway: query.gateway } : {}),
       ...(q
         ? {
             OR: [

@@ -107,9 +107,6 @@ async function proxyToApi(
   }
 
   const upstream = await fetch(dest, init);
-
-  // Review moderation changes affect both the public review list and the
-  // course aggregate rating/count cached by the storefront.
   if (
     request.method === "PATCH" &&
     path[0] === "admin" &&
@@ -120,7 +117,6 @@ async function proxyToApi(
     revalidateTag("course-reviews", "max");
     revalidateTag("course-pages", "max");
   }
-
   const out = new Headers();
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();

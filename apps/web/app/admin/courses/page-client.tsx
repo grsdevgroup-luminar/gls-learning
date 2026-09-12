@@ -126,7 +126,7 @@ export default function AdminCourses() {
             value={qInput}
             onChange={(e) => setQInput(e.target.value)}
             placeholder="Search courses…"
-            className="pl-9"
+            className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           />
         </div>
         <div className="flex gap-1">

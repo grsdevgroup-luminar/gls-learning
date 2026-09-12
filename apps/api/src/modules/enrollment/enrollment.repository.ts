@@ -314,7 +314,7 @@ export class EnrollmentRepository {
             courseId: true,
             enrolledAt: true,
             completedAt: true,
-            course: { select: { title: true, slug: true } },
+            course: { select: { title: true, slug: true, isoStandard: true } },
           },
         },
       },

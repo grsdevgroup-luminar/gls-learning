@@ -620,6 +620,11 @@ export const authoringApi = {
       method: "PATCH",
       body: { status },
     }),
+  validateCourseStatus: (id: string, status: "DRAFT" | "REVIEW" | "PUBLISHED") =>
+    apiFetch<{ ok: true }>(`/courses/${id}/status/validate`, {
+      method: "POST",
+      body: { status },
+    }),
   deleteCourse: (id: string) =>
     apiFetch<{ ok: true }>(`/courses/${id}`, { method: "DELETE" }),
   addSection: (courseId: string, body: { title: string; order?: number }) =>

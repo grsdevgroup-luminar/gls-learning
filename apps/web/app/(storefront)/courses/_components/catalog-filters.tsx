@@ -55,7 +55,7 @@ export function CatalogFilters({
           value={q}
           onChange={(e) => onQChange(e.target.value)}
           placeholder="Search…"
-          className="pl-9"
+          className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           minLength={MIN_COURSE_SEARCH_LENGTH}
         />
       </div>

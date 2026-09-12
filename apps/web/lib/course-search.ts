@@ -1,11 +1,17 @@
 import {
   MAX_COURSE_SEARCH_LENGTH,
   activeCourseSearchQuery,
+  compactCourseSearchQuery,
   normalizeCourseSearchQuery,
 } from "@skillstream/shared";
 import { toast } from "sonner";
 
-export { MAX_COURSE_SEARCH_LENGTH, activeCourseSearchQuery, normalizeCourseSearchQuery };
+export {
+  MAX_COURSE_SEARCH_LENGTH,
+  activeCourseSearchQuery,
+  compactCourseSearchQuery,
+  normalizeCourseSearchQuery,
+};
 
 /**
  * Keep local input when a tracked debounced URL push lands but the user has

@@ -86,6 +86,14 @@ export class AuthoringController {
     return this.authoring.setStatus(user, id, body);
   }
 
+  @Post("courses/:id/status/validate")
+  validateStatus(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @ZodBody(courseStatusSchema) body: CourseStatusInput,
+  ) {
+    return this.authoring.validateStatus(user, id, body);
+  }
   @Delete("courses/:id")
   remove(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.authoring.remove(user, id);
