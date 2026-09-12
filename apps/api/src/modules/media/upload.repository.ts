@@ -210,4 +210,18 @@ export class UploadRepository {
       select: { cfVideoUid: true },
     });
   }
+
+  /** Sets lesson duration from Cloudflare only when still unset (durationSec = 0). */
+  async backfillLessonDurationIfMissing(
+    lessonId: string,
+    durationSec: number,
+    tx?: Db,
+  ): Promise<boolean> {
+    if (durationSec <= 0) return false;
+    const result = await this.db(tx).lesson.updateMany({
+      where: { id: lessonId, durationSec: 0 },
+      data: { durationSec },
+    });
+    return result.count > 0;
+  }
 }

@@ -168,8 +168,6 @@ export interface FeaturedCouponDto {
 export interface PlatformSettingsDto {
   platformName: string;
   supportEmail: string;
-  baseCurrency: string;
-  defaultLanguage: string;
   /** Gateway kill-switches — checkout rejects a disabled gateway. */
   stripeEnabled: boolean;
   paypalEnabled: boolean;
@@ -183,8 +181,6 @@ export const updatePlatformSettingsSchema = z
   .object({
     platformName: z.string().trim().min(1).max(80),
     supportEmail: z.string().email(),
-    baseCurrency: z.string().trim().length(3).toUpperCase(),
-    defaultLanguage: z.string().trim().min(1).max(40),
     stripeEnabled: z.boolean(),
     paypalEnabled: z.boolean(),
     sslcommerzEnabled: z.boolean(),
