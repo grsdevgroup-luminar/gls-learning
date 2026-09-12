@@ -23,7 +23,6 @@ import type {
 import { ulid } from "ulid";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
-import { EmailService } from "../email/email.service";
 import {
   NotificationsService,
   type NotifyInput,
@@ -33,11 +32,13 @@ import type { StorageDriver } from "../storage/storage.driver";
 import { InstructorRepository } from "./instructor.repository";
 import type { ValidatedCvFile } from "./pipes/cv-file.pipe";
 
-const approvedNotify = (userId: string): NotifyInput => ({
+const approvedNotify = (userId: string, note?: string | null): NotifyInput => ({
   userId,
   event: "INSTRUCTOR_APPLICATION_APPROVED",
   title: "Instructor application approved",
-  body: "You're approved as an instructor — you can start building courses.",
+  body: note
+    ? `You're approved as an instructor — you can start building courses. ${note}`
+    : "You're approved as an instructor — you can start building courses.",
   href: "/instructor",
 });
 
@@ -46,22 +47,9 @@ export class InstructorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly repo: InstructorRepository,
-    private readonly email: EmailService,
     private readonly notifications: NotificationsService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
-
-  /** Applicants are promised an emailed decision; a delivery failure must not
-   *  undo the approval, so this is fire-and-forget. */
-  private notifyDecision(
-    app: { email: string; name: string },
-    approved: boolean,
-    note?: string | null,
-  ): void {
-    void this.email
-      .sendApplicationDecision(app.email, app.name, "instructor", approved, note)
-      .catch(() => undefined);
-  }
 
   /** Re-resolves the CV's URL through the storage driver on every read (the
    *  key is what's durable; a signed S3 URL minted at upload time may have
@@ -463,14 +451,13 @@ export class InstructorService {
         );
       }
       if (app.userId) {
-        await this.notifications.notify(approvedNotify(app.userId), tx);
+        await this.notifications.notify(approvedNotify(app.userId, note), tx);
       }
       return a;
     });
-    this.notifyDecision(updated, true, note);
     if (app.userId) {
       void this.notifications
-        .notifyEmailAfterCommit(approvedNotify(app.userId))
+        .notifyEmailAfterCommit(approvedNotify(app.userId, note))
         .catch(() => undefined);
     }
     return this.toAppDto(updated);
@@ -482,7 +469,6 @@ export class InstructorService {
       reviewedAt: new Date(),
       note,
     });
-    this.notifyDecision(app, false, note);
     if (app.userId) {
       void this.notifications
         .notify({
