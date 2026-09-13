@@ -62,13 +62,13 @@ function makeService(overrides: {
     findLessonAccessContext: vi.fn(),
     findCompletedLessonIds: vi.fn(),
     findLessonProgress: vi.fn(),
-    deleteLessonProgressById: vi.fn().mockResolvedValue(undefined),
-    createLessonProgress: vi.fn().mockResolvedValue(undefined),
+    uncompleteLessonProgress: vi.fn().mockResolvedValue(undefined),
     upsertLessonProgress: vi.fn().mockResolvedValue(undefined),
     countLessonsAndCompleted: vi.fn(),
     updateEnrollment: vi.fn().mockResolvedValue(undefined),
     findCertificateByEnrollment: vi.fn(),
     findUserName: vi.fn().mockResolvedValue({ name: certRow.learnerName }),
+    findCourseNumber: vi.fn().mockResolvedValue({ courseNumber: "C-1" }),
     createCertificate: vi.fn(),
     ...overrides.repo,
   } as unknown as EnrollmentRepository;
@@ -225,6 +225,8 @@ describe("EnrollmentService certificate persistence", () => {
 
     const result = await service.toggleLesson(userId, courseId, lesson2);
 
+    expect(repo.uncompleteLessonProgress).toHaveBeenCalledWith("progress_2");
+    expect(repo.upsertLessonProgress).not.toHaveBeenCalled();
     expect(result.courseCompleted).toBe(false);
     expect(result.certificate).toMatchObject({
       serial: certRow.serial,
@@ -251,6 +253,7 @@ describe("EnrollmentService certificate persistence", () => {
 
     const result = await service.toggleLesson(userId, courseId, lesson1);
 
+    expect(repo.uncompleteLessonProgress).toHaveBeenCalledWith("progress_1");
     expect(result.certificate).toBeNull();
   });
 
