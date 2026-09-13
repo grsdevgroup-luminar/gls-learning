@@ -22,7 +22,8 @@ export interface EnrollmentDto {
   lessonCount: number;
   completedCount: number;
   progressPct: number;
-  /** Sum of durationSec across completed lessons (any type) — "course time" credited. */
+  /** Sum of durationSec across lessons ever completed (any type). Kept after
+   *  a lesson is unchecked — same permanence as a certificate. */
   timeLearnedSec: number;
   /** Actual video-playback seconds reported by the player. Accumulates on every
    *  watch, so replaying a segment counts again — not the same number as

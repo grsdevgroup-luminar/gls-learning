@@ -81,8 +81,12 @@ export class EnrollmentService {
 
   private toDto(row: EnrollmentRow): EnrollmentDto {
     const lessonCount = countLessons(row.course);
-    const completedLessonIds = row.lessonProgress.map((p) => p.lessonId);
+    const completedLessonIds = row.lessonProgress
+      .filter((p) => p.completed)
+      .map((p) => p.lessonId);
     const completedCount = completedLessonIds.length;
+    // Lifetime credit: any lesson that has ever been completed, including
+    // ones later unchecked. Progress % still uses currently-complete only.
     const timeLearnedSec = row.lessonProgress.reduce(
       (sum, p) => sum + p.lesson.durationSec,
       0,
@@ -323,16 +327,13 @@ export class EnrollmentService {
 
     const existing = await this.repo.findLessonProgress(enrollment.id, lessonId);
 
-    let completed: boolean;
-    if (existing) {
-      await this.repo.deleteLessonProgressById(existing.id);
-      completed = false;
-    } else {
-      await this.repo.createLessonProgress(enrollment.id, lessonId);
-      completed = true;
+    if (existing?.completed) {
+      await this.repo.uncompleteLessonProgress(existing.id);
+      return this.recompute(userId, courseId, enrollment.id, lessonId, false);
     }
 
-    return this.recompute(userId, courseId, enrollment.id, lessonId, completed);
+    await this.repo.upsertLessonProgress(enrollment.id, lessonId);
+    return this.recompute(userId, courseId, enrollment.id, lessonId, true);
   }
 
   /**
