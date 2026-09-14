@@ -2,11 +2,12 @@ import { z } from "zod";
 import { InstructorStatus } from "../enums.js";
 import { searchQuerySchema } from "./common.js";
 import { countryCodeSchema, emailSchema, passwordSchema } from "./auth.js";
+import { isValidPhone } from "../phone.js";
 
 export const applyInstructorSchema = z.object({
-  expertise: z.string().min(1).max(80),
-  headline: z.string().min(1).max(160),
-  bio: z.string().min(1).max(4000),
+  expertise: z.string().trim().min(1, "Area of expertise is required.").max(80),
+  headline: z.string().trim().min(1, "Professional headline is required.").max(160),
+  bio: z.string().trim().min(1, "About section is required.").max(4000),
   sampleUrl: z.string().url().optional(),
   linkedinUrl: z.string().url().optional(),
   twitterUrl: z.string().url().optional(),
@@ -28,10 +29,15 @@ export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;
  *  uploaded separately post-signup, once the applicant has an account to
  *  scope the upload to. */
 export const instructorSignupSchema = z.object({
-  name: z.string().min(1).max(120),
+  name: z.string().trim().min(1, "Full name is required.").max(120),
   email: emailSchema,
   password: passwordSchema,
   country: countryCodeSchema,
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Phone number is required.")
+    .refine(isValidPhone, "Enter a valid phone number for the selected country."),
 }).merge(applyInstructorSchema.omit({ cvKey: true, cvName: true, cvSizeLabel: true }));
 export type InstructorSignupInput = z.infer<typeof instructorSignupSchema>;
 

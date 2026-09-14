@@ -26,27 +26,30 @@ export const ISO_STANDARD_OPTIONS = [
 ] as const;
 
 export const createCourseSchema = z.object({
-  title: z.string().min(1).max(160),
+  title: z.string().trim().min(1, "Title is required.").max(160),
   slug: z
     .string()
     .min(1)
     .max(160)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by -")
     .optional(),
-  subtitle: z.string().max(240, "Subtitle cannot exceed 240 characters").default(""),
+  subtitle: z.string().trim().min(1, "Subtitle is required.").max(240, "Subtitle cannot exceed 240 characters"),
   description: z
     .string()
     .max(
       MAX_COURSE_DESCRIPTION_LENGTH,
       `Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`,
     )
-    .default(""),
+    .trim().min(1, "Description is required."),
   category: learningCategorySchema,
-  isoStandard: z.string().max(200, "ISO Standard cannot exceed 200 characters").default(""),
+  isoStandard: z.string().trim().min(1, "ISO Standard is required.").max(200, "ISO Standard cannot exceed 200 characters"),
   level: levelEnum.default("ALL_LEVELS"),
-  thumbnail: z.string().default(""),
+  thumbnail: z.string().trim().min(1, "Course thumbnail is required."),
   language: z.string().default("English"),
-  basePriceCents: z.number().int().min(0).default(0),
+  basePriceCents: z
+    .number()
+    .int()
+    .positive("Course price must be greater than zero."),
   originalPriceCents: z.number().int().min(0).nullable().optional(),
   whatYouLearn: z.array(z.string()).default([]),
   requirements: z.array(z.string()).default([]),

@@ -6,7 +6,9 @@ import type { AuthUserDto } from "@skillstream/shared";
  *  /dashboard instead of /admin. */
 export function destinationFor(me: AuthUserDto, next?: string | null): string {
   if (me.role === "ADMIN") return "/admin";
-  if (me.role === "INSTRUCTOR") return "/instructor";
+  // The instructor portal is internally rendered at the root path so instructors never see
+  // the storefront or a visible /instructor redirect after login.
+  if (me.role === "INSTRUCTOR") return "/";
   if (me.role === "SALES_AGENT") return "/sales-agent";
   if (me.role === "ORG_ADMIN") return "/org";
   // A pending instructor application means this account's identity right now

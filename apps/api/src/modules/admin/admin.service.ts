@@ -347,6 +347,11 @@ export class AdminService {
     };
   }
 
+  async courseOrganizations(courseId: string) {
+    const rows = await this.repo.findCourseOrganizations(courseId);
+    return rows.map(({ org, createdAt }) => ({ ...org, assignedAt: createdAt.toISOString() }));
+  }
+
   async courseStats(): Promise<AdminCourseStatsDto> {
     const [total, published] = await this.repo.courseStatsCounts();
     return { total, published };

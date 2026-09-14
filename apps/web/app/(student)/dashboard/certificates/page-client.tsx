@@ -5,6 +5,7 @@ import type { CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch, downloadFile } from '@/lib/api/client';
+import { getApiErrorMessage } from '@/lib/api/errors';
 import { CertificateTemplate } from '@/components/shared/certificate-template';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -121,8 +122,12 @@ export default function CertificatesPage() {
         `/certificates/me/${encodeURIComponent(cert.serial)}/pdf`,
         `skillstream-certificate-${cert.serial}.pdf`,
       );
-    } catch {
-      toast.error('Could not download certificate PDF');
+
+    } catch (error) {
+      console.error('Certificate download failed', error);
+      toast.error('Could not download certificate PDF', {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setDownloading(null);
     }

@@ -1,6 +1,7 @@
 import type {
   AdminAnalyticsDto,
   AdminCourseStatsDto,
+  AdminCourseOrganizationDto,
   AdminOrderStatsDto,
   AdminOverviewDto,
   AdminReviewCourseOptionDto,
@@ -331,6 +332,8 @@ export const api = {
     apiFetch<Paginated<InstructorCourseDto>>(`/admin/courses${qs(params)}`),
   adminCourseStats: () =>
     apiFetch<AdminCourseStatsDto>("/admin/courses/stats"),
+  adminCourseOrganizations: (courseId: string) =>
+    apiFetch<AdminCourseOrganizationDto[]>(`/admin/courses/${courseId}/organizations`),
   updateUserStatus: (userId: string, status: "ACTIVE" | "IDLE" | "AT_RISK") =>
     apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
   deleteUser: (userId: string) =>
@@ -738,6 +741,7 @@ export const adminApi = {
   courses: (params: Record<string, string | number | undefined> = {}) =>
     api.adminCourses(params),
   courseStats: () => api.adminCourseStats(),
+  courseOrganizations: (courseId: string) => api.adminCourseOrganizations(courseId),
   updateUserStatus: api.updateUserStatus,
   deleteUser: api.deleteUser,
   refundOrder: api.refundOrder,

@@ -171,7 +171,7 @@ export default function InstructorProfile() {
   if (isLoading || !profile) {
     return (
       <ApprovalGate>
-        <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
+        <div className="space-y-6 p-6 md:p-8">
           <PageHeaderSkeleton />
           <div className="rounded-xl border p-6"><FormSkeleton /></div>
         </div>
@@ -182,7 +182,7 @@ export default function InstructorProfile() {
 
   return (
     <ApprovalGate>
-      <div className="mx-auto max-w-5xl space-y-6 p-6 pb-28 md:p-10 md:pb-28">
+      <div className="space-y-6 p-6 pb-28 md:p-8 md:pb-28">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-2xl font-bold tracking-tight">Instructor profile</h1>

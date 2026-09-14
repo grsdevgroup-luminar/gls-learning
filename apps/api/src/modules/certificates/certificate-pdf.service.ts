@@ -13,15 +13,32 @@ export class CertificatePdfService implements OnModuleDestroy {
   async render(serial: string): Promise<Buffer> {
     const browser = await this.getBrowser();
     const page = await browser.newPage({ viewport: { width: 1241, height: 1754 } });
+    const frontendUrl = this.config.get("FRONTEND_URL", { infer: true }).replace(/\/+$/, "");
+    const printUrl =
+      frontendUrl + "/certificates/" + encodeURIComponent(serial) + "/print";
+
     try {
-      const frontendUrl = this.config.get("FRONTEND_URL", { infer: true });
-      await page.goto(
-        `${frontendUrl}/certificates/${encodeURIComponent(serial)}/print`,
-        { waitUntil: "networkidle" },
-      );
-      await page.locator(".certificate-template").waitFor();
+      const response = await page.goto(printUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+
+      if (!response?.ok()) {
+        throw new Error(
+          "Certificate print page returned " +
+            (response?.status() ?? "no response") +
+            " for " +
+            printUrl,
+        );
+      }
+
+      await page.locator(".certificate-template").waitFor({
+        state: "visible",
+        timeout: 30_000,
+      });
       await page.evaluate(() => (globalThis as unknown as { document: { fonts: { ready: Promise<unknown> } } }).document.fonts.ready);
       await page.emulateMedia({ media: "print" });
+
       return Buffer.from(
         await page.pdf({
           format: "A4",
@@ -32,6 +49,12 @@ export class CertificatePdfService implements OnModuleDestroy {
           pageRanges: "1",
         }),
       );
+    } catch (error) {
+      this.logger.error(
+        "Failed to render certificate " + serial + " from " + printUrl,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
     } finally {
       await page.close();
     }

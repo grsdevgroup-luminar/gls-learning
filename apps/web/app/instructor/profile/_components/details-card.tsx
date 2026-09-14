@@ -73,7 +73,7 @@ export function DetailsCard({
                 </Select>
               </FormField>
             </div>
-            <FormField label="Bio">
+            <FormField label="About">
               <Textarea
                 value={bio}
                 maxLength={BIO_MAX_LENGTH}

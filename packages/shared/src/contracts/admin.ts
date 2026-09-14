@@ -46,6 +46,19 @@ export interface AdminOrderStatsDto {
   refundCount: number;
 }
 
+/** Organization assignment shown by the admin course-management modal. */
+export interface AdminCourseOrganizationDto {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  domain: string | null;
+  adminEmail: string;
+  seatCount: number;
+  usedSeats: number;
+  assignedAt: string;
+}
+
 export interface AdminCourseStatsDto {
   total: number;
   published: number;
