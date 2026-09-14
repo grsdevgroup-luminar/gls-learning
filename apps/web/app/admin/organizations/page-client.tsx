@@ -19,6 +19,7 @@ import {
 import { Building2, Users, BookOpen, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { PlanDialog } from "./plan-dialog";
 import { CredentialsPanel } from "./credentials-panel";
 import { ManageOrgCoursesDialog } from "@/components/shared/manage-org-courses-dialog";
@@ -50,7 +51,9 @@ export default function AdminOrganizations() {
       setCreateOpen(false);
       setCredentials(result);
     },
-    onError: () => toast.error("Failed to create organization"),
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error));
+    },
   });
 
   const filtered = orgs?.filter(

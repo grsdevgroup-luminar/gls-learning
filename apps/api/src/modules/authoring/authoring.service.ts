@@ -277,7 +277,30 @@ export class AuthoringService {
     id: string,
     status: CourseStatusInput["status"],
   ) {
-    if (status === "PUBLISHED") await this.categories.assertActive(course.category);
+    if (status === "PUBLISHED") {
+      await this.categories.assertActive(course.category);
+      const lessons = await this.repo.findLessonsForPublishValidation(id);
+      if (lessons.length === 0)
+        throw new BadRequestException("Add at least one lesson before publishing this course");
+
+      const incomplete = lessons.filter((lesson) => {
+        const hasResource = parseLessonResources(lesson.resources).length > 0;
+        if (lesson.type === "VIDEO") return !lesson.cfVideoUid;
+        if (lesson.type === "QUIZ") {
+          return !lesson.quiz?.questions.some(
+            (question) =>
+              question.prompt.trim().length > 0 &&
+              question.options.filter((option) => option.text.trim()).length >= 2 &&
+              question.options.some((option) => option.text.trim() && option.isCorrect),
+          );
+        }
+        return !(lesson.articleContent?.trim() || hasResource);
+      });
+      if (incomplete.length > 0)
+        throw new BadRequestException(
+          `Complete all lessons before publishing. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
+        );
+    }
     if (status !== "PUBLISHED" && (await this.repo.countOrgAssignments(id)) > 0)
       throw new BadRequestException(
         "Unassign this course from its organization(s) before unpublishing it",

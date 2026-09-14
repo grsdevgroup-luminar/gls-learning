@@ -8,6 +8,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { CourseOrganizationsDialog } from "@/components/shared/course-organizations-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatUsd, compactNumber } from "@/lib/format";
 import {
-  Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe, Building2,
+  Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
@@ -216,13 +217,11 @@ export default function AdminCourses() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {c.orgAssignmentCount ? (
-                      <span className="inline-flex items-center gap-1 text-sm">
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" /> {c.orgAssignmentCount}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <CourseOrganizationsDialog
+                      courseId={c.id}
+                      courseTitle={c.title}
+                      assignmentCount={c.orgAssignmentCount ?? 0}
+                    />
                   </TableCell>
                   <TableCell>{compactNumber(c.studentCount)}</TableCell>
                   <TableCell>{c.ratingAvg > 0 ? <Stars rating={c.ratingAvg} size={12} showValue /> : <span className="text-muted-foreground">—</span>}</TableCell>

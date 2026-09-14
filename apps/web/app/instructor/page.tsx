@@ -144,7 +144,7 @@ export default function InstructorOverview() {
 
   return (
     <ApprovalGate>
-      <div className="mx-auto max-w-5xl space-y-8 p-6 md:p-10">
+      <div className="space-y-8 p-6 md:p-8">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-muted-foreground">Instructor</p>

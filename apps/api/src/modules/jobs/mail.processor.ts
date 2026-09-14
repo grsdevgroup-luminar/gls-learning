@@ -45,11 +45,17 @@ export class MailProcessor extends WorkerHost {
     this.logger.error(
       `mail delivery exhausted retries: key=${job.data.key} to=${job.data.to}`,
     );
-    await this.repo.createReminderLog({
-      channel: "EMAIL",
-      trigger: job.data.key,
-      subject: job.data.key,
-      status: "FAILED",
-    });
+    try {
+      await this.repo.createReminderLog({
+        channel: "EMAIL",
+        trigger: job.data.key,
+        subject: job.data.key,
+        status: "FAILED",
+      });
+    } catch (err) {
+      // Delivery failure must never crash the worker if the audit table or
+      // an older database schema is unavailable.
+      this.logger.error("Could not record failed mail delivery", err as Error);
+    }
   }
 }
