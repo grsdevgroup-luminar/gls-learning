@@ -39,6 +39,18 @@ export class ReviewsController {
     return this.reviews.myReview(user.id, courseId);
   }
 
+  /** The course owner's (instructor's or an admin's) own view of a course's
+   *  reviews, unfiltered by moderation status — see reviews.service.ts. */
+  @ApiBearerAuth()
+  @Get("me/courses/:courseId/reviews")
+  listForMyCourse(
+    @CurrentUser() user: RequestUser,
+    @Param("courseId") courseId: string,
+    @ZodQuery(paginationQuerySchema) page: PaginationQuery,
+  ) {
+    return this.reviews.forInstructorCourse(user, courseId, page);
+  }
+
   @ApiBearerAuth()
   @Post("courses/:courseId/reviews")
   create(

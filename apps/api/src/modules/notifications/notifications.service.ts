@@ -69,6 +69,20 @@ export class NotificationsService {
     if (!tx && !skipEmail) await this.notifyEmailAfterCommit(input);
   }
 
+  /** Fans a single event out to every admin's in-app feed — e.g. a new
+   *  purchase, where there's no single "owner" userId to notify. Same
+   *  atomicity rules as `notify()`: pass the caller's `tx` to write alongside
+   *  the state change it describes. */
+  async notifyAdmins(
+    input: Omit<NotifyInput, "userId">,
+    tx?: Db,
+  ): Promise<void> {
+    const admins = await this.repo.findAdminUserIds(tx);
+    for (const admin of admins) {
+      await this.notify({ ...input, userId: admin.id }, tx);
+    }
+  }
+
   /** Enqueues the email fan-out for an event whose in-app write already
    *  committed. The delivery-time preference check happens in
    *  NotificationsProcessor, same as every reminder — this always enqueues. */

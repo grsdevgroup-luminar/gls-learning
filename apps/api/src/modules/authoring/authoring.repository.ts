@@ -19,7 +19,23 @@ export class AuthoringRepository {
   findCourseInstructor(courseId: string) {
     return this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { instructorId: true, category: true, status: true, visibility: true },
+      select: {
+        instructorId: true,
+        category: true,
+        status: true,
+        visibility: true,
+        // The rest are only read to diff against an admin's edit for the
+        // "what changed" notification (see AuthoringService.diffCourseFields)
+        // — cheap to carry along on this single primary-key lookup, which
+        // every authoring mutation already calls for the ownership check.
+        title: true,
+        subtitle: true,
+        description: true,
+        isoStandard: true,
+        level: true,
+        thumbnail: true,
+        basePriceCents: true,
+      },
     });
   }
 
@@ -60,10 +76,37 @@ export class AuthoringRepository {
     });
   }
 
+  /** Used only to diff against an incoming edit — see
+   *  AuthoringService.updateSection — so the "admin changed your course"
+   *  notification fires on real changes, not the builder's unconditional
+   *  re-save of every section on each Save click. */
+  findSectionForDiff(sectionId: string) {
+    return this.prisma.section.findUnique({
+      where: { id: sectionId },
+      select: { title: true, order: true },
+    });
+  }
+
   findLessonCourseId(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
       select: { section: { select: { courseId: true } } },
+    });
+  }
+
+  /** Same purpose as findSectionForDiff, for AuthoringService.updateLesson. */
+  findLessonForDiff(lessonId: string) {
+    return this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: {
+        title: true,
+        type: true,
+        durationSec: true,
+        preview: true,
+        order: true,
+        articleContent: true,
+        cfVideoUid: true,
+      },
     });
   }
 

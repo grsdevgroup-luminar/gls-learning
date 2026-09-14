@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ReviewStatus } from "@skillstream/shared";
 import { adminApi, type ReviewDto } from "@/lib/api/endpoints";
@@ -16,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Check, EyeOff, MessageSquare, Search, Star, Flag } from "lucide-react";
+import { Check, EyeOff, MessageSquare, Search, Star, Flag, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AdminPagination,
@@ -38,6 +39,12 @@ type RatingFilter = (typeof RATING_FILTERS)[number];
 
 export default function AdminReviews() {
   const qc = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Deep-linked from a "new review" notification — pending reviews aren't
+  // visible anywhere else until an admin acts, so this narrows the list down
+  // to the exact one regardless of whatever filters are otherwise selected.
+  const focusedReviewId = searchParams.get("reviewId");
   const [qInput, setQInput] = useState("");
   const q = useDebouncedSearch(qInput);
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -51,14 +58,15 @@ export default function AdminReviews() {
   }, [q]);
 
   const { data: reviewPage, isLoading, error } = useQuery({
-    queryKey: ["admin", "reviews", "list", { q, status, courseId, rating, page, pageSize }],
+    queryKey: ["admin", "reviews", "list", { q, status, courseId, rating, page, pageSize, focusedReviewId }],
     queryFn: () =>
       adminApi.reviews({
-        q: q || undefined,
-        status: status === "all" ? undefined : status,
-        courseId: courseId === "all" ? undefined : courseId,
-        rating: rating === "all" ? undefined : Number(rating),
-        page,
+        reviewId: focusedReviewId ?? undefined,
+        q: focusedReviewId ? undefined : q || undefined,
+        status: focusedReviewId ? undefined : status === "all" ? undefined : status,
+        courseId: focusedReviewId ? undefined : courseId === "all" ? undefined : courseId,
+        rating: focusedReviewId ? undefined : rating === "all" ? undefined : Number(rating),
+        page: focusedReviewId ? 1 : page,
         pageSize,
       }),
     placeholderData: (prev) => prev,
@@ -153,6 +161,15 @@ export default function AdminReviews() {
         <h1 className="text-2xl font-bold tracking-tight">Reviews</h1>
         <p className="text-muted-foreground">Moderate feedback from your students.</p>
       </div>
+
+      {focusedReviewId && (
+        <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-2 text-sm">
+          <span>Showing the review from your notification.</span>
+          <Button size="sm" variant="ghost" onClick={() => router.push("/admin/reviews")}>
+            <X /> Clear filter
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         {(stats.length ? stats : [

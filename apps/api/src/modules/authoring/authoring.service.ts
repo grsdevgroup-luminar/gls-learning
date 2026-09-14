@@ -28,7 +28,25 @@ import type { StorageDriver } from "../storage/storage.driver";
 import { signCourseResourceUrls } from "../storage/sign-resources";
 import { MediaService } from "../media/media.service";
 import { CategoriesService } from "../categories/categories.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { randomUUID } from "node:crypto";
+
+type CourseAccess = Awaited<ReturnType<AuthoringRepository["findCourseInstructor"]>>;
+
+/** Maps the fields the course-details form actually submits (see
+ *  CourseBuilder's `handleSave`) to the label used in the instructor's
+ *  change notification. */
+const COURSE_FIELD_LABELS: Record<string, string> = {
+  title: "title",
+  subtitle: "subtitle",
+  description: "description",
+  category: "category",
+  isoStandard: "ISO standard",
+  level: "level",
+  thumbnail: "thumbnail",
+  basePriceCents: "price",
+  visibility: "visibility",
+};
 
 function slugify(s: string): string {
   return s
@@ -46,6 +64,7 @@ export class AuthoringService {
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
     private readonly categories: CategoriesService,
     private readonly media: MediaService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ── ownership ──────────────────────────────────────────────────────────
@@ -55,6 +74,74 @@ export class AuthoringService {
     if (user.role !== "ADMIN" && course.instructorId !== user.id)
       throw new ForbiddenException("Not your course");
     return course;
+  }
+
+  // ── admin-edit notifications ──────────────────────────────────────────
+  /** An admin acting on a course they don't own — the case this whole
+   *  section exists to notify the instructor about. */
+  private isAdminEditingOthersCourse(user: RequestUser, course: CourseAccess): boolean {
+    return user.role === "ADMIN" && !!course && course.instructorId !== user.id;
+  }
+
+  /** Field-level "what changed" for the course-details form: compares the
+   *  submitted input against the row fetched by `assertCourseAccess` just
+   *  before the write. Cheap because that row is already in hand — no extra
+   *  query — and it naturally comes out empty (no notification) if an admin
+   *  opens the editor and saves without changing anything, since the form
+   *  always submits the full field set. */
+  private diffCourseFields(prior: CourseAccess, input: UpdateCourseInput): string[] {
+    if (!prior) return [];
+    const changed: string[] = [];
+    for (const [key, label] of Object.entries(COURSE_FIELD_LABELS)) {
+      if (!(key in input)) continue;
+      const next = (input as Record<string, unknown>)[key];
+      const before = (prior as unknown as Record<string, unknown>)[key];
+      if (JSON.stringify(next) !== JSON.stringify(before)) changed.push(label);
+    }
+    return changed;
+  }
+
+  private sectionChanged(
+    prior: Awaited<ReturnType<AuthoringRepository["findSectionForDiff"]>>,
+    input: SectionInput,
+  ): boolean {
+    if (!prior) return false;
+    return prior.title !== input.title || (input.order !== undefined && prior.order !== input.order);
+  }
+
+  private lessonChanged(
+    prior: Awaited<ReturnType<AuthoringRepository["findLessonForDiff"]>>,
+    input: LessonInput,
+  ): boolean {
+    if (!prior) return false;
+    return (
+      prior.title !== input.title ||
+      prior.type !== input.type ||
+      prior.durationSec !== input.durationSec ||
+      prior.preview !== input.preview ||
+      (input.order !== undefined && prior.order !== input.order) ||
+      (input.articleContent !== undefined && prior.articleContent !== (input.articleContent ?? null)) ||
+      (input.cfVideoUid !== undefined && prior.cfVideoUid !== (input.cfVideoUid ?? null))
+    );
+  }
+
+  private notifyInstructorOfAdminChange(
+    course: CourseAccess,
+    courseId: string,
+    summary: string,
+    href = `/instructor/courses/${courseId}/edit`,
+  ): void {
+    if (!course) return;
+    void this.notifications
+      .notify({
+        userId: course.instructorId,
+        event: "COURSE_UPDATED_BY_ADMIN",
+        title: "Course updated by admin",
+        body: `An admin ${summary} on "${course.title}".`,
+        href,
+        skipEmail: true,
+      })
+      .catch(() => undefined);
   }
 
   private async courseIdOfSection(sectionId: string): Promise<string> {
@@ -145,11 +232,17 @@ export class AuthoringService {
     const category = input.category
       ? await this.categories.ensureForAuthor(input.category, user)
       : undefined;
+    const changedFields = this.isAdminEditingOthersCourse(user, course)
+      ? this.diffCourseFields(course, input)
+      : [];
     await this.repo.updateCourse(id, {
       ...input,
       ...(category ? { category } : {}),
       originalPriceCents: input.originalPriceCents ?? undefined,
     });
+    if (changedFields.length) {
+      this.notifyInstructorOfAdminChange(course, id, `updated the ${changedFields.join(", ")}`);
+    }
     return this.detail(id);
   }
 
@@ -166,6 +259,9 @@ export class AuthoringService {
       isFirstPublish,
       prior?.instructorId,
     );
+    if (this.isAdminEditingOthersCourse(user, course) && input.status !== course.status) {
+      this.notifyInstructorOfAdminChange(course, id, `changed the status to ${input.status}`);
+    }
     return this.detail(id);
   }
 
@@ -212,10 +308,15 @@ export class AuthoringService {
   }
 
   async remove(user: RequestUser, id: string) {
-    await this.assertCourseAccess(id, user);
+    const course = await this.assertCourseAccess(id, user);
     const videoLessons = await this.repo.findCfVideoUidsByCourse(id);
     await this.repo.deleteCourse(id);
     await this.releaseLessonVideoUids(videoLessons);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      // The edit page is gone along with the course — send the instructor to
+      // their course list instead of a link that would 404.
+      this.notifyInstructorOfAdminChange(course, id, "deleted your course", "/instructor/courses");
+    }
     return { ok: true as const };
   }
 
@@ -238,39 +339,52 @@ export class AuthoringService {
 
   // ── sections ───────────────────────────────────────────────────────────
   async addSection(user: RequestUser, courseId: string, input: SectionInput) {
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
     const count = await this.repo.countSections(courseId);
     await this.repo.createSection({
       courseId,
       title: input.title,
       order: input.order ?? count,
     });
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "added a section");
+    }
     return this.detail(courseId);
   }
 
   async updateSection(user: RequestUser, sectionId: string, input: SectionInput) {
     const courseId = await this.courseIdOfSection(sectionId);
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
+    const notifyAdminEdit = this.isAdminEditingOthersCourse(user, course);
+    // The builder resends every section unconditionally on each Save — only
+    // fetch the prior row (and only notify) when it's actually worth diffing.
+    const prior = notifyAdminEdit ? await this.repo.findSectionForDiff(sectionId) : null;
     await this.repo.updateSection(sectionId, {
       title: input.title,
       order: input.order,
     });
+    if (notifyAdminEdit && this.sectionChanged(prior, input)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "updated a section");
+    }
     return this.detail(courseId);
   }
 
   async removeSection(user: RequestUser, sectionId: string) {
     const courseId = await this.courseIdOfSection(sectionId);
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
     const videoLessons = await this.repo.findCfVideoUidsBySection(sectionId);
     await this.repo.deleteSection(sectionId);
     await this.releaseLessonVideoUids(videoLessons);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "removed a section");
+    }
     return this.detail(courseId);
   }
 
   // ── lessons ────────────────────────────────────────────────────────────
   async addLesson(user: RequestUser, sectionId: string, input: LessonInput) {
     const courseId = await this.courseIdOfSection(sectionId);
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
     if (input.cfVideoUid) {
       await this.media.assertAttachableUpload({
         uid: input.cfVideoUid,
@@ -293,12 +407,20 @@ export class AuthoringService {
     if (input.cfVideoUid) {
       await this.media.attachUploadToLesson(input.cfVideoUid, lesson.id, courseId);
     }
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "added a lesson");
+    }
     return this.detail(courseId);
   }
 
   async updateLesson(user: RequestUser, lessonId: string, input: LessonInput) {
     const courseId = await this.courseIdOfLesson(lessonId);
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
+    const notifyAdminEdit = this.isAdminEditingOthersCourse(user, course);
+    // Same reasoning as updateSection: the builder resends every lesson
+    // unconditionally on each Save, so only diff (and only notify) when it's
+    // actually an admin editing someone else's course.
+    const priorLesson = notifyAdminEdit ? await this.repo.findLessonForDiff(lessonId) : null;
 
     const priorVideo = await this.repo.findLessonCfVideoUid(lessonId);
     const priorUid = priorVideo?.cfVideoUid ?? null;
@@ -386,12 +508,15 @@ export class AuthoringService {
       removedKeys.map((k) => this.storage.delete(k).catch(() => undefined)),
     );
 
+    if (notifyAdminEdit && this.lessonChanged(priorLesson, input)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "updated a lesson");
+    }
     return this.detail(courseId);
   }
 
   async removeLesson(user: RequestUser, lessonId: string) {
     const courseId = await this.courseIdOfLesson(lessonId);
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
     const priorVideo = await this.repo.findLessonCfVideoUid(lessonId);
     const priorUid = priorVideo?.cfVideoUid ?? null;
     // Collect uploaded resource keys BEFORE the row cascades away so we can
@@ -409,20 +534,29 @@ export class AuthoringService {
     await Promise.all(
       keys.map((k) => this.storage.delete(k).catch(() => undefined)),
     );
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "removed a lesson");
+    }
     return this.detail(courseId);
   }
 
   // ── reorder ────────────────────────────────────────────────────────────
   async reorderSections(user: RequestUser, courseId: string, ids: string[]) {
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
     await this.repo.reorderSections(ids);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "reordered the curriculum");
+    }
     return this.detail(courseId);
   }
 
   async reorderLessons(user: RequestUser, sectionId: string, ids: string[]) {
     const courseId = await this.courseIdOfSection(sectionId);
-    await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseAccess(courseId, user);
     await this.repo.reorderLessons(ids);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "reordered the curriculum");
+    }
     return this.detail(courseId);
   }
 

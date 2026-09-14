@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import type { RequestUser } from "../../../common/decorators/decorators";
 import type { CategoriesService } from "../../categories/categories.service";
 import type { MediaService } from "../../media/media.service";
+import type { NotificationsService } from "../../notifications/notifications.service";
 import type { StorageDriver } from "../../storage/storage.driver";
 import { AuthoringService } from "../authoring.service";
 import type { AuthoringRepository } from "../authoring.repository";
@@ -71,9 +72,13 @@ function makeService(repoOverrides: Partial<AuthoringRepository> = {}) {
     assertActive: vi.fn().mockResolvedValue(undefined),
   } as unknown as CategoriesService;
   const media = {} as MediaService;
+  const notifications = {
+    notify: vi.fn().mockResolvedValue(undefined),
+    notifyAdmins: vi.fn().mockResolvedValue(undefined),
+  } as unknown as NotificationsService;
 
-  const service = new AuthoringService(repo, storage, categories, media);
-  return { service, repo, categories };
+  const service = new AuthoringService(repo, storage, categories, media, notifications);
+  return { service, repo, categories, notifications };
 }
 
 describe("AuthoringService.update — visibility gating", () => {
