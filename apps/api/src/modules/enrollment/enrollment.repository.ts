@@ -6,9 +6,15 @@ import type { Db } from "../../common/types";
 
 export const ENROLLMENT_INCLUDE = {
   course: { include: COURSE_SUMMARY_INCLUDE },
+  // Keep previously-completed rows (`completed: false`) so time learned can
+  // credit a lesson that was later unchecked. `completedLessonIds` still
+  // filters to `completed: true` in `toDto`.
   lessonProgress: {
-    where: { completed: true },
-    select: { lessonId: true, lesson: { select: { durationSec: true } } },
+    select: {
+      lessonId: true,
+      completed: true,
+      lesson: { select: { durationSec: true } },
+    },
   },
   certificate: true,
 } satisfies Prisma.EnrollmentInclude;
@@ -216,13 +222,11 @@ export class EnrollmentRepository {
     });
   }
 
-  deleteLessonProgressById(id: string) {
-    return this.prisma.lessonProgress.delete({ where: { id } });
-  }
-
-  createLessonProgress(enrollmentId: string, lessonId: string) {
-    return this.prisma.lessonProgress.create({
-      data: { enrollmentId, lessonId, completed: true },
+  /** Leaves the row in place so time learned stays credited. */
+  uncompleteLessonProgress(id: string) {
+    return this.prisma.lessonProgress.update({
+      where: { id },
+      data: { completed: false },
     });
   }
 
