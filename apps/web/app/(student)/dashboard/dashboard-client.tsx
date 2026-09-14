@@ -25,7 +25,7 @@ export default function DashboardClient() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-6xl space-y-10 p-6 md:p-10">
+      <div className="space-y-10 p-6 md:p-8">
         <header className="flex flex-wrap items-start justify-between gap-4"><div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-8 w-56" /></div><Skeleton className="h-9 w-36" /></header>
         <Skeleton className="h-28 w-full rounded-xl" /><Skeleton className="h-48 w-full rounded-xl" />
         <div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-40 w-full rounded-xl" /></div>
@@ -50,7 +50,7 @@ export default function DashboardClient() {
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10 p-6 md:p-10">
+    <div className="space-y-10 p-6 md:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-medium text-muted-foreground">Dashboard</p><h1 className="mt-1 text-3xl font-bold tracking-tight">Welcome back, {firstName}</h1></div><Button variant="outline" render={<Link href="/courses" />}>Browse courses <ArrowRight /></Button></header>
 
       <section className="grid gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-[3fr_2fr]"><div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-4">{stats.map((s) => <div key={s.label} className="group bg-card p-5" style={{ ["--tile" as string]: s.tint }}><span className="icon-tile size-8"><s.icon className="size-4" /></span><div className="mt-3 text-2xl font-bold leading-none tracking-tight tabular-nums">{s.value}</div><div className="mt-1.5 text-xs text-muted-foreground">{s.label}</div></div>)}</div><div className="flex items-center justify-between gap-4 bg-card p-5"><div><div className="flex items-center gap-1.5 text-sm font-semibold"><TrendingUp className="size-4 text-primary" /> Learning stats</div><p className="mt-1 text-xs text-muted-foreground">{completed.length} course{completed.length !== 1 ? "s" : ""} completed</p></div><div className="flex flex-col items-end gap-1"><span className="text-2xl font-bold tabular-nums">{formatDuration(watchTimeSec)}</span><span className="text-xs text-muted-foreground">total watch time</span></div></div></section>

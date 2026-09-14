@@ -29,6 +29,30 @@ export class AuthoringRepository {
     return this.prisma.courseOrgAssignment.count({ where: { courseId } });
   }
 
+  /** Returns lesson content needed to validate a publish transition. */
+  findLessonsForPublishValidation(courseId: string) {
+    return this.prisma.lesson.findMany({
+      where: { section: { courseId } },
+      select: {
+        title: true,
+        type: true,
+        articleContent: true,
+        cfVideoUid: true,
+        resources: true,
+        quiz: {
+          select: {
+            questions: {
+              select: {
+                prompt: true,
+                options: { select: { text: true, isCorrect: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   findSectionCourseId(sectionId: string) {
     return this.prisma.section.findUnique({
       where: { id: sectionId },

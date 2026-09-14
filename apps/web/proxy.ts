@@ -54,6 +54,16 @@ function roleFromToken(token: string | undefined): Role | null {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Keep instructors out of the public storefront while preserving the root URL.
+  // This is an internal rewrite, so there is no visible URL redirect.
+  if (pathname === "/") {
+    const role = roleFromToken(request.cookies.get("access_token")?.value);
+    if (role === "INSTRUCTOR") {
+      return NextResponse.rewrite(new URL("/instructor", request.url));
+    }
+  }
+
   const needsAuth = PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
@@ -83,6 +93,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/account/:path*",
     "/learn/:path*",

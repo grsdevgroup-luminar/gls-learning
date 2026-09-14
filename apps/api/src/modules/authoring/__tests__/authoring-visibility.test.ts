@@ -29,6 +29,10 @@ function makeService(repoOverrides: Partial<AuthoringRepository> = {}) {
   const repo = {
     findCourseInstructor: vi.fn().mockResolvedValue(makeCourseInstructorRow()),
     countOrgAssignments: vi.fn().mockResolvedValue(0),
+    countLessons: vi.fn().mockResolvedValue(1),
+    findLessonsForPublishValidation: vi.fn().mockResolvedValue([
+      { title: "Lesson", type: "VIDEO", articleContent: null, cfVideoUid: "video_1", resources: [], quiz: null },
+    ]),
     updateCourse: vi.fn().mockResolvedValue(undefined),
     findCourseDetailOrThrow: vi.fn().mockResolvedValue({
       id: "course_1",
@@ -118,6 +122,14 @@ describe("AuthoringService.update — visibility gating", () => {
     );
   });
 
+  it("blocks publishing a course that has no lessons", async () => {
+    const { service, repo } = makeService({ findLessonsForPublishValidation: vi.fn().mockResolvedValue([]) });
+
+    await expect(service.setStatus(admin, "course_1", { status: "PUBLISHED" })).rejects.toThrow(
+      "Add at least one lesson before publishing this course",
+    );
+    expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
+  });
   it("blocks flipping a course back to public while it still has org assignments", async () => {
     const { service, repo } = makeService({
       findCourseInstructor: vi
@@ -138,6 +150,10 @@ describe("AuthoringService.update — visibility gating", () => {
         .fn()
         .mockResolvedValue(makeCourseInstructorRow({ visibility: "PRIVATE" })),
       countOrgAssignments: vi.fn().mockResolvedValue(0),
+    countLessons: vi.fn().mockResolvedValue(1),
+    findLessonsForPublishValidation: vi.fn().mockResolvedValue([
+      { title: "Lesson", type: "VIDEO", articleContent: null, cfVideoUid: "video_1", resources: [], quiz: null },
+    ]),
     });
 
     await service.update(admin, "course_1", { visibility: "PUBLIC" });
@@ -180,6 +196,10 @@ describe("AuthoringService.setStatus — blocked while org-assigned", () => {
   it("allows unpublishing once the course has no org assignments left", async () => {
     const { service, repo } = makeService({
       countOrgAssignments: vi.fn().mockResolvedValue(0),
+    countLessons: vi.fn().mockResolvedValue(1),
+    findLessonsForPublishValidation: vi.fn().mockResolvedValue([
+      { title: "Lesson", type: "VIDEO", articleContent: null, cfVideoUid: "video_1", resources: [], quiz: null },
+    ]),
     });
 
     await service.setStatus(admin, "course_1", { status: "DRAFT" });

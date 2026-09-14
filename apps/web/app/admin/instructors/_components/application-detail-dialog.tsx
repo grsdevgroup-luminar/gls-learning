@@ -37,7 +37,7 @@ export function ApplicationDetailDialog({
 
   return (
     <Dialog open={!!a} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto sm:max-w-2xl">
         {a && (
           <>
             <DialogHeader>
@@ -52,7 +52,7 @@ export function ApplicationDetailDialog({
                   <span className="text-lg font-semibold">{a.name}</span>
                   {statusBadge[a.status]}
                 </div>
-                <p className="text-sm text-muted-foreground">{a.headline}</p>
+                <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">{a.headline}</p>
               </div>
             </div>
 
@@ -67,30 +67,30 @@ export function ApplicationDetailDialog({
             >
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Email</div>
-                <div className="flex items-start gap-1.5">
+                <div className="flex min-w-0 items-start gap-1.5">
                   <Mail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="break-words">{a.email}</span>
+                  <span className="break-all">{a.email}</span>
                 </div>
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Expertise</div>
-                <div className="break-words">{a.expertise}</div>
+                <div className="break-all">{a.expertise}</div>
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Applied</div>
-                <div className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 shrink-0 text-muted-foreground" /> {shortDate(a.appliedAt)}</div>
+                <div className="inline-flex max-w-full flex-wrap items-center gap-1.5 break-all"><Calendar className="size-3.5 shrink-0 text-muted-foreground" /> <span>{shortDate(a.appliedAt)}</span></div>
               </div>
               {a.reviewedAt && (
                 <div className="min-w-0">
                   <div className="text-xs text-muted-foreground">Reviewed</div>
-                  <div className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 shrink-0 text-muted-foreground" /> {shortDate(a.reviewedAt)}</div>
+                  <div className="inline-flex max-w-full flex-wrap items-center gap-1.5 break-all"><Calendar className="size-3.5 shrink-0 text-muted-foreground" /> <span>{shortDate(a.reviewedAt)}</span></div>
                 </div>
               )}
             </div>
 
             <div className="mt-4">
               <div className="text-xs text-muted-foreground">About</div>
-              <p className="mt-1 text-sm leading-relaxed">{a.bio}</p>
+              <div className="mt-1 max-h-40 overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-2.5 pr-3 text-sm leading-relaxed break-words [overflow-wrap:anywhere]">{a.bio}</div>
             </div>
 
             {a.cvUrl && (

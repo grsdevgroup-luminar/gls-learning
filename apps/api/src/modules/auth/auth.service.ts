@@ -63,6 +63,7 @@ export class AuthService {
     email: string;
     password: string;
     country: string;
+    phone?: string;
   }) {
     const email = normalizeEmail(input.email);
     const existing = await this.users.findByEmail(email);
@@ -75,6 +76,7 @@ export class AuthService {
       email,
       name: input.name,
       country: input.country,
+      ...(input.phone ? { phone: input.phone } : {}),
       passwordHash,
       role: "STUDENT",
       studentProfile: { create: {} },

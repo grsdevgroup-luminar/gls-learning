@@ -84,6 +84,11 @@ export class AdminController {
     return this.admin.courses(query);
   }
 
+  @Get("courses/:id/organizations")
+  courseOrganizations(@Param("id") id: string) {
+    return this.admin.courseOrganizations(id);
+  }
+
   @Get("courses/stats")
   courseStats() {
     return this.admin.courseStats();

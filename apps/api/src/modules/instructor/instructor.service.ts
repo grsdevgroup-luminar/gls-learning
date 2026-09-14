@@ -300,11 +300,29 @@ export class InstructorService {
     // edits made before approval aren't silently dropped.
     const current = await this.repo.findUserWithProfile(user.id);
     if (current?.instructorProfile) {
-      await this.repo.updateInstructorProfile(user.id, {
-        title: input.title,
-        bio: input.bio,
-        expertise: input.expertise,
-        ...linkFields,
+      await this.prisma.$transaction(async (tx) => {
+        const profileData = {
+          title: input.title,
+          bio: input.bio,
+          expertise: input.expertise,
+          ...linkFields,
+        };
+        await this.repo.updateInstructorProfile(user.id, profileData, tx);
+
+        // Keep the Admin application view synchronized with the live profile.
+        const application = await this.repo.findLatestApplicationByUserWithDb(user.id, tx);
+        if (application?.status === "APPROVED") {
+          await this.repo.updateApplication(
+            application.id,
+            {
+              headline: input.title,
+              bio: input.bio,
+              expertise: input.expertise,
+              ...linkFields,
+            },
+            tx,
+          );
+        }
       });
     } else {
       const application = await this.repo.findLatestApplicationByUser(user.id);

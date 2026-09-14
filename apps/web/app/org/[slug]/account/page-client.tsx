@@ -68,7 +68,7 @@ export default function OrgAccount() {
   ];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6 md:p-8">
+    <div className="space-y-6 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Account</h1>
         <p className="text-muted-foreground">Organization details and plan information.</p>
