@@ -610,10 +610,10 @@ export function CourseBuilder({
         <div className="flex flex-wrap justify-end gap-2">
           {mode === "instructor" ? (
             <>
-              <Button variant="outline" onClick={() => save("draft")} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => save("draft")} disabled={saving}>
                 <Save className="mr-2 h-4 w-4" /> Save draft
               </Button>
-              <Button onClick={() => save("review")} disabled={saving}>
+              <Button type="button" onClick={() => save("review")} disabled={saving}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />} 
                 Submit for review
               </Button>

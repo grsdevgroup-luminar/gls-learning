@@ -57,6 +57,7 @@ export default async function InstructorLayout({ children }: { children: React.R
     <PortalShell
       items={approved ? items : []}
       badge="Instructor"
+      showBackToSite={false}
       user={{
         name: user.name,
         email: user.email,
