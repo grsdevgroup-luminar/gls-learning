@@ -88,11 +88,13 @@ export function PortalShell({
   items,
   badge,
   user,
+  showBackToSite = true,
   children,
 }: {
   items: NavItem[];
   badge: string;
   user: { name: string; email: string; initials: string; avatar?: string | null };
+  showBackToSite?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -165,12 +167,14 @@ export function PortalShell({
       </div>
       {Nav}
       <div className="shrink-0 border-t border-sidebar-border p-3">
-        <Link
-          href="/"
-          className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
-        >
-          <ExternalLink className="size-4" /> Back to site
-        </Link>
+        {showBackToSite && (
+          <Link
+            href="/"
+            className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+          >
+            <ExternalLink className="size-4" /> Back to site
+          </Link>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
