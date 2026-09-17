@@ -54,8 +54,15 @@ import type {
   RegionRow,
   ReminderLogDto,
   ReviewDto,
-  SalesAgentDto,
-  SalesAgentReferralDto,
+  AdminDeliveryPartnerApplicationQuery,
+  AdminDeliveryPartnerQuery,
+  ApplyDeliveryPartnerInput,
+  DeliveryPartnerApplicationDto,
+  DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerDto,
+  DeliveryPartnerReferralDto,
+  PartnerDocumentDto,
+  ReviewPartnerApplicationInput,
   PayoutBalanceDto,
   PayoutDto,
   PayoutAccountDto,
@@ -115,8 +122,11 @@ export type {
   OrganizationDto,
   Paginated,
   ReviewDto,
-  SalesAgentDto,
-  SalesAgentReferralDto,
+  DeliveryPartnerApplicationDto,
+  DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerDto,
+  DeliveryPartnerReferralDto,
+  PartnerDocumentDto,
   PayoutBalanceDto,
   PayoutDto,
   PayoutAccountDto,
@@ -401,28 +411,42 @@ export const api = {
   updateReviewStatus: (reviewId: string, action: "APPROVE" | "HIDE" | "UNHIDE") =>
     apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { action } }),
 
-  // sales agent (self-service)
-  applySalesAgent: (body: {
-    name: string;
-    email: string;
-    phone?: string;
-    region: string;
-    bio: string;
-  }) =>
-    apiFetch<{ id: string; status: string }>("/sales-agents/apply", {
+  // delivery partner (self-service)
+  applyDeliveryPartner: (body: ApplyDeliveryPartnerInput) =>
+    apiFetch<DeliveryPartnerApplicationDto>("/delivery-partners/apply", {
       method: "POST",
       body,
     }),
-  mySalesAgent: () => apiFetch<SalesAgentDto | null>("/me/sales-agent"),
-  mySalesAgentReferrals: () =>
-    apiFetch<SalesAgentReferralDto[]>("/me/sales-agent/referrals"),
+  uploadPartnerDocument: (title: string, file: File) => {
+    const form = new FormData();
+    form.append("title", title);
+    form.append("file", file);
+    return apiFetchMultipart<PartnerDocumentDto>("/delivery-partners/apply/docs", form);
+  },
+  deletePartnerDocument: (key: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partners/apply/docs${qs({ key })}`, { method: "DELETE" }),
+  myDeliveryPartner: () => apiFetch<DeliveryPartnerDto | null>("/me/delivery-partner"),
+  myDeliveryPartnerApplication: () =>
+    apiFetch<DeliveryPartnerApplicationDto | null>("/me/delivery-partner/application", { cache: "no-store" }),
+  myDeliveryPartnerReferrals: () =>
+    apiFetch<DeliveryPartnerReferralDto[]>("/me/delivery-partner/referrals"),
 
-  // admin — sales agents
-  adminSalesAgents: () => apiFetch<SalesAgentDto[]>("/admin/sales-agents"),
-  updateSalesAgent: (id: string, body: Partial<Pick<SalesAgentDto, "commissionPercent" | "status">>) =>
-    apiFetch<SalesAgentDto>(`/admin/sales-agents/${id}`, { method: "PATCH", body }),
+  // admin — delivery partners
+  adminDeliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<DeliveryPartnerApplicationDto>>(`/admin/delivery-partner-applications${qs(params)}`),
+  adminDeliveryPartnerApplicationStats: () =>
+    apiFetch<DeliveryPartnerApplicationStatsDto>("/admin/delivery-partner-applications/stats"),
+  reviewDeliveryPartnerApplication: (id: string, body: ReviewPartnerApplicationInput) =>
+    apiFetch<DeliveryPartnerApplicationDto>(
+      `/admin/delivery-partner-applications/${id}/review`,
+      { method: "POST", body },
+    ),
+  adminDeliveryPartners: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<DeliveryPartnerDto>>(`/admin/delivery-partners${qs(params)}`),
+  updateDeliveryPartner: (id: string, body: Partial<Pick<DeliveryPartnerDto, "commissionPercent" | "status">>) =>
+    apiFetch<DeliveryPartnerDto>(`/admin/delivery-partners/${id}`, { method: "PATCH", body }),
 
-  // payouts (instructor + sales agent share one ledger)
+  // payouts (instructor + delivery partner share one ledger)
   payoutBalance: () => apiFetch<PayoutBalanceDto>("/me/payouts/balance"),
   myPayouts: () => apiFetch<PayoutDto[]>("/me/payouts"),
   payoutAccount: () => apiFetch<PayoutAccountDto | null>("/me/payout-account"),
@@ -757,8 +781,16 @@ export const adminApi = {
     api.adminInstructors(params),
   approveInstructorApplication: api.approveInstructorApplication,
   rejectInstructorApplication: api.rejectInstructorApplication,
-  salesAgents: api.adminSalesAgents,
-  updateSalesAgent: api.updateSalesAgent,
+  deliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminDeliveryPartnerApplications(params),
+  deliveryPartnerApplicationStats: () => api.adminDeliveryPartnerApplicationStats(),
+  approveDeliveryPartnerApplication: (id: string, commissionPercent: number, note?: string) =>
+    api.reviewDeliveryPartnerApplication(id, { status: "APPROVED", commissionPercent, note }),
+  rejectDeliveryPartnerApplication: (id: string, note: string) =>
+    api.reviewDeliveryPartnerApplication(id, { status: "REJECTED", note }),
+  deliveryPartners: (params: Record<string, string | number | undefined> = {}) =>
+    api.adminDeliveryPartners(params),
+  updateDeliveryPartner: api.updateDeliveryPartner,
   payouts: api.adminPayouts,
   approvePayout: api.approvePayout,
   markPayoutPaid: api.markPayoutPaid,

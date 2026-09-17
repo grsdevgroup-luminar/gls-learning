@@ -8,7 +8,7 @@ export const UserRole = {
   STUDENT: "STUDENT",
   INSTRUCTOR: "INSTRUCTOR",
   ADMIN: "ADMIN",
-  SALES_AGENT: "SALES_AGENT",
+  DELIVERY_PARTNER: "DELIVERY_PARTNER",
   ORG_ADMIN: "ORG_ADMIN",
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -130,8 +130,8 @@ export const NotificationEvent = {
   CERTIFICATE_ISSUED: "CERTIFICATE_ISSUED",
   INSTRUCTOR_APPLICATION_APPROVED: "INSTRUCTOR_APPLICATION_APPROVED",
   INSTRUCTOR_APPLICATION_REJECTED: "INSTRUCTOR_APPLICATION_REJECTED",
-  SALES_AGENT_APPLICATION_APPROVED: "SALES_AGENT_APPLICATION_APPROVED",
-  SALES_AGENT_APPLICATION_REJECTED: "SALES_AGENT_APPLICATION_REJECTED",
+  DELIVERY_PARTNER_APPLICATION_APPROVED: "DELIVERY_PARTNER_APPLICATION_APPROVED",
+  DELIVERY_PARTNER_APPLICATION_REJECTED: "DELIVERY_PARTNER_APPLICATION_REJECTED",
   PAYOUT_REQUESTED: "PAYOUT_REQUESTED",
   PAYOUT_APPROVED: "PAYOUT_APPROVED",
   PAYOUT_PAID: "PAYOUT_PAID",
@@ -166,14 +166,14 @@ export const CourseVisibility = {
 export type CourseVisibility =
   (typeof CourseVisibility)[keyof typeof CourseVisibility];
 
-export const SalesAgentStatus = {
+export const DeliveryPartnerStatus = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
   REJECTED: "REJECTED",
   SUSPENDED: "SUSPENDED",
 } as const;
-export type SalesAgentStatus =
-  (typeof SalesAgentStatus)[keyof typeof SalesAgentStatus];
+export type DeliveryPartnerStatus =
+  (typeof DeliveryPartnerStatus)[keyof typeof DeliveryPartnerStatus];
 
 export const OrgStatus = {
   ACTIVE: "ACTIVE",
@@ -197,7 +197,7 @@ export type OrgSuspensionMode =
 
 export const PayeeType = {
   INSTRUCTOR: "INSTRUCTOR",
-  AGENT: "AGENT",
+  DELIVERY_PARTNER: "DELIVERY_PARTNER",
 } as const;
 export type PayeeType = (typeof PayeeType)[keyof typeof PayeeType];
 

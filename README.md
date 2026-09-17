@@ -2,7 +2,7 @@
 
 A full course-selling platform: a student-facing **storefront**, a complete **student
 learning portal**, an **instructor** program, a **B2B organizations** (seat-based)
-program, a worldwide **sales agent / referral** program, and an **admin** panel — backed
+program, a worldwide **delivery partner / referral** program, and an **admin** panel — backed
 by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 
 
@@ -16,7 +16,7 @@ by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 | Layer | Tech | Used for |
 |---|---|---|
 | Monorepo | Turborepo + pnpm workspaces | `apps/{web,api}`, `packages/{shared,config}` build/dev orchestration |
-| Frontend | Next.js 16 (App Router) + React 19 + TypeScript | Storefront, student, instructor, admin, org, sales-agent UIs |
+| Frontend | Next.js 16 (App Router) + React 19 + TypeScript | Storefront, student, instructor, admin, org, delivery-partner UIs |
 | Frontend UI | Tailwind CSS v4, shadcn/ui on Base UI, framer-motion, lucide-react, Recharts, sonner, next-themes | Styling, animation, charts, toasts, dark mode |
 | Frontend data | TanStack Query + a typed `lib/api` fetch client | Server state, caching, mutations against the NestJS API |
 | Backend | NestJS 11 + TypeScript | REST API, DI, guards/pipes/interceptors, Swagger |
@@ -35,7 +35,7 @@ by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 
 ```
 apps/
-  web/                 Next.js app — storefront, student, instructor, admin, org, sales-agent
+  web/                 Next.js app — storefront, student, instructor, admin, org, delivery-partner
   api/                 NestJS app — all domain modules + Prisma schema/migrations
 packages/
   shared/              Enums, Zod contracts/DTOs, and pure business logic (money, pricing,
@@ -71,20 +71,20 @@ docker-compose.yml     Local Postgres + Redis
 - Instructor-application queue (approve/reject)
 - Marketing automation: rule builder (idle / low-progress / abandoned-cart / almost-done /
   new-content triggers) + reminder send log
-- Sales-agent and B2B-organization management
+- Delivery-partner and B2B-organization management
 
 ### B2B Organizations (`/org/[slug]`)
 - Seat-based access to private, org-only courses
 - Member invite/claim flow, seat usage, per-org course assignment
 - Org admin portal + platform-admin management screens
 
-### Sales Agents (`/sales-agent`)
+### Delivery Partners (`/delivery-partner`)
 - Unique referral code/link; commission attributed on referred orders
 - Referral list, earnings ledger (pending/confirmed/paid), payout action (admin side)
 
 ## Frontend data status
 
-Every portal (storefront, student, instructor, admin, org, sales-agent) is wired to
+Every portal (storefront, student, instructor, admin, org, delivery-partner) is wired to
 the real API — there is no mock-data path left in the shipped app. `apps/web/lib/mock/*`
 still exists as reference fixtures (shapes used by early prototyping) but nothing in
 `apps/web/app` or `apps/web/components` imports from it anymore; it's safe to delete

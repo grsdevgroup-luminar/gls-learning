@@ -36,7 +36,7 @@ export const qk = {
   adminOrders: (params?: unknown) => ["admin-orders", params] as const,
   instructorProfile: ["instructor-profile"] as const,
   instructorCourses: ["instructor-courses"] as const,
-  salesAgents: ["sales-agents"] as const,
+  deliveryPartners: ["delivery-partners"] as const,
   categories: ["categories"] as const,
   adminCategories: ["admin-categories"] as const,
   coursePreferences: ["me", "course-preferences"] as const,

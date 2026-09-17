@@ -246,7 +246,7 @@ export function SiteHeader() {
                       ? "AD"
                       : role === "INSTRUCTOR"
                         ? "IN"
-                        : role === "SALES_AGENT"
+                        : role === "DELIVERY_PARTNER"
                           ? "SA"
                           : role === "ORG_ADMIN"
                             ? "OA"
@@ -262,8 +262,8 @@ export function SiteHeader() {
                         ? "Admin"
                         : role === "INSTRUCTOR"
                           ? "Instructor"
-                          : role === "SALES_AGENT"
-                            ? "Sales Agent"
+                          : role === "DELIVERY_PARTNER"
+                            ? "Delivery Partner"
                             : role === "ORG_ADMIN"
                               ? "Company Admin"
                               : (user?.name ?? "Learner")}
@@ -273,8 +273,8 @@ export function SiteHeader() {
                         ? "admin@demo.com"
                         : role === "INSTRUCTOR"
                           ? "instructor@demo.com"
-                          : role === "SALES_AGENT"
-                            ? "agent@grs-learning.dev"
+                          : role === "DELIVERY_PARTNER"
+                            ? "partner@grs-learning.dev"
                             : role === "ORG_ADMIN"
                               ? "admin@org.com"
                               : (user?.email ?? "")}
@@ -297,18 +297,18 @@ export function SiteHeader() {
                       <PenSquare /> My courses
                     </DropdownMenuItem>
                   </>
-                ) : role === "SALES_AGENT" ? (
+                ) : role === "DELIVERY_PARTNER" ? (
                   <>
-                    <DropdownMenuItem render={<Link href="/sales-agent" />}>
-                      <LayoutDashboard /> Agent dashboard
+                    <DropdownMenuItem render={<Link href="/delivery-partner" />}>
+                      <LayoutDashboard /> Delivery partner dashboard
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      render={<Link href="/sales-agent/referrals" />}
+                      render={<Link href="/delivery-partner/referrals" />}
                     >
                       <Link2 /> My referrals
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      render={<Link href="/sales-agent/earnings" />}
+                      render={<Link href="/delivery-partner/earnings" />}
                     >
                       <Shield /> Earnings
                     </DropdownMenuItem>

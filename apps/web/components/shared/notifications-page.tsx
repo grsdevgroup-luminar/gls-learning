@@ -90,7 +90,7 @@ function Row({ n }: { n: NotificationDto }) {
 
 /** Shared "view all" notifications page — rendered from a thin page.tsx in
  *  each of the five authenticated portals (student/admin/instructor/
- *  sales-agent/org), since there's no single shared route across them. */
+ *  delivery-partner/org), since there's no single shared route across them. */
 export function NotificationsPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useNotifications({ page, pageSize: PAGE_SIZE });

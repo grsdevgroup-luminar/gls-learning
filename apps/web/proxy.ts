@@ -10,16 +10,16 @@ const PROTECTED_PREFIXES = [
   "/learn",
   "/admin",
   "/instructor",
-  "/sales-agent",
+  "/delivery-partner",
   "/org",
 ];
 
-type Role = "STUDENT" | "INSTRUCTOR" | "ADMIN" | "SALES_AGENT" | "ORG_ADMIN";
+type Role = "STUDENT" | "INSTRUCTOR" | "ADMIN" | "DELIVERY_PARTNER" | "ORG_ADMIN";
 
 // Role-portal prefixes → who may enter. ADMIN is treated as a superuser.
-// /sales-agent and /instructor are deliberately NOT here: both also host the
+// /delivery-partner and /instructor are deliberately NOT here: both also host the
 // apply form / application-status view any logged-in user (of any role)
-// uses before becoming a SALES_AGENT or INSTRUCTOR — role-gating them would
+// uses before becoming a DELIVERY_PARTNER or INSTRUCTOR — role-gating them would
 // bounce a pending or rejected applicant away before they can see their
 // status (the page itself renders the right view for each role/status).
 const ROLE_PREFIXES: { prefix: string; roles: Role[] }[] = [
@@ -32,7 +32,7 @@ const ROLE_PREFIXES: { prefix: string; roles: Role[] }[] = [
 const HOME: Record<Role, string> = {
   ADMIN: "/admin",
   INSTRUCTOR: "/instructor",
-  SALES_AGENT: "/sales-agent",
+  DELIVERY_PARTNER: "/delivery-partner",
   ORG_ADMIN: "/dashboard",
   STUDENT: "/dashboard",
 };
@@ -88,7 +88,7 @@ export const config = {
     "/learn/:path*",
     "/admin/:path*",
     "/instructor/:path*",
-    "/sales-agent/:path*",
+    "/delivery-partner/:path*",
     "/org/:path*",
   ],
 };

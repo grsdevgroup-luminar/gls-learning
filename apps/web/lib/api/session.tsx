@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import type {
   AuthUserDto,
+  DeliveryPartnerSignupInput,
   InstructorSignupInput,
   LoginInput,
   RegisterInput,
@@ -84,6 +85,14 @@ export function useRegisterInstructor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: InstructorSignupInput) => authApi.registerInstructor(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY }),
+  });
+}
+
+export function useRegisterDeliveryPartner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DeliveryPartnerSignupInput) => authApi.registerDeliveryPartner(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY }),
   });
 }

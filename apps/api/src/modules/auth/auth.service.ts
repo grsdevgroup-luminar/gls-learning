@@ -13,6 +13,7 @@ import { normalizeEmail } from "@skillstream/shared";
 import type {
   AuthUserDto,
   ChangePasswordInput,
+  DeliveryPartnerSignupInput,
   ForcePasswordChangeInput,
   ForgotPasswordInput,
   InstructorSignupInput,
@@ -26,6 +27,7 @@ import { TokenService } from "./token.service";
 import { AuthRepository } from "./auth.repository";
 import { EmailService } from "../email/email.service";
 import { InstructorService } from "../instructor/instructor.service";
+import { DeliveryPartnerService } from "../delivery-partner/delivery-partner.service";
 import {
   AVATAR_KEY_PREFIX,
   STORAGE_DRIVER,
@@ -55,6 +57,7 @@ export class AuthService {
     private readonly repo: AuthRepository,
     private readonly email: EmailService,
     private readonly instructor: InstructorService,
+    private readonly deliveryPartners: DeliveryPartnerService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
@@ -91,6 +94,18 @@ export class AuthService {
   async registerInstructor(input: InstructorSignupInput, meta: SessionMeta) {
     const user = await this.createStudentAccount(input);
     await this.instructor.createSignupApplication(
+      user.id,
+      user.name,
+      user.email,
+      input,
+    );
+    this.email.sendWelcome(user.email, user.name).catch(() => {});
+    return this.issueSession(user.id, user.email, user.role, meta);
+  }
+
+  async registerDeliveryPartner(input: DeliveryPartnerSignupInput, meta: SessionMeta) {
+    const user = await this.createStudentAccount(input);
+    await this.deliveryPartners.createSignupApplication(
       user.id,
       user.name,
       user.email,

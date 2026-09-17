@@ -6,7 +6,7 @@
 // one-shot merge on login so items added while logged-out survive sign-in.
 // Course content (sections) is loaded from the API; quiz answers stay
 // server-side (the quiz player calls the quiz API directly). Instructor/
-// sales-agent/org portals use their own dedicated API hooks
+// delivery-partner/org portals use their own dedicated API hooks
 // (lib/api/endpoints.ts), not this store.
 
 import {
@@ -49,7 +49,7 @@ export type Role =
   | "student"
   | "instructor"
   | "admin"
-  | "sales_agent"
+  | "delivery_partner"
   | "org_admin";
 
 export interface MyReview {
@@ -66,7 +66,7 @@ const ROLE_FROM_SESSION: Record<string, Role> = {
   STUDENT: "student",
   INSTRUCTOR: "instructor",
   ADMIN: "admin",
-  SALES_AGENT: "sales_agent",
+  DELIVERY_PARTNER: "delivery_partner",
   ORG_ADMIN: "org_admin",
 };
 

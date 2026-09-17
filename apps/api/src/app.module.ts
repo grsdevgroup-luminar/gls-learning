@@ -24,7 +24,7 @@ import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { CommentsModule } from "./modules/comments/comments.module";
 import { InstructorModule } from "./modules/instructor/instructor.module";
 import { AdminModule } from "./modules/admin/admin.module";
-import { SalesAgentModule } from "./modules/sales-agent/sales-agent.module";
+import { DeliveryPartnerModule } from "./modules/delivery-partner/delivery-partner.module";
 import { PayoutsModule } from "./modules/payouts/payouts.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
@@ -82,7 +82,7 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
     CommentsModule,
     InstructorModule,
     AdminModule,
-    SalesAgentModule,
+    DeliveryPartnerModule,
     PayoutsModule,
     OrganizationsModule,
     NotificationsModule,

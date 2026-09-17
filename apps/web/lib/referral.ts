@@ -1,5 +1,5 @@
-/** Sales-agent referral attribution: `?ref=CODE` is captured on landing and
- *  attached to the next checkout so the agent earns commission server-side. */
+/** Delivery-partner referral attribution: `?ref=CODE` is captured on landing
+ *  and attached to the next checkout so the partner earns commission server-side. */
 const REF_KEY = "skillstream_ref_v1";
 
 export function captureReferralFromUrl(): void {

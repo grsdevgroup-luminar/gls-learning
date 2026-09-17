@@ -17,7 +17,7 @@ enum UserRole {
   STUDENT
   INSTRUCTOR
   ADMIN
-  SALES_AGENT
+  DELIVERY_PARTNER
   ORG_ADMIN
 }
 
@@ -38,7 +38,7 @@ enum CourseVisibility {
   PRIVATE
 }
 
-enum SalesAgentStatus {
+enum DeliveryPartnerStatus {
   PENDING
   APPROVED
   REJECTED
@@ -63,7 +63,7 @@ enum OrgSuspensionMode {
 
 enum PayeeType {
   INSTRUCTOR
-  AGENT
+  DELIVERY_PARTNER
 }
 
 enum PayoutMethod {
@@ -186,8 +186,8 @@ enum NotificationEvent {
   CERTIFICATE_ISSUED
   INSTRUCTOR_APPLICATION_APPROVED
   INSTRUCTOR_APPLICATION_REJECTED
-  SALES_AGENT_APPLICATION_APPROVED
-  SALES_AGENT_APPLICATION_REJECTED
+  DELIVERY_PARTNER_APPLICATION_APPROVED
+  DELIVERY_PARTNER_APPLICATION_REJECTED
   PAYOUT_REQUESTED
   PAYOUT_APPROVED
   PAYOUT_PAID
@@ -240,7 +240,7 @@ model User {
   couponRedemptions       CouponRedemption[]
   authoredCourses         Course[]              @relation("InstructorCourses")
   categoryProposals       Category[]            @relation("CategoryProposals")
-  salesAgent              SalesAgent?
+  deliveryPartner         DeliveryPartner?
   orgMemberships          OrgMember[]
   payoutAccount           PayoutAccount?
   payouts                 Payout[]
@@ -678,18 +678,18 @@ model Order {
   createdAt           DateTime       @default(now())
   paidAt              DateTime?
 
-  agentReferralCode String?
-  agentId           String?
+  partnerReferralCode String?
+  partnerId           String?
 
-  items         OrderItem[]
-  redemptions   CouponRedemption[]
-  agentReferral SalesAgentReferral?
-  creditLedger  StudentCreditLedger[]
+  items           OrderItem[]
+  redemptions     CouponRedemption[]
+  partnerReferral DeliveryPartnerReferral?
+  creditLedger    StudentCreditLedger[]
 
   @@unique([userId, idempotencyKey], name: "user_idempotency_key")
   @@index([userId])
   @@index([status])
-  @@index([agentId])
+  @@index([partnerId])
 }
 
 model OrderItem {
@@ -927,56 +927,58 @@ model WebhookEvent {
   @@unique([provider, eventId])
 }
 
-// ─── Sales Agents ─────────────────────────────────────────────────────────────
+// ─── Delivery Partners ─────────────────────────────────────────────────────────────
 
-model SalesAgent {
-  id                   String           @id @default(cuid())
-  userId               String           @unique
-  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  referralCode         String           @unique
-  commissionPercent    Float            @default(10)
-  region               String           @default("")
-  status               SalesAgentStatus @default(PENDING)
-  totalEarningsCents   Int              @default(0)
-  pendingEarningsCents Int              @default(0)
-  paidEarningsCents    Int              @default(0)
-  referralCount        Int              @default(0)
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+model DeliveryPartner {
+  id                   String                @id @default(cuid())
+  userId               String                @unique
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referralCode         String                @unique
+  commissionPercent    Float                 @default(10)
+  region               String                @default("")
+  status               DeliveryPartnerStatus @default(PENDING)
+  totalEarningsCents   Int                   @default(0)
+  pendingEarningsCents Int                   @default(0)
+  paidEarningsCents    Int                   @default(0)
+  referralCount        Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
-  referrals SalesAgentReferral[]
-
-  @@index([status])
-}
-
-model SalesAgentApplication {
-  id         String           @id @default(cuid())
-  userId     String?
-  name       String
-  email      String
-  phone      String?
-  region     String
-  bio        String
-  status     SalesAgentStatus @default(PENDING)
-  appliedAt  DateTime         @default(now())
-  reviewedAt DateTime?
-  reviewedBy String?
-  note       String?
+  referrals DeliveryPartnerReferral[]
 
   @@index([status])
 }
 
-model SalesAgentReferral {
-  id              String     @id @default(cuid())
-  agentId         String
-  agent           SalesAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  orderId         String     @unique
-  order           Order      @relation(fields: [orderId], references: [id])
+model DeliveryPartnerApplication {
+  id           String                @id @default(cuid())
+  userId       String?
+  name         String
+  email        String
+  country      String?
+  /// Applicant-defined label/value pairs, e.g. [{"label":"Company","value":"Acme Inc"}].
+  customFields Json                  @default("[]")
+  /// Uploaded supporting documents: [{"title","key","name","sizeLabel"}].
+  documents    Json                  @default("[]")
+  status       DeliveryPartnerStatus @default(PENDING)
+  appliedAt    DateTime              @default(now())
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  note         String?
+
+  @@index([status])
+}
+
+model DeliveryPartnerReferral {
+  id              String          @id @default(cuid())
+  partnerId       String
+  partner         DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  orderId         String          @unique
+  order           Order           @relation(fields: [orderId], references: [id])
   commissionCents Int
-  status          String     @default("pending") // pending | confirmed | paid
-  createdAt       DateTime   @default(now())
+  status          String          @default("pending") // pending | confirmed | paid
+  createdAt       DateTime        @default(now())
 
-  @@index([agentId])
+  @@index([partnerId])
 }
 
 // ─── B2B Organizations ────────────────────────────────────────────────────────
@@ -1048,7 +1050,7 @@ model PayoutAccount {
 }
 
 /// A single payout in the request→approve→paid ledger, shared by instructors and
-/// sales agents. `destination` snapshots the account details at request time so
+/// delivery partners. `destination` snapshots the account details at request time so
 /// history stays accurate even if the payee later edits their account.
 ///
 /// `amountCents` is the gross withdrawn from the payee's available balance;

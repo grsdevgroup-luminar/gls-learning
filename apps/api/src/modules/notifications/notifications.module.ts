@@ -8,7 +8,7 @@ import { NotificationPreferencesService } from "./notification-preferences.servi
 import { NotificationPreferencesRepository } from "./notification-preferences.repository";
 
 // Global, matching EmailModule's convention: nearly every feature module (orders,
-// instructor, sales-agent, payouts, enrollment, ...) needs to write a
+// instructor, delivery-partner, payouts, enrollment, ...) needs to write a
 // notification as a side effect of its own state changes.
 //
 // registerQueue(NOTIFICATIONS_QUEUE) here (alongside the identical registration

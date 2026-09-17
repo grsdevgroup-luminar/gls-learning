@@ -22,7 +22,7 @@ const items: NavItem[] = [
 // Server Component — see app/(student)/layout.tsx for why. Gated on session
 // only, not role: this portal also hosts the apply form and application
 // status (pending/rejected) for accounts that aren't INSTRUCTOR yet — same
-// pattern as app/sales-agent/layout.tsx. page.tsx and ApprovalGate render
+// pattern as app/delivery-partner/layout.tsx. page.tsx and ApprovalGate render
 // the right view for whatever the viewer's actual application status is.
 export default async function InstructorLayout({ children }: { children: React.ReactNode }) {
   const user = await serverApiOptional<AuthUserDto>("/auth/me");

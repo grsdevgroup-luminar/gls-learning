@@ -26,7 +26,7 @@ export * from "./contracts/comments.js";
 export * from "./contracts/notifications.js";
 export * from "./contracts/instructor.js";
 export * from "./contracts/admin.js";
-export * from "./contracts/sales-agent.js";
+export * from "./contracts/delivery-partner.js";
 export * from "./contracts/payouts.js";
 export * from "./contracts/organizations.js";
 export * from "./contracts/pricing.js";

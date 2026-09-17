@@ -14,7 +14,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { receiptPdf } from "../../common/utils/pdf";
 import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
-import { SalesAgentService } from "../sales-agent/sales-agent.service";
+import { DeliveryPartnerService } from "../delivery-partner/delivery-partner.service";
 import {
   NotificationsService,
   type NotifyInput,
@@ -44,7 +44,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly repo: OrdersRepository,
     private readonly enrollment: EnrollmentService,
-    private readonly salesAgents: SalesAgentService,
+    private readonly deliveryPartners: DeliveryPartnerService,
     private readonly email: EmailService,
     private readonly cart: CartService,
     private readonly notifications: NotificationsService,
@@ -345,8 +345,8 @@ export class OrdersService {
       await this.cart.resetOnFulfilled(order.userId, tx);
     });
 
-    // Credit any attributed sales-agent referral now that payment succeeded.
-    await this.salesAgents.confirmReferral(orderId);
+    // Credit any attributed delivery-partner referral now that payment succeeded.
+    await this.deliveryPartners.confirmReferral(orderId);
 
     const updated = await this.findById(orderId);
 

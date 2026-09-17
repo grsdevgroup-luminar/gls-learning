@@ -15,20 +15,20 @@
 ## 0. The five roles
 
 `User.role` (Prisma `UserRole` enum): `STUDENT`, `INSTRUCTOR`, `ADMIN`,
-`SALES_AGENT`, `ORG_ADMIN`.
+`DELIVERY_PARTNER`, `ORG_ADMIN`.
 
 - **Every account starts as `STUDENT` at signup.** There is no role picker at
   registration. All other roles are *granted* by an approval or claim workflow —
   never chosen by the user directly:
   - `INSTRUCTOR` — admin approves an `InstructorApplication`.
-  - `SALES_AGENT` — admin approves a `SalesAgentApplication`.
+  - `DELIVERY_PARTNER` — admin approves a `DeliveryPartnerApplication`.
   - `ORG_ADMIN` — user claims an org invite whose invited role is `ADMIN`.
   - `ADMIN` — not self-serve at all; set directly in the database (seed/ops task).
 - **Authorization is enforced twice, asymmetrically:**
   - **API (authoritative):** `apps/api/src/app.module.ts` registers `JwtAuthGuard`
     → `RolesGuard` → `ThrottlerGuard` globally. Every route requires a valid JWT
     unless marked `@Public()`; `@Roles("ADMIN", ...)` further restricts by role.
-    Sales-agent and org-admin actions are **not** gated by `@Roles` at all —
+    Delivery-partner and org-admin actions are **not** gated by `@Roles` at all —
     they're checked inline in the service (`payeeContext()`,
     `assertOrgAdmin()`), because those roles are contextual (an org admin is
     only "admin" *within their own org*).
@@ -37,14 +37,14 @@
     protected prefixes, and — only for `/admin` and `/instructor` — decodes
     (without verifying signature) the JWT's `role` claim to bounce a
     mismatched role to their own portal home. It explicitly does **not**
-    gate `/sales-agent`, since any logged-in user visits it to submit the
-    agent application. Real enforcement always happens server-side.
+    gate `/delivery-partner`, since any logged-in user visits it to submit the
+    partner application. Real enforcement always happens server-side.
 
 | Role | Portal home | Web prefix |
 |---|---|---|
 | `ADMIN` | `/admin` | `/admin/*` (also allowed into `/instructor/*`, treated as superuser) |
 | `INSTRUCTOR` | `/instructor` | `/instructor/*` |
-| `SALES_AGENT` | `/sales-agent` | `/sales-agent/*` (open to any role, since it also hosts the apply form) |
+| `DELIVERY_PARTNER` | `/delivery-partner` | `/delivery-partner/*` (open to any role, since it also hosts the apply form) |
 | `ORG_ADMIN` | `/dashboard` | `/org/[slug]/*` (org-admin only within that org) |
 | `STUDENT` | `/dashboard` | `/dashboard/*`, `/account`, `/learn/*` |
 
@@ -70,7 +70,7 @@
    argon2 hash** to keep response timing constant (prevents user enumeration
    via timing).
 3. On success: issues tokens, then frontend calls `GET /auth/me` and redirects
-   by role (`ADMIN→/admin`, `INSTRUCTOR→/instructor`, `SALES_AGENT→/sales-agent`,
+   by role (`ADMIN→/admin`, `INSTRUCTOR→/instructor`, `DELIVERY_PARTNER→/delivery-partner`,
    `ORG_ADMIN→/org`, else `/dashboard`) — unless a `?next=` param says otherwise
    (used by the org-invite-claim flow).
 
@@ -111,11 +111,11 @@ expiry) and clears both cookies.
 - The cart is **entirely client-side** (a Zustand-like context, `store.tsx`) —
   just an array of course IDs. Nothing is written server-side until checkout.
 
-### 2.2 Referral capture (sales agent attribution)
-If a visitor arrives via `?ref=CODE` (a sales agent's link), the code is
+### 2.2 Referral capture (delivery partner attribution)
+If a visitor arrives via `?ref=CODE` (a delivery partner's link), the code is
 captured client-side and persisted in `localStorage`
 (`skillstream_ref_v1`) — this survives navigation and is attached at checkout.
-See §5 for the full agent-commission flow.
+See §5 for the full partner-commission flow.
 
 ### 2.3 Price quote (PPP + coupons)
 1. `POST /checkout/quote` (authenticated) — resolves the buyer's pricing
@@ -135,7 +135,7 @@ See §5 for the full agent-commission flow.
    quote again** (never trusts the client), creates a `PENDING` `Order` +
    `OrderItem` rows with price *snapshots* (so later price changes don't
    retroactively alter historical orders).
-3. If a referral code is attached, stamps a pending `SalesAgentReferral` onto
+3. If a referral code is attached, stamps a pending `DeliveryPartnerReferral` onto
    the order (commission isn't credited yet — only on payment).
 4. **Free path** (100%-off coupon or free course): fulfilled immediately, no
    gateway involved, straight to the success page.
@@ -157,7 +157,7 @@ See §5 for the full agent-commission flow.
      earnings (this is what feeds the instructor payout pool — §4.3).
    - Increments the buyer's lifetime spend.
    - Records coupon redemption if one was used.
-   - Confirms the pending sales-agent referral, crediting commission — only
+   - Confirms the pending delivery-partner referral, crediting commission — only
      now, never at order-creation, so abandoned checkouts never pay commission.
 3. **No purchase-confirmation email is sent** — the email service only has
    welcome / password-reset / org-invite / reminder templates. This is a real
@@ -266,7 +266,7 @@ opt-out genuinely stops the message.
    `@Roles("INSTRUCTOR","ADMIN")`, which only lets in users whose role was
    actually flipped by an admin approval. Approving or rejecting an application
    emails the applicant (`EmailService.sendApplicationDecision`, fire-and-forget
-   so a delivery failure can't undo the decision). Same for sales agents (§5.1).
+   so a delivery failure can't undo the decision). Same for delivery partners (§5.1).
 
 ### 4.2 Authoring a course
 Every authoring endpoint additionally checks course ownership
@@ -313,7 +313,7 @@ only ever touch their own courses.
 
 ### 4.4 Payout request → approve → paid
 This ledger is **shared infrastructure** between instructors and sales
-agents (`PayeeType`: `INSTRUCTOR` | `AGENT`) — see the unified writeup in
+partners (`PayeeType`: `INSTRUCTOR` | `DELIVERY_PARTNER`) — see the unified writeup in
 §7 (admin payouts), which covers the full lifecycle. From the instructor
 side:
 1. Set a payout destination (PayPal email or bank details — free text, read
@@ -326,39 +326,39 @@ side:
 
 ---
 
-## 5. Sales agent flow
+## 5. Delivery partner flow
 
-### 5.1 Becoming an agent
-1. Any logged-in user applies at `/sales-agent` (region, optional phone, bio)
-   → `PENDING` `SalesAgentApplication`. No email notification is sent either
+### 5.1 Becoming an partner
+1. Any logged-in user applies at `/delivery-partner` (region, optional phone, bio)
+   → `PENDING` `DeliveryPartnerApplication`. No email notification is sent either
    on submission or on the outcome — the applicant finds out by revisiting
    the page.
 2. Admin reviews (with an optional commission-% override, default 10%):
-   - **Approve**: promotes `User.role → SALES_AGENT`, and upserts a
-     `SalesAgent` row with a freshly generated referral code (`REF-XXXXXX`).
-   - **Reject/Suspend**: only the application/agent status changes.
+   - **Approve**: promotes `User.role → DELIVERY_PARTNER`, and upserts a
+     `DeliveryPartner` row with a freshly generated referral code (`REF-XXXXXX`).
+   - **Reject/Suspend**: only the application/partner status changes.
 
 ### 5.2 Referral link → commission
-1. The agent's referral link is just `{origin}/?ref=<code>` — no separate
+1. The partner's referral link is just `{origin}/?ref=<code>` — no separate
    link-shortening service.
 2. A visitor's `?ref=` code is captured client-side and persists until
    checkout (§2.2).
 3. At checkout, the code is attached to the new order, creating a **pending**
-   `SalesAgentReferral` with the commission amount pre-computed
-   (`order total × agent's commission%`). A code belonging to a
-   non-`APPROVED` agent (suspended/rejected) silently fails to attribute —
+   `DeliveryPartnerReferral` with the commission amount pre-computed
+   (`order total × partner's commission%`). A code belonging to a
+   non-`APPROVED` partner (suspended/rejected) silently fails to attribute —
    no error is shown to the buyer.
 4. **Only on payment confirmation** does the referral flip to `confirmed` and
-   the commission get added to the agent's pending/lifetime earnings — an
+   the commission get added to the partner's pending/lifetime earnings — an
    abandoned or failed checkout never pays out.
-5. The agent's `/sales-agent/referrals` page shows every referral with
+5. The partner's `/delivery-partner/referrals` page shows every referral with
    status (`pending`/`confirmed`/`paid`).
 
 ### 5.3 Payout
 Identical request → approve → paid lifecycle as instructors (§4.4, §7), using
-`PayeeType: AGENT` and `SalesAgent.totalEarningsCents` as the earnings pool.
-One implementation detail worth knowing: when an admin marks an agent payout
-paid, the system bulk-flips *all* of that agent's currently-`confirmed`
+`PayeeType: DELIVERY_PARTNER` and `DeliveryPartner.totalEarningsCents` as the earnings pool.
+One implementation detail worth knowing: when an admin marks an partner payout
+paid, the system bulk-flips *all* of that partner's currently-`confirmed`
 referrals to `paid` — not just the ones that funded this specific payout — so
 if new commissions confirm between "request" and "mark paid," they get swept
 into the same paid-mark even though they weren't part of the requested amount.
@@ -447,10 +447,10 @@ toggles are live too: `newEnrollment` / `newReview` fire as they happen from
 `admin-digest` job. All of them email the `supportEmail` on this page, and a
 toggle that's off sends nothing.
 
-### 7.4 Sales agents
+### 7.4 Delivery partners
 Review pending applications (approve with commission% + optional note, or
 reject), then manage the approved roster: edit commission%, and suspend or
-reinstate an agent (both wired to `PATCH /admin/sales-agents/:id`). See §5.1.
+reinstate an partner (both wired to `PATCH /admin/delivery-partners/:id`). See §5.1.
 
 ### 7.5 Instructors
 Review pending applications (approve/reject), browse the approved roster. See
@@ -499,7 +499,7 @@ walks back the downstream effects: decrements course revenue/student counts
 and the instructor's earnings, decrements the buyer's lifetime spend, and
 **deletes the enrollment** (immediate loss of course access). Already-refunded
 orders can't be refunded twice. Note: a refund does **not** claw back a
-sales-agent commission or an already-approved/paid payout automatically.
+delivery-partner commission or an already-approved/paid payout automatically.
 
 ### 7.11 Pricing
 Regional pricing tiers (a multiplier) and per-country regions (currency, FX
@@ -509,7 +509,7 @@ background job refreshes FX rates from a public feed; on failure it keeps the
 last known rate rather than guessing — and since checkout always actually
 charges in USD, stale FX display is cosmetic, never a mischarging risk.
 
-### 7.12 Payouts — the unified instructor + sales-agent system
+### 7.12 Payouts — the unified instructor + delivery-partner system
 The most involved admin feature; shared ledger for both payee types.
 
 **Model:** `PayoutAccount` (destination on file per user) + `Payout` (one row
@@ -524,7 +524,7 @@ REQUESTED | APPROVED --reject--> REJECTED  (terminal, releases the balance)
 ```
 
 1. **Payee requests**: available balance = lifetime earned (instructor's
-   lifetime earnings, or agent's lifetime commission) minus everything
+   lifetime earnings, or partner's lifetime commission) minus everything
    already paid minus everything currently in flight. A request always asks
    for the *entire* available balance, must be at least $50, and only one
    request can be open at a time.
@@ -534,9 +534,9 @@ REQUESTED | APPROVED --reject--> REJECTED  (terminal, releases the balance)
 3. **Admin marks paid**: an admin *attestation* that they executed the
    transfer manually outside the platform (the system has no real
    payment-rail integration for payouts — that's a documented, deliberate
-   scope limit). For sales agents specifically, this also decrements pending
-   / increments paid commission counters and sweeps that agent's confirmed
-   referrals to "paid" so the agent-facing dashboard stays consistent.
+   scope limit). For delivery partners specifically, this also decrements pending
+   / increments paid commission counters and sweeps that partner's confirmed
+   referrals to "paid" so the partner-facing dashboard stays consistent.
    **Instructors have no equivalent pending/paid split** — their earnings
    figure is a flat lifetime total, and availability is derived purely from
    the payout ledger.

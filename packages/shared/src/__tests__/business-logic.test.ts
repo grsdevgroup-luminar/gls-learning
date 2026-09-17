@@ -12,13 +12,13 @@ import {
   isLessonSequentiallyAccessible,
   quizPassed,
 } from "../progress.js";
-import { CouponType, CouponScope, SalesAgentStatus } from "../enums.js";
+import { CouponType, CouponScope, DeliveryPartnerStatus } from "../enums.js";
 import { flagFor, tenderFor } from "../countries.js";
 import { CreateRegionSchema, AdminFxRateQuerySchema } from "../contracts/pricing.js";
 import {
-  ReviewAgentApplicationSchema,
-  UpdateAgentSchema,
-} from "../contracts/sales-agent.js";
+  ReviewPartnerApplicationSchema,
+  UpdatePartnerSchema,
+} from "../contracts/delivery-partner.js";
 import { adminReviewQuerySchema, createReviewSchema } from "../contracts/reviews.js";
 import { emailSchema, normalizeEmail, countryCodeSchema } from "../contracts/auth.js";
 import {
@@ -193,26 +193,26 @@ describe("progress", () => {
   });
 });
 
-describe("sales agent commission validation", () => {
+describe("delivery partner commission validation", () => {
   it("rejects negative or zero commission during application review", () => {
     expect(
-      ReviewAgentApplicationSchema.safeParse({
-        status: SalesAgentStatus.APPROVED,
+      ReviewPartnerApplicationSchema.safeParse({
+        status: DeliveryPartnerStatus.APPROVED,
         commissionPercent: -10,
       }).success,
     ).toBe(false);
     expect(
-      ReviewAgentApplicationSchema.safeParse({
-        status: SalesAgentStatus.APPROVED,
+      ReviewPartnerApplicationSchema.safeParse({
+        status: DeliveryPartnerStatus.APPROVED,
         commissionPercent: 0,
       }).success,
     ).toBe(false);
   });
 
-  it("accepts only 1% to 50% when updating an agent commission", () => {
-    expect(UpdateAgentSchema.safeParse({ commissionPercent: 1 }).success).toBe(true);
-    expect(UpdateAgentSchema.safeParse({ commissionPercent: 50 }).success).toBe(true);
-    expect(UpdateAgentSchema.safeParse({ commissionPercent: 51 }).success).toBe(false);
+  it("accepts only 1% to 50% when updating a delivery partner commission", () => {
+    expect(UpdatePartnerSchema.safeParse({ commissionPercent: 1 }).success).toBe(true);
+    expect(UpdatePartnerSchema.safeParse({ commissionPercent: 50 }).success).toBe(true);
+    expect(UpdatePartnerSchema.safeParse({ commissionPercent: 51 }).success).toBe(false);
   });
 });
 

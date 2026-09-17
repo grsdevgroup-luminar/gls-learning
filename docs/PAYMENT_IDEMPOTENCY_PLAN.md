@@ -43,7 +43,7 @@ model Order {
   @@unique([userId, idempotencyKey], name: "user_idempotency_key")
   @@index([userId])
   @@index([status])
-  @@index([agentId])
+  @@index([partnerId])
 }
 ```
 

@@ -34,7 +34,7 @@ const OPEN = ["REQUESTED", "APPROVED"] as const;
 
 /** Where a payout notification should deep-link, by payee role. */
 function payoutHref(payeeType: PayeeType): string {
-  return payeeType === "AGENT" ? "/sales-agent/earnings" : "/instructor/earnings";
+  return payeeType === "DELIVERY_PARTNER" ? "/delivery-partner/earnings" : "/instructor/earnings";
 }
 
 /** Pure balance math, shared by the DTO builder and tested in isolation.
@@ -71,20 +71,20 @@ export class PayoutsService {
   ) {}
 
   /** Maps a user's role to which earnings pool their payouts draw from.
-   *  Instructors and sales agents each have exactly one; anyone else can't
+   *  Instructors and delivery partners each have exactly one; anyone else can't
    *  request payouts. */
   private async payeeContext(
     userId: string,
   ): Promise<{ payeeType: PayeeType; lifetimeEarnedCents: number }> {
-    const [instructor, agent] = await this.repo.findPayeeContext(userId);
-    if (agent)
-      return { payeeType: "AGENT", lifetimeEarnedCents: agent.totalEarningsCents };
+    const [instructor, partner] = await this.repo.findPayeeContext(userId);
+    if (partner)
+      return { payeeType: "DELIVERY_PARTNER", lifetimeEarnedCents: partner.totalEarningsCents };
     if (instructor)
       return {
         payeeType: "INSTRUCTOR",
         lifetimeEarnedCents: instructor.earningsCents,
       };
-    throw new ForbiddenException("Only instructors and sales agents have payouts");
+    throw new ForbiddenException("Only instructors and delivery partners have payouts");
   }
 
   private feeConfig() {
@@ -328,8 +328,8 @@ export class PayoutsService {
     return this.toDto(updated, updated.payee);
   }
 
-  /** Confirms the transfer has been sent. Keeps the sales-agent display counters
-   *  (pending/paid) in sync so both the agent UI and this ledger agree. */
+  /** Confirms the transfer has been sent. Keeps the delivery-partner display counters
+   *  (pending/paid) in sync so both the partner UI and this ledger agree. */
   async markPaid(admin: RequestUser, id: string): Promise<PayoutDto> {
     const payout = await this.repo.findPayoutById(id);
     if (!payout) throw new NotFoundException("Payout not found");
@@ -345,15 +345,15 @@ export class PayoutsService {
     };
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (payout.payeeType === "AGENT") {
-        const agent = await this.repo.findSalesAgentIdByUser(payout.payeeUserId, tx);
-        if (agent) {
-          await this.repo.applyAgentPayoutSettlement(
-            agent.id,
+      if (payout.payeeType === "DELIVERY_PARTNER") {
+        const partner = await this.repo.findDeliveryPartnerIdByUser(payout.payeeUserId, tx);
+        if (partner) {
+          await this.repo.applyPartnerPayoutSettlement(
+            partner.id,
             payout.amountCents,
             tx,
           );
-          await this.repo.markAgentReferralsPaid(agent.id, tx);
+          await this.repo.markPartnerReferralsPaid(partner.id, tx);
         }
       }
       const paid = await this.repo.updatePayoutWithPayee(

@@ -6,6 +6,7 @@ import type { TokenService } from "../token.service";
 import type { AuthRepository } from "../auth.repository";
 import type { EmailService } from "../../email/email.service";
 import type { InstructorService } from "../../instructor/instructor.service";
+import type { DeliveryPartnerService } from "../../delivery-partner/delivery-partner.service";
 import type { StorageDriver } from "../../storage/storage.driver";
 
 const userId = "user_1";
@@ -43,9 +44,10 @@ function makeService(overrides: {
 
   const email = {} as EmailService;
   const instructor = {} as InstructorService;
+  const deliveryPartners = {} as DeliveryPartnerService;
   const storage = {} as StorageDriver;
 
-  return new AuthService(users, tokens, repo, email, instructor, storage);
+  return new AuthService(users, tokens, repo, email, instructor, deliveryPartners, storage);
 }
 
 describe("AuthService.forcePasswordChange", () => {

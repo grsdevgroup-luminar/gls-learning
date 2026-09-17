@@ -24,6 +24,7 @@ import {
 } from "./pipes/avatar-file.pipe";
 import {
   changePasswordSchema,
+  DeliveryPartnerSignupSchema,
   forcePasswordChangeSchema,
   forgotPasswordSchema,
   instructorSignupSchema,
@@ -33,6 +34,7 @@ import {
   updateProfileSchema,
   type AuthTokensDto,
   type ChangePasswordInput,
+  type DeliveryPartnerSignupInput,
   type ForcePasswordChangeInput,
   type ForgotPasswordInput,
   type InstructorSignupInput,
@@ -122,6 +124,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthTokensDto> {
     const tokens = await this.auth.registerInstructor(body, this.metaFrom(req));
+    this.setAuthCookies(res, tokens);
+    return { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("register-delivery-partner")
+  async registerDeliveryPartner(
+    @ZodBody(DeliveryPartnerSignupSchema) body: DeliveryPartnerSignupInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthTokensDto> {
+    const tokens = await this.auth.registerDeliveryPartner(body, this.metaFrom(req));
     this.setAuthCookies(res, tokens);
     return { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn };
   }

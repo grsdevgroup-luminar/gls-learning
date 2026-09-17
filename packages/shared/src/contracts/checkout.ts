@@ -13,7 +13,7 @@ export type CheckoutQuoteInput = z.infer<typeof checkoutQuoteSchema>;
 
 export const checkoutSessionSchema = checkoutQuoteSchema.extend({
   gateway: z.enum(["STRIPE", "PAYPAL", "SSLCOMMERZ"]),
-  /** Optional sales-agent referral code for commission attribution. */
+  /** Optional delivery-partner referral code for commission attribution. */
   referralCode: z.string().trim().optional(),
 });
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionSchema>;

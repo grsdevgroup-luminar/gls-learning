@@ -98,7 +98,7 @@ losing (or duplicating) an email.
 - **`admin.controller.ts`** — `GET/PATCH/DELETE /admin/email-templates(/:key)`,
   `POST /admin/email-templates/:key/preview`, `POST .../test-send` (renders with
   sample data and sends immediately, not queued, for instant admin feedback).
-- **Bug fixed in passing**: `instructor.service.ts` / `sales-agent.service.ts` were
+- **Bug fixed in passing**: `instructor.service.ts` / `delivery-partner.service.ts` were
   sending **two** emails per application approve/reject — a bespoke
   `sendApplicationDecision()` call alongside the generic notification-event email.
   Removed the bespoke path; the admin's note now folds into the notification body

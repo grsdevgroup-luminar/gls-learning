@@ -97,3 +97,37 @@ export const CV_KEY_PREFIX = "cvs";
 
 /** Per-file cap for CVs — generous for a text-heavy PDF/DOCX résumé. */
 export const CV_MAX_BYTES = 5 * 1024 * 1024;
+
+// ── Delivery partner application documents ──────────────────────────────────
+
+/** Extension → allowed MIME for delivery-partner application attachments
+ *  (business registration, ID, portfolio, etc). Documents + common image
+ *  scans — never rendered inline, always downloaded by the reviewing admin. */
+export const ALLOWED_PARTNER_DOC_MIME: Readonly<Record<string, readonly string[]>> = {
+  pdf: ["application/pdf"],
+  doc: ["application/msword"],
+  docx: [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
+  png: ["image/png"],
+  jpg: ["image/jpeg"],
+  jpeg: ["image/jpeg"],
+} as const;
+
+export const ALLOWED_PARTNER_DOC_MIME_SET: ReadonlySet<string> = new Set(
+  Object.values(ALLOWED_PARTNER_DOC_MIME).flat(),
+);
+
+export const ALLOWED_PARTNER_DOC_EXTENSIONS: readonly string[] = Object.keys(
+  ALLOWED_PARTNER_DOC_MIME,
+);
+
+/** Object-key prefix for delivery-partner application documents. */
+export const PARTNER_DOC_KEY_PREFIX = "partner-docs";
+
+/** Per-file cap, matching the CV limit. */
+export const PARTNER_DOC_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Documents per application — enough for the usual business/ID/portfolio
+ *  set without turning the application into a file dump. */
+export const PARTNER_DOC_MAX_COUNT = 5;

@@ -15,7 +15,7 @@ export class PayoutsRepository {
   findPayeeContext(userId: string) {
     return Promise.all([
       this.prisma.instructorProfile.findUnique({ where: { userId } }),
-      this.prisma.salesAgent.findUnique({ where: { userId } }),
+      this.prisma.deliveryPartner.findUnique({ where: { userId } }),
     ]);
   }
 
@@ -108,16 +108,16 @@ export class PayoutsRepository {
     });
   }
 
-  findSalesAgentIdByUser(userId: string, tx?: Db) {
-    return this.db(tx).salesAgent.findUnique({
+  findDeliveryPartnerIdByUser(userId: string, tx?: Db) {
+    return this.db(tx).deliveryPartner.findUnique({
       where: { userId },
       select: { id: true },
     });
   }
 
-  applyAgentPayoutSettlement(agentId: string, amountCents: number, tx?: Db) {
-    return this.db(tx).salesAgent.update({
-      where: { id: agentId },
+  applyPartnerPayoutSettlement(partnerId: string, amountCents: number, tx?: Db) {
+    return this.db(tx).deliveryPartner.update({
+      where: { id: partnerId },
       data: {
         pendingEarningsCents: { decrement: amountCents },
         paidEarningsCents: { increment: amountCents },
@@ -125,9 +125,9 @@ export class PayoutsRepository {
     });
   }
 
-  markAgentReferralsPaid(agentId: string, tx?: Db) {
-    return this.db(tx).salesAgentReferral.updateMany({
-      where: { agentId, status: "confirmed" },
+  markPartnerReferralsPaid(partnerId: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerReferral.updateMany({
+      where: { partnerId, status: "confirmed" },
       data: { status: "paid" },
     });
   }

@@ -47,6 +47,7 @@ function S(id: string, title: string, lessons: Lesson[]): Section {
 export const courses: Course[] = [
   {
     id: "c_react",
+    courseNumber: "CRS-REACT",
     slug: "modern-react-masterclass",
     title: "Modern React Masterclass",
     subtitle: "Build production-grade apps with React 19, Server Components & Suspense",
@@ -133,6 +134,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_ts",
+    courseNumber: "CRS-TS",
     slug: "typescript-deep-dive",
     title: "TypeScript Deep Dive",
     subtitle: "Type-safe code that scales — from generics to advanced inference",
@@ -198,6 +200,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_ml",
+    courseNumber: "CRS-ML",
     slug: "machine-learning-foundations",
     title: "Machine Learning Foundations",
     subtitle: "The math, intuition, and code behind modern ML — no PhD required",
@@ -266,6 +269,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_design",
+    courseNumber: "CRS-DESIGN",
     slug: "product-design-essentials",
     title: "Product Design Essentials",
     subtitle: "Design interfaces people love — research, UX, and beautiful UI",
@@ -311,6 +315,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_aws",
+    courseNumber: "CRS-AWS",
     slug: "aws-cloud-practitioner",
     title: "AWS for Developers",
     subtitle: "Deploy, scale, and secure real apps on AWS with confidence",
@@ -353,6 +358,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_growth",
+    courseNumber: "CRS-GROWTH",
     slug: "growth-marketing-for-founders",
     title: "Growth Marketing for Founders",
     subtitle: "Acquire users and grow revenue without a big budget",
@@ -391,6 +397,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_python",
+    courseNumber: "CRS-PYTHON",
     slug: "python-for-everybody",
     title: "Python for Everybody",
     subtitle: "Your friendly first step into programming with Python",
@@ -457,6 +464,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_design_adv",
+    courseNumber: "CRS-DESIGNADV",
     slug: "design-systems-at-scale",
     title: "Design Systems at Scale",
     subtitle: "Build and govern a design system multiple teams can trust",
@@ -492,6 +500,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_speaking",
+    courseNumber: "CRS-SPEAKING",
     slug: "confident-public-speaking",
     title: "Confident Public Speaking",
     subtitle: "Speak with clarity and presence — in meetings, on stage, anywhere",
@@ -561,6 +570,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_social",
+    courseNumber: "CRS-SOCIAL",
     slug: "mastering-social-skills",
     title: "Mastering Social Skills & Small Talk",
     subtitle: "Build genuine connections, navigate any room, never run out of things to say",
@@ -607,6 +617,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_eq",
+    courseNumber: "CRS-EQ",
     slug: "emotional-intelligence-for-relationships",
     title: "Emotional Intelligence for Relationships",
     subtitle: "Understand your emotions, manage conflict, and connect more deeply",
@@ -668,6 +679,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_finance",
+    courseNumber: "CRS-FINANCE",
     slug: "personal-finance-mastery",
     title: "Personal Finance Mastery",
     subtitle: "Budget, save, invest, and build real wealth — explained simply",
@@ -736,6 +748,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_mindfulness",
+    courseNumber: "CRS-MINDFULNESS",
     slug: "mindfulness-and-stress-management",
     title: "Mindfulness & Stress Management",
     subtitle: "Practical tools to stay calm, focused, and present in a busy life",
@@ -780,6 +793,7 @@ export const courses: Course[] = [
   },
   {
     id: "c_spanish",
+    courseNumber: "CRS-SPANISH",
     slug: "conversational-spanish-for-travelers",
     title: "Conversational Spanish for Travelers",
     subtitle: "Speak real, useful Spanish in weeks — not years of grammar drills",
