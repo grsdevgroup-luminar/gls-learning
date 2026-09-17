@@ -5,6 +5,8 @@
  * @skillstream/shared DTOs directly and the frontend's copies were deleted as
  * dead code (they weren't dead here).
  */
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { PrismaClient, type Prisma } from "@prisma/client";
 import * as argon2 from "argon2";
 

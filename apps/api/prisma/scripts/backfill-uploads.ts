@@ -1,3 +1,10 @@
+/**
+ * Backfills Upload rows for lessons that already have cfVideoUid from before the
+ * tus ownership model. Safe to re-run: skips existing cloudflareUid records and
+ * links lessonId when missing.
+ *
+ * Usage: pnpm --filter @skillstream/api prisma:backfill-uploads
+ */
 import { PrismaClient, UploadStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
