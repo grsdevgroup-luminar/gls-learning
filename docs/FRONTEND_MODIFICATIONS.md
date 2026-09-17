@@ -477,7 +477,7 @@
 ### Fixed
 
 - Centered the account role label inside its header box across all portal modules.
-- Admin, Instructor, Student, Sales Agent, and Company Admin labels now use consistent horizontal and vertical alignment.
+- Admin, Instructor, Student, Delivery Partner, and Company Admin labels now use consistent horizontal and vertical alignment.
 
 ### Changed Files
 
@@ -651,25 +651,25 @@
 
 - Aligned coupon pagination with the same numbered controls used by other admin lists.
 
-`apps\web\app\admin\agents\page.tsx`
-- Added rows-per-page and numbered pagination controls to the All agents table.
+`apps\web\app\admin\partners\page.tsx`
+- Added rows-per-page and numbered pagination controls to the All partners table.
 
-- Aligned the Sales Agents page structure with the Students page: fixed-height portal layout, stats at the top, search/rows controls above the table, table card, and pagination footer.
+- Aligned the Delivery Partners page structure with the Students page: fixed-height portal layout, stats at the top, search/rows controls above the table, table card, and pagination footer.
 
-- Made the All agents table header cells sticky inside the table scroll container while agent rows scroll.
+- Made the All partners table header cells sticky inside the table scroll container while partner rows scroll.
 
-- Reordered the Sales Agents controls to follow the Students pattern with search on the left and rows-per-page on the right.
+- Reordered the Delivery Partners controls to follow the Students pattern with search on the left and rows-per-page on the right.
 
-- Made the All agents table card fill the remaining page height and scroll internally.
+- Made the All partners table card fill the remaining page height and scroll internally.
 
-- Kept the All agents pagination visible even when the filtered result fits on one page.
+- Kept the All partners pagination visible even when the filtered result fits on one page.
 
-`apps\web\app\sales-agent\referrals\page.tsx`
+`apps\web\app\delivery-partner\referrals\page.tsx`
 - Added rows-per-page and numbered pagination controls to the referrals table.
 
 - Made the referrals table header sticky while referral rows scroll.
 
-`apps\web\app\sales-agent\earnings\page.tsx`
+`apps\web\app\delivery-partner\earnings\page.tsx`
 - Added rows-per-page and numbered pagination controls to paid and pending commission tables.
 
 - Made earnings table headers sticky while commission rows scroll.
@@ -828,7 +828,7 @@
 ### Changed Files
 
 - `apps/web/components/shared/page-title.tsx`
-  - Added centralized, route-aware browser-title handling for storefront, student, admin, instructor, sales-agent, organization, and utility pages.
+  - Added centralized, route-aware browser-title handling for storefront, student, admin, instructor, delivery-partner, organization, and utility pages.
 
 - `apps/web/app/providers.tsx`
   - Mounted the route-title manager once for the full application.
@@ -918,7 +918,7 @@
 ### Fixed
 
 - Fixed the browser tab title remaining on the global “GRS Learning — Learn anything, anywhere” title while navigating between application modules.
-- Added module-level metadata for the marketplace, student dashboard, admin portal, instructor portal, sales-agent portal, and organization portal.
+- Added module-level metadata for the marketplace, student dashboard, admin portal, instructor portal, delivery-partner portal, and organization portal.
 - Added a shared “%s | GRS Learning” title template so module titles stay recognizable and consistently branded.
 - Kept route-specific metadata, such as course detail titles, compatible with the global template instead of replacing it with a generic module title.
 - Fixed the instructor account menu’s “My Learning” action to open `/dashboard/progress`, since instructors can also use the student learning area.
@@ -944,7 +944,7 @@
 - apps/web/app/(student)/layout.tsx
 - apps/web/app/admin/layout.tsx
 - apps/web/app/instructor/layout.tsx
-- apps/web/app/sales-agent/layout.tsx
+- apps/web/app/delivery-partner/layout.tsx
 - apps/web/app/org/page.tsx
 - apps/web/app/org/[slug]/layout.tsx
   - Added module-specific browser tab metadata at each navigation boundary.
@@ -1017,7 +1017,7 @@ ext` paths.
 - Admins now consistently land in `/admin`, and the proxy prevents an admin session from remaining in the student dashboard.
 - Synchronized the freshly loaded authenticated user into the client session cache so names, emails, and role badges stay consistent.
 - Added a shared 300 ms `useDebouncedValue` hook for search inputs.
-- Applied debounced filtering to the course catalog, admin courses, admin students, admin sales agents, admin organizations, organization members, and sales-agent referrals.
+- Applied debounced filtering to the course catalog, admin courses, admin students, admin delivery partners, admin organizations, organization members, and delivery-partner referrals.
 - Applied debounced local filtering to the signup country picker and command palette.
 - Kept search inputs responsive while delaying filtering and API-backed query updates until typing pauses.
 - Added strict login and registration credential validation.
@@ -1025,7 +1025,7 @@ ext` paths.
 - Registration now requires a name and an 8–128 character password.
 - Login now requires a non-empty password and displays validation feedback before submitting.
 - Added consistent email normalization during registration, login, and password recovery so email casing resolves to the same account.
-- Added Sales Agent commission validation in the admin panel.
+- Added Delivery Partner commission validation in the admin panel.
 - Commission values must be between 1% and 50%, inclusive; negative values, 0%, and values above 50% are rejected.
 - Invalid commission values remain visible for correction and display a clear error message.
 
@@ -1037,14 +1037,14 @@ ext` paths.
 - `apps/web/app/(storefront)/(auth)/signup/page.tsx`
   - Added shared registration validation, required fields, password length constraints, and inline error feedback.
 
-- `apps/web/app/admin/agents/page.tsx`
-  - Validated commission values before approval and agent updates.
+- `apps/web/app/admin/partners/page.tsx`
+  - Validated commission values before approval and partner updates.
   - Added error feedback for values outside the 1%–50% range.
 
 - `packages/shared/src/contracts/auth.ts`
   - Added shared strict email validation and email normalization.
 
-- `packages/shared/src/contracts/sales-agent.ts`
+- `packages/shared/src/contracts/delivery-partner.ts`
   - Changed commission validation from `0%–50%` to `1%–50%`.
 
 - `apps/api/src/modules/auth/auth.service.ts`
@@ -1245,7 +1245,7 @@ avIcons` registry for supported Lucide icons.
   - Replaced portal navigation icon components with string keys.
   - Kept `GraduationCap` imported because it is still rendered directly in the server-side fallback UI.
 
-- `apps/web/app/sales-agent/layout.tsx`
+- `apps/web/app/delivery-partner/layout.tsx`
   - Replaced portal navigation icon components with string keys.
   - Kept `Megaphone` imported because it is still rendered directly in the server-side fallback UI.
 

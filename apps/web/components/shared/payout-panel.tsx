@@ -25,7 +25,7 @@ const statusCls: Record<string, string> = {
 };
 
 /** Payout account + request + history. Role-agnostic: the API derives whether
- *  the caller is an instructor or a sales agent, so both portals reuse this. */
+ *  the caller is an instructor or a delivery partner, so both portals reuse this. */
 export function PayoutPanel() {
   const qc = useQueryClient();
   const { data: balance } = useQuery({

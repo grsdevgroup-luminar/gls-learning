@@ -2,6 +2,7 @@ import type {
   AuthTokensDto,
   AuthUserDto,
   ChangePasswordInput,
+  DeliveryPartnerSignupInput,
   InstructorSignupInput,
   LoginInput,
   RegisterInput,
@@ -18,6 +19,9 @@ export const authApi = {
 
   registerInstructor: (input: InstructorSignupInput) =>
     apiFetch<AuthTokensDto>("/auth/register-instructor", { method: "POST", body: input }),
+
+  registerDeliveryPartner: (input: DeliveryPartnerSignupInput) =>
+    apiFetch<AuthTokensDto>("/auth/register-delivery-partner", { method: "POST", body: input }),
 
   logout: () => apiFetch<{ ok: true }>("/auth/logout", { method: "POST" }),
 

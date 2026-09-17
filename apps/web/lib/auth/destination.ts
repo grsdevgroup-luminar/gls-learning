@@ -7,7 +7,7 @@ import type { AuthUserDto } from "@skillstream/shared";
 export function destinationFor(me: AuthUserDto, next?: string | null): string {
   if (me.role === "ADMIN") return "/admin";
   if (me.role === "INSTRUCTOR") return "/instructor";
-  if (me.role === "SALES_AGENT") return "/sales-agent";
+  if (me.role === "DELIVERY_PARTNER") return "/delivery-partner";
   if (me.role === "ORG_ADMIN") return "/org";
   // A pending instructor application means this account's identity right now
   // is "applicant," not "student" — send them to their application status

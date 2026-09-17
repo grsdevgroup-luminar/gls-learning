@@ -7,7 +7,7 @@
 SkillStream has real notification infrastructure — a BullMQ-backed reminder worker
 (`apps/api/src/modules/jobs/`), Resend-backed email delivery, and per-user opt-in
 preferences — but it only covers students, only pushes outward (email/SMS), and has
-**no in-app inbox for any role**. Instructors, sales agents, and org admins get zero
+**no in-app inbox for any role**. Instructors, delivery partners, and org admins get zero
 notification coverage today, even at moments with a clear trigger already in the code
 (application approved/rejected, payout state changes, referral confirmed).
 
@@ -83,7 +83,7 @@ Knock etc.).
 | Send audit trail | `ReminderLog` records every send + status (sent/opened/clicked/bounced) | `schema.prisma` — `ReminderLog` |
 
 **Gaps:** no in-app notification surface for any role · instructors/sales
-agents/org admins have zero coverage · admin alerts don't scale past one inbox ·
+partners/org admins have zero coverage · admin alerts don't scale past one inbox ·
 no order-confirmation or certificate-issued notification exists at all today.
 
 ---
@@ -108,9 +108,9 @@ added only where the moment justifies reaching someone outside the app.
 | Role | Event | Channels | Priority |
 |---|---|---|---|
 | Instructor | Application approved / rejected | in-app, email | P1 |
-| Sales Agent | Application approved / rejected | in-app, email | P1 |
+| Delivery Partner | Application approved / rejected | in-app, email | P1 |
 | Instructor | Course published / sent back from review | in-app, email | P1 |
-| Instructor / Sales Agent | Payout: requested → approved → paid | in-app, email | P1 |
+| Instructor / Delivery Partner | Payout: requested → approved → paid | in-app, email | P1 |
 | Org Member | Invite accepted / expired | in-app | P2 |
 
 ### Social
@@ -119,7 +119,7 @@ added only where the moment justifies reaching someone outside the app.
 |---|---|---|---|
 | Instructor | New review on your course | in-app | P2 |
 | Instructor | New enrollment in your course | in-app | P3 |
-| Sales Agent | Referral confirmed (order paid) | in-app, email | P1 |
+| Delivery Partner | Referral confirmed (order paid) | in-app, email | P1 |
 | Student | Someone replies to your comment | in-app | P2 |
 
 ### Engagement (existing triggers, generalized)
@@ -134,7 +134,7 @@ added only where the moment justifies reaching someone outside the app.
 
 | Role | Event | Channels | Priority |
 |---|---|---|---|
-| Admin | New instructor / sales-agent application to review | in-app, email | P1 |
+| Admin | New instructor / delivery-partner application to review | in-app, email | P1 |
 | Admin | New payout request to review | in-app, email | P1 |
 | Admin | New enrollment / new review (existing) | in-app, email | P3 |
 | Admin | Daily revenue / at-risk digest (existing) | in-app, email | P3 |
@@ -418,10 +418,10 @@ resolves (never inside it — see the Decisions log entry on this).
   `INSTRUCTOR_APPLICATION_APPROVED` (inside the approval transaction, emailed
   post-commit) / `INSTRUCTOR_APPLICATION_REJECTED` (not in a transaction, sent
   directly).
-- **`sales-agent/sales-agent.service.ts`** (`reviewApplication()`,
-  `confirmReferral()`) — `SALES_AGENT_APPLICATION_APPROVED` /
-  `_REJECTED`, and `REFERRAL_CONFIRMED`. `sales-agent.repository.ts`'s
-  `findReferralByOrderId` gained an `include` for the agent's `userId` so the
+- **`delivery-partner/delivery-partner.service.ts`** (`reviewApplication()`,
+  `confirmReferral()`) — `DELIVERY_PARTNER_APPLICATION_APPROVED` /
+  `_REJECTED`, and `REFERRAL_CONFIRMED`. `delivery-partner.repository.ts`'s
+  `findReferralByOrderId` gained an `include` for the partner's `userId` so the
   notification has someone to address.
 - **`payouts/payouts.service.ts`** (`approve()`, `markPaid()`) —
   `PAYOUT_APPROVED` / `PAYOUT_PAID`, the latter inside `markPaid()`'s
@@ -442,7 +442,7 @@ resolves (never inside it — see the Decisions log entry on this).
 ### Registering `NotificationsModule` as an import (same one-line pattern, 4 places)
 
 `commerce.module.ts`, `instructor.module.ts`, `payouts.module.ts`,
-`sales-agent.module.ts` — each added `NotificationsModule` to its `imports`
+`delivery-partner.module.ts` — each added `NotificationsModule` to its `imports`
 array. (Technically redundant once the module is `@Global()`, but left in as
 documentation of the dependency, matching how explicit this codebase already
 is elsewhere.) `app.module.ts` registers `NotificationsModule` itself, once.
@@ -506,7 +506,7 @@ is elsewhere.) `app.module.ts` registers `NotificationsModule` itself, once.
   "view all" list, shared across every portal.
 - **Five thin page wrappers** (new) — `app/(student)/dashboard/notifications`,
   `app/admin/notifications`, `app/instructor/notifications`,
-  `app/sales-agent/notifications`, `app/org/[slug]/notifications` — each just
+  `app/delivery-partner/notifications`, `app/org/[slug]/notifications` — each just
   renders `<NotificationsPage />`, since there's no single shared route across
   the five portals.
 - **`components/shared/portal-shell.tsx`** — added `<NotificationBell />` next

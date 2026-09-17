@@ -31,7 +31,7 @@ const PANEL_CLASS =
 function notificationsHref(pathname: string): string {
   if (pathname.startsWith("/admin")) return "/admin/notifications";
   if (pathname.startsWith("/instructor")) return "/instructor/notifications";
-  if (pathname.startsWith("/sales-agent")) return "/sales-agent/notifications";
+  if (pathname.startsWith("/delivery-partner")) return "/delivery-partner/notifications";
   const org = pathname.match(/^\/org\/([^/]+)/);
   if (org) return `/org/${org[1]}/notifications`;
   return "/dashboard/notifications";

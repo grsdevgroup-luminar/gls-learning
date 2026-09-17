@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { EnrollmentModule } from "../enrollment/enrollment.module";
-import { SalesAgentModule } from "../sales-agent/sales-agent.module";
+import { DeliveryPartnerModule } from "../delivery-partner/delivery-partner.module";
 import { UsersModule } from "../users/users.module";
 import { GeoIpModule } from "../geoip/geoip.module";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -32,7 +32,7 @@ import { CartRepository } from "./cart.repository";
 @Module({
   imports: [
     EnrollmentModule,
-    SalesAgentModule,
+    DeliveryPartnerModule,
     UsersModule,
     GeoIpModule,
     NotificationsModule,

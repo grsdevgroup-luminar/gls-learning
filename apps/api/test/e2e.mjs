@@ -699,55 +699,55 @@ async function adminModeration() {
   check("invalid user status rejected", r.status === 400, `${r.status}`);
 }
 
-// ─────────────────────────── 16. SALES AGENT ───────────────────────────
-async function salesAgent() {
-  G("sales-agent");
-  const email = `e2e.agent.${ts}@e2e-test.dev`;
+// ─────────────────────────── 16. DELIVERY PARTNER ───────────────────────
+async function deliveryPartner() {
+  G("delivery-partner");
+  const email = `e2e.partner.${ts}@e2e-test.dev`;
   const password = "e2ePassw0rd!";
-  let r = await req("POST", "/auth/register", { body: { name: "E2E Agent", email, password, country: "US" } });
-  check("register sales-agent applicant", r.status === 201, `${r.status} ${msg(r)}`);
-  state.agent = { email, password, token: r.json?.accessToken };
-  const me = await req("GET", "/auth/me", { token: state.agent.token });
-  state.agent.id = me.json?.id;
+  let r = await req("POST", "/auth/register", { body: { name: "E2E Partner", email, password, country: "US" } });
+  check("register delivery-partner applicant", r.status === 201, `${r.status} ${msg(r)}`);
+  state.partner = { email, password, token: r.json?.accessToken };
+  const me = await req("GET", "/auth/me", { token: state.partner.token });
+  state.partner.id = me.json?.id;
 
-  r = await req("POST", "/sales-agents/apply", { token: state.agent.token, body: { name: "E2E Agent", email, phone: "+10000000000", region: "US", bio: "E2E sales agent application." } });
-  check("submit sales-agent application", r.status === 201 || r.status === 200, `${r.status} ${msg(r)}`);
+  r = await req("POST", "/delivery-partners/apply", { token: state.partner.token, body: { name: "E2E Partner", email, phone: "+10000000000", region: "US", bio: "E2E delivery partner application." } });
+  check("submit delivery-partner application", r.status === 201 || r.status === 200, `${r.status} ${msg(r)}`);
 
-  r = await req("GET", "/admin/sales-agent-applications", { token: state.admin.token });
+  r = await req("GET", "/admin/delivery-partner-applications", { token: state.admin.token });
   const apps = Array.isArray(r.json) ? r.json : r.json?.items;
   const mine = apps?.find((a) => a.email === email);
-  check("sales-agent application in admin queue", r.status === 200 && !!mine, `${r.status} found=${!!mine}`);
+  check("delivery-partner application in admin queue", r.status === 200 && !!mine, `${r.status} found=${!!mine}`);
 
   if (mine) {
-    r = await req("POST", `/admin/sales-agent-applications/${mine.id}/review`, { token: state.admin.token, body: { status: "APPROVED", commissionPercent: 10, note: "e2e" } });
-    check("admin approves sales agent", r.status === 200 || r.status === 201, `${r.status} ${msg(r)}`);
+    r = await req("POST", `/admin/delivery-partner-applications/${mine.id}/review`, { token: state.admin.token, body: { status: "APPROVED", commissionPercent: 10, note: "e2e" } });
+    check("admin approves delivery partner", r.status === 200 || r.status === 201, `${r.status} ${msg(r)}`);
   }
 
-  r = await req("GET", "/admin/sales-agents", { token: state.admin.token });
-  const agents = Array.isArray(r.json) ? r.json : r.json?.items;
-  state.agentRecord = agents?.find((a) => a.email === email || a.user?.email === email);
-  check("approved agent appears in admin list", r.status === 200 && !!state.agentRecord, `${r.status}`);
+  r = await req("GET", "/admin/delivery-partners", { token: state.admin.token });
+  const partners = Array.isArray(r.json) ? r.json : r.json?.items;
+  state.partnerRecord = partners?.find((a) => a.email === email || a.user?.email === email);
+  check("approved partner appears in admin list", r.status === 200 && !!state.partnerRecord, `${r.status}`);
 
   r = await req("POST", "/auth/login", { body: { email, password } });
-  state.agent.token = r.json?.accessToken ?? state.agent.token;
-  r = await req("GET", "/me/sales-agent", { token: state.agent.token });
-  check("agent reads own record", r.status === 200, `${r.status} ${msg(r)}`);
+  state.partner.token = r.json?.accessToken ?? state.partner.token;
+  r = await req("GET", "/me/delivery-partner", { token: state.partner.token });
+  check("partner reads own record", r.status === 200, `${r.status} ${msg(r)}`);
   state.referralCode = r.json?.referralCode ?? r.json?.code;
-  r = await req("GET", "/me/sales-agent/referrals", { token: state.agent.token });
-  check("agent reads referrals", r.status === 200, `${r.status}`);
+  r = await req("GET", "/me/delivery-partner/referrals", { token: state.partner.token });
+  check("partner reads referrals", r.status === 200, `${r.status}`);
 
-  if (state.agentRecord?.id) {
-    r = await req("PATCH", `/admin/sales-agents/${state.agentRecord.id}`, { token: state.admin.token, body: { commissionPercent: 15 } });
-    check("admin updates agent commission", r.status === 200, `${r.status} ${msg(r)}`);
-    // Payouts moved to the unified request→approve→paid ledger; agents request
-    // their own, admins approve. The old POST /admin/sales-agents/:id/payout is gone.
-    r = await req("GET", "/me/payouts/balance", { token: state.agent.token });
-    check("agent reads payout balance", r.status === 200 && typeof r.json?.availableCents === "number", `${r.status} ${msg(r)}`);
+  if (state.partnerRecord?.id) {
+    r = await req("PATCH", `/admin/delivery-partners/${state.partnerRecord.id}`, { token: state.admin.token, body: { commissionPercent: 15 } });
+    check("admin updates partner commission", r.status === 200, `${r.status} ${msg(r)}`);
+    // Payouts moved to the unified request→approve→paid ledger; partners request
+    // their own, admins approve. The old POST /admin/delivery-partners/:id/payout is gone.
+    r = await req("GET", "/me/payouts/balance", { token: state.partner.token });
+    check("partner reads payout balance", r.status === 200 && typeof r.json?.availableCents === "number", `${r.status} ${msg(r)}`);
     r = await req("GET", "/admin/payouts?status=REQUESTED", { token: state.admin.token });
     check("admin lists payout requests", r.status === 200 && Array.isArray(r.json), `${r.status} ${msg(r)}`);
   }
-  r = await req("GET", "/me/sales-agent", { token: state.student.token });
-  check("non-agent gets no agent record", r.status === 404 || r.status === 403 || (r.status === 200 && !r.json), `${r.status}`);
+  r = await req("GET", "/me/delivery-partner", { token: state.student.token });
+  check("non-partner gets no partner record", r.status === 404 || r.status === 403 || (r.status === 200 && !r.json), `${r.status}`);
 }
 
 // ─────────────────────────── 17. ORGANIZATIONS ───────────────────────────
@@ -876,7 +876,7 @@ async function cleanup() {
   // student bought a course above) are deliberately undeletable — the API says
   // to suspend them instead, so a 400 there is the expected outcome, and the
   // row stays behind. Same for the course: its OrderItem is an accounting record.
-  for (const u of [state.student, state.instructor, state.agent]) {
+  for (const u of [state.student, state.instructor, state.partner]) {
     if (!u?.id) continue;
     const r = await req("DELETE", `/admin/users/${u.id}`, { token: t });
     const label = `delete e2e user ${u.email.split("@")[0]}`;
@@ -1022,7 +1022,7 @@ const steps = [
   ["enrollment", enrollment], ["quizTaking", quizTaking], ["reviews", reviewsAndComments],
   ["certificates", certificates], ["lessonNotes", lessonNotes],
   ["adminModeration", adminModeration],
-  ["salesAgent", salesAgent], ["organizations", organizations],
+  ["deliveryPartner", deliveryPartner], ["organizations", organizations],
   ["automation", automation], ["receipts", receipts],
   ["notificationPrefs", notificationPrefs], ["phoneNumber", phoneNumber],
   ["cleanup", cleanup],

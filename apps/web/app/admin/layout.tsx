@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       badgeCount: applicationStats?.pending,
       searchKeywords: ["instructor management", "applications", "approval", "teachers"],
     },
-    { href: "/admin/agents", label: "Sales Agents", icon: "UserCheck", searchKeywords: ["sales management", "applications", "referrals", "agents"] },
+    { href: "/admin/delivery-partners", label: "Delivery Partners", icon: "UserCheck", searchKeywords: ["sales management", "applications", "referrals", "agents", "delivery partners"] },
     { href: "/admin/payouts", label: "Payouts", icon: "Wallet", searchKeywords: ["payments", "withdrawals", "earnings", "finance"] },
     { href: "/admin/organizations", label: "Organizations", icon: "Building2", searchKeywords: ["companies", "teams", "company management", "members"] },
     { href: "/admin/students", label: "Students", icon: "Users", searchKeywords: ["student management", "learners", "users", "profiles"] },

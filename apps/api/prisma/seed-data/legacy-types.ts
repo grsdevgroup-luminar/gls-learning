@@ -91,6 +91,7 @@ export interface Review {
 
 export interface Course {
   id: string;
+  courseNumber: string;
   slug: string;
   title: string;
   subtitle: string;
@@ -250,11 +251,11 @@ export interface CartItem {
   courseId: string;
 }
 
-// ── Sales Agents ─────────────────────────────────────────────────────────────
+// ── Delivery Partners ─────────────────────────────────────────────────────────────
 
-export type SalesAgentStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+export type DeliveryPartnerStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
-export interface SalesAgentApplication {
+export interface DeliveryPartnerApplication {
   id: string;
   name: string;
   email: string;
@@ -262,14 +263,14 @@ export interface SalesAgentApplication {
   region: string; // geographic region they cover
   bio: string;
   appliedAt: string; // ISO
-  status: SalesAgentStatus;
+  status: DeliveryPartnerStatus;
   reviewedAt?: string;
   note?: string;
 }
 
-export interface SalesAgentReferral {
+export interface DeliveryPartnerReferral {
   id: string;
-  agentId: string;
+  partnerId: string;
   orderId: string;
   studentName: string;
   courseTitle: string;
@@ -279,7 +280,7 @@ export interface SalesAgentReferral {
   date: string; // ISO
 }
 
-export interface SalesAgent {
+export interface DeliveryPartner {
   id: string;
   name: string;
   email: string;
@@ -288,7 +289,7 @@ export interface SalesAgent {
   region: string;
   referralCode: string;
   commissionPercent: number;
-  status: SalesAgentStatus;
+  status: DeliveryPartnerStatus;
   joinedAt: string; // ISO
   totalEarnings: number; // USD lifetime confirmed commissions
   pendingEarnings: number; // USD awaiting confirmation

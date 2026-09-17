@@ -173,7 +173,7 @@ export default function AdminPayouts() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Payouts</h1>
         <p className="text-muted-foreground">
-          Approve and settle instructor and sales-agent payout requests.
+          Approve and settle instructor and delivery-partner payout requests.
         </p>
       </div>
 
@@ -307,7 +307,7 @@ export default function AdminPayouts() {
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {p.payeeType === "AGENT" ? "Sales agent" : "Instructor"}
+                      {p.payeeType === "DELIVERY_PARTNER" ? "Delivery partner" : "Instructor"}
                     </TableCell>
                     <TableCell className="font-semibold tabular-nums">
                       {formatUsd(p.amountCents / 100)}

@@ -3,7 +3,7 @@
 **Scope of the audit:** `app/(storefront)/*` (home, courses, course detail, cart, checkout,
 login/signup, teach) plus everything it pulls in (`lib/api`, `lib/context/store.tsx`,
 `components/storefront`, `components/shared`, `components/ui`). Other route groups
-(`(student)`, `admin`, `instructor`, `org`, `sales-agent`) were sampled to confirm which
+(`(student)`, `admin`, `instructor`, `org`, `delivery-partner`) were sampled to confirm which
 findings are storefront-specific vs. systemic — most are systemic, which is why the file
 structure section proposes one convention for the whole app, not just the storefront.
 
@@ -257,7 +257,7 @@ Representative sizes (not outliers — this is the norm, not the exception):
 | `app/(storefront)/checkout/page.tsx` | 314 | (sampled, not fully read — flagged by line count) |
 | `app/admin/pricing/page.tsx` | 353 | same pattern, confirms this is systemic, not storefront-specific |
 | `app/admin/marketing/page.tsx` | 346 | same |
-| `app/admin/agents/page.tsx` | 324 | same |
+| `app/admin/partners/page.tsx` | 324 | same |
 
 None of these are "doing too much work" in a complexity sense — the logic itself is
 reasonable. The problem is **one file = one page = one client boundary = every concern**,
@@ -488,7 +488,7 @@ Roughly in priority/dependency order — later items build on earlier ones:
    shells with client islands (§2), add `generateMetadata` + JSON-LD (§4) as part of the
    same pass since they need the same server-fetched data.
 4. **File structure migration:** colocate storefront components per §11, apply the same
-   convention to `(student)`, `admin`, `instructor`, `org`, `sales-agent` once the pattern
+   convention to `(student)`, `admin`, `instructor`, `org`, `delivery-partner` once the pattern
    is proven on the storefront.
 5. **Type system consolidation:** retire the legacy adapter layer (§8) — biggest blast
    radius, do last, once everything upstream of it has settled.

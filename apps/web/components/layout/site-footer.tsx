@@ -10,10 +10,7 @@ const cols = [
     links: [
       ['Browse courses', '/courses'],
       ['Teach on GRS Learning', '/teach'],
-      // The affiliate application lives on the portal page itself, which is
-      // otherwise only linked for existing agents — so without this there is no
-      // way to discover the program.
-      ['Become an affiliate', '/sales-agent'],
+      ['Become a delivery partner', '/partner'],
       ['Student dashboard', '/dashboard'],
       ['Admin panel', '/admin'],
     ],

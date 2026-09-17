@@ -14,7 +14,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { receiptPdf } from "../../common/utils/pdf";
 import { EmailService } from "../email/email.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";
-import { SalesAgentService } from "../sales-agent/sales-agent.service";
+import { DeliveryPartnerService } from "../delivery-partner/delivery-partner.service";
 import {
   NotificationsService,
   type NotifyInput,
@@ -44,7 +44,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly repo: OrdersRepository,
     private readonly enrollment: EnrollmentService,
-    private readonly salesAgents: SalesAgentService,
+    private readonly deliveryPartners: DeliveryPartnerService,
     private readonly email: EmailService,
     private readonly cart: CartService,
     private readonly notifications: NotificationsService,
@@ -275,12 +275,27 @@ export class OrdersService {
             event: "COURSE_NEW_ENROLLMENT",
             title: "New enrollment",
             body: `A student enrolled in "${item.titleSnapshot}".`,
-            href: `/instructor/courses/${item.courseId}`,
+            href: `/instructor/courses/${item.courseId}/edit`,
             skipEmail: true,
           },
           tx,
         );
       }
+
+      // In-app only, no email — same Phase 3 ambient pattern as
+      // COURSE_NEW_ENROLLMENT above. Admins already have an opt-in email
+      // alert for new enrollments (AdminAlertsService.newEnrollment); this is
+      // the in-app feed the admin notification bell was missing entirely.
+      await this.notifications.notifyAdmins(
+        {
+          event: "ORDER_NEW_PURCHASE",
+          title: "New course purchase",
+          body: `A student purchased ${courseNames} for $${(order.totalCents / 100).toFixed(2)}.`,
+          href: "/admin/orders",
+          skipEmail: true,
+        },
+        tx,
+      );
 
       await this.repo.incrementStudentTotalSpent(
         order.userId,
@@ -330,8 +345,8 @@ export class OrdersService {
       await this.cart.resetOnFulfilled(order.userId, tx);
     });
 
-    // Credit any attributed sales-agent referral now that payment succeeded.
-    await this.salesAgents.confirmReferral(orderId);
+    // Credit any attributed delivery-partner referral now that payment succeeded.
+    await this.deliveryPartners.confirmReferral(orderId);
 
     const updated = await this.findById(orderId);
 

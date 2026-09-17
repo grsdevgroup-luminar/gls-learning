@@ -19,7 +19,7 @@ import { CouponsService } from "./coupons.service";
 import { OrdersService } from "./orders.service";
 import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { PaymentsService } from "../payment/payments.service";
-import { SalesAgentService } from "../sales-agent/sales-agent.service";
+import { DeliveryPartnerService } from "../delivery-partner/delivery-partner.service";
 import { CreditsService } from "../credits/credits.service";
 
 /** Only `[A-Za-z0-9_-]{1,128}` allowed. Anything else is a client bug or an
@@ -36,7 +36,7 @@ export class CheckoutService {
     private readonly coupons: CouponsService,
     private readonly orders: OrdersService,
     private readonly payments: PaymentsService,
-    private readonly salesAgents: SalesAgentService,
+    private readonly deliveryPartners: DeliveryPartnerService,
     private readonly users: UsersService,
     private readonly geoIp: GeoIpService,
     private readonly credits: CreditsService,
@@ -228,9 +228,9 @@ export class CheckoutService {
     // never completes doesn't drain the wallet. `order.creditAppliedCents`
     // carries the intent forward. See REFUND_TO_CREDIT_PLAN.md.
 
-    // Attribute a sales-agent referral (pending until the order is paid).
+    // Attribute a delivery-partner referral (pending until the order is paid).
     if (input.referralCode)
-      await this.salesAgents.createPendingReferral(order.id, input.referralCode);
+      await this.deliveryPartners.createPendingReferral(order.id, input.referralCode);
 
     // Free orders (100%-off coupon or $0 courses) fulfil immediately.
     if (quote.totalCents === 0) {

@@ -56,7 +56,7 @@ Per-request, `app.module.ts` registers these globally, in this order:
   decorated `@Public()`. Re-fetches the user from the DB on every request (not
   just decoding the JWT), so a deleted/demoted user's still-valid token stops
   working immediately.
-- **`RolesGuard`**: enforces `@Roles("ADMIN", ...)` where present. Sales-agent
+- **`RolesGuard`**: enforces `@Roles("ADMIN", ...)` where present. Delivery-partner
   and org-admin authorization is deliberately **not** modeled here — it's
   contextual ("admin of *this* org"), so those checks live inline in the
   relevant service instead.
@@ -67,7 +67,7 @@ Per-request, `app.module.ts` registers these globally, in this order:
 Domain code is organized as one Nest module per bounded area under
 `apps/api/src/*` — `auth`, `courses`, `authoring` (instructor course builder),
 `enrollment`, `quiz`, `certificates`, `commerce` (cart/checkout/orders/coupons/
-pricing/payments+webhooks), `reviews`, `comments`, `instructor`, `sales-agent`,
+pricing/payments+webhooks), `reviews`, `comments`, `instructor`, `delivery-partner`,
 `organizations`, `payouts`, `admin`, `media` (Cloudflare Stream), `email` (email
 + SMS + admin alerts), `jobs` (BullMQ processors), `users`, `notes`. `common/`
 holds the cross-cutting guards/filters/interceptors above.
@@ -100,7 +100,7 @@ area — see the schema's own section comments for the authoritative model list:
 | Pricing / localization | `PricingTier`, `CountryOverride`, `Region` |
 | Marketing | `AutomationRule`, `ReminderLog` |
 | Ops | `PlatformSettings` (singleton row), `AuditLog`, `WebhookEvent` |
-| Sales agents | `SalesAgent`, `SalesAgentApplication`, `SalesAgentReferral` |
+| Delivery partners | `DeliveryPartner`, `DeliveryPartnerApplication`, `DeliveryPartnerReferral` |
 | B2B orgs | `Organization`, `OrgMember`, `OrgInvitation` — see [ORGANIZATION_ENROLLMENT.md](./ORGANIZATION_ENROLLMENT.md) for the full admin/org-admin/member flow and suspension policy |
 | Payouts | `PayoutAccount`, `Payout` |
 
@@ -164,7 +164,7 @@ URLs are signed in-process instead of one Cloudflare API call per lesson play.
 
 - **Data fetching**: TanStack Query wraps a single typed `lib/api` fetch client
   — no ad hoc `fetch()` calls scattered through components. Every portal
-  (storefront, student, instructor, admin, org, sales-agent) is wired to the
+  (storefront, student, instructor, admin, org, delivery-partner) is wired to the
   real API; there is no mock-data path left in the shipped app (`lib/mock/*`
   exists as reference fixtures only and is not imported anywhere — see the note
   in the root `README.md`).

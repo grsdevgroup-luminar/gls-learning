@@ -22,7 +22,7 @@ import { PayoutsService } from "./payouts.service";
 export class PayoutsController {
   constructor(private readonly payouts: PayoutsService) {}
 
-  // ── payee (instructor / sales agent) ──
+  // ── payee (instructor / delivery partner) ──
   @Get("me/payouts/balance")
   balance(@CurrentUser() user: RequestUser) {
     return this.payouts.myBalance(user);
