@@ -1,5 +1,3 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 import { spawnSync } from "node:child_process";
 import net from "node:net";
 
