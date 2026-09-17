@@ -1,11 +1,3 @@
-import { createRequire } from "node:module";
-
-// This package only declares `eslint` itself. typescript-eslint, @eslint/js
-// and `globals` are present in the workspace (pulled in by apps/web's
-// eslint-config-next) and pnpm hoists them into the virtual store's shared
-// node_modules, so resolve them from there instead of adding dependencies
-// just for linting.
-const require = createRequire(import.meta.url);
 const fromStore = (name) =>
   require(`../../node_modules/.pnpm/node_modules/${name}`);
 
