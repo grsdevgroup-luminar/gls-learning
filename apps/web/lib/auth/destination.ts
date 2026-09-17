@@ -9,7 +9,12 @@ export function destinationFor(me: AuthUserDto, next?: string | null): string {
   // The instructor portal is internally rendered at the root path so instructors never see
   // the storefront or a visible /instructor redirect after login.
   if (me.role === "INSTRUCTOR") return "/";
+<<<<<<< HEAD
   if (me.role === "DELIVERY_PARTNER") return "/delivery-partner";  if (me.role === "ORG_ADMIN") return "/org";
+=======
+  if (me.role === "DELIVERY_PARTNER") return "/delivery-partner";
+  if (me.role === "ORG_ADMIN") return "/org";
+>>>>>>> 2d6543d (chore: delivery partner flow updated till now.)
   // A pending instructor application means this account's identity right now
   // is "applicant," not "student" — send them to their application status
   // page instead of the student dashboard so the two journeys never mix. A
