@@ -10,6 +10,7 @@ by a real NestJS API, PostgreSQL, and Redis-backed background jobs.
 > below are both real and production-shaped — see [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md)
 > for architecture and data model, and [`docs/FEATURE_FLOWS.md`](docs/FEATURE_FLOWS.md) for
 > a step-by-step walkthrough of every role and feature.
+> 
 
 ## Tech stack
 
