@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
-import { adminApi, orgApi, type InstructorCourseDto } from "@/lib/api/endpoints";
+import { adminApi, type InstructorCourseDto } from "@/lib/api/endpoints";
 import { useCategories } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
@@ -20,19 +20,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AdminPagination } from "@/app/admin/_components/admin-pagination";
 import { BulkAssignConfirmDialog } from "@/components/shared/bulk-assign-confirm-dialog";
-import { BookOpenCheck, Plus, Search, X, BookOpen, Lock, Globe, Layers } from "lucide-react";
+import { BookOpenCheck, Plus, Search, X, BookOpen, Lock, Globe, Layers, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const ALL_CATEGORIES = "ALL";
 const PAGE_SIZE = 8;
+const DEFAULT_MEMBER_CAP = 10;
 
 /** Fetches every course matching the filter across all pages — the picker
  *  itself only ever loads one page at a time, but a bulk assign needs the
- *  full matching set. */
+ *  full matching set. Mirrors ManageOrgCoursesDialog's identically-named
+ *  helper, filtered by partner instead of org. */
 async function fetchAllMatching(params: {
   q?: string;
   category?: string;
-  unassignedToOrgId: string;
+  unassignedToPartnerId: string;
 }): Promise<InstructorCourseDto[]> {
   const all: InstructorCourseDto[] = [];
   let page = 1;
@@ -46,28 +48,30 @@ async function fetchAllMatching(params: {
 }
 
 /**
- * Platform-admin-only: which courses a company gets is a SkillStream
- * decision (OrganizationsService.assertPlatformAdmin rejects an org's own
- * admin), so this is the one place assignment happens — the org portal's own
- * Courses page is read-only. Lists what's assigned (with remove) and lets the
- * admin search/filter/page through every other published course (public or
- * private — assignment has no visibility precondition) to add more.
- *
- * The dialog is a fixed-height flex column (`h-[min(...)]`, not `max-h-`) so
- * assigning/removing a course never resizes the modal — the body scrolls
- * inside that fixed frame instead. Below the `lg` breakpoint the two sections
- * stack in one shared scroll region (there's not enough width for a second
- * column); at `lg`+ they sit side by side, each scrolling independently, so
- * browsing/paginating "Add courses" never pushes "Assigned" out of view or
- * vice versa.
+ * Platform-admin-only, same reasoning as ManageOrgCoursesDialog: which
+ * courses a delivery partner gets to redistribute is a platform decision.
+ * The one structural difference from the org dialog — a delivery partner's
+ * course assignment carries a member cap (decision #4/#5 in
+ * DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3), set when assigning and editable
+ * afterward, mirroring how the Partners table already edits commission %
+ * inline.
  */
-export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgName: string }) {
+export function ManagePartnerCoursesDialog({
+  partnerId,
+  partnerName,
+}: {
+  partnerId: string;
+  partnerName: string;
+}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [qInput, setQInput] = useState("");
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const [page, setPage] = useState(1);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkMemberCap, setBulkMemberCap] = useState(DEFAULT_MEMBER_CAP);
+  const [capInputs, setCapInputs] = useState<Record<string, string>>({});
+  const [assignCapInputs, setAssignCapInputs] = useState<Record<string, string>>({});
   const q = useDebouncedSearch(qInput);
 
   useEffect(() => {
@@ -75,8 +79,8 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
   }, [q, category]);
 
   const { data: assignedCourses, isLoading: assignedLoading } = useQuery({
-    queryKey: ["org", orgId, "courses"],
-    queryFn: () => orgApi.courses(orgId),
+    queryKey: ["admin", "delivery-partners", partnerId, "courses"],
+    queryFn: () => adminApi.partnerCourses(partnerId),
     enabled: open,
   });
   const { data: categories = [] } = useCategories();
@@ -84,14 +88,14 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
     queryKey: [
       "admin",
       "courses",
-      "assignable",
-      orgId,
+      "assignable-partner",
+      partnerId,
       { q, category, page },
     ],
     queryFn: () =>
       adminApi.courses({
         status: "PUBLISHED",
-        unassignedToOrgId: orgId,
+        unassignedToPartnerId: partnerId,
         q: q || undefined,
         category: category === ALL_CATEGORIES ? undefined : category,
         page,
@@ -101,11 +105,9 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
     placeholderData: (prev) => prev,
   });
 
-  // If the result set shrinks out from under the current page (e.g. the last
-  // item on the last page just got assigned, or a search/filter narrows the
-  // match count) the server returns an empty `items` for an out-of-range
-  // page rather than clamping it — snap back to the actual last page so the
-  // list never silently goes blank.
+  // Same defensive re-clamp as ManageOrgCoursesDialog — a course leaving the
+  // result set (just assigned, or a narrowed filter) can leave `page` past
+  // the new last page.
   useEffect(() => {
     if (coursePage && page > coursePage.totalPages && coursePage.totalPages >= 1) {
       setPage(coursePage.totalPages);
@@ -113,36 +115,47 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
   }, [coursePage, page]);
 
   const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: ["org", orgId, "courses"] });
-    void qc.invalidateQueries({ queryKey: ["admin-organizations"] });
-    // Covers both this dialog's own "assignable" list (a course should drop
-    // out of it the moment it's assigned) and the admin courses table's Orgs
-    // count column. Assignment never touches visibility, so the public
-    // catalog is never affected and doesn't need invalidating here.
+    void qc.invalidateQueries({ queryKey: ["admin", "delivery-partners", partnerId, "courses"] });
+    void qc.invalidateQueries({ queryKey: ["admin", "delivery-partners"] });
     void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
   };
 
   const assignMutation = useMutation({
-    mutationFn: (courseId: string) => orgApi.assignCourse(orgId, courseId),
-    onSuccess: () => { toast.success("Course assigned"); invalidate(); },
+    mutationFn: ({ courseId, memberCap }: { courseId: string; memberCap: number }) =>
+      adminApi.assignPartnerCourse(partnerId, { courseId, memberCap }),
+    onSuccess: (_data, { courseId }) => {
+      toast.success("Course assigned");
+      setAssignCapInputs((p) => { const n = { ...p }; delete n[courseId]; return n; });
+      invalidate();
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
   const unassignMutation = useMutation({
-    mutationFn: (courseId: string) => orgApi.unassignCourse(orgId, courseId),
+    mutationFn: (courseId: string) => adminApi.unassignPartnerCourse(partnerId, courseId),
     onSuccess: () => { toast.success("Course removed"); invalidate(); },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+  const updateCapMutation = useMutation({
+    mutationFn: ({ courseId, memberCap }: { courseId: string; memberCap: number }) =>
+      adminApi.updatePartnerCourseAssignment(partnerId, courseId, memberCap),
+    onSuccess: (_data, { courseId }) => {
+      toast.success("Member cap updated");
+      setCapInputs((p) => { const n = { ...p }; delete n[courseId]; return n; });
+      invalidate();
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
   const bulkAssignFilter = {
     q: q || undefined,
     category: category === ALL_CATEGORIES ? undefined : category,
-    unassignedToOrgId: orgId,
+    unassignedToPartnerId: partnerId,
   };
   const bulkAssignMutation = useMutation({
     mutationFn: async () => {
       const matches = await fetchAllMatching(bulkAssignFilter);
       const results = await Promise.allSettled(
-        matches.map((c) => orgApi.assignCourse(orgId, c.id)),
+        matches.map((c) => adminApi.assignPartnerCourse(partnerId, { courseId: c.id, memberCap: bulkMemberCap })),
       );
       const succeeded = results.filter((r) => r.status === "fulfilled").length;
       return { succeeded, failed: results.length - succeeded };
@@ -166,10 +179,10 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
         : "all published courses";
 
   const assigned = assignedCourses ?? [];
-  const assignedIds = new Set(assigned.map((c) => c.id));
-  // The query already excludes courses assigned to this org (unassignedToOrgId) —
-  // this filter is just a defensive guard against the brief window before a
-  // just-assigned course's cache invalidation lands.
+  const assignedIds = new Set(assigned.map((a) => a.course.id));
+  // The query already excludes courses assigned to this partner
+  // (unassignedToPartnerId) — this filter is just a defensive guard against
+  // the brief window before a just-assigned course's cache invalidation lands.
   const available = (coursePage?.items ?? []).filter((c) => !assignedIds.has(c.id));
 
   return (
@@ -178,7 +191,7 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
         open={open}
         onOpenChange={(v) => {
           setOpen(v);
-          if (!v) { setQInput(""); setCategory(ALL_CATEGORIES); setPage(1); }
+          if (!v) { setQInput(""); setCategory(ALL_CATEGORIES); setPage(1); setCapInputs({}); setAssignCapInputs({}); }
         }}
       >
         <DialogTrigger render={<Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" />}>
@@ -186,10 +199,10 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
         </DialogTrigger>
         <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] w-[calc(100vw-2rem)] !max-w-none flex-col sm:w-[min(640px,calc(100vw-3rem))] sm:min-w-[560px] lg:w-[min(960px,calc(100vw-4rem))] lg:min-w-[880px]">
           <DialogHeader>
-            <DialogTitle>{orgName} — courses</DialogTitle>
+            <DialogTitle>{partnerName} — courses</DialogTitle>
             <DialogDescription>
-              Assign or remove the courses available to this organization&apos;s members — public
-              courses are curated into their list, private courses are only reachable this way.
+              Assign or remove the courses this delivery partner can redistribute — each assignment sets how many
+              members that partner can invite to it.
             </DialogDescription>
           </DialogHeader>
 
@@ -205,24 +218,39 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                   ) : assigned.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No courses assigned yet.</p>
                   ) : (
-                    assigned.map((c) => (
-                      <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
-                        <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
-                        <div className="min-w-0 flex-1 truncate text-sm">{c.title}</div>
-                        {c.visibility === "PRIVATE" ? (
-                          <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
-                            <Lock data-icon="inline-start" /> Private
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                            <Globe data-icon="inline-start" /> Public
-                          </Badge>
+                    assigned.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 rounded-lg border p-2">
+                        <CourseArt seed={a.course.thumbnail} title={a.course.title} className="h-8 w-8 shrink-0 rounded-md" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm">{a.course.title}</div>
+                          <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                            <Users className="h-3 w-3" /> {a.usedSeats} / {a.memberCap} members
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          className="h-7 w-16 shrink-0 text-sm"
+                          value={capInputs[a.course.id] ?? a.memberCap}
+                          onChange={(e) => setCapInputs((p) => ({ ...p, [a.course.id]: e.target.value }))}
+                        />
+                        {capInputs[a.course.id] !== undefined && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 shrink-0 px-2 text-xs"
+                            disabled={updateCapMutation.isPending}
+                            onClick={() => updateCapMutation.mutate({ courseId: a.course.id, memberCap: Number(capInputs[a.course.id]) })}
+                          >
+                            Save
+                          </Button>
                         )}
                         <Button
                           size="icon-sm"
                           variant="ghost"
                           aria-label="Remove course"
-                          onClick={() => unassignMutation.mutate(c.id)}
+                          onClick={() => unassignMutation.mutate(a.course.id)}
                           disabled={unassignMutation.isPending}
                         >
                           <X className="h-4 w-4" />
@@ -250,11 +278,6 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                     </div>
                     <Select value={category} onValueChange={(v) => v && setCategory(v)}>
                       <SelectTrigger className="h-8 w-full sm:w-44"><SelectValue /></SelectTrigger>
-                      {/* alignItemWithTrigger (the default) lines the *selected* item up
-                          with the trigger, native-<select>-style — which can slide the
-                          whole list upward past the trigger once a non-first item is
-                          selected. A plain "always opens below" combobox reads better
-                          for a filter control, so opt out of that here. */}
                       <SelectContent alignItemWithTrigger={false}>
                         <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
                         {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -303,10 +326,22 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                             <Globe data-icon="inline-start" /> Public
                           </Badge>
                         )}
+                        <Input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          aria-label="Member cap"
+                          className="h-8 w-16 shrink-0 text-sm"
+                          value={assignCapInputs[c.id] ?? DEFAULT_MEMBER_CAP}
+                          onChange={(e) => setAssignCapInputs((p) => ({ ...p, [c.id]: e.target.value }))}
+                        />
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => assignMutation.mutate(c.id)}
+                          onClick={() => assignMutation.mutate({
+                            courseId: c.id,
+                            memberCap: Number(assignCapInputs[c.id] ?? DEFAULT_MEMBER_CAP),
+                          })}
                           disabled={assignMutation.isPending}
                         >
                           <Plus className="h-4 w-4" /> Add
@@ -330,11 +365,13 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
       <BulkAssignConfirmDialog
         open={bulkConfirmOpen}
         onOpenChange={setBulkConfirmOpen}
-        targetName={orgName}
+        targetName={partnerName}
         label={bulkAssignLabel}
         count={coursePage?.total ?? 0}
         pending={bulkAssignMutation.isPending}
         onConfirm={() => bulkAssignMutation.mutate()}
+        memberCap={bulkMemberCap}
+        onMemberCapChange={setBulkMemberCap}
       />
     </>
   );

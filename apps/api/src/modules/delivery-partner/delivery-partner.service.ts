@@ -15,18 +15,27 @@ import {
 import type {
   AdminDeliveryPartnerApplicationQuery,
   AdminDeliveryPartnerQuery,
-  ApplyDeliveryPartnerInput,
+  AssignPartnerCourseInput,
   DeliveryPartnerApplicationDto,
   DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerCourseAssignmentDto,
   DeliveryPartnerDto,
+  DeliveryPartnerInvitationDto,
+  DeliveryPartnerMemberDto,
   DeliveryPartnerReferralDto,
   DeliveryPartnerSignupInput,
+  InvitePartnerMemberInput,
   Paginated,
   PartnerDocumentDto,
+  PartnerGrantedCourseDto,
+  PartnerInvitationInfoDto,
   ReviewPartnerApplicationInput,
+  UpdatePartnerCourseAssignmentInput,
   UpdatePartnerInput,
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
+import { toCourseSummary } from "../courses/course.mapper";
+import { EmailService } from "../email/email.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import {
   PARTNER_DOC_KEY_PREFIX,
@@ -36,15 +45,19 @@ import {
 import type { StorageDriver } from "../storage/storage.driver";
 import {
   DeliveryPartnerRepository,
+  type CourseAssignmentRow,
   type DeliveryPartnerRow,
 } from "./delivery-partner.repository";
 import type { ValidatedPartnerDocFile } from "./pipes/partner-doc-file.pipe";
+
+const INVITE_TTL_MS = 7 * 86_400_000;
 
 @Injectable()
 export class DeliveryPartnerService {
   constructor(
     private readonly repo: DeliveryPartnerRepository,
     private readonly notifications: NotificationsService,
+    private readonly email: EmailService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
@@ -86,6 +99,7 @@ export class DeliveryPartnerService {
       country: a.country,
       customFields: parsePartnerCustomFields(a.customFields),
       documents: resolved,
+      expectedCommissionPercent: a.expectedCommissionPercent,
       status: a.status,
       appliedAt: a.appliedAt.toISOString(),
       reviewedAt: a.reviewedAt?.toISOString() ?? null,
@@ -93,32 +107,27 @@ export class DeliveryPartnerService {
     };
   }
 
-  // ── application ──────────────────────────────────────────────────────────
-  async apply(
-    user: RequestUser,
-    input: ApplyDeliveryPartnerInput,
-  ): Promise<DeliveryPartnerApplicationDto> {
-    const dbUser = await this.repo.findUserByIdOrThrow(user.id);
-    const pending = await this.repo.findPendingApplicationByUser(user.id);
-    if (pending) throw new BadRequestException("You already have a pending application");
-
-    const app = await this.createApplicationRecord(
-      user.id,
-      dbUser.name,
-      dbUser.email,
-      input,
-    );
-    return this.toAppDto(app);
+  private toAssignmentDto(a: CourseAssignmentRow): DeliveryPartnerCourseAssignmentDto {
+    return {
+      id: a.id,
+      partnerId: a.partnerId,
+      course: toCourseSummary(a.course),
+      memberCap: a.memberCap,
+      usedSeats: a.usedSeats,
+      createdAt: a.createdAt.toISOString(),
+    };
   }
 
-  /** Shared by `apply()` (an existing account applying) and
-   *  `createSignupApplication()` (a brand-new account created and applying
-   *  in the same step, from the dedicated signup journey). */
+  // ── application ──────────────────────────────────────────────────────────
+  /** The only way to create an application — always as part of the combined
+   *  signup+apply step (`createSignupApplication`, called right after a brand
+   *  new account is created). An existing account cannot self-initiate one;
+   *  see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §2 for why. */
   private createApplicationRecord(
     userId: string,
     name: string,
     email: string,
-    input: ApplyDeliveryPartnerInput,
+    input: DeliveryPartnerSignupInput,
   ) {
     return this.repo.createApplication({
       userId,
@@ -126,6 +135,7 @@ export class DeliveryPartnerService {
       email,
       country: input.country,
       customFields: input.customFields as Prisma.InputJsonValue,
+      expectedCommissionPercent: input.expectedCommissionPercent ?? null,
       status: "PENDING",
     });
   }
@@ -188,18 +198,14 @@ export class DeliveryPartnerService {
     return { ...doc, url: stored.url };
   }
 
-  async deleteDocument(user: RequestUser, key: string): Promise<{ ok: true }> {
-    if (!key.startsWith(`${PARTNER_DOC_KEY_PREFIX}/${user.id}/`)) {
-      throw new ForbiddenException("Not your file");
-    }
-    const app = await this.findPendingApplicationOrThrow(user.id);
-    const documents = parsePartnerDocuments(app.documents);
-    await this.repo.updateApplicationDocuments(
-      app.id,
-      documents.filter((d) => d.key !== key) as Prisma.InputJsonValue,
-    );
-    await this.storage.delete(key).catch(() => undefined);
-    return { ok: true };
+  /** Mirrors InstructorService.latestApplicationStatus — lets AuthService
+   *  resolve AuthUserDto.deliveryPartnerStatus without a second round trip
+   *  from the frontend. */
+  async latestApplicationStatus(
+    userId: string,
+  ): Promise<DeliveryPartnerApplicationDto["status"] | null> {
+    const app = await this.repo.findLatestApplicationByUser(userId);
+    return app?.status ?? null;
   }
 
   // ── partner self ─────────────────────────────────────────────────────────
@@ -248,6 +254,170 @@ export class DeliveryPartnerService {
       commissionCents: r.commissionCents,
       status: r.status as "pending" | "confirmed" | "paid",
       createdAt: r.createdAt.toISOString(),
+    }));
+  }
+
+  // ── course assignments + members (partner-authenticated) ─────────────────
+  /** A suspended (or otherwise non-approved) partner keeps their `DeliveryPartner`
+   *  row, but every self-service action must stop working immediately — the
+   *  frontend already hides these, but that's cosmetic only, so it's enforced
+   *  here too. */
+  async myCourseAssignments(user: RequestUser): Promise<DeliveryPartnerCourseAssignmentDto[]> {
+    const partner = await this.repo.findPartnerByUserId(user.id);
+    if (!partner || partner.status !== "APPROVED") return [];
+    return this.listCourseAssignments(partner.id);
+  }
+
+  /** Confirms the caller actually owns this course assignment before letting
+   *  them invite/list/remove against it — every partner-authenticated
+   *  endpoint below goes through this first. Returns the full partner row
+   *  (not just its id) since inviteMember needs the partner's name for the
+   *  invite email. Also re-checks `status === APPROVED` here (not just at the
+   *  page level) so a suspended partner can't keep managing members via a
+   *  direct API call once their dashboard access is revoked. */
+  private async assertOwnAssignment(user: RequestUser, courseAssignmentId: string) {
+    const partner = await this.repo.findPartnerByUserId(user.id);
+    if (!partner) throw new ForbiddenException("Not a delivery partner");
+    if (partner.status !== "APPROVED") {
+      throw new ForbiddenException("Your delivery partner account is not active");
+    }
+    const assignment = await this.repo.findCourseAssignmentById(courseAssignmentId);
+    if (!assignment || assignment.partnerId !== partner.id) {
+      throw new NotFoundException("Course assignment not found");
+    }
+    return { partner, assignment };
+  }
+
+  async inviteMember(
+    user: RequestUser,
+    courseAssignmentId: string,
+    input: InvitePartnerMemberInput,
+  ): Promise<DeliveryPartnerInvitationDto> {
+    const { partner, assignment } = await this.assertOwnAssignment(user, courseAssignmentId);
+    if (assignment.usedSeats >= assignment.memberCap) {
+      throw new BadRequestException("No seats remaining for this course");
+    }
+    const email = input.email.toLowerCase();
+    const token = randomUUID();
+    const invitation = await this.repo.createInvitation({
+      courseAssignmentId,
+      email,
+      token,
+      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+    });
+    // Deliver the join link. Non-blocking, same as OrganizationsService.invite
+    // — the partner still gets the invitation (with token) back so the link
+    // can be copied if email delivery fails.
+    this.email
+      .sendPartnerMemberInvite(email, partner.user.name, assignment.course.title, token)
+      .catch(() => {});
+    return {
+      id: invitation.id,
+      courseAssignmentId: invitation.courseAssignmentId,
+      email: invitation.email,
+      expiresAt: invitation.expiresAt.toISOString(),
+      createdAt: invitation.createdAt.toISOString(),
+    };
+  }
+
+  async listInvitations(
+    user: RequestUser,
+    courseAssignmentId: string,
+  ): Promise<DeliveryPartnerInvitationDto[]> {
+    await this.assertOwnAssignment(user, courseAssignmentId);
+    const rows = await this.repo.findActiveInvitationsForAssignment(courseAssignmentId);
+    return rows.map((r) => ({
+      id: r.id,
+      courseAssignmentId: r.courseAssignmentId,
+      email: r.email,
+      expiresAt: r.expiresAt.toISOString(),
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
+
+  async listMembers(
+    user: RequestUser,
+    courseAssignmentId: string,
+  ): Promise<DeliveryPartnerMemberDto[]> {
+    await this.assertOwnAssignment(user, courseAssignmentId);
+    const rows = await this.repo.findMembersForAssignment(courseAssignmentId);
+    return rows.map((r) => ({
+      id: r.id,
+      courseAssignmentId: r.courseAssignmentId,
+      userId: r.userId,
+      name: r.name,
+      email: r.email,
+      joinedAt: r.joinedAt.toISOString(),
+    }));
+  }
+
+  async revokeInvitation(user: RequestUser, inviteId: string): Promise<{ ok: true }> {
+    const invite = await this.repo.findInvitationById(inviteId);
+    if (!invite) throw new NotFoundException("Invitation not found");
+    await this.assertOwnAssignment(user, invite.courseAssignmentId);
+    await this.repo.deleteInvitation(inviteId);
+    return { ok: true };
+  }
+
+  async removeMember(user: RequestUser, memberId: string): Promise<{ ok: true }> {
+    const member = await this.repo.findMember(memberId);
+    if (!member) throw new NotFoundException("Member not found");
+    const { assignment } = await this.assertOwnAssignment(user, member.courseAssignmentId);
+    await this.repo.deleteMember(memberId);
+    await this.repo.decrementUsedSeats(assignment.id);
+    return { ok: true };
+  }
+
+  // ── invitation claim (public preview + authenticated accept) ─────────────
+  /** Public: minimal invitation info for the join page (prefill + validity).
+   *  The token is an unguessable secret, so returning the invited email is safe. */
+  async invitationInfo(token: string): Promise<PartnerInvitationInfoDto> {
+    const invite = await this.repo.findInvitationByToken(token);
+    const valid = !!invite && !invite.claimedAt && invite.expiresAt > new Date();
+    return {
+      valid,
+      email: invite?.email ?? null,
+      courseTitle: invite?.courseAssignment.course.title ?? null,
+      partnerName: invite?.courseAssignment.partner.user.name ?? null,
+    };
+  }
+
+  /** A logged-in user claims an invitation, becoming a member of that one
+   *  course assignment + consuming a seat. Access itself is resolved at read
+   *  time (see findMemberCoursesForUser) — no separate grant flag. */
+  async claimInvitation(user: RequestUser, token: string): Promise<DeliveryPartnerCourseAssignmentDto> {
+    const invite = await this.repo.findInvitationByTokenPlain(token);
+    if (!invite || invite.claimedAt || invite.expiresAt < new Date()) {
+      throw new BadRequestException("Invalid or expired invitation");
+    }
+    const dbUser = await this.repo.findUserByIdOrThrow(user.id);
+
+    const assignment = await this.repo.runTransaction(async (tx) => {
+      const current = await this.repo.findCourseAssignmentById(invite.courseAssignmentId, tx);
+      if (!current) throw new NotFoundException("Course assignment not found");
+      if (current.usedSeats >= current.memberCap) {
+        throw new BadRequestException("This course is full");
+      }
+      await this.repo.upsertMember(invite.courseAssignmentId, user.id, dbUser.email, dbUser.name, tx);
+      await this.repo.incrementUsedSeats(invite.courseAssignmentId, tx);
+      await this.repo.markInvitationClaimed(token, tx);
+      return current;
+    });
+
+    return this.toAssignmentDto(assignment);
+  }
+
+  /** Every course the current user has access to via a delivery partner —
+   *  powers the member-facing "granted courses" page (kept separate from
+   *  /dashboard/team on purpose, see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3). */
+  async myGrantedCourses(user: RequestUser): Promise<PartnerGrantedCourseDto[]> {
+    const rows = await this.repo.findMemberCoursesForUser(user.id);
+    return rows.map((r) => ({
+      courseAssignmentId: r.courseAssignmentId,
+      partnerName: r.courseAssignment.partner.user.name,
+      course: toCourseSummary(r.courseAssignment.course),
+      joinedAt: r.joinedAt.toISOString(),
+      partnerSuspended: r.courseAssignment.partner.status !== "APPROVED",
     }));
   }
 
@@ -363,6 +533,51 @@ export class DeliveryPartnerService {
 
   private generateCode(): string {
     return `REF-${randomUUID().slice(0, 6).toUpperCase()}`;
+  }
+
+  // ── course assignment (admin-only; mirrors OrganizationsService's) ───────
+  /** Sets the per-course member cap at assignment time (decision #4/#5 in
+   *  DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3) — unlike org seats, this is
+   *  scoped to one course-assignment, not the whole partner. */
+  async assignCourse(
+    partnerId: string,
+    input: AssignPartnerCourseInput,
+  ): Promise<DeliveryPartnerCourseAssignmentDto> {
+    const partner = await this.repo.findPartnerById(partnerId);
+    if (!partner) throw new NotFoundException("Delivery partner not found");
+    const course = await this.repo.findCourseStatus(input.courseId);
+    if (!course) throw new NotFoundException("Course not found");
+    if (course.status !== "PUBLISHED") {
+      throw new BadRequestException("Publish this course before assigning it to a delivery partner");
+    }
+    if (await this.repo.findCourseAssignment(input.courseId, partnerId)) {
+      throw new BadRequestException("This course is already assigned to this partner");
+    }
+    const row = await this.repo.createCourseAssignment(input.courseId, partnerId, input.memberCap);
+    return this.toAssignmentDto(row);
+  }
+
+  async listCourseAssignments(partnerId: string): Promise<DeliveryPartnerCourseAssignmentDto[]> {
+    const rows = await this.repo.findCourseAssignmentsForPartner(partnerId);
+    return rows.map((r) => this.toAssignmentDto(r));
+  }
+
+  async updateCourseAssignment(
+    partnerId: string,
+    courseId: string,
+    input: UpdatePartnerCourseAssignmentInput,
+  ): Promise<DeliveryPartnerCourseAssignmentDto> {
+    const assignment = await this.repo.findCourseAssignment(courseId, partnerId);
+    if (!assignment) throw new NotFoundException("Course is not assigned to this partner");
+    const row = await this.repo.updateCourseAssignmentCap(assignment.id, input.memberCap);
+    return this.toAssignmentDto(row);
+  }
+
+  async unassignCourse(partnerId: string, courseId: string): Promise<{ ok: true }> {
+    const assignment = await this.repo.findCourseAssignment(courseId, partnerId);
+    if (!assignment) throw new NotFoundException("Course is not assigned to this partner");
+    await this.repo.deleteCourseAssignment(assignment.id);
+    return { ok: true };
   }
 
   // ── referral attribution (called from checkout / fulfillment) ───────────

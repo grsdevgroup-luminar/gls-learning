@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DollarSign, Link2, TrendingUp, Copy, CheckCircle2, Clock, Wallet, Loader2,
-  XCircle, PauseCircle, Handshake,
+  XCircle, PauseCircle, Handshake, Mail,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,18 +34,35 @@ function PartnerBlocked({
       cls: "text-warning",
       title: "Application under review",
       body: "We review new delivery partner applications within 1–2 business days. Your referral tools unlock on approval.",
+      action: (
+        <Button render={<Link href="/partner" />} variant="outline" className="mt-5">
+          View application
+        </Button>
+      ),
     },
+    // No self-service re-apply (see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md
+    // §2.4) — a rejected applicant contacts support instead.
     REJECTED: {
       icon: XCircle,
       cls: "text-destructive",
       title: "Application not approved",
-      body: "Your application wasn't approved this time. If your circumstances have changed, you can apply again.",
+      body: "Your application wasn't approved this time. Contact support if you have questions.",
+      action: (
+        <Button render={<a href="mailto:support@grslearning.dev" />} variant="outline" className="mt-5">
+          <Mail /> Contact support
+        </Button>
+      ),
     },
     SUSPENDED: {
       icon: PauseCircle,
       cls: "text-destructive",
       title: "Account suspended",
       body: "Your delivery partner account is suspended, so referral links and commission are paused. Contact support to resolve this.",
+      action: (
+        <Button render={<a href="mailto:support@grslearning.dev" />} variant="outline" className="mt-5">
+          <Mail /> Contact support
+        </Button>
+      ),
     },
   }[status];
 
@@ -58,9 +75,7 @@ function PartnerBlocked({
           {copy.title}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">{copy.body}</p>
-        <Button render={<Link href="/partner" />} variant="outline" className="mt-5">
-          Go to application
-        </Button>
+        {copy.action}
       </div>
     </div>
   );

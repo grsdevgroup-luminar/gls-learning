@@ -225,34 +225,35 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  studentProfile          StudentProfile?
-  instructorProfile       InstructorProfile?
-  refreshTokens           RefreshToken[]
-  passwordResetTokens     PasswordResetToken[]
-  enrollments             Enrollment[]
-  quizResults             QuizResult[]
-  lessonNotes             LessonNote[]
-  quizAttempts            QuizAttempt[]
-  reviews                 Review[]
-  comments                Comment[]
-  orders                  Order[]
-  reminderLogs            ReminderLog[]
-  couponRedemptions       CouponRedemption[]
-  authoredCourses         Course[]              @relation("InstructorCourses")
-  categoryProposals       Category[]            @relation("CategoryProposals")
-  deliveryPartner         DeliveryPartner?
-  orgMemberships          OrgMember[]
-  payoutAccount           PayoutAccount?
-  payouts                 Payout[]
-  cart                    Cart?
-  notifications           Notification[]
-  creditLedger            StudentCreditLedger[] @relation("CreditLedgerOwner")
-  creditGrants            StudentCreditLedger[] @relation("CreditLedgerAdmin")
+  studentProfile             StudentProfile?
+  instructorProfile          InstructorProfile?
+  refreshTokens              RefreshToken[]
+  passwordResetTokens        PasswordResetToken[]
+  enrollments                Enrollment[]
+  quizResults                QuizResult[]
+  lessonNotes                LessonNote[]
+  quizAttempts               QuizAttempt[]
+  reviews                    Review[]
+  comments                   Comment[]
+  orders                     Order[]
+  reminderLogs               ReminderLog[]
+  couponRedemptions          CouponRedemption[]
+  authoredCourses            Course[]                @relation("InstructorCourses")
+  categoryProposals          Category[]              @relation("CategoryProposals")
+  deliveryPartner            DeliveryPartner?
+  deliveryPartnerMemberships DeliveryPartnerMember[]
+  orgMemberships             OrgMember[]
+  payoutAccount              PayoutAccount?
+  payouts                    Payout[]
+  cart                       Cart?
+  notifications              Notification[]
+  creditLedger               StudentCreditLedger[]   @relation("CreditLedgerOwner")
+  creditGrants               StudentCreditLedger[]   @relation("CreditLedgerAdmin")
   /// Denormalized — kept in sync transactionally on notification create/read,
   /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
-  unreadNotificationCount Int                   @default(0)
-  uploads                 Upload[]
-  editedEmailTemplates    EmailTemplate[]
+  unreadNotificationCount    Int                     @default(0)
+  uploads                    Upload[]
+  editedEmailTemplates       EmailTemplate[]
 
   @@index([role])
 }
@@ -390,15 +391,16 @@ model Course {
   /// privacy) — see OrganizationsService.assignCourse.
   visibility CourseVisibility @default(PUBLIC)
 
-  sections       Section[]
-  enrollments    Enrollment[]
-  reviews        Review[]
-  comments       Comment[]
-  orderItems     OrderItem[]
-  coupons        Coupon[]
-  cartItems      CartItem[]
-  uploads        Upload[]
-  orgAssignments CourseOrgAssignment[]
+  sections                   Section[]
+  enrollments                Enrollment[]
+  reviews                    Review[]
+  comments                   Comment[]
+  orderItems                 OrderItem[]
+  coupons                    Coupon[]
+  cartItems                  CartItem[]
+  uploads                    Upload[]
+  orgAssignments             CourseOrgAssignment[]
+  deliveryPartnerAssignments DeliveryPartnerCourseAssignment[]
 
   @@index([status])
   @@index([instructorId])
@@ -946,7 +948,8 @@ model DeliveryPartner {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
-  referrals DeliveryPartnerReferral[]
+  referrals         DeliveryPartnerReferral[]
+  courseAssignments DeliveryPartnerCourseAssignment[]
 
   @@index([status])
 }
@@ -961,6 +964,9 @@ model DeliveryPartnerApplication {
   customFields Json                  @default("[]")
   /// Uploaded supporting documents: [{"title","key","name","sizeLabel"}].
   documents    Json                  @default("[]")
+  /// The applicant's own requested commission rate — a starting point for the
+  /// admin's review, not binding; the admin sets the actual rate on approval.
+  expectedCommissionPercent Float?
   status       DeliveryPartnerStatus @default(PENDING)
   appliedAt    DateTime              @default(now())
   reviewedAt   DateTime?
@@ -981,6 +987,65 @@ model DeliveryPartnerReferral {
   createdAt       DateTime        @default(now())
 
   @@index([partnerId])
+}
+
+/// A course a delivery partner has been approved to redistribute, admin-only
+/// to create (mirrors CourseOrgAssignment/Organization — see
+/// DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3). Access is per-course: inviting a
+/// member to one assignment does not grant access to the partner's other
+/// assigned courses. memberCap/usedSeats mirror Organization.seatCount/
+/// usedSeats exactly, just scoped to this one course-assignment rather than
+/// the whole partner.
+model DeliveryPartnerCourseAssignment {
+  id        String          @id @default(cuid())
+  courseId  String
+  course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  memberCap Int             @default(10)
+  usedSeats Int             @default(0)
+  createdAt DateTime        @default(now())
+
+  members     DeliveryPartnerMember[]
+  invitations DeliveryPartnerInvitation[]
+
+  @@unique([courseId, partnerId])
+  @@index([courseId])
+  @@index([partnerId])
+}
+
+/// One row per course-access grant, not per person — the same email can have
+/// a separate row against a second course-assignment if the partner invites
+/// them again for a different course. Flat membership, no role tiers: a
+/// delivery partner is one person, unlike an org which can have multiple
+/// admins.
+model DeliveryPartnerMember {
+  id                 String                          @id @default(cuid())
+  courseAssignmentId String
+  courseAssignment   DeliveryPartnerCourseAssignment @relation(fields: [courseAssignmentId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?                           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name               String
+  email              String
+  joinedAt           DateTime                        @default(now())
+
+  @@unique([courseAssignmentId, email])
+  @@index([courseAssignmentId])
+  @@index([userId])
+}
+
+model DeliveryPartnerInvitation {
+  id                 String                          @id @default(cuid())
+  courseAssignmentId String
+  courseAssignment   DeliveryPartnerCourseAssignment @relation(fields: [courseAssignmentId], references: [id], onDelete: Cascade)
+  email              String
+  token              String                          @unique
+  expiresAt          DateTime
+  claimedAt          DateTime?
+  createdAt          DateTime                        @default(now())
+
+  @@index([courseAssignmentId])
+  @@index([token])
 }
 
 // ─── B2B Organizations ────────────────────────────────────────────────────────

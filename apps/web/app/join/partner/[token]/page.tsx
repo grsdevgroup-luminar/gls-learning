@@ -3,14 +3,19 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { orgApi } from "@/lib/api/endpoints";
+import { partnerApi } from "@/lib/api/endpoints";
 import { useSession } from "@/lib/api/session";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { InviteClaimShell } from "@/components/shared/invite-claim-shell";
-import { Building2 } from "lucide-react";
+import { Handshake } from "lucide-react";
 import { toast } from "sonner";
 
-export default function JoinPage() {
+/** Separate route from /join/[token] (org invites) rather than one endpoint
+ *  trying to detect invite type from an opaque token — see
+ *  DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.2. Shares all UI/state logic with
+ *  the org claim page via InviteClaimShell; only copy, icon, and the
+ *  post-claim redirect differ. */
+export default function JoinPartnerPage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
   const qc = useQueryClient();
@@ -18,24 +23,22 @@ export default function JoinPage() {
   const claimed = useRef(false);
 
   const { data: invite, isLoading } = useQuery({
-    queryKey: ["invite", token],
-    queryFn: () => orgApi.invitationInfo(token),
+    queryKey: ["partner-invite", token],
+    queryFn: () => partnerApi.invitationInfo(token),
     enabled: !!token,
   });
 
   const claim = useMutation({
-    mutationFn: () => orgApi.claim(token),
-    onSuccess: (org) => {
+    mutationFn: () => partnerApi.claim(token),
+    onSuccess: (assignment) => {
       void qc.invalidateQueries();
-      toast.success(`Welcome to ${org.name}!`);
-      // Org admins manage from the org portal; members go to their team courses.
-      router.push(invite?.role === "ADMIN" ? `/org/${org.slug}` : "/dashboard/team");
+      toast.success(`You now have access to ${assignment.course.title}!`);
+      router.push("/dashboard/partner-courses");
       router.refresh();
     },
     onError: (err) => toast.error("Could not join", { description: getApiErrorMessage(err) }),
   });
 
-  // Auto-claim once the session is known and the user is signed in.
   useEffect(() => {
     if (!claimed.current && invite?.valid && isAuthenticated && !sessionLoading) {
       claimed.current = true;
@@ -45,7 +48,7 @@ export default function JoinPage() {
 
   return (
     <InviteClaimShell
-      next={`/join/${token}`}
+      next={`/join/partner/${token}`}
       isLoading={isLoading}
       sessionLoading={sessionLoading}
       isAuthenticated={isAuthenticated}
@@ -53,10 +56,10 @@ export default function JoinPage() {
       email={invite?.email ?? null}
       claimPending={claim.isPending}
       claimSuccess={claim.isSuccess}
-      icon={Building2}
-      heroTitle={`You're invited to ${invite?.orgName ?? "an organization"}`}
-      heroDescription={`Join as ${invite?.role === "ADMIN" ? "an admin" : "a member"} to access your company's courses.`}
-      joiningLabel={`Joining ${invite?.orgName ?? "…"}…`}
+      icon={Handshake}
+      heroTitle={`You've been invited to ${invite?.courseTitle ?? "a course"}`}
+      heroDescription={`${invite?.partnerName ?? "A delivery partner"} has given you free access to this course.`}
+      joiningLabel={`Unlocking ${invite?.courseTitle ?? "your course"}…`}
     />
   );
 }

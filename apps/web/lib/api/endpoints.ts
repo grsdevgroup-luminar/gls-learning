@@ -57,11 +57,16 @@ import type {
   ReviewDto,
   AdminDeliveryPartnerApplicationQuery,
   AdminDeliveryPartnerQuery,
-  ApplyDeliveryPartnerInput,
+  AssignPartnerCourseInput,
   DeliveryPartnerApplicationDto,
   DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerCourseAssignmentDto,
   DeliveryPartnerDto,
+  DeliveryPartnerInvitationDto,
+  DeliveryPartnerMemberDto,
   DeliveryPartnerReferralDto,
+  PartnerGrantedCourseDto,
+  PartnerInvitationInfoDto,
   PartnerDocumentDto,
   ReviewPartnerApplicationInput,
   PayoutBalanceDto,
@@ -415,24 +420,43 @@ export const api = {
     apiFetch<ReviewDto>(`/admin/reviews/${reviewId}/status`, { method: "PATCH", body: { action } }),
 
   // delivery partner (self-service)
-  applyDeliveryPartner: (body: ApplyDeliveryPartnerInput) =>
-    apiFetch<DeliveryPartnerApplicationDto>("/delivery-partners/apply", {
-      method: "POST",
-      body,
-    }),
+  // Only called right after registerDeliveryPartner creates the pending
+  // application — there's no standalone apply endpoint (see
+  // DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §2).
   uploadPartnerDocument: (title: string, file: File) => {
     const form = new FormData();
     form.append("title", title);
     form.append("file", file);
     return apiFetchMultipart<PartnerDocumentDto>("/delivery-partners/apply/docs", form);
   },
-  deletePartnerDocument: (key: string) =>
-    apiFetch<{ ok: true }>(`/delivery-partners/apply/docs${qs({ key })}`, { method: "DELETE" }),
   myDeliveryPartner: () => apiFetch<DeliveryPartnerDto | null>("/me/delivery-partner"),
   myDeliveryPartnerApplication: () =>
     apiFetch<DeliveryPartnerApplicationDto | null>("/me/delivery-partner/application", { cache: "no-store" }),
   myDeliveryPartnerReferrals: () =>
     apiFetch<DeliveryPartnerReferralDto[]>("/me/delivery-partner/referrals"),
+  myDeliveryPartnerCourses: () =>
+    apiFetch<DeliveryPartnerCourseAssignmentDto[]>("/me/delivery-partner/courses"),
+  myPartnerGrantedCourses: () =>
+    apiFetch<PartnerGrantedCourseDto[]>("/me/delivery-partner/granted-courses"),
+
+  // delivery partner — members + invitations (partner-authenticated, per course assignment)
+  invitePartnerMember: (courseAssignmentId: string, email: string) =>
+    apiFetch<DeliveryPartnerInvitationDto>(
+      `/delivery-partner/courses/${courseAssignmentId}/invite`,
+      { method: "POST", body: { email } },
+    ),
+  partnerCourseInvitations: (courseAssignmentId: string) =>
+    apiFetch<DeliveryPartnerInvitationDto[]>(`/delivery-partner/courses/${courseAssignmentId}/invitations`),
+  partnerCourseMembers: (courseAssignmentId: string) =>
+    apiFetch<DeliveryPartnerMemberDto[]>(`/delivery-partner/courses/${courseAssignmentId}/members`),
+  revokePartnerInvitation: (inviteId: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partner/invitations/${inviteId}`, { method: "DELETE" }),
+  removePartnerMember: (memberId: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partner/members/${memberId}`, { method: "DELETE" }),
+  partnerInvitationInfo: (token: string) =>
+    apiFetch<PartnerInvitationInfoDto>(`/delivery-partner/invitations/${token}`),
+  claimPartnerInvitation: (token: string) =>
+    apiFetch<DeliveryPartnerCourseAssignmentDto>(`/delivery-partner/claim/${token}`, { method: "POST" }),
 
   // admin — delivery partners
   adminDeliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
@@ -448,6 +472,20 @@ export const api = {
     apiFetch<Paginated<DeliveryPartnerDto>>(`/admin/delivery-partners${qs(params)}`),
   updateDeliveryPartner: (id: string, body: Partial<Pick<DeliveryPartnerDto, "commissionPercent" | "status">>) =>
     apiFetch<DeliveryPartnerDto>(`/admin/delivery-partners/${id}`, { method: "PATCH", body }),
+  adminPartnerCourses: (partnerId: string) =>
+    apiFetch<DeliveryPartnerCourseAssignmentDto[]>(`/admin/delivery-partners/${partnerId}/courses`),
+  adminAssignPartnerCourse: (partnerId: string, body: AssignPartnerCourseInput) =>
+    apiFetch<DeliveryPartnerCourseAssignmentDto>(
+      `/admin/delivery-partners/${partnerId}/courses`,
+      { method: "POST", body },
+    ),
+  adminUpdatePartnerCourseAssignment: (partnerId: string, courseId: string, memberCap: number) =>
+    apiFetch<DeliveryPartnerCourseAssignmentDto>(
+      `/admin/delivery-partners/${partnerId}/courses/${courseId}`,
+      { method: "PATCH", body: { memberCap } },
+    ),
+  adminUnassignPartnerCourse: (partnerId: string, courseId: string) =>
+    apiFetch<{ ok: true }>(`/admin/delivery-partners/${partnerId}/courses/${courseId}`, { method: "DELETE" }),
 
   // payouts (instructor + delivery partner share one ledger)
   payoutBalance: () => apiFetch<PayoutBalanceDto>("/me/payouts/balance"),
@@ -579,6 +617,25 @@ export const orgApi = {
     apiFetch<OrganizationDto>(`/organizations/${orgId}/courses/${courseId}`, {
       method: "DELETE",
     }),
+};
+
+// ── delivery partner: courses/members/invites (partner-authenticated) ──────
+// Mirrors orgApi's shape one level deeper — assignment/invite/member calls
+// are scoped to one course assignment, not the whole partner, since access
+// is per-course (see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3/§6).
+export const partnerApi = {
+  courses: () => api.myDeliveryPartnerCourses(),
+  invite: (courseAssignmentId: string, email: string) =>
+    api.invitePartnerMember(courseAssignmentId, email),
+  invitations: (courseAssignmentId: string) =>
+    api.partnerCourseInvitations(courseAssignmentId),
+  members: (courseAssignmentId: string) =>
+    api.partnerCourseMembers(courseAssignmentId),
+  revokeInvitation: (inviteId: string) => api.revokePartnerInvitation(inviteId),
+  removeMember: (memberId: string) => api.removePartnerMember(memberId),
+  invitationInfo: (token: string) => api.partnerInvitationInfo(token),
+  claim: (token: string) => api.claimPartnerInvitation(token),
+  grantedCourses: () => api.myPartnerGrantedCourses(),
 };
 
 // ── admin pricing (region / PPP tiers) ─────────────────────────────────────
@@ -795,6 +852,13 @@ export const adminApi = {
   deliveryPartners: (params: Record<string, string | number | undefined> = {}) =>
     api.adminDeliveryPartners(params),
   updateDeliveryPartner: api.updateDeliveryPartner,
+  partnerCourses: (partnerId: string) => api.adminPartnerCourses(partnerId),
+  assignPartnerCourse: (partnerId: string, body: AssignPartnerCourseInput) =>
+    api.adminAssignPartnerCourse(partnerId, body),
+  updatePartnerCourseAssignment: (partnerId: string, courseId: string, memberCap: number) =>
+    api.adminUpdatePartnerCourseAssignment(partnerId, courseId, memberCap),
+  unassignPartnerCourse: (partnerId: string, courseId: string) =>
+    api.adminUnassignPartnerCourse(partnerId, courseId),
   payouts: api.adminPayouts,
   approvePayout: api.approvePayout,
   markPayoutPaid: api.markPayoutPaid,

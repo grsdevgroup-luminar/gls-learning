@@ -304,10 +304,11 @@ export class AdminService {
     return { total, active, atRisk: total - active };
   }
 
-  /** `visibility`/`category`/`unassignedToOrgId` back the org-assignment
-   *  dialog's "Add courses" picker (list published courses — public or
-   *  private — not yet assigned to a given org); the admin table itself
-   *  only ever passes `status`/`q`. */
+  /** `visibility`/`category`/`unassignedToOrgId`/`unassignedToPartnerId`
+   *  back the org- and delivery-partner course-assignment dialogs' "Add
+   *  courses" pickers (list published courses — public or private — not
+   *  yet assigned to a given org/partner); the admin table itself only ever
+   *  passes `status`/`q`. */
   async courses(query: AdminCourseQuery) {
     const q = query.q?.trim();
     const where: Prisma.CourseWhereInput = {
@@ -320,6 +321,9 @@ export class AdminService {
       ...(query.category ? { category: query.category } : {}),
       ...(query.unassignedToOrgId
         ? { orgAssignments: { none: { orgId: query.unassignedToOrgId } } }
+        : {}),
+      ...(query.unassignedToPartnerId
+        ? { deliveryPartnerAssignments: { none: { partnerId: query.unassignedToPartnerId } } }
         : {}),
       ...(q
         ? {

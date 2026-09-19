@@ -70,6 +70,15 @@ export class EmailService {
     });
   }
 
+  async sendPartnerApplicationSubmitted(to: string, name: string): Promise<void> {
+    await this.enqueue(safeJobId("partner_application_submitted", to), {
+      key: "partner_application_submitted",
+      to,
+      vars: { first_name: firstName(name) },
+      ctaHref: `${this.frontendUrl}/partner`,
+    });
+  }
+
   async sendOrgInvite(
     to: string,
     orgName: string,
@@ -83,6 +92,25 @@ export class EmailService {
       vars: {
         org_name: orgName,
         role_label: role === "ADMIN" ? "an admin" : "a member",
+        invite_link: link,
+      },
+      ctaHref: link,
+    });
+  }
+
+  async sendPartnerMemberInvite(
+    to: string,
+    partnerName: string,
+    courseTitle: string,
+    token: string,
+  ): Promise<void> {
+    const link = `${this.frontendUrl}/join/partner/${encodeURIComponent(token)}`;
+    await this.enqueue(safeJobId("partner_member_invite", token), {
+      key: "partner_member_invite",
+      to,
+      vars: {
+        partner_name: partnerName,
+        course_title: courseTitle,
         invite_link: link,
       },
       ctaHref: link,

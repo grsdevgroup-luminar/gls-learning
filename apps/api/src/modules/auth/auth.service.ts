@@ -113,7 +113,10 @@ export class AuthService {
       user.email,
       input,
     );
-    this.email.sendWelcome(user.email, user.name).catch(() => {});
+    // No welcome email here — this account isn't "welcomed as a student" yet;
+    // it's a pending application. The approval/rejection notification (with
+    // its own email) fires from reviewApplication() once an admin decides.
+    this.email.sendPartnerApplicationSubmitted(user.email, user.name).catch(() => {});
     return this.issueSession(user.id, user.email, user.role, meta);
   }
 
@@ -177,6 +180,11 @@ export class AuthService {
       instructorStatus:
         user.instructorProfile?.status ??
         (await this.instructor.latestApplicationStatus(userId)),
+      // Same idea, but delivery partners have no separate "profile" row
+      // distinct from their application — DeliveryPartner.status *is* the
+      // approved state, and the application record already carries it before
+      // that, so the latest application alone is the full answer.
+      deliveryPartnerStatus: await this.deliveryPartners.latestApplicationStatus(userId),
     };
   }
 

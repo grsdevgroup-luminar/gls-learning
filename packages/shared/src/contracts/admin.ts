@@ -65,14 +65,17 @@ export interface AdminCourseStatsDto {
 }
 
 /** Admin courses list query: search, pagination, status/visibility/category
- *  filters, and `unassignedToOrgId` — used by the org "Add courses" picker
- *  to list published courses (public or private) not yet assigned to a
- *  given org (see OrganizationsService.assignCourse). */
+ *  filters, and `unassignedToOrgId`/`unassignedToPartnerId` — back the org
+ *  and delivery-partner course-assignment dialogs' "Add courses" pickers,
+ *  each listing published courses (public or private) not yet assigned to
+ *  the given org/partner (see OrganizationsService.assignCourse and
+ *  DeliveryPartnerService.assignCourse). */
 export const adminCourseQuerySchema = searchQuerySchema.extend({
   status: z.nativeEnum(CourseStatus).optional(),
   visibility: z.nativeEnum(CourseVisibility).optional(),
   category: z.string().optional(),
   unassignedToOrgId: z.string().optional(),
+  unassignedToPartnerId: z.string().optional(),
 });
 export type AdminCourseQuery = z.infer<typeof adminCourseQuerySchema>;
 
@@ -276,6 +279,7 @@ export type UpsertAutomationRuleInput = z.infer<typeof upsertAutomationRuleSchem
 export type EmailTemplateCategory =
   | "auth"
   | "organizations"
+  | "delivery_partner"
   | "commerce"
   | "applications"
   | "payouts"
