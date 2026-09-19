@@ -34,16 +34,16 @@ export function PhotoCard({
     <Reveal y={20}>
       <Card>
         <CardHeader><CardTitle className="text-base">Photo</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-4">
+        <CardContent className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
           <Avatar className="size-16 ring-1 ring-border transition-transform duration-300 hover:scale-105">
             {avatar && <AvatarImage src={avatar} alt="" />}
             <AvatarFallback className="brand-gradient text-xl text-white">{initials(name)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <div className="font-heading text-lg font-semibold">{name}</div>
-            <div className="text-sm text-muted-foreground">{title || "Your professional headline"}</div>
+            <div className="break-words font-heading text-lg font-semibold">{name}</div>
+            <div className="break-words text-sm text-muted-foreground">{title || "Your professional headline"}</div>
           </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="min-w-0 sm:justify-self-end">
             <div className="flex flex-wrap gap-2">
               <input
                 ref={fileInputRef}

@@ -26,7 +26,7 @@ export default function InstructorEarnings() {
 
   return (
     <ApprovalGate>
-      <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
+      <div className="space-y-6 p-6 md:p-8">
         <header>
           <h1 className="font-heading text-2xl font-bold tracking-tight">Earnings</h1>
           <p className="text-sm text-muted-foreground">Request a payout of your available balance any time.</p>

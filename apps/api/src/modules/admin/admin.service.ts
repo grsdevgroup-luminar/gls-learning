@@ -311,6 +311,10 @@ export class AdminService {
   async courses(query: AdminCourseQuery) {
     const q = query.q?.trim();
     const where: Prisma.CourseWhereInput = {
+      // Instructor drafts are private working copies. They become visible to
+      // Admin only after the instructor explicitly submits them for review.
+      NOT: { status: "DRAFT", instructor: { role: { not: "ADMIN" } } },
+
       ...(query.status ? { status: query.status } : {}),
       ...(query.visibility ? { visibility: query.visibility } : {}),
       ...(query.category ? { category: query.category } : {}),
@@ -345,6 +349,11 @@ export class AdminService {
       total,
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
     };
+  }
+
+  async courseOrganizations(courseId: string) {
+    const rows = await this.repo.findCourseOrganizations(courseId);
+    return rows.map(({ org, createdAt }) => ({ ...org, assignedAt: createdAt.toISOString() }));
   }
 
   async courseStats(): Promise<AdminCourseStatsDto> {

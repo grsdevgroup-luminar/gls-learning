@@ -131,7 +131,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/55">
       {/* aurora hairline under the header */}
       <span
         aria-hidden
@@ -269,16 +269,7 @@ export function SiteHeader() {
                               : (user?.name ?? "Learner")}
                     </div>
                     <div className="text-xs font-normal text-muted-foreground">
-                      {role === "ADMIN"
-                        ? "admin@demo.com"
-                        : role === "INSTRUCTOR"
-                          ? "instructor@demo.com"
-                          : role === "DELIVERY_PARTNER"
-                            ? "partner@grs-learning.dev"
-                            : role === "ORG_ADMIN"
-                              ? "admin@org.com"
-                              : (user?.email ?? "")}
-                    </div>
+                      {user?.email ?? ""}                    </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />

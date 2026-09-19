@@ -189,7 +189,7 @@ export function CourseBuilder({
   const [customIsoStandard, setCustomIsoStandard] = useState("");
   const [level, setLevel] = useState<keyof typeof LEVEL_TO_API>("Beginner");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("49.99");
+  const [price, setPrice] = useState("0.00");
   const [thumbnail, setThumbnail] = useState("course");
   const [thumbDrag, setThumbDrag] = useState(false);
   const [thumbError, setThumbError] = useState("");
@@ -354,7 +354,56 @@ export function CourseBuilder({
   /** Persist everything through the authoring API, then apply the status action. */
   async function save(action: "draft" | "publish" | "review") {
     if (!title.trim()) {
-      toast.error("Give your course a title first.");
+      toast.error("Title is required.");
+      return;
+    }
+    if (action === "publish" && totalLessons === 0) {
+      toast.error("Add at least one lesson before publishing this course.");
+      return;
+    }
+    if (action === "publish") {
+      const incomplete = sections
+        .flatMap((section) => section.lessons)
+        .filter((lesson) => {
+          const hasResource = lesson.resources.some((resource) => resource.name.trim() && resource.url.trim());
+          if (lesson.type === "video") return !lesson.cfVideoUid && !lesson.hasVideo;
+          if (lesson.type === "quiz") {
+            return !lesson.quiz?.questions.some(
+              (question) =>
+                question.prompt.trim() &&
+                question.options.filter((option) => option.text.trim()).length >= 2 &&
+                question.options.some(
+                  (option) => option.text.trim() && option.id === question.correctOptionId,
+                ),
+            );
+          }
+          return !lesson.articleContent.trim() && !hasResource;
+        });
+      if (incomplete.length > 0) {
+        toast.error(
+          `Complete all lessons before publishing. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
+        );
+        return;
+      }
+    }
+    if (!subtitle.trim()) {
+      toast.error("Subtitle is required.");
+      return;
+    }
+    if (!category.trim()) {
+      toast.error("Category is required.");
+      return;
+    }
+    if (!isoStandard.trim() || (isoStandard === "OTHER" && !customIsoStandard.trim())) {
+      toast.error(isoStandard === "OTHER" ? "Custom ISO Standard is required." : "ISO Standard is required.");
+      return;
+    }
+    if (!description.trim()) {
+      toast.error("Description is required.");
+      return;
+    }
+    if (!thumbnail.trim()) {
+      toast.error("Course thumbnail is required.");
       return;
     }
     if (titleTooLong) {
@@ -369,6 +418,11 @@ export function CourseBuilder({
       toast.error(`Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`);
       return;
     }
+    const priceCents = Math.round(Number(price) * 100);
+    if (!Number.isFinite(priceCents) || priceCents <= 0) {
+      toast.error("Course price must be greater than zero.");
+      return;
+    }
     setSaving(true);
     try {
       const fields = {
@@ -379,7 +433,7 @@ export function CourseBuilder({
         isoStandard: isoStandard === "OTHER" ? customIsoStandard.trim() : isoStandard,
         level: LEVEL_TO_API[level],
         thumbnail,
-        basePriceCents: Math.max(0, Math.round((Number(price) || 0) * 100)),
+        basePriceCents: priceCents,
       };
       const targetStatus =
         action === "publish" ? "PUBLISHED" : action === "review" ? "REVIEW" : "DRAFT";
@@ -556,10 +610,10 @@ export function CourseBuilder({
         <div className="flex flex-wrap justify-end gap-2">
           {mode === "instructor" ? (
             <>
-              <Button variant="outline" onClick={() => save("draft")} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => save("draft")} disabled={saving}>
                 <Save className="mr-2 h-4 w-4" /> Save draft
               </Button>
-              <Button onClick={() => save("review")} disabled={saving}>
+              <Button type="button" onClick={() => save("review")} disabled={saving}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />} 
                 Submit for review
               </Button>
@@ -726,7 +780,11 @@ export function CourseBuilder({
                       >
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                       </span>
-                      <Input value={s.title} onChange={(e) => patchSection(s.id, { title: e.target.value })} className="h-8 font-medium" />
+                      <Input
+                        value={s.title}
+                        onChange={(e) => patchSection(s.id, { title: e.target.value })}
+                        className="h-8 min-w-0 flex-1 font-medium"
+                      />
                       <ConfirmDialog
                         trigger={<Button size="icon-sm" variant="ghost" aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>}
                         title="Remove this section?"
@@ -741,7 +799,12 @@ export function CourseBuilder({
                     {s.lessons.map((l) => (
                       <div key={l.id} className="rounded-lg border bg-card p-3">
                         <div className="flex items-center gap-2">
-                          <Input value={l.title} onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })} className="h-8" placeholder="Lesson title" />
+                          <Input
+                            value={l.title}
+                            onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })}
+                            className="h-8 min-w-0 flex-1"
+                            placeholder="Lesson title"
+                          />
                           <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as BuilderLessonType)}>
                             <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
@@ -895,7 +958,14 @@ export function CourseBuilder({
                 <Label>Base price (USD)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                  <Input value={price} onChange={(e) => setPrice(e.target.value)} className="pl-7" inputMode="decimal" />
+                  <Input
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="pl-7"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">Regional & per-country pricing is applied automatically from your Pricing rules.</p>
               </CardContent>

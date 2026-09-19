@@ -171,7 +171,7 @@ export function ApplyInstructorForm() {
       <Card variant="elevated">
         <CardHeader>
           <CardTitle className="text-xl">Apply to teach</CardTitle>
-          <p className="text-sm text-muted-foreground">Tell us about yourself. Approved instructors can publish courses immediately.</p>
+          <p className="text-sm text-muted-foreground">About. Approved instructors can publish courses immediately.</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} noValidate className="space-y-6">
@@ -242,7 +242,7 @@ export function ApplyInstructorForm() {
                   aria-invalid={!!fieldErrors.sampleUrl}
                 />
               </FormField>
-              <FormField label="Tell us about yourself" error={fieldErrors.bio}>
+              <FormField label="About" error={fieldErrors.bio}>
                 <Textarea
                   value={bio}
                   onChange={(e) => { setBio(e.target.value); clearError("bio"); }}

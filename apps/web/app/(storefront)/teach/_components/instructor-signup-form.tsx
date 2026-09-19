@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/errors";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
 import { CountryField } from "@/components/shared/country-field";
+import { PhoneInput } from "@/components/shared/phone-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +30,7 @@ function buildPayload(fields: {
   email: string;
   password: string;
   country: string;
+  phone: string;
   expertise: string;
   headline: string;
   bio: string;
@@ -44,6 +46,7 @@ function buildPayload(fields: {
     email: fields.email.trim(),
     password: fields.password,
     country: fields.country,
+    phone: fields.phone.trim(),
     expertise: fields.expertise.trim(),
     headline: fields.headline.trim(),
     bio: fields.bio.trim(),
@@ -69,6 +72,7 @@ export function InstructorSignupForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState("");
+  const [phone, setPhone] = useState("");
   const [expertise, setExpertise] = useState("");
   const [customExpertise, setCustomExpertise] = useState("");
   const [headline, setHeadline] = useState("");
@@ -104,7 +108,7 @@ export function InstructorSignupForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const payload = buildPayload({
-      name, email, password, country,
+      name, email, password, country, phone,
       expertise: isCustomExpertise ? customExpertise : expertiseValue,
       headline, bio, sampleUrl,
       linkedinUrl, twitterUrl, youtubeUrl, facebookUrl, otherUrl,
@@ -145,7 +149,7 @@ export function InstructorSignupForm() {
           <form onSubmit={submit} noValidate className="space-y-6">
             <Stagger className="space-y-4" gap={0.05}>
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Full name" error={fieldErrors.name}>
+                <FormField label={<>Full name <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.name}>
                   <Input
                     value={name}
                     onChange={(e) => { setName(e.target.value); clearError("name"); }}
@@ -153,7 +157,7 @@ export function InstructorSignupForm() {
                     aria-invalid={!!fieldErrors.name}
                   />
                 </FormField>
-                <FormField label="Email" error={fieldErrors.email}>
+                <FormField label={<>Email <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.email}>
                   <Input
                     type="email"
                     value={email}
@@ -165,7 +169,7 @@ export function InstructorSignupForm() {
                 </FormField>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Password" error={fieldErrors.password}>
+                <FormField label={<>Password <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.password}>
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
@@ -188,15 +192,18 @@ export function InstructorSignupForm() {
                     </Button>
                   </div>
                 </FormField>
-                <FormField label="Country" error={fieldErrors.country}>
+                <FormField label={<>Country <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.country}>
                   <CountryField
                     value={country}
                     onChange={(code) => { setCountry(code); clearError("country"); }}
                   />
                 </FormField>
               </div>
+              <FormField label={<>Phone <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.phone} hint="Calling code follows your country">
+                <PhoneInput country={country} value={phone} onChange={(value) => { setPhone(value); clearError("phone"); }} />
+              </FormField>
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Professional headline" error={fieldErrors.headline}>
+                <FormField label={<>Professional headline <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.headline}>
                   <Input
                     value={headline}
                     onChange={(e) => { setHeadline(e.target.value); clearError("headline"); }}
@@ -204,7 +211,7 @@ export function InstructorSignupForm() {
                     aria-invalid={!!fieldErrors.headline}
                   />
                 </FormField>
-                <FormField label="Primary expertise" error={fieldErrors.expertise}>
+                <FormField label={<>Primary expertise <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.expertise}>
                   <Select
                     value={expertiseValue}
                     onValueChange={(v) => {
@@ -242,7 +249,7 @@ export function InstructorSignupForm() {
                   aria-invalid={!!fieldErrors.sampleUrl}
                 />
               </FormField>
-              <FormField label="Tell us about yourself" error={fieldErrors.bio}>
+              <FormField label={<>About <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.bio}>
                 <Textarea
                   value={bio}
                   onChange={(e) => { setBio(e.target.value); clearError("bio"); }}

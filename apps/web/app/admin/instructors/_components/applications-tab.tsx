@@ -197,7 +197,7 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Explain why this application wasn't approved — the applicant will see this."
-                className="min-h-24 w-full resize-y"
+                className="min-h-24 max-h-40 w-full resize-none overflow-y-auto whitespace-pre-wrap break-all"
               />
             </div>
             <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">

@@ -151,6 +151,17 @@ export class AdminRepository {
     ]);
   }
 
+  findCourseOrganizations(courseId: string) {
+    return this.prisma.courseOrgAssignment.findMany({
+      where: { courseId },
+      select: {
+        createdAt: true,
+        org: { select: { id: true, name: true, slug: true, status: true, domain: true, adminEmail: true, seatCount: true, usedSeats: true } },
+      },
+      orderBy: { org: { name: "asc" } },
+    });
+  }
+
   courseStatsCounts() {
     return this.prisma.$transaction([
       this.prisma.course.count(),

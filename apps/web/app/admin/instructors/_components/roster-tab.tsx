@@ -8,7 +8,7 @@ import { useCategories } from "@/lib/api/hooks";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Stars } from "@/components/shared/stars";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -115,6 +115,7 @@ export function RosterTab() {
                   <TableCell className="pl-6">
                     <Link href={`/instructors/${i.userId}`} target="_blank" className="flex items-center gap-3 hover:underline">
                       <Avatar className="size-8 ring-1 ring-border">
+                        {i.avatar && <AvatarImage src={`${i.avatar}`} alt={`${i.name} profile`} />}
                         <AvatarFallback className="brand-gradient text-xs text-white">{initials(i.name)}</AvatarFallback>
                       </Avatar>
                       <div>

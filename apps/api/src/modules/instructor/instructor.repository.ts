@@ -86,13 +86,20 @@ export class InstructorRepository {
   updateInstructorProfile(
     userId: string,
     data: Prisma.InstructorProfileUpdateInput,
+    tx?: Db,
   ) {
-    return this.prisma.instructorProfile.update({
+    return this.db(tx).instructorProfile.update({
       where: { userId },
       data,
     });
   }
 
+  findLatestApplicationByUserWithDb(userId: string, tx?: Db) {
+    return this.db(tx).instructorApplication.findFirst({
+      where: { userId },
+      orderBy: { appliedAt: "desc" },
+    });
+  }
   findApplicationsPage(
     where: Prisma.InstructorApplicationWhereInput,
     page: number,
