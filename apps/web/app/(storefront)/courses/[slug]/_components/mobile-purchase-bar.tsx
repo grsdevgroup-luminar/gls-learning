@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlayCircle, ShoppingCart, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { useSession } from "@/lib/api/session";
 import { CoursePurchaseCard } from "./course-purchase-card";
 
 /** Mobile-only fixed bottom bar: price + primary actions, with a "More"
@@ -18,6 +19,8 @@ import { CoursePurchaseCard } from "./course-purchase-card";
  *  entirely and keeps the sticky sidebar instead. */
 export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
   const { inCart, addToCart, isEnrolled } = useStore();
+  const { role } = useSession();
+  const isInstructor = role === "INSTRUCTOR";
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const enrolled = isEnrolled(course.id);
@@ -46,45 +49,57 @@ export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur supports-backdrop-filter:bg-background/85 lg:hidden">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setOpen(true)}
-            className="flex min-w-0 flex-1 items-center gap-1 text-left"
-          >
-            <Price
-              basePrice={course.basePriceCents / 100}
-              originalPrice={course.originalPriceCents ? course.originalPriceCents / 100 : undefined}
-              size="sm"
-              showLocal={false}
-            />
-            <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
+      {!isInstructor && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur supports-backdrop-filter:bg-background/85 lg:hidden">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setOpen(true)}
+              className="flex min-w-0 flex-1 items-center gap-1 text-left"
+            >
+              <Price
+                basePrice={course.basePriceCents / 100}
+                originalPrice={
+                  course.originalPriceCents
+                    ? course.originalPriceCents / 100
+                    : undefined
+                }
+                size="sm"
+                showLocal={false}
+              />
+              <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </button>
 
-          {enrolled ? (
-            <Button size="sm" render={<Link href={`/learn/${course.slug}`} />}>
-              <PlayCircle /> Go to course
-            </Button>
-          ) : (
-            <>
+            {enrolled ? (
               <Button
                 size="sm"
-                variant="outline"
-                aria-label={inCartNow ? "Go to cart" : "Add to cart"}
-                onClick={inCartNow ? () => router.push("/cart") : add}
+                render={<Link href={`/learn/${course.slug}`} />}
               >
-                <ShoppingCart />
+                <PlayCircle /> Go to course
               </Button>
-              <Button size="sm" onClick={buyNow}>
-                Buy now
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label={inCartNow ? "Go to cart" : "Add to cart"}
+                  onClick={inCartNow ? () => router.push("/cart") : add}
+                >
+                  <ShoppingCart />
+                </Button>
+                <Button size="sm" onClick={buyNow}>
+                  Buy now
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent
+          side="bottom"
+          className="max-h-[85vh] overflow-y-auto rounded-t-2xl"
+        >
           <SheetTitle className="sr-only">Course purchase details</SheetTitle>
           <div className="p-4 pt-8">
             <CoursePurchaseCard course={course} />

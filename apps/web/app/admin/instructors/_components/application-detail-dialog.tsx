@@ -37,9 +37,9 @@ export function ApplicationDetailDialog({
 
   return (
     <Dialog open={!!a} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-hidden sm:max-w-2xl">
         {a && (
-          <>
+          <div className="min-h-0 overflow-y-auto pr-1">
             <DialogHeader>
               <DialogTitle className="sr-only">Application — {a.name}</DialogTitle>
             </DialogHeader>
@@ -146,7 +146,7 @@ export function ApplicationDetailDialog({
                 </Button>
               </div>
             )}
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

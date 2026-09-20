@@ -115,16 +115,20 @@ async function main() {
     { code: "DE", country: "Germany", flag: "🇩🇪", currency: "EUR", symbol: "€", locale: "de-DE", fxRate: 0.92, multiplier: 1, tierId: "t1" },
     { code: "CA", country: "Canada", flag: "🇨🇦", currency: "CAD", symbol: "C$", locale: "en-CA", fxRate: 1.37, multiplier: 1, tierId: "t1" },
     { code: "AU", country: "Australia", flag: "🇦🇺", currency: "AUD", symbol: "A$", locale: "en-AU", fxRate: 1.51, multiplier: 1, tierId: "t1" },
+    { code: "JP", country: "Japan", flag: "🇯🇵", currency: "JPY", symbol: "¥", locale: "ja-JP", fxRate: 157, multiplier: 1, tierId: "t1" },
     { code: "BR", country: "Brazil", flag: "🇧🇷", currency: "BRL", symbol: "R$", locale: "pt-BR", fxRate: 5.42, multiplier: 0.7, tierId: "t2" },
     { code: "MX", country: "Mexico", flag: "🇲🇽", currency: "MXN", symbol: "MX$", locale: "es-MX", fxRate: 17.1, multiplier: 0.7, tierId: "t2" },
     { code: "TR", country: "Turkey", flag: "🇹🇷", currency: "TRY", symbol: "₺", locale: "tr-TR", fxRate: 32.5, multiplier: 0.7, tierId: "t2" },
     { code: "ZA", country: "South Africa", flag: "🇿🇦", currency: "ZAR", symbol: "R", locale: "en-ZA", fxRate: 18.4, multiplier: 0.7, tierId: "t2" },
+    { code: "TH", country: "Thailand", flag: "🇹🇭", currency: "THB", symbol: "฿", locale: "th-TH", fxRate: 36.5, multiplier: 0.7, tierId: "t2" },
     { code: "IN", country: "India", flag: "🇮🇳", currency: "INR", symbol: "₹", locale: "en-IN", fxRate: 83.2, multiplier: 0.35, tierId: "t3", override: true },
-    { code: "BD", country: "Bangladesh", flag: "🇧🇩", currency: "BDT", symbol: "৳", locale: "bn-BD", fxRate: 117, multiplier: 0.3, tierId: "t3", override: true },
+    { code: "BD", country: "Bangladesh", flag: "🇧🇩", currency: "BDT", symbol: "৳", locale: "bn-BD", fxRate: 117, multiplier: 0.45, tierId: "t3" },
     { code: "NG", country: "Nigeria", flag: "🇳🇬", currency: "NGN", symbol: "₦", locale: "en-NG", fxRate: 1480, multiplier: 0.45, tierId: "t3" },
+    { code: "PK", country: "Pakistan", flag: "🇵🇰", currency: "PKR", symbol: "₨", locale: "ur-PK", fxRate: 278, multiplier: 0.45, tierId: "t3" },
+    { code: "EG", country: "Egypt", flag: "🇪🇬", currency: "EGP", symbol: "E£", locale: "ar-EG", fxRate: 48.5, multiplier: 0.45, tierId: "t3" },
   ];
   const countryOverrides = [
-    { country: "Bangladesh", flag: "🇧🇩", type: "flat_percent", flatPercent: 30 },
+    { country: "Bangladesh", flag: "🇧🇩", type: "flat_percent", flatPercent: 45 },
     { country: "India", flag: "🇮🇳", type: "flat_percent", flatPercent: 35 },
   ];
   for (const t of pricingTiers)

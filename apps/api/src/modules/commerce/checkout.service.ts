@@ -189,16 +189,39 @@ export class CheckoutService {
     if (purchasableCourseIds.length === 0)
       throw new BadRequestException("You already own these courses");
 
+    // Reconcile any existing provider sessions before deciding whether a new
+    // checkout can be created. This keeps completed or abandoned payments from
+    // blocking a later attempt.
+    const pendingOrders =
+      await this.repo.findPendingOrdersByUserAndCourseIds(
+        userId,
+        purchasableCourseIds,
+      );
+    for (const pendingOrder of pendingOrders) {
+      const resolution = await this.payments.reconcilePendingPayment(pendingOrder);
+      if (resolution.status === "PAID") {
+        await this.orders.fulfill(pendingOrder.id, resolution.providerPaymentId);
+      } else if (resolution.status === "ABANDONED") {
+        await this.repo.markFailedIfPending(pendingOrder.id, userId);
+      }
+    }
+
+    const ownedAfterReconciliation = await this.repo.findOwnedEnrollments(
+      userId,
+      purchasableCourseIds,
+    );
+    const ownedAfterSet = new Set(ownedAfterReconciliation.map((o) => o.courseId));
+    const courseIds = purchasableCourseIds.filter((id) => !ownedAfterSet.has(id));
+    if (courseIds.length === 0)
+      throw new BadRequestException("You already own these courses");
+
     // A new checkout attempt may use a fresh idempotency key (for example
     // after returning from a canceled provider session). Do not create a
     // second pending order for a course that is already awaiting payment.
     // Mixed carts continue with only the courses that do not have a pending
     // order; the existing pending order remains available to resume.
     const openOrders =
-      await this.repo.findPendingOrdersByUserAndCourseIds(
-        userId,
-        purchasableCourseIds,
-    );
+      await this.repo.findPendingOrdersByUserAndCourseIds(userId, courseIds);
     // Choosing a different payment method abandons the earlier attempt. Without
     // this, the pending order from the previous gateway would be resurrected
     // and the user sent back to the gateway they just switched away from.
@@ -213,7 +236,7 @@ export class CheckoutService {
     const pendingCourseIds = new Set(
       remainingPendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
     );
-    const newCourseIds = purchasableCourseIds.filter(
+    const newCourseIds = courseIds.filter(
       (id) => !pendingCourseIds.has(id),
     );
     if (newCourseIds.length === 0)

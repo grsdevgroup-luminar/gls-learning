@@ -145,6 +145,9 @@ export interface CourseSummaryDto {
   originalPriceCents: number | null;
   ratingAvg: number;
   reviewCount: number;
+  /** Raw approved review count; weighted count is used for confidence. */
+  ratingWeightedCount?: number;
+  completedReviewCount?: number;
   studentCount: number;
   durationSec: number;
   lessonCount: number;

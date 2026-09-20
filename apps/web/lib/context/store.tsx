@@ -53,9 +53,14 @@ export type Role =
   | "org_admin";
 
 export interface MyReview {
+  id?: string;
   rating: number;
   body: string;
   date: string;
+  status: "PENDING" | "APPROVED" | "HIDDEN";
+  progressPercent: number;
+  ratingStage: "STARTED" | "IN_PROGRESS" | "COMPLETED";
+  ratingWeight: number;
 }
 
 const CART_KEY = "skillstream_cart_v2";
@@ -262,6 +267,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     regions?.find((r) => r.code === regionCode) ??
     regions?.find((r) => r.code === DEFAULT_REGION) ??
     FALLBACK_REGION;
+  // Once an account is known, its profile country is the default pricing region.
+  // Guests may still choose a region manually; this prevents a stale device setting
+  // from leaving an authenticated learner on the wrong regional price.
+  useEffect(() => {
+    const profileRegionCode = user?.country?.trim().toUpperCase();
+    if (!mounted || !profileRegionCode || !regionList?.some((r) => r.code === profileRegionCode)) return;
+    // The profile country is the authoritative default after authentication.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRegionCodeState((current) => (current === profileRegionCode ? current : profileRegionCode));
+  }, [mounted, regionList, user?.country]);
 
   // ── catalog (published summaries) ──
   const { data: courseList } = useCatalog();
@@ -289,6 +304,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [enrollments],
   );
 
+  useEffect(() => {
+    if (!user || !enrollments?.length) return;
+    let cancelled = false;
+    void Promise.all(
+      enrollments
+        .filter((e) => e.status === "IN_PROGRESS" || e.status === "COMPLETED")
+        .map(async (e) => [e.courseId, await api.myReview(e.courseId)] as const),
+    )
+      .then((entries) => {
+        if (cancelled) return;
+        setMyReviews((current) => {
+          const next = { ...current };
+          for (const [courseId, review] of entries) {
+            if (review) {
+              next[courseId] = {
+                id: review.id,
+                rating: review.rating,
+                body: review.body,
+                date: review.createdAt,
+                status: review.status,
+                progressPercent: review.progressPercent,
+                ratingStage: review.ratingStage,
+                ratingWeight: review.ratingWeight,
+              };
+            } else {
+              delete next[courseId];
+            }
+          }
+          return next;
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, enrollments]);
   const refetchEnrollments = useCallback(
     () => qc.invalidateQueries({ queryKey: qk.enrollments }),
     [qc],
@@ -593,19 +644,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // reviews
     getMyReview: (courseId) => myReviews[courseId],
     submitReview: (courseId, rating, body) => {
+      const previous = myReviews[courseId];
       setMyReviews((m) => ({
         ...m,
-        [courseId]: { rating, body, date: new Date().toISOString().slice(0, 10) },
+        [courseId]: {
+          ...previous,
+          rating,
+          body,
+          date: new Date().toISOString(),
+          status: "PENDING",
+          progressPercent: previous?.progressPercent ?? 0,
+          ratingStage: previous?.ratingStage ?? "STARTED",
+          ratingWeight: previous?.ratingWeight ?? 0.35,
+        },
       }));
-      void api.submitReview(courseId, { rating, body }).catch((err) => {
-        // Roll the optimistic copy back so the UI doesn't claim a review landed.
-        setMyReviews((m) => {
-          const rest = { ...m };
-          delete rest[courseId];
-          return rest;
+      void api
+        .submitReview(courseId, { rating, body })
+        .then((review) => {
+          setMyReviews((m) => ({
+            ...m,
+            [courseId]: {
+              id: review.id,
+              rating: review.rating,
+              body: review.body,
+              date: review.createdAt,
+              status: review.status,
+              progressPercent: review.progressPercent,
+              ratingStage: review.ratingStage,
+              ratingWeight: review.ratingWeight,
+            },
+          }));
+          void qc.invalidateQueries({ queryKey: qk.reviews(courseId) });
+        })
+        .catch((err) => {
+          setMyReviews((m) => {
+            const next = { ...m };
+            if (previous) next[courseId] = previous;
+            else delete next[courseId];
+            return next;
+          });
+          toast.error(getApiErrorMessage(err));
         });
-        toast.error(getApiErrorMessage(err));
-      });
     },
     // courses
     courses,

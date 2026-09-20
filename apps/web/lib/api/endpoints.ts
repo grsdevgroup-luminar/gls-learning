@@ -31,6 +31,7 @@ import type {
   ApplyInstructorInput,
   EnrollmentDto,
   InstructorApplicationDto,
+  InstructorNameChangeRequestDto,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -117,6 +118,7 @@ export type {
   CourseSummaryDto,
   EnrollmentDto,
   InstructorApplicationDto,
+  InstructorNameChangeRequestDto,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -314,6 +316,12 @@ export const api = {
       { method: "POST", body: { note } },
     ),
 
+  instructorNameChangeRequests: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<InstructorNameChangeRequestDto>>(`/admin/instructor-name-change-requests${qs(params)}`),
+  approveInstructorNameChange: (id: string) =>
+    apiFetch<InstructorNameChangeRequestDto>(`/admin/instructor-name-change-requests/${id}/approve`, { method: "POST" }),
+  rejectInstructorNameChange: (id: string, note: string) =>
+    apiFetch<InstructorNameChangeRequestDto>(`/admin/instructor-name-change-requests/${id}/reject`, { method: "POST", body: { note } }),
   // certificates
   myCertificates: () => apiFetch<CertificateDto[]>("/me/certificates"),
   // lesson notes (private per learner; enrollment required to write)
@@ -565,6 +573,8 @@ export const api = {
     courseId: string,
     params: Record<string, string | number | undefined> = {},
   ) => apiFetch<Paginated<ReviewDto>>(`/me/courses/${courseId}/reviews${qs(params)}`),
+  requestInstructorNameChange: (requestedName: string) =>
+    apiFetch<InstructorNameChangeRequestDto>("/me/instructor/name-change-requests", { method: "POST", body: { requestedName } }),
   updateInstructorProfile: (body: UpdateInstructorProfileInput) =>
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
@@ -864,6 +874,9 @@ export const adminApi = {
     api.adminInstructors(params),
   approveInstructorApplication: api.approveInstructorApplication,
   rejectInstructorApplication: api.rejectInstructorApplication,
+  instructorNameChangeRequests: (params: Record<string, string | number | undefined> = {}) => api.instructorNameChangeRequests(params),
+  approveInstructorNameChange: api.approveInstructorNameChange,
+  rejectInstructorNameChange: api.rejectInstructorNameChange,
   deliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
     api.adminDeliveryPartnerApplications(params),
   deliveryPartnerApplicationStats: () => api.adminDeliveryPartnerApplicationStats(),
@@ -896,6 +909,7 @@ export const adminApi = {
 
 export const instructorApi = {
   profile: () => api.instructorProfile(),
+  requestInstructorNameChange: api.requestInstructorNameChange,
   courses: () => api.instructorCourses(),
   courseReviews: (
     courseId: string,

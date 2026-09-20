@@ -17,12 +17,12 @@
       "commands": [
         "pnpm --filter @skillstream/api exec prisma generate",
         "pnpm --filter @skillstream/shared build",
-        "pnpm --filter @skillstream/api exec playwright install chromium",
+        "PLAYWRIGHT_BROWSERS_PATH=0 pnpm --filter @skillstream/api exec playwright install chromium",
         "pnpm --filter @skillstream/api build"
       ]
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter @skillstream/api exec prisma migrate deploy && node apps/api/dist/main.js"
+    "startCommand": "pnpm --filter @skillstream/api exec prisma migrate deploy && PLAYWRIGHT_BROWSERS_PATH=0 node apps/api/dist/main.js"
   }
 }

@@ -49,7 +49,7 @@ export class ReviewsRepository {
   upsertReview(
     userId: string,
     courseId: string,
-    input: { rating: number; body: string },
+    input: { rating: number; body: string; progressPercent: number; ratingStage: "STARTED" | "IN_PROGRESS" | "COMPLETED"; ratingWeight: number },
   ) {
     return this.prisma.review.upsert({
       where: { courseId_userId: { courseId, userId } },
@@ -85,15 +85,13 @@ export class ReviewsRepository {
 
   adminStats() {
     return this.prisma.$transaction([
-      this.prisma.review.aggregate({
+      this.prisma.review.findMany({
         where: { status: "APPROVED" },
-        _avg: { rating: true },
-        _count: true,
+        select: { rating: true, ratingWeight: true },
       }),
       this.prisma.review.count({ where: { status: "PENDING" } }),
     ]);
   }
-
   findDistinctCourses() {
     return this.prisma.review.findMany({
       distinct: ["courseId"],
@@ -144,19 +142,20 @@ export class ReviewsRepository {
   }
 
   aggregateApprovedForCourse(courseId: string) {
-    return this.prisma.review.aggregate({
+    return this.prisma.review.findMany({
       where: { courseId, status: "APPROVED" },
-      _avg: { rating: true },
-      _count: true,
+      select: { rating: true, ratingWeight: true, ratingStage: true },
     });
   }
 
-  updateCourseRating(courseId: string, ratingAvg: number, reviewCount: number) {
+  updateCourseRating(courseId: string, ratingAvg: number, reviewCount: number, ratingWeightedCount: number, completedReviewCount: number) {
     return this.prisma.course.update({
       where: { id: courseId },
       data: {
         ratingAvg,
         reviewCount,
+        ratingWeightedCount,
+        completedReviewCount,
       },
     });
   }

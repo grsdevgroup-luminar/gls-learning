@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ReviewStatus } from "../enums.js";
+import { RatingStage, ReviewStatus } from "../enums.js";
 import { searchQuerySchema } from "./common.js";
 
 export const createReviewSchema = z.object({
@@ -51,4 +51,8 @@ export interface ReviewDto {
   createdAt: string;
   /** Course this review belongs to — the moderation queue spans all courses. */
   courseTitle: string;
+  progressPercent: number;
+  ratingStage: RatingStage;
+  /** Learners who finished more of a course contribute more strongly. */
+  ratingWeight: number;
 }

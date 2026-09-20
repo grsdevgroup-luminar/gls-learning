@@ -38,24 +38,27 @@ export function ReviewsSection({
 
   const enrolled = isEnrolled(course.id);
   const myReview = mounted ? getMyReview(course.id) : undefined;
-  const reviews: ReviewDto[] = myReview
-    ? [
-        {
-          id: "mine",
-          courseId: course.id,
-          courseTitle: course.title,
-          author: user?.name ?? "You",
-          avatar: null,
-          rating: myReview.rating,
-          createdAt: myReview.date,
-          body: myReview.body,
-          status: "APPROVED",
-          helpful: 0,
-        },
-        ...initialReviews,
-      ]
-    : initialReviews;
-
+  const reviews: ReviewDto[] =
+    myReview?.status === "APPROVED"
+      ? [
+          {
+            id: myReview.id ?? "mine",
+            courseId: course.id,
+            courseTitle: course.title,
+            author: user?.name ?? "You",
+            avatar: null,
+            rating: myReview.rating,
+            createdAt: myReview.date,
+            body: myReview.body,
+            status: "APPROVED",
+            helpful: 0,
+            progressPercent: myReview.progressPercent,
+            ratingStage: myReview.ratingStage,
+            ratingWeight: myReview.ratingWeight,
+          },
+          ...initialReviews,
+        ]
+      : initialReviews;
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -64,11 +67,16 @@ export function ReviewsSection({
           <span className="flex items-center gap-1 text-sm">
             <Stars rating={course.ratingAvg} showValue size={15} />
             <span className="text-muted-foreground">
-              · {compactNumber(course.reviewCount)} reviews
+              · {compactNumber(course.reviewCount)} verified ratings
             </span>
           </span>
         </div>
         <div id="write-a-review" className="scroll-mt-24">
+          {myReview?.status === "PENDING" && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Your review is awaiting approval. It will appear publicly after moderation.
+            </p>
+          )}
           {enrolled && (
             <ReviewDialog
               courseId={course.id}
@@ -78,7 +86,7 @@ export function ReviewsSection({
           )}
         </div>
       </div>
-      <RatingBars reviews={reviews} rating={course.ratingAvg} />
+      <RatingBars reviews={reviews} rating={course.ratingAvg} completedReviewCount={course.completedReviewCount ?? 0} />
       <div className="mt-6 space-y-5">
         {reviews?.slice(0, 6).map((r) => (
           <div key={r.id} className="border-b pb-5 last:border-0">
@@ -89,6 +97,15 @@ export function ReviewsSection({
               <div>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   {r.author}
+                  {r.ratingStage === "COMPLETED" && (
+                    <Badge variant="outline" className="text-[10px]">Course completed</Badge>
+                  )}
+                  {r.ratingStage === "IN_PROGRESS" && (
+                    <Badge variant="outline" className="text-[10px]">Active learner</Badge>
+                  )}
+                  {r.ratingStage === "STARTED" && (
+                    <Badge variant="outline" className="text-[10px]">Early learner</Badge>
+                  )}
                   {r.id === "mine" && (
                     <Badge variant="secondary" className="text-[10px]">You</Badge>
                   )}

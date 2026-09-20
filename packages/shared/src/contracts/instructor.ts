@@ -43,8 +43,10 @@ export type InstructorSignupInput = z.infer<typeof instructorSignupSchema>;
 
 // A URL field the instructor can also explicitly clear: "" means "remove the
 // link", a valid URL means "set it", and omitting the key entirely (the
-// `.optional()`) leaves it untouched — matched by `nullableUrl` below on the
-// service side, which maps "" to `null` before writing to the DB.
+// `.optional()`) leaves it untouched — matched by
+// `.optional()`) leaves it untouched — matched by nullableUrl below on the
+// service side, which maps "" to
+// service side, which maps "" to null before writing to the DB.
 const clearableUrl = z.union([z.string().trim().url(), z.literal("")]).optional();
 
 export const updateInstructorProfileSchema = z.object({
@@ -70,6 +72,30 @@ export type UpdateInstructorProfileInput = z.infer<
   typeof updateInstructorProfileSchema
 >;
 
+export const requestInstructorNameChangeSchema = z.object({
+  requestedName: z.string().trim().min(1, "Name is required").max(120),
+});
+export type RequestInstructorNameChangeInput = z.infer<
+  typeof requestInstructorNameChangeSchema
+>;
+
+export const nameChangeRequestQuerySchema = searchQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+export type NameChangeRequestQuery = z.infer<typeof nameChangeRequestQuerySchema>;
+
+export interface InstructorNameChangeRequestDto {
+  id: string;
+  userId: string;
+  currentName: string;
+  requestedName: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  note: string | null;
+  email: string;
+}
 export const reviewApplicationSchema = z.object({
   note: z.string().max(1000).optional(),
 });
@@ -132,6 +158,7 @@ export interface InstructorProfileDto {
   facebookUrl?: string | null;
   otherUrl?: string | null;
   joinedAt?: string;
+  pendingNameChange?: InstructorNameChangeRequestDto | null;
 }
 
 /** Public instructor profile — no email/earnings, safe to serve unauthenticated. */

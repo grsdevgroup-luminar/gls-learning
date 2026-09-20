@@ -69,9 +69,10 @@ export class CertificatePdfService implements OnModuleDestroy {
   }
 
   private getBrowser(): Promise<Browser> {
+    const executablePath = this.config.get("PLAYWRIGHT_EXECUTABLE_PATH", { infer: true });
     this.browserPromise ??= chromium.launch({
       headless: true,
-      executablePath: this.config.get("PLAYWRIGHT_EXECUTABLE_PATH", { infer: true }) || undefined,
+      ...(executablePath ? { executablePath } : { channel: "chromium" as const }),
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     }).catch((error) => {
       this.browserPromise = null;

@@ -114,6 +114,20 @@ export class AuthoringRepository {
     return this.prisma.course.findUnique({ where: { slug } });
   }
 
+  findCourseByInstructorAndTitle(
+    instructorId: string,
+    title: string,
+    excludeCourseId?: string,
+  ) {
+    return this.prisma.course.findFirst({
+      where: {
+        instructorId,
+        title: { equals: title.trim(), mode: "insensitive" },
+        ...(excludeCourseId ? { id: { not: excludeCourseId } } : {}),
+      },
+      select: { id: true },
+    });
+  }
   findCourseDetailOrThrow(id: string) {
     return this.prisma.course.findUniqueOrThrow({
       where: { id },

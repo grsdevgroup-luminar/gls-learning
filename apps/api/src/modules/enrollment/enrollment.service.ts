@@ -13,6 +13,7 @@ import {
   isCourseComplete,
   type CertificateDto,
   type EnrollmentDto,
+  type EnrollmentStatus,
   type ToggleLessonResultDto,
   type ActivityDayDto,
   type ActivityPeriod,
@@ -179,6 +180,18 @@ export class EnrollmentService {
     );
 
     return Boolean(enrollment);
+  }
+
+  /** Server-authoritative review context; the client cannot choose its rating stage. */
+  async reviewContext(userId: string, courseId: string): Promise<{ progressPercent: number; status: EnrollmentStatus } | null> {
+    const enrollment = await this.repo.findByUserAndCourse(userId, courseId);
+    if (!enrollment || !['IN_PROGRESS', 'COMPLETED'].includes(enrollment.status)) return null;
+    const lessonCount = countLessons(enrollment.course);
+    const completedCount = enrollment.lessonProgress.filter((p) => p.completed).length;
+    return {
+      progressPercent: completionPct(completedCount, lessonCount),
+      status: enrollment.status,
+    };
   }
 
   /** Thin wrapper so other modules (e.g. CoursesService) can check org

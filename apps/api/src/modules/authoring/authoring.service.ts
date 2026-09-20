@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -186,7 +187,24 @@ export class AuthoringService {
   }
 
   // ── courses ────────────────────────────────────────────────────────────
+  private async assertUniqueCourseTitle(
+    instructorId: string,
+    title: string,
+    excludeCourseId?: string,
+  ): Promise<void> {
+    const duplicate = await this.repo.findCourseByInstructorAndTitle(
+      instructorId,
+      title,
+      excludeCourseId,
+    );
+    if (duplicate) {
+      throw new ConflictException(
+        "You already have a course with this name. Choose a different course name.",
+      );
+    }
+  }
   async create(user: RequestUser, input: CreateCourseInput) {
+    await this.assertUniqueCourseTitle(user.id, input.title);
     const category = await this.categories.ensureForAuthor(input.category, user);
     const slug = await this.uniqueSlug(input.slug ?? slugify(input.title));
     const course = await this.repo.createCourse({
@@ -229,6 +247,8 @@ export class AuthoringService {
           "Unassign this course from its organization(s) before making it public",
         );
     }
+    if (input.title !== undefined)
+      await this.assertUniqueCourseTitle(course.instructorId, input.title, id);
     const category = input.category
       ? await this.categories.ensureForAuthor(input.category, user)
       : undefined;
@@ -277,11 +297,11 @@ export class AuthoringService {
     id: string,
     status: CourseStatusInput["status"],
   ) {
-    if (status === "PUBLISHED") {
-      await this.categories.assertActive(course.category);
+    if (status === "REVIEW" || status === "PUBLISHED") {
+      if (status === "PUBLISHED") await this.categories.assertActive(course.category);
       const lessons = await this.repo.findLessonsForPublishValidation(id);
       if (lessons.length === 0)
-        throw new BadRequestException("Add at least one lesson before publishing this course");
+        throw new BadRequestException("Add at least one lesson before submitting this course");
 
       const incomplete = lessons.filter((lesson) => {
         const hasResource = parseLessonResources(lesson.resources).length > 0;
@@ -298,7 +318,7 @@ export class AuthoringService {
       });
       if (incomplete.length > 0)
         throw new BadRequestException(
-          `Complete all lessons before publishing. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
+          `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
         );
     }
     if (status !== "PUBLISHED" && (await this.repo.countOrgAssignments(id)) > 0)

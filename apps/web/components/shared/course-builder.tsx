@@ -213,7 +213,7 @@ export function CourseBuilder({
     });
   }
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [{ id: nid("l"), isNew: true, title: "Welcome & overview", preview: true, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], durationSec: 0, type: "video" }] },
+    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [] },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
   const loadedIds = useRef<{ courseId: string | null; sections: Set<string>; lessons: Set<string> }>({
@@ -357,11 +357,11 @@ export function CourseBuilder({
       toast.error("Title is required.");
       return;
     }
-    if (action === "publish" && totalLessons === 0) {
-      toast.error("Add at least one lesson before publishing this course.");
+    if ((action === "publish" || action === "review") && totalLessons === 0) {
+      toast.error("Add at least one lesson before submitting this course.");
       return;
     }
-    if (action === "publish") {
+    if (action === "publish" || action === "review") {
       const incomplete = sections
         .flatMap((section) => section.lessons)
         .filter((lesson) => {
@@ -381,7 +381,7 @@ export function CourseBuilder({
         });
       if (incomplete.length > 0) {
         toast.error(
-          `Complete all lessons before publishing. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
+          `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
         );
         return;
       }
