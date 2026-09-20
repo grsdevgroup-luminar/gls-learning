@@ -39,6 +39,7 @@ describe("EnrollmentService org-suspension gating", () => {
           status: "PUBLISHED",
           visibility: "PRIVATE",
           orgAssignments: [memberOrg("org_1", "SUSPENDED")],
+          deliveryPartnerAssignments: [],
         }),
       });
 
@@ -56,6 +57,7 @@ describe("EnrollmentService org-suspension gating", () => {
             memberOrg("org_active", "ACTIVE"),
             nonMemberOrg("org_unrelated", "ACTIVE"),
           ],
+          deliveryPartnerAssignments: [],
         }),
         findIdByUserAndCourse: vi.fn().mockResolvedValue(null),
         upsertEnrollment: vi.fn().mockResolvedValue(undefined),
@@ -107,6 +109,7 @@ describe("EnrollmentService org-suspension gating", () => {
           status: "PUBLISHED",
           visibility: "PRIVATE",
           orgAssignments: [nonMemberOrg("org_1", "ACTIVE")],
+          deliveryPartnerAssignments: [],
         }),
       });
 
@@ -120,6 +123,7 @@ describe("EnrollmentService org-suspension gating", () => {
           status: "PUBLISHED",
           visibility: "PUBLIC",
           orgAssignments: [memberOrg("org_1", "SUSPENDED")],
+          deliveryPartnerAssignments: [],
         }),
         findIdByUserAndCourse: vi.fn().mockResolvedValue(null),
         upsertEnrollment: vi.fn().mockResolvedValue(undefined),
@@ -173,7 +177,9 @@ describe("EnrollmentService org-suspension gating", () => {
           courseId,
           course: {
             visibility,
+            basePriceCents: 0,
             orgAssignments,
+            deliveryPartnerAssignments: [],
             sections: [{ lessons: [{ id: lessonId }] }],
           },
         },

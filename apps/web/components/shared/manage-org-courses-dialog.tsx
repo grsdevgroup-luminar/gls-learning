@@ -330,7 +330,7 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
       <BulkAssignConfirmDialog
         open={bulkConfirmOpen}
         onOpenChange={setBulkConfirmOpen}
-        orgName={orgName}
+        targetName={orgName}
         label={bulkAssignLabel}
         count={coursePage?.total ?? 0}
         pending={bulkAssignMutation.isPending}

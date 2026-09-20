@@ -195,6 +195,13 @@ export class EnrollmentService {
     return !!(await this.repo.findAnyOrgMembership(orgIds, userId));
   }
 
+  /** Thin wrapper so CoursesService can check delivery-partner course access
+   *  without taking a dependency on the delivery-partner module — mirrors
+   *  isOrgMemberOfAny, one level deeper (per course-assignment). */
+  async isPartnerMemberOfCourse(courseId: string, userId: string): Promise<boolean> {
+    return !!(await this.repo.findAnyPartnerMembershipForCourse(courseId, userId));
+  }
+
   /** Completed ids for an enrolled learner, used to build the gated learner
    * course view without exposing attachment URLs for locked lessons. */
   async completedLessonIds(userId: string, courseId: string): Promise<string[]> {
@@ -216,7 +223,14 @@ export class EnrollmentService {
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
 
     const course = lesson.section.course;
-    if (course.visibility === "PRIVATE") {
+    // Gated the same way as enrollFree: an org/partner course-assignment
+    // isn't limited to PRIVATE courses, so this must also run for a
+    // PUBLIC+paid course (access was only free because of that grant). A
+    // free PUBLIC course is skipped even if some org/partner assignment
+    // happens to also exist on it — that assignment isn't why access is
+    // free, so its suspension status can't revoke it.
+    const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
+    if (needsGrant) {
       // Every org this course is assigned to that the user is also a member
       // of. Empty means the user's access predates the course/org
       // relationship changing (e.g. unassigned since they enrolled) — no
@@ -226,8 +240,26 @@ export class EnrollmentService {
       const memberOrgs = course.orgAssignments
         .map((a) => a.org)
         .filter((org) => org.members.length > 0);
-      if (memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org)))
-        throw new ForbiddenException("This organization's access is currently suspended");
+      // Same idea for delivery-partner access, one level deeper (per
+      // course-assignment, not per-partner) — no grace period, a partner is
+      // simply APPROVED or not.
+      const memberPartnerAssignments = course.deliveryPartnerAssignments.filter(
+        (a) => a.members.length > 0,
+      );
+      const orgLocked = memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org));
+      const partnerLocked =
+        memberPartnerAssignments.length > 0 &&
+        memberPartnerAssignments.every((a) => a.partner.status !== "APPROVED");
+      // Only block if *every* path this user has to this course is locked —
+      // someone with both an active org seat and a suspended partner grant
+      // (or vice versa) should still get in through whichever path works.
+      const hasAnyPath = memberOrgs.length > 0 || memberPartnerAssignments.length > 0;
+      const allPathsLocked =
+        (memberOrgs.length === 0 || orgLocked) &&
+        (memberPartnerAssignments.length === 0 || partnerLocked);
+      if (hasAnyPath && allPathsLocked) {
+        throw new ForbiddenException("Access to this course is currently suspended");
+      }
     }
 
     const completed = await this.repo.findCompletedLessonIds(enrollment.id);
@@ -247,31 +279,57 @@ export class EnrollmentService {
   }
 
   /**
-   * Free self-enroll. Allowed for: free PUBLIC courses, or org-PRIVATE courses
-   * the user has a seat for (org-paid). Paid public courses must go through
-   * checkout.
+   * Free self-enroll. Allowed for: free PUBLIC courses, org courses the user
+   * has a seat for (org-paid), or delivery-partner courses the user was
+   * invited to (see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3) — an org/partner
+   * course-assignment isn't limited to PRIVATE courses (an admin can assign
+   * any published course, §4.1), so a grant must bypass the purchase
+   * requirement on a PUBLIC+paid course too, not just gate a PRIVATE one.
+   * A free PUBLIC course stays open to everyone regardless of any org/partner
+   * assignment that happens to also exist on it — that assignment isn't the
+   * reason access is free, so its suspension status is irrelevant here. Paid
+   * public courses with no grant must go through checkout.
    */
   async enrollFree(userId: string, courseId: string): Promise<EnrollmentDto> {
     const course = await this.repo.findCourseAccess(courseId, userId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
 
-    if (course.visibility === "PRIVATE") {
-      // Org-private course: membership in any org it's assigned to grants
+    const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
+    if (needsGrant) {
+      // Org-assigned course: membership in any org it's assigned to grants
       // seat-based access — a course can now be shared across several orgs.
       const memberOrgs = course.orgAssignments
         .map((a) => a.org)
         .filter((org) => org.members.length > 0);
-      if (memberOrgs.length === 0)
-        throw new ForbiddenException("This course is restricted to its organization");
-      // New enrollments are blocked immediately once *every* org this user
-      // could enroll through is suspended (mode-agnostic — a grace period
-      // only preserves access already granted, never a fresh enrollment).
-      // At least one active org is enough to let the enrollment through.
-      if (memberOrgs.every((org) => org.status === "SUSPENDED"))
-        throw new ForbiddenException("This organization's access is currently suspended");
-    } else if (course.basePriceCents > 0) {
-      throw new ForbiddenException("This course requires purchase");
+      // Delivery-partner-assigned course: same idea, one level deeper — access
+      // is per course-assignment (not per-partner), so only the assignments
+      // this user was actually invited to count.
+      const memberPartnerAssignments = course.deliveryPartnerAssignments.filter(
+        (a) => a.members.length > 0,
+      );
+
+      if (memberOrgs.length === 0 && memberPartnerAssignments.length === 0) {
+        throw new ForbiddenException(
+          course.visibility === "PRIVATE"
+            ? "This course is restricted to its organization"
+            : "This course requires purchase",
+        );
+      }
+      // New enrollments are blocked immediately once *every* path this user
+      // could enroll through is suspended (mode-agnostic for orgs — a grace
+      // period only preserves access already granted, never a fresh
+      // enrollment). At least one active org or approved partner is enough.
+      const orgsAllSuspended =
+        memberOrgs.length > 0 && memberOrgs.every((org) => org.status === "SUSPENDED");
+      const partnersAllSuspended =
+        memberPartnerAssignments.length > 0 &&
+        memberPartnerAssignments.every((a) => a.partner.status !== "APPROVED");
+      const hasActiveOrgPath = memberOrgs.length > 0 && !orgsAllSuspended;
+      const hasActivePartnerPath = memberPartnerAssignments.length > 0 && !partnersAllSuspended;
+      if (!hasActiveOrgPath && !hasActivePartnerPath) {
+        throw new ForbiddenException("Access to this course is currently suspended");
+      }
     }
 
     await this.enrollMany(undefined, userId, [courseId]);

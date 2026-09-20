@@ -23,6 +23,12 @@ export const cartApi = {
       body: { couponCode },
     }),
 
+  setCampaign: (campaignCode: string | null) =>
+    apiFetch<CartDto>("/cart/campaign", {
+      method: "PATCH",
+      body: { campaignCode },
+    }),
+
   merge: (input: MergeCartInput) =>
     apiFetch<CartDto>("/cart/merge", { method: "POST", body: input }),
 };

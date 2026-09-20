@@ -161,7 +161,10 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
                   key={a.id}
                   app={a}
                   onView={() => setViewingId(a.id)}
-                  onOpenApprove={() => setApprovingId(a.id)}
+                  onOpenApprove={() => {
+                    setApproveCommission(a.expectedCommissionPercent != null ? String(a.expectedCommissionPercent) : "10");
+                    setApprovingId(a.id);
+                  }}
                   onOpenReject={() => setRejectingId(a.id)}
                 />
               ))
@@ -177,7 +180,10 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
       <ApplicationDetailDialog
         app={applications.find((a) => a.id === viewingId) ?? null}
         onClose={() => setViewingId(null)}
-        onOpenApprove={(a) => setApprovingId(a.id)}
+        onOpenApprove={(a) => {
+          setApproveCommission(a.expectedCommissionPercent != null ? String(a.expectedCommissionPercent) : "10");
+          setApprovingId(a.id);
+        }}
         onOpenReject={(a) => setRejectingId(a.id)}
       />
 
@@ -206,6 +212,9 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
                 value={approveCommission}
                 onChange={(e) => setApproveCommission(e.target.value)}
               />
+              {approvingApp?.expectedCommissionPercent != null && (
+                <p className="text-xs text-muted-foreground">Applicant requested {approvingApp.expectedCommissionPercent}%.</p>
+              )}
             </div>
             <div className="space-y-1">
               <label htmlFor="partner-approve-note" className="text-sm font-medium">Note (optional)</label>

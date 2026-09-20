@@ -127,8 +127,8 @@ export class PayoutsRepository {
 
   markPartnerReferralsPaid(partnerId: string, tx?: Db) {
     return this.db(tx).deliveryPartnerReferral.updateMany({
-      where: { partnerId, status: "confirmed" },
-      data: { status: "paid" },
+      where: { partnerId, status: "CONFIRMED" },
+      data: { status: "PAID" },
     });
   }
 }

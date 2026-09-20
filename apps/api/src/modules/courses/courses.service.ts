@@ -150,8 +150,14 @@ export class CoursesService {
       throw new NotFoundException("Course not found");
     if (row.visibility === "PRIVATE" && user?.role !== "ADMIN") {
       const orgIds = row.orgAssignments.map((a) => a.orgId);
-      const member = user ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id) : false;
-      if (!member) throw new NotFoundException("Course not found");
+      const isOrgMember = user ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id) : false;
+      // Delivery-partner course assignment is the other path to a PRIVATE
+      // course (see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3) — same as
+      // enrollFree/assertLessonAccessible already check.
+      const isPartnerMember = user
+        ? await this.enrollment.isPartnerMemberOfCourse(row.id, user.id)
+        : false;
+      if (!isOrgMember && !isPartnerMember) throw new NotFoundException("Course not found");
     }
     const detail = toCourseDetail(row);
     // Preview lessons expose resources publicly (see mapper); their uploaded

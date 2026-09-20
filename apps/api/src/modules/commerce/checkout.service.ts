@@ -58,6 +58,15 @@ export class CheckoutService {
   }
 
   async quote(input: CheckoutQuoteInput, userId?: string): Promise<QuoteDto> {
+    // Mutually exclusive by design (only one discount code applies at a
+    // time) — the storefront UI makes this state unreachable, but a client
+    // bug shouldn't silently mis-price an order, so it's rejected here too.
+    if (input.couponCode && input.campaignCode) {
+      throw new BadRequestException(
+        "Only one code — a coupon or a partner referral code — can be applied at a time",
+      );
+    }
+
     const { lines, region } = await this.buildLines(
       input.courseIds,
       input.regionCode,
@@ -77,6 +86,19 @@ export class CheckoutService {
         valid: ev.result.ok,
         message: ev.result.message,
         discountCents: ev.discountCents,
+      };
+    }
+
+    let campaign: QuoteDto["campaign"] = null;
+    if (input.campaignCode) {
+      const ev = await this.deliveryPartners.evaluateCampaign(input.campaignCode, subtotalCents);
+      discountCents = ev.discountCents;
+      campaign = {
+        code: input.campaignCode.trim().toUpperCase(),
+        valid: ev.result.ok,
+        message: ev.result.message,
+        discountCents: ev.discountCents,
+        partnerName: ev.result.campaign?.partnerName ?? null,
       };
     }
 
@@ -105,6 +127,7 @@ export class CheckoutService {
       currency,
       regionCode: region.code,
       coupon,
+      campaign,
     };
   }
 
@@ -229,8 +252,17 @@ export class CheckoutService {
     // carries the intent forward. See REFUND_TO_CREDIT_PLAN.md.
 
     // Attribute a delivery-partner referral (pending until the order is paid).
-    if (input.referralCode)
-      await this.deliveryPartners.createPendingReferral(order.id, input.referralCode);
+    // Always attempted — durable signup-time attribution can apply even
+    // without a `?ref=` code on this specific checkout (see
+    // DeliveryPartnerService.resolveReferralPartner). A valid campaign code
+    // takes priority over both the durable attribution and the plain
+    // referralCode fallback — see that method's doc comment.
+    await this.deliveryPartners.createPendingReferral(
+      order.id,
+      userId,
+      input.referralCode ?? null,
+      quote.campaign?.valid ? quote.campaign.code : null,
+    );
 
     // Free orders (100%-off coupon or $0 courses) fulfil immediately.
     if (quote.totalCents === 0) {
@@ -270,6 +302,11 @@ export class CheckoutService {
     const requestedCoupon = input.couponCode?.trim().toUpperCase() ?? "";
     if (storedCoupon !== requestedCoupon)
       throw new ConflictException("Idempotency-Key reused with a different coupon");
+
+    const storedCampaign = order.campaignCode ?? "";
+    const requestedCampaign = input.campaignCode?.trim().toUpperCase() ?? "";
+    if (storedCampaign !== requestedCampaign)
+      throw new ConflictException("Idempotency-Key reused with a different referral code");
   }
 
   /** For a replay, prefer the cached gateway URL so we don't open a second

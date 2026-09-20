@@ -17,6 +17,7 @@ import { CoursePreferencesModal } from '@/components/shared/course-preferences-m
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { registerSchema } from '@skillstream/shared';
+import { getReferralCode } from '@/lib/referral';
 
 const perks = [
   '500,000+ learners',
@@ -47,6 +48,9 @@ function SignupForm() {
       email,
       password,
       country,
+      // Locked in as durable attribution server-side if it resolves to an
+      // approved partner — see AuthService.register(). Never blocks signup.
+      referralCode: getReferralCode() ?? undefined,
     });
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Enter valid account details');

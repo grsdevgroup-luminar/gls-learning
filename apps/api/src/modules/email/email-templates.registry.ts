@@ -13,6 +13,7 @@ import { credentialsBoxHtml } from "./email-layout";
 export type EmailTemplateCategory =
   | "auth"
   | "organizations"
+  | "delivery_partner"
   | "commerce"
   | "applications"
   | "payouts"
@@ -139,6 +140,32 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     variables: [
       v("org_name", "The inviting organization's name", "Acme Corp"),
       v("role_label", "\"an admin\" or \"a member\"", "a member"),
+      v("invite_link", "The one-time invitation link", "https://grslearning.dev/join/…"),
+    ],
+  },
+  partner_application_submitted: {
+    key: "partner_application_submitted",
+    label: "Delivery partner application submitted",
+    category: "delivery_partner",
+    description: "Sent right after a visitor submits a delivery partner application, in place of the generic welcome email.",
+    defaultSubject: "We've received your delivery partner application",
+    defaultBody:
+      "Hi {{first_name}}, thanks for applying to become a GRS Learning delivery partner. We'll review your application and get back to you within 1–2 business days — you'll receive an email as soon as a decision is made.",
+    ctaLabel: "View application status",
+    variables: [v("first_name", "The applicant's first name", "Priya")],
+  },
+  partner_member_invite: {
+    key: "partner_member_invite",
+    label: "Delivery partner member invite",
+    category: "delivery_partner",
+    description: "Sent when a delivery partner invites someone to access one of their assigned courses.",
+    defaultSubject: "You've been invited to {{course_title}} on GRS Learning",
+    defaultBody:
+      "{{partner_name}} has invited you to access {{course_title}} on GRS Learning, free of charge. Accept to start learning. This invitation expires in 7 days.",
+    ctaLabel: "Accept invitation",
+    variables: [
+      v("partner_name", "The inviting delivery partner's name", "James Whitfield"),
+      v("course_title", "The course this invite grants access to", "React 18 Mastery"),
       v("invite_link", "The one-time invitation link", "https://grslearning.dev/join/…"),
     ],
   },

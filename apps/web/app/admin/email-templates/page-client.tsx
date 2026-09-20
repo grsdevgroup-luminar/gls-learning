@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   KeyRound, Building2, ShoppingBag, UserCheck, Wallet, Megaphone,
-  Search, Mail, AlertTriangle,
+  Search, Mail, AlertTriangle, Handshake,
 } from "lucide-react";
 import { EmailTemplateEditor } from "./email-template-editor";
 
 const CATEGORY_META: Record<EmailTemplateCategory, { label: string; icon: typeof Mail }> = {
   auth: { label: "Auth & onboarding", icon: KeyRound },
   organizations: { label: "Organizations", icon: Building2 },
+  delivery_partner: { label: "Delivery partner", icon: Handshake },
   commerce: { label: "Commerce", icon: ShoppingBag },
   applications: { label: "Applications", icon: UserCheck },
   payouts: { label: "Payouts", icon: Wallet },

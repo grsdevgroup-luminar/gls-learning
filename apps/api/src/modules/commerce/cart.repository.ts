@@ -56,11 +56,22 @@ export class CartRepository {
     });
   }
 
-  /** Called after checkout success — wipes items + coupon but keeps the row. */
+  /** Mirrors setCoupon — mutually exclusive at the service layer (setting one
+   *  clears the other), not enforced by the schema itself. */
+  setCampaign(cartId: string, campaignCode: string | null, tx?: Db) {
+    return this.db(tx).cart.update({
+      where: { id: cartId },
+      data: { campaignCode },
+      include: cartInclude,
+    });
+  }
+
+  /** Called after checkout success — wipes items + coupon/campaign but keeps
+   *  the row. */
   reset(userId: string, tx?: Db) {
     return this.db(tx).cart.update({
       where: { userId },
-      data: { couponCode: null, items: { deleteMany: {} } },
+      data: { couponCode: null, campaignCode: null, items: { deleteMany: {} } },
     });
   }
 }

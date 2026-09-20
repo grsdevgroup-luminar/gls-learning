@@ -53,6 +53,10 @@ export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   country: countryCodeSchema,
+  // A delivery partner's referral code captured from `?ref=` at signup —
+  // locked in as durable attribution (User.referredByPartnerId) if valid.
+  // Silently ignored if unknown/invalid; never blocks signup.
+  referralCode: z.string().trim().max(40).optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
@@ -94,6 +98,10 @@ export interface AuthUserDto {
    *  its own password yet — the frontend must redirect to force-password-change. */
   mustChangePassword: boolean;
   instructorStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  /** Same idea as instructorStatus — lets the frontend route a pending/rejected
+   *  delivery-partner applicant to /delivery-partner right after login instead
+   *  of /dashboard, without a second request. */
+  deliveryPartnerStatus?: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | null;
 }
 
 export interface AuthTokensDto {

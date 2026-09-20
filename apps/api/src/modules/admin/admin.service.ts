@@ -24,6 +24,7 @@ import type {
   UpsertCouponInput,
   UpdateUserStatusInput,
 } from "@skillstream/shared";
+import type { Db } from "../../common/types";
 import { toCourseSummary } from "../courses/course.mapper";
 import { CreditsService } from "../credits/credits.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -304,10 +305,11 @@ export class AdminService {
     return { total, active, atRisk: total - active };
   }
 
-  /** `visibility`/`category`/`unassignedToOrgId` back the org-assignment
-   *  dialog's "Add courses" picker (list published courses — public or
-   *  private — not yet assigned to a given org); the admin table itself
-   *  only ever passes `status`/`q`. */
+  /** `visibility`/`category`/`unassignedToOrgId`/`unassignedToPartnerId`
+   *  back the org- and delivery-partner course-assignment dialogs' "Add
+   *  courses" pickers (list published courses — public or private — not
+   *  yet assigned to a given org/partner); the admin table itself only ever
+   *  passes `status`/`q`. */
   async courses(query: AdminCourseQuery) {
     const q = query.q?.trim();
     const where: Prisma.CourseWhereInput = {
@@ -320,6 +322,9 @@ export class AdminService {
       ...(query.category ? { category: query.category } : {}),
       ...(query.unassignedToOrgId
         ? { orgAssignments: { none: { orgId: query.unassignedToOrgId } } }
+        : {}),
+      ...(query.unassignedToPartnerId
+        ? { deliveryPartnerAssignments: { none: { partnerId: query.unassignedToPartnerId } } }
         : {}),
       ...(q
         ? {
@@ -371,6 +376,7 @@ export class AdminService {
             OR: [
               { id: { contains: q, mode: "insensitive" } },
               { couponCode: { contains: q, mode: "insensitive" } },
+              { campaignCode: { contains: q, mode: "insensitive" } },
               { providerPaymentId: { contains: q, mode: "insensitive" } },
               { providerRef: { contains: q, mode: "insensitive" } },
               { user: { email: { contains: q, mode: "insensitive" } } },
@@ -702,6 +708,7 @@ export class AdminService {
       );
       await this.repo.decrementStudentTotalSpent(order.userId, plan.total, tx);
       await this.repo.deleteEnrollmentsForRefund(order.userId, fullyRefundedCourseIds, tx);
+      await this.reversePartnerCommissionOnRefund(order.id, order.totalCents, plan.total, tx);
 
       // Ledger row + in-app notification inside the same tx so the credit,
       // notification, and status transition either all commit or all roll back.
@@ -721,6 +728,58 @@ export class AdminService {
         tx,
       );
     });
+  }
+
+  /** Reverses the delivery-partner commission on this order proportionally to
+   *  what was just refunded — a 50% refund reverses 50% of the commission,
+   *  mirroring how `decrementInstructorOnRefund` already prorates instructor
+   *  earnings by the refunded dollar amount. `reversedCents` tracks the
+   *  running total so several partial refunds on the same order never reverse
+   *  more than the commission actually earned. No-ops if the order was never
+   *  attributed to a partner, or that commission is already fully reversed. */
+  private async reversePartnerCommissionOnRefund(
+    orderId: string,
+    orderTotalCents: number,
+    refundTotalCents: number,
+    tx: Db,
+  ): Promise<void> {
+    const referral = await this.repo.findReferralForOrder(orderId, tx);
+    if (!referral || referral.status === "REVERSED") return;
+
+    // Never confirmed (order refunded before ever being paid, or a rare
+    // race) — nothing was credited to the partner, so just close it out.
+    if (referral.status === "PENDING") {
+      await this.repo.updateReferralReversal(referral.id, referral.reversedCents, "REVERSED", tx);
+      return;
+    }
+
+    const remaining = referral.commissionCents - referral.reversedCents;
+    if (remaining <= 0) return;
+
+    // Proportional to this order's original commission, not the partner's
+    // *current* commissionPercent (which may have changed since) — orderTotalCents
+    // and commissionCents together preserve the rate that was actually earned.
+    const reverseCents = Math.min(
+      Math.round((refundTotalCents * referral.commissionCents) / orderTotalCents),
+      remaining,
+    );
+    if (reverseCents <= 0) return;
+
+    const newReversedCents = referral.reversedCents + reverseCents;
+    const fullyReversed = newReversedCents >= referral.commissionCents;
+
+    await this.repo.reverseReferralEarnings(
+      referral.partnerId,
+      reverseCents,
+      referral.status === "PAID",
+      tx,
+    );
+    await this.repo.updateReferralReversal(
+      referral.id,
+      newReversedCents,
+      fullyReversed ? "REVERSED" : referral.status,
+      tx,
+    );
   }
 
   private toOrderDto(
@@ -746,6 +805,8 @@ export class AdminService {
       refundedCents: updated.refundedCents,
       createdAt: updated.createdAt.toISOString(),
       paidAt: updated.paidAt?.toISOString() ?? null,
+      partnerReferralCode: updated.partnerReferralCode,
+      partnerCampaignCode: updated.campaignCode,
     };
   }
 
