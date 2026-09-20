@@ -1,10 +1,13 @@
 # Delivery Partner → Course Assignment → Member Flow — Implementation Plan
 
-> Status: **planning document, no code changes yet.** This supersedes the
-> earlier gap-analysis version of this file. Companion to
-> [`FEATURE_FLOWS.md`](./FEATURE_FLOWS.md) §5 (existing referral/commission
-> flow, staying as-is) and §6 (Organization/B2B flow, whose patterns this plan
-> reuses throughout).
+> Status: **shipped and live** — course assignment, member invites, and all
+> four post-launch fixes below (§11) are in production. §12 covers separate,
+> later work (referral/commission durable attribution + refund reversal) that
+> this plan explicitly left "staying as-is" (§0) but which changed after a
+> follow-up QA pass — see `FEATURE_FLOWS.md` §5.2 for the current state.
+> Companion to [`FEATURE_FLOWS.md`](./FEATURE_FLOWS.md) §5 (delivery partner
+> flow, now the up-to-date reference) and §6 (Organization/B2B flow, whose
+> patterns this plan reuses throughout).
 
 ## 0. Scope and confirmed decisions
 
@@ -500,3 +503,80 @@ decide during implementation rather than block on:
 
 - **`enrollFree` didn't recognize delivery-partner access** — `findCourseAccess`/`findLessonAccessContext` in `enrollment.repository.ts` and `enrollFree`/`assertLessonAccessible` in `enrollment.service.ts` only ever checked org assignments for a PRIVATE course. A legitimately-invited partner member got `403 "This course is restricted to its organization"` when trying to enroll. **Fixed** — both now check delivery-partner course assignments as an alternative access path, same suspended-partner-blocks-access semantics as a suspended org.
 - **`GET /courses/:slug` (course detail / `/learn/[slug]` page) 404'd for a partner member after enrollment succeeded** — `CoursesService.bySlug` had its own PRIVATE-course visibility check (`courses.service.ts`), entirely separate from `enrollment.repository.ts`, that only ever checked org membership via `isOrgMemberOfAny`. **Fixed**: added `EnrollmentRepository.findAnyPartnerMembershipForCourse` + `EnrollmentService.isPartnerMemberOfCourse` (mirroring `isOrgMemberOfAny`) and call it alongside the org check in `bySlug`. Verified live: partner member now loads `/learn/aws-cloud-practitioner` (lessons, progress sidebar, video player all render) and can mark a lesson complete (`POST /enrollments/:id/lessons/:id/toggle` → `201`).
+
+---
+
+## 11. Post-launch fixes (found in the wild, after this plan's checklist was marked done)
+
+The checklist above says "verified live" throughout — that was true for the happy paths tested at the time, but a second QA pass (client-reported) turned up four more gaps, all now fixed:
+
+1. **No way for an applicant to request a commission rate.** The apply form
+   never asked, so admin approved blind every time. Added an optional
+   *expected commission rate* field to the signup+apply form
+   (`DeliveryPartnerApplication.expectedCommissionPercent`), surfaced on the
+   admin application-detail view and used to pre-fill (not force) the
+   approve dialog's commission-% input.
+2. **A pending applicant could still use the full student dashboard.**
+   `role` correctly stays `STUDENT` while `PENDING` (§2.1's design is right),
+   but nothing stopped that account from using `/dashboard`/`/account` like
+   an ordinary student in the meantime — only the post-login redirect sent
+   them to `/delivery-partner` once. Fixed by making the student layout
+   itself refuse to render for a `PENDING` delivery-partner applicant on any
+   direct navigation, not just right after login. Also hardened
+   `DeliveryPartnerService.assertOwnAssignment`/`myCourseAssignments`
+   server-side against `status === APPROVED` — a **suspended** partner's
+   self-service actions (invite/manage members, list assignments) were only
+   hidden client-side, so a direct API call could bypass the suspension
+   entirely.
+3. **Application submission sent the wrong email.** `registerDeliveryPartner`
+   fired the generic student "Welcome to GRS Learning" email instead of an
+   application-specific confirmation — misleading, and inconsistent with the
+   already-correct behavior of only emailing approval/rejection at admin
+   review time. Added a dedicated `partner_application_submitted` template
+   and `EmailService.sendPartnerApplicationSubmitted`.
+4. **Partner-invite links 404'd as "Invitation not valid" even when fresh.**
+   Root cause: `EmailService.sendPartnerMemberInvite` built the link as
+   `/join/{token}` — the **org** claim route — instead of
+   `/join/partner/{token}`. A fresh partner token hit a page that only knows
+   how to validate org invites. One-line fix; the token generation/validation
+   mechanics themselves (§6.1) were already correct.
+
+While testing fix #4 live, a **second bug surfaced**: a member with a
+legitimate partner grant on a course got `403 "This course requires
+purchase"` trying to enroll. `enrollFree`/`assertLessonAccessible` in
+`enrollment.service.ts` only ever checked the org/partner grant when
+`course.visibility === "PRIVATE"` — but §4.1's admin course-assignment flow
+lets a partner be assigned *any* published course, including `PUBLIC` paid
+ones. Fixed by gating on `visibility === "PRIVATE" || basePriceCents > 0`
+instead, while keeping a genuinely free `PUBLIC` course unaffected by an
+unrelated org/partner suspension (a dedicated regression test — the org
+"public course assigned to a suspended org is still free" case — pins this
+down; see `enrollment-org-suspension.test.ts`).
+
+## 12. Referral/commission durable attribution + refund reversal
+
+Out of scope for this plan (which only ever covered course
+assignment/member-invites — §0 says the referral/commission system "stays
+exactly as it is"), but built the same week after a client walkthrough of
+the *existing* referral flow surfaced two real gaps in it. Full writeup in
+[`FEATURE_FLOWS.md`](./FEATURE_FLOWS.md) §5.2/§5.4/§7.10/§7.12 — summary:
+
+- **Durable, signup-time referral attribution** (`User.referredByPartnerId`)
+  replaces relying solely on a `localStorage` code carried to checkout,
+  which silently broke across devices or a delayed purchase. Durable
+  attribution takes priority; the checkout-time code is now only a fallback
+  for accounts that predate this field.
+- **Refunds now reverse delivery-partner commissions proportionally** —
+  previously a completely missing path; a refunded order left the partner's
+  earnings inflated forever. `DeliveryPartnerReferral.status` became a real
+  Prisma enum (`PENDING | CONFIRMED | PAID | REVERSED`, was a loose string)
+  with a new `reversedCents` counter. A `PAID` commission's reversal claws
+  back against the partner's *next* payout automatically, through the
+  existing floor-at-0 balance math — no new ledger.
+
+Verified live end-to-end against the real API (register with a referral code
+→ checkout with a *different*, conflicting code → durable attribution wins;
+then a synthetic paid order refunded in two partial steps → exact
+proportional reversal both times, capped correctly on the second). 11 new
+unit tests (`admin-refund-partner-commission.test.ts`,
+`referral-attribution.test.ts`) plus the full existing suite all pass.

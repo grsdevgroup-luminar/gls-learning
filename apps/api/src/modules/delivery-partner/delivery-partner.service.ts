@@ -252,7 +252,8 @@ export class DeliveryPartnerService {
       courseTitle: r.order.items.map((i) => i.titleSnapshot).join(", "),
       orderTotalCents: r.order.totalCents,
       commissionCents: r.commissionCents,
-      status: r.status as "pending" | "confirmed" | "paid",
+      reversedCents: r.reversedCents,
+      status: r.status,
       createdAt: r.createdAt.toISOString(),
     }));
   }
@@ -581,14 +582,45 @@ export class DeliveryPartnerService {
   }
 
   // ── referral attribution (called from checkout / fulfillment) ───────────
+  /** Resolves a `?ref=` code captured at signup to an APPROVED partner's id,
+   *  or null if the code is unknown/invalid/not approved — called by
+   *  AuthService.register() to set the durable User.referredByPartnerId.
+   *  Never throws: a bad referral code should never block signup. */
+  async resolveApprovedPartnerIdByCode(referralCode: string): Promise<string | null> {
+    const partner = await this.repo.findPartnerByReferralCode(referralCode);
+    return partner && partner.status === "APPROVED" ? partner.id : null;
+  }
+
+  /** Durable, signup-time attribution (`User.referredByPartnerId`) always wins
+   *  over a later `?ref=` click carried into checkout — first touch, locked
+   *  in once at registration, so a customer can't be silently re-attributed
+   *  to a different partner later. The checkout-supplied code is only a
+   *  fallback for accounts that predate this attribution field. */
+  private async resolveReferralPartner(
+    userId: string,
+    checkoutReferralCode?: string | null,
+  ) {
+    const user = await this.repo.findUserReferralAttribution(userId);
+    if (user?.referredByPartnerId) {
+      const partner = await this.repo.findPartnerById(user.referredByPartnerId);
+      if (partner && partner.status === "APPROVED") return partner;
+    }
+    if (checkoutReferralCode) {
+      const partner = await this.repo.findPartnerByReferralCode(checkoutReferralCode);
+      if (partner && partner.status === "APPROVED") return partner;
+    }
+    return null;
+  }
+
   /** Attaches a pending referral to a freshly-created order. No earnings are
    *  credited until the order is paid (see confirmReferral). */
   async createPendingReferral(
     orderId: string,
-    referralCode: string,
+    userId: string,
+    checkoutReferralCode?: string | null,
   ): Promise<void> {
-    const partner = await this.repo.findPartnerByReferralCode(referralCode);
-    if (!partner || partner.status !== "APPROVED") return;
+    const partner = await this.resolveReferralPartner(userId, checkoutReferralCode);
+    if (!partner) return;
 
     const order = await this.repo.findOrderTotalById(orderId);
     if (!order) return;
@@ -603,7 +635,7 @@ export class DeliveryPartnerService {
       partner.id,
       orderId,
       commissionCents,
-      referralCode,
+      partner.referralCode,
     );
   }
 
@@ -611,7 +643,7 @@ export class DeliveryPartnerService {
    *  pending/total earnings. Idempotent. */
   async confirmReferral(orderId: string): Promise<void> {
     const referral = await this.repo.findReferralByOrderId(orderId);
-    if (!referral || referral.status !== "pending") return;
+    if (!referral || referral.status !== "PENDING") return;
     await this.repo.confirmReferralTx(
       orderId,
       referral.partnerId,

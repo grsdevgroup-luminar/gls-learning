@@ -24,9 +24,10 @@ import {
 } from "@/app/admin/_components/admin-table";
 
 const statusBadge = {
-  paid:      { label: "Paid",      cls: "text-success" },
-  confirmed: { label: "Confirmed", cls: "text-primary" },
-  pending:   { label: "Pending",   cls: "text-warning" },
+  PAID:      { label: "Paid",      cls: "text-success" },
+  CONFIRMED: { label: "Confirmed", cls: "text-primary" },
+  PENDING:   { label: "Pending",   cls: "text-warning" },
+  REVERSED:  { label: "Reversed",  cls: "text-destructive" },
 } as const;
 
 export default function PartnerReferrals() {
@@ -59,9 +60,9 @@ export default function PartnerReferrals() {
   if (!partner) return <PartnerMissingState />;
   if (partner.status !== "APPROVED") return <PartnerStatusState status={partner.status} />;
 
-  const paid = all?.filter((r) => r.status === "paid") ?? [];
-  const confirmed = all?.filter((r) => r.status === "confirmed") ?? [];
-  const pending = all?.filter((r) => r.status === "pending") ?? [];
+  const paid = all?.filter((r) => r.status === "PAID") ?? [];
+  const confirmed = all?.filter((r) => r.status === "CONFIRMED") ?? [];
+  const pending = all?.filter((r) => r.status === "PENDING") ?? [];
 
   const stats = [
     { icon: Link2, label: "Total referrals", value: all.length },
@@ -131,8 +132,9 @@ export default function PartnerReferrals() {
                     <TableCell className="font-medium">{r.studentName}</TableCell>
                     <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
                     <TableCell>{formatUsd(r.orderTotalCents / 100)}</TableCell>
-                    <TableCell className="font-mono font-medium text-success">
-                      +{formatUsd(r.commissionCents / 100)}
+                    <TableCell className={`font-mono font-medium ${r.reversedCents > 0 ? "text-destructive" : "text-success"}`}>
+                      {r.reversedCents > 0 ? "−" : "+"}
+                      {formatUsd((r.reversedCents > 0 ? r.reversedCents : r.commissionCents) / 100)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
                     <TableCell>

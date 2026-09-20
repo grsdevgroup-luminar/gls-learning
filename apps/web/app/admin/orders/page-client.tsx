@@ -536,6 +536,12 @@ function RefundDialog({
 
         {order && (
           <div className="space-y-4">
+            {order.partnerReferralCode && (
+              <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                This order was referred by partner code <span className="font-mono font-medium">{order.partnerReferralCode}</span>
+                {" "}— refunding it will proportionally reverse that partner&apos;s commission.
+              </p>
+            )}
             <div className="flex items-center justify-between text-sm">
               <div className="text-muted-foreground">
                 Refundable: {formatUsd(orderRemaining / 100)}{" "}

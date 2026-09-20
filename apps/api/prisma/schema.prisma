@@ -45,6 +45,16 @@ enum DeliveryPartnerStatus {
   SUSPENDED
 }
 
+enum ReferralStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  /// Fully or partially reversed because the underlying order was refunded
+  /// (see `reversedCents`) — a terminal state only once the whole commission
+  /// has been reversed; a partial reversal keeps the prior status.
+  REVERSED
+}
+
 enum OrgStatus {
   ACTIVE
   TRIAL
@@ -225,6 +235,13 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  /// The delivery partner this user was attributed to at signup (via `?ref=`
+  /// on the signup page) — locked in once, never overwritten by a later
+  /// referral click. Distinct from `deliveryPartner` below, which is this
+  /// user's OWN partner profile if they themselves are one.
+  referredByPartnerId String?
+  referredByPartner   DeliveryPartner? @relation("ReferredUsers", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
+
   studentProfile             StudentProfile?
   instructorProfile          InstructorProfile?
   refreshTokens              RefreshToken[]
@@ -256,6 +273,7 @@ model User {
   editedEmailTemplates       EmailTemplate[]
 
   @@index([role])
+  @@index([referredByPartnerId])
 }
 
 model RefreshToken {
@@ -950,6 +968,8 @@ model DeliveryPartner {
 
   referrals         DeliveryPartnerReferral[]
   courseAssignments DeliveryPartnerCourseAssignment[]
+  /// Users attributed to this partner at signup — see `User.referredByPartnerId`.
+  referredUsers     User[]                             @relation("ReferredUsers")
 
   @@index([status])
 }
@@ -983,7 +1003,12 @@ model DeliveryPartnerReferral {
   orderId         String          @unique
   order           Order           @relation(fields: [orderId], references: [id])
   commissionCents Int
-  status          String          @default("pending") // pending | confirmed | paid
+  /// Cumulative amount reversed off `commissionCents` from refunds — lets a
+  /// multi-item order be refunded across several admin actions without
+  /// over-reversing. Status only flips to REVERSED once this reaches
+  /// `commissionCents`.
+  reversedCents   Int             @default(0)
+  status          ReferralStatus  @default(PENDING)
   createdAt       DateTime        @default(now())
 
   @@index([partnerId])

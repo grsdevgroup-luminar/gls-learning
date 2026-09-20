@@ -196,6 +196,14 @@ export class DeliveryPartnerRepository {
     });
   }
 
+  /** Durable, signup-time referral attribution — see `User.referredByPartnerId`. */
+  findUserReferralAttribution(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { referredByPartnerId: true },
+    });
+  }
+
   findOrderTotalById(orderId: string) {
     return this.prisma.order.findUnique({
       where: { id: orderId },
@@ -218,7 +226,7 @@ export class DeliveryPartnerRepository {
   ) {
     return this.prisma.$transaction([
       this.prisma.deliveryPartnerReferral.create({
-        data: { partnerId, orderId, commissionCents, status: "pending" },
+        data: { partnerId, orderId, commissionCents, status: "PENDING" },
       }),
       this.prisma.deliveryPartner.update({
         where: { id: partnerId },
@@ -247,7 +255,7 @@ export class DeliveryPartnerRepository {
     return this.prisma.$transaction([
       this.prisma.deliveryPartnerReferral.update({
         where: { orderId },
-        data: { status: "confirmed" },
+        data: { status: "CONFIRMED" },
       }),
       this.prisma.deliveryPartner.update({
         where: { id: partnerId },

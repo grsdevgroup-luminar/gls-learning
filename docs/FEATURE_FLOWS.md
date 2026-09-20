@@ -53,10 +53,16 @@
 ## 1. Authentication (applies to every role)
 
 ### 1.1 Register
-1. `/signup` — name, email, password only (no role field).
+1. `/signup` — name, email, password (no role field), plus an invisible
+   `referralCode` carried from `?ref=CODE` if the visitor arrived via a
+   delivery partner's link (see §2.2).
 2. `POST /auth/register` (rate-limited 5/min) → `AuthService.register`:
    rejects duplicate email, hashes password with **argon2id**, creates `User`
-   with `role: STUDENT` + an empty `StudentProfile`.
+   with `role: STUDENT` + an empty `StudentProfile`. If `referralCode`
+   resolves to an `APPROVED` partner, sets `User.referredByPartnerId` —
+   durable, locked in for life, never touched again even if the same person
+   later clicks a different partner's link. An unknown/invalid code is
+   silently ignored; it never blocks signup.
 3. Fires `EmailService.sendWelcome()` **non-blocking** — a failure here never
    blocks signup.
 4. Issues an access + refresh token pair (see 1.4), sets httpOnly cookies,
@@ -72,7 +78,12 @@
 3. On success: issues tokens, then frontend calls `GET /auth/me` and redirects
    by role (`ADMIN→/admin`, `INSTRUCTOR→/instructor`, `DELIVERY_PARTNER→/delivery-partner`,
    `ORG_ADMIN→/org`, else `/dashboard`) — unless a `?next=` param says otherwise
-   (used by the org-invite-claim flow).
+   (used by the org-invite-claim flow). A `STUDENT` with a `PENDING`
+   instructor or delivery-partner application (role hasn't changed yet — see
+   §4.1/§5.1) is redirected to `/instructor` or `/delivery-partner` instead of
+   `/dashboard`, and the student layout itself refuses to render for a
+   `PENDING` delivery-partner applicant even on direct navigation — a pending
+   applicant isn't a student in the meantime, full stop.
 
 ### 1.3 Logout
 `POST /auth/logout` deletes the refresh-token DB row (hard delete, not just
@@ -115,6 +126,18 @@ expiry) and clears both cookies.
 If a visitor arrives via `?ref=CODE` (a delivery partner's link), the code is
 captured client-side and persisted in `localStorage`
 (`skillstream_ref_v1`) — this survives navigation and is attached at checkout.
+**Two attribution paths, in priority order:**
+1. **Durable, signup-time** — if the code was present when the visitor
+   created their account, it's locked into `User.referredByPartnerId`
+   forever (§1.1). This is the one that actually matters for "who gets
+   credit" and survives a different device, a cleared browser, or a
+   purchase made weeks later.
+2. **Checkout-time fallback** — the `localStorage` code is still read and
+   sent with checkout (§2.4), but only used if the buyer has no durable
+   attribution (e.g. an account that predates this field). It can never
+   override an existing durable attribution — a customer can't be silently
+   re-attributed to a different partner by a later link click.
+
 See §5 for the full partner-commission flow.
 
 ### 2.3 Price quote (PPP + coupons)
@@ -135,8 +158,10 @@ See §5 for the full partner-commission flow.
    quote again** (never trusts the client), creates a `PENDING` `Order` +
    `OrderItem` rows with price *snapshots* (so later price changes don't
    retroactively alter historical orders).
-3. If a referral code is attached, stamps a pending `DeliveryPartnerReferral` onto
-   the order (commission isn't credited yet — only on payment).
+3. Resolves referral attribution (durable first, checkout-supplied code as
+   fallback — §2.2) and, if it resolves to an `APPROVED` partner, stamps a
+   `PENDING` `DeliveryPartnerReferral` onto the order (commission isn't
+   credited yet — only on payment).
 4. **Free path** (100%-off coupon or free course): fulfilled immediately, no
    gateway involved, straight to the success page.
 5. **Paid path**: hands off to Stripe Checkout or PayPal Orders v2 depending
@@ -166,7 +191,7 @@ See §5 for the full partner-commission flow.
    every 2s until the order reads `PAID`, since webhook delivery can lag a
    moment behind the browser redirect.
 
-### 2.6 Refunds (admin-triggered — see §6.10)
+### 2.6 Refunds (admin-triggered — see §7.10)
 
 ---
 
@@ -328,40 +353,112 @@ side:
 
 ## 5. Delivery partner flow
 
-### 5.1 Becoming an partner
-1. Any logged-in user applies at `/delivery-partner` (region, optional phone, bio)
-   → `PENDING` `DeliveryPartnerApplication`. No email notification is sent either
-   on submission or on the outcome — the applicant finds out by revisiting
-   the page.
-2. Admin reviews (with an optional commission-% override, default 10%):
-   - **Approve**: promotes `User.role → DELIVERY_PARTNER`, and upserts a
-     `DeliveryPartner` row with a freshly generated referral code (`REF-XXXXXX`).
-   - **Reject/Suspend**: only the application/partner status changes.
+A delivery partner does two independent things once approved: **earns
+referral commission** on purchases they drive (§5.2 — this is the original,
+still-unchanged mechanism), and, separately, **redistributes specific
+assigned courses to invited members for free** (§5.4 — an additive feature
+layered on top, not a replacement).
+
+### 5.1 Becoming a partner
+1. **Only a brand-new visitor (no existing account) can apply** — the
+   `/partner` page's combined signup+apply form (name, email, password,
+   country, optional custom fields, optional documents, and an optional
+   *expected* commission rate the applicant is requesting) creates the
+   account and the `PENDING` `DeliveryPartnerApplication` in one step.
+   An already-logged-in user of any role sees a read-only explanation
+   instead of a form — there is no standalone "apply" endpoint any more, by
+   design: the old approval step did an unconditional `role` overwrite, so
+   an existing `INSTRUCTOR`/`ORG_ADMIN` applying could silently lose their
+   other identity. Restricting applications to fresh accounts closes that
+   off entirely.
+2. Submission fires a dedicated **"application submitted" confirmation
+   email** — not the generic student welcome email, which is what this used
+   to (incorrectly) send.
+3. While `PENDING`, the account's `role` stays `STUDENT` (mirrors the
+   instructor pattern — no separate "applicant" role), but it does **not**
+   get to use the student dashboard: `/dashboard` and `/account` both
+   redirect a pending applicant to `/delivery-partner`'s status page instead
+   of rendering, and `destinationFor()` sends them straight there right after
+   login too (§1.2). A pending applicant is not a student in the meantime.
+4. Admin reviews from `/admin/delivery-partners` (Applications tab) — the
+   approve dialog defaults the commission-% field to whatever the applicant
+   requested (visible on the application detail view too), but the admin
+   sets the actual approved rate:
+   - **Approve**: promotes `User.role → DELIVERY_PARTNER`, upserts a
+     `DeliveryPartner` row with a freshly generated referral code, and sends
+     both an in-app notification and an email.
+   - **Reject**: no self-service reapply (a deliberate divergence from the
+     instructor flow) — the applicant sees a rejection notice pointing to
+     support and simply continues as an ordinary student.
+   - **Suspend/Reinstate** (on an already-approved partner): every
+     self-service partner action — inviting/managing members, listing course
+     assignments — is re-checked server-side against `status === APPROVED`,
+     not just hidden in the UI, so a suspended partner's dashboard access is
+     actually revoked, not just cosmetically hidden.
 
 ### 5.2 Referral link → commission
 1. The partner's referral link is just `{origin}/?ref=<code>` — no separate
    link-shortening service.
-2. A visitor's `?ref=` code is captured client-side and persists until
-   checkout (§2.2).
-3. At checkout, the code is attached to the new order, creating a **pending**
+2. A visitor's `?ref=` code is captured client-side; **attribution is
+   resolved with durable signup-time attribution taking priority over the
+   checkout-time code** — see §2.2 for the full precedence rule and why it
+   exists (cross-device/delayed-purchase attribution used to silently break
+   under the old localStorage-only scheme).
+3. At checkout, resolving to an `APPROVED` partner creates a `PENDING`
    `DeliveryPartnerReferral` with the commission amount pre-computed
-   (`order total × partner's commission%`). A code belonging to a
-   non-`APPROVED` partner (suspended/rejected) silently fails to attribute —
-   no error is shown to the buyer.
-4. **Only on payment confirmation** does the referral flip to `confirmed` and
-   the commission get added to the partner's pending/lifetime earnings — an
-   abandoned or failed checkout never pays out.
-5. The partner's `/delivery-partner/referrals` page shows every referral with
-   status (`pending`/`confirmed`/`paid`).
+   (`order total × partner's commission%`). A code/attribution belonging to
+   a non-`APPROVED` partner (suspended/rejected) silently fails to
+   attribute — no error is shown to the buyer.
+4. **Only on payment confirmation** does the referral flip to `CONFIRMED`
+   and the commission get added to the partner's pending/lifetime earnings —
+   an abandoned or failed checkout never pays out.
+5. **Refunding the order reverses the commission proportionally** — a 50%
+   refund reverses 50% of that order's commission, mirroring how instructor
+   earnings are already prorated on refund (§7.10). A `CONFIRMED`
+   commission's reversal comes off pending+lifetime earnings; a `PAID`
+   commission's reversal only comes off lifetime earnings (never
+   `paidEarningsCents` — that money genuinely was sent), which surfaces as
+   an automatic clawback against the partner's *next* payout via the normal
+   `available = lifetimeEarned − paidOut − inFlight` balance math (§7.12),
+   not a separate reconciliation step. `DeliveryPartnerReferral.status` is a
+   real enum — `PENDING | CONFIRMED | PAID | REVERSED` — with a
+   `reversedCents` counter so several partial refunds on the same order
+   never reverse more than was actually earned.
+6. The partner's `/delivery-partner/referrals` and `/delivery-partner/earnings`
+   pages show every referral with its status, and a separate "Reversed
+   commissions" table once any exist.
 
 ### 5.3 Payout
 Identical request → approve → paid lifecycle as instructors (§4.4, §7), using
 `PayeeType: DELIVERY_PARTNER` and `DeliveryPartner.totalEarningsCents` as the earnings pool.
-One implementation detail worth knowing: when an admin marks an partner payout
-paid, the system bulk-flips *all* of that partner's currently-`confirmed`
-referrals to `paid` — not just the ones that funded this specific payout — so
+One implementation detail worth knowing: when an admin marks a partner payout
+paid, the system bulk-flips *all* of that partner's currently-`CONFIRMED`
+referrals to `PAID` — not just the ones that funded this specific payout — so
 if new commissions confirm between "request" and "mark paid," they get swept
 into the same paid-mark even though they weren't part of the requested amount.
+
+### 5.4 Course assignment & member invites (additive, per-course)
+Full design history and decisions in
+[`DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md`](./DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md).
+Separate from referral commission — an admin can assign specific *published*
+courses (any visibility, not just PRIVATE) to a partner with a per-course
+member cap (mirrors `Organization.seatCount`, default 10, via
+`ManagePartnerCoursesDialog` on `/admin/delivery-partners`). The partner then
+sees those courses at `/delivery-partner/courses` and can invite members
+(email invite, 7-day token, cap-enforced) to redistribute free access to one
+specific assigned course — access is per-course-assignment, not "membership
+in the partner's network" in the abstract. An invited member stays a normal
+`STUDENT`; they claim via `/join/partner/[token]` (a separate route from the
+org claim page, `/join/[token]`, sharing the same `InviteClaimShell` state
+machine but with its own copy/icon/redirect) and their granted courses show
+up at `/dashboard/partner-courses` — deliberately not folded into
+`/dashboard/team`, since a partner grant is a capped, per-course seat, not a
+B2B "team" relationship. A member's access pauses if their partner is later
+suspended, same semantics as an org's grace-period lock. Free self-enrollment
+(`enrollFree`) and lesson-playback gating both check this grant regardless of
+the course's visibility or price — an admin can assign a `PUBLIC`, paid
+course to a partner, and a member's free access must still work even though
+the course isn't `PRIVATE`.
 
 ---
 
@@ -448,9 +545,14 @@ toggles are live too: `newEnrollment` / `newReview` fire as they happen from
 toggle that's off sends nothing.
 
 ### 7.4 Delivery partners
-Review pending applications (approve with commission% + optional note, or
-reject), then manage the approved roster: edit commission%, and suspend or
-reinstate an partner (both wired to `PATCH /admin/delivery-partners/:id`). See §5.1.
+Two tabs. **Applications**: review pending applications (the approve dialog
+defaults commission% to the applicant's requested rate, editable; optional
+note; or reject with a reason), search/filter by status. **Partners**: manage
+the approved roster — edit commission%, suspend/reinstate (both wired to
+`PATCH /admin/delivery-partners/:id`; a redesigned 5-column table replaced an
+8-column one that made Suspend hard to find), and open **Manage courses** per
+partner to assign/unassign published courses with a per-course member cap
+(§5.4). See §5.1.
 
 ### 7.5 Instructors
 Review pending applications (approve/reject), browse the approved roster. See
@@ -492,14 +594,28 @@ field is admin-facing prose only, not a parsed rule language — a known,
 intentional simplification.
 
 ### 7.10 Orders & refunds
-List all orders; **Refund** first actually reverses the charge at the payment
-gateway, and only updates the local database if that succeeds — never marks
-something refunded that wasn't actually refunded upstream. On success it also
-walks back the downstream effects: decrements course revenue/student counts
-and the instructor's earnings, decrements the buyer's lifetime spend, and
-**deletes the enrollment** (immediate loss of course access). Already-refunded
-orders can't be refunded twice. Note: a refund does **not** claw back a
-delivery-partner commission or an already-approved/paid payout automatically.
+List all orders; **Refund is credit-only — no payment-gateway call is ever
+made.** One admin action picks any subset of the order's items with
+arbitrary per-item dollar amounts (each capped at that item's remaining
+refundable), and the student is made whole entirely via store credit
+(`StudentCreditLedger`, see `REFUND_TO_CREDIT_PLAN.md`), applicable toward a
+future purchase. In the same transaction it:
+- Decrements that course's revenue/student count and the instructor's
+  earnings, prorated to the refunded amount.
+- Decrements the buyer's lifetime spend.
+- **Revokes enrollment only for an item that becomes *fully* refunded** by
+  this action (cumulative `refundedCents == priceCents`) — a dollar-partial
+  refund on an otherwise-active item leaves access intact.
+- **Reverses the delivery-partner commission proportionally**, if the order
+  was attributed to one (§5.2) — a 50% refund reverses 50% of that order's
+  commission, capped so several partial refunds never reverse more than was
+  actually earned. A commission already paid out is clawed back against the
+  partner's *next* payout rather than reversed in place.
+- Grants the store credit and fires the student notification.
+
+Already-refunded orders (or the already-refunded portion of a
+partially-refunded one) can't be refunded twice — the remaining-refundable
+amount is checked server-side per item and per order.
 
 ### 7.11 Pricing
 Regional pricing tiers (a multiplier) and per-country regions (currency, FX
@@ -525,9 +641,14 @@ REQUESTED | APPROVED --reject--> REJECTED  (terminal, releases the balance)
 
 1. **Payee requests**: available balance = lifetime earned (instructor's
    lifetime earnings, or partner's lifetime commission) minus everything
-   already paid minus everything currently in flight. A request always asks
-   for the *entire* available balance, must be at least $50, and only one
-   request can be open at a time.
+   already paid minus everything currently in flight, **floored at 0**. A
+   request always asks for the *entire* available balance, must be at least
+   $50, and only one request can be open at a time. The floor-at-0 clamp is
+   also what makes commission-reversal-on-refund (§7.10) work as a clawback:
+   reversing a `PAID` referral only decrements the partner's lifetime-earned
+   figure (never what was already paid out), so if that drops below what's
+   already been paid, `availableCents` simply reads 0 until new commissions
+   earn it back above water — no separate reconciliation step needed.
 2. **Admin approves**: pure ledger state change — no money moves, nothing
    else updates (the amount was already counted as "in flight" the moment it
    was requested).
@@ -535,8 +656,8 @@ REQUESTED | APPROVED --reject--> REJECTED  (terminal, releases the balance)
    transfer manually outside the platform (the system has no real
    payment-rail integration for payouts — that's a documented, deliberate
    scope limit). For delivery partners specifically, this also decrements pending
-   / increments paid commission counters and sweeps that partner's confirmed
-   referrals to "paid" so the partner-facing dashboard stays consistent.
+   / increments paid commission counters and sweeps that partner's `CONFIRMED`
+   referrals to `PAID` so the partner-facing dashboard stays consistent.
    **Instructors have no equivalent pending/paid split** — their earnings
    figure is a flat lifetime total, and availability is derived purely from
    the payout ledger.

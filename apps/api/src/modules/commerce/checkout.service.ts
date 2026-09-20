@@ -229,8 +229,14 @@ export class CheckoutService {
     // carries the intent forward. See REFUND_TO_CREDIT_PLAN.md.
 
     // Attribute a delivery-partner referral (pending until the order is paid).
-    if (input.referralCode)
-      await this.deliveryPartners.createPendingReferral(order.id, input.referralCode);
+    // Always attempted — durable signup-time attribution can apply even
+    // without a `?ref=` code on this specific checkout (see
+    // DeliveryPartnerService.resolveReferralPartner).
+    await this.deliveryPartners.createPendingReferral(
+      order.id,
+      userId,
+      input.referralCode ?? null,
+    );
 
     // Free orders (100%-off coupon or $0 courses) fulfil immediately.
     if (quote.totalCents === 0) {

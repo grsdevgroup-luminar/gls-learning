@@ -17,9 +17,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 const statusBadge = {
-  paid:      { label: "Paid",      cls: "text-success" },
-  confirmed: { label: "Confirmed", cls: "text-primary" },
-  pending:   { label: "Pending",   cls: "text-warning" },
+  PAID:      { label: "Paid",      cls: "text-success" },
+  CONFIRMED: { label: "Confirmed", cls: "text-primary" },
+  PENDING:   { label: "Pending",   cls: "text-warning" },
+  REVERSED:  { label: "Reversed",  cls: "text-destructive" },
 } as const;
 
 /** Explanatory state for every non-APPROVED partner status. */
@@ -193,8 +194,9 @@ export default function DeliveryPartnerOverview() {
                     <Badge variant="outline" className={statusBadge[r.status].cls}>
                       {statusBadge[r.status].label}
                     </Badge>
-                    <span className="font-mono font-medium text-success">
-                      +{formatUsd(r.commissionCents / 100)}
+                    <span className={`font-mono font-medium ${r.reversedCents > 0 ? "text-destructive" : "text-success"}`}>
+                      {r.reversedCents > 0 ? "−" : "+"}
+                      {formatUsd((r.reversedCents > 0 ? r.reversedCents : r.commissionCents) / 100)}
                     </span>
                   </div>
                 </div>

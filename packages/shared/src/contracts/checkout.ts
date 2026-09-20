@@ -84,6 +84,9 @@ export interface OrderDto {
   refundedCents: number;
   createdAt: string;
   paidAt: string | null;
+  /** Set when this order was attributed to a delivery partner — refunding it
+   *  will proportionally reverse that partner's commission. */
+  partnerReferralCode: string | null;
 }
 
 /** Aggregate spend stats for the caller's own orders (drives billing sidebar). */

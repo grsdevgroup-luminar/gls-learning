@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DeliveryPartnerStatus } from "../enums";
+import { DeliveryPartnerStatus, ReferralStatus } from "../enums";
 import { searchQuerySchema } from "./common.js";
 import { countryCodeSchema, emailSchema, passwordSchema } from "./auth.js";
 import type { CourseSummaryDto } from "./catalog.js";
@@ -116,7 +116,10 @@ export const DeliveryPartnerReferralDto = z.object({
   courseTitle: z.string(),
   orderTotalCents: z.number(),
   commissionCents: z.number(),
-  status: z.enum(["pending", "confirmed", "paid"]),
+  // Cumulative amount reversed off commissionCents by refunds — 0 unless the
+  // order (or part of it) was refunded after this commission was earned.
+  reversedCents: z.number(),
+  status: z.nativeEnum(ReferralStatus),
   createdAt: z.string(),
 });
 export type DeliveryPartnerReferralDto = z.infer<typeof DeliveryPartnerReferralDto>;

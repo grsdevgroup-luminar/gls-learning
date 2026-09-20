@@ -53,6 +53,10 @@ export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   country: countryCodeSchema,
+  // A delivery partner's referral code captured from `?ref=` at signup —
+  // locked in as durable attribution (User.referredByPartnerId) if valid.
+  // Silently ignored if unknown/invalid; never blocks signup.
+  referralCode: z.string().trim().max(40).optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
