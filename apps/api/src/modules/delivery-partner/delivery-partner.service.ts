@@ -5,19 +5,24 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { DeliveryPartnerApplication, Prisma } from "@prisma/client";
+import { DeliveryPartnerApplication, DeliveryPartnerCampaign, Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { ulid } from "ulid";
 import {
+  campaignStatus,
   parsePartnerCustomFields,
   parsePartnerDocuments,
+  partnerCampaignDiscountCents,
+  validatePartnerCampaign,
 } from "@skillstream/shared";
 import type {
   AdminDeliveryPartnerApplicationQuery,
   AdminDeliveryPartnerQuery,
   AssignPartnerCourseInput,
+  CreatePartnerCampaignInput,
   DeliveryPartnerApplicationDto,
   DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerCampaignDto,
   DeliveryPartnerCourseAssignmentDto,
   DeliveryPartnerDto,
   DeliveryPartnerInvitationDto,
@@ -26,10 +31,13 @@ import type {
   DeliveryPartnerSignupInput,
   InvitePartnerMemberInput,
   Paginated,
+  PartnerCampaignLike,
+  PartnerCampaignResult,
   PartnerDocumentDto,
   PartnerGrantedCourseDto,
   PartnerInvitationInfoDto,
   ReviewPartnerApplicationInput,
+  UpdatePartnerCampaignInput,
   UpdatePartnerCourseAssignmentInput,
   UpdatePartnerInput,
 } from "@skillstream/shared";
@@ -104,6 +112,22 @@ export class DeliveryPartnerService {
       appliedAt: a.appliedAt.toISOString(),
       reviewedAt: a.reviewedAt?.toISOString() ?? null,
       note: a.note,
+    };
+  }
+
+  private toCampaignDto(c: DeliveryPartnerCampaign): DeliveryPartnerCampaignDto {
+    return {
+      id: c.id,
+      partnerId: c.partnerId,
+      code: c.code,
+      discountPercent: c.discountPercent,
+      startDate: c.startDate.toISOString(),
+      endDate: c.endDate.toISOString(),
+      active: c.active,
+      usageLimit: c.usageLimit,
+      usageCount: c.usageCount,
+      status: campaignStatus(c),
+      createdAt: c.createdAt.toISOString(),
     };
   }
 
@@ -591,36 +615,70 @@ export class DeliveryPartnerService {
     return partner && partner.status === "APPROVED" ? partner.id : null;
   }
 
-  /** Durable, signup-time attribution (`User.referredByPartnerId`) always wins
-   *  over a later `?ref=` click carried into checkout — first touch, locked
-   *  in once at registration, so a customer can't be silently re-attributed
-   *  to a different partner later. The checkout-supplied code is only a
-   *  fallback for accounts that predate this attribution field. */
+  /** Whether a campaign is currently redeemable: owning partner approved, and
+   *  the campaign itself reads "active" (not disabled/scheduled/expired/
+   *  limit-reached). Shared with CheckoutService's quote-time validation via
+   *  campaignStatus, so the two never disagree about what "usable" means. */
+  private isCampaignUsable(campaign: {
+    active: boolean;
+    startDate: Date;
+    endDate: Date;
+    usageLimit: number;
+    usageCount: number;
+    partner: { status: string };
+  }): boolean {
+    return (
+      campaign.partner.status === "APPROVED" &&
+      campaignStatus(campaign) === "active"
+    );
+  }
+
+  /** Durable, signup-time attribution (`User.referredByPartnerId`) wins over a
+   *  later `?ref=` click carried into checkout — first touch, locked in once
+   *  at registration, so a customer can't be silently re-attributed to a
+   *  different partner later. The checkout-supplied code is only a fallback
+   *  for accounts that predate this attribution field.
+   *
+   *  An explicit, currently-usable campaign code takes priority over *both*
+   *  of the above — typing a partner's code at checkout is a stronger,
+   *  order-specific signal than passive attribution, and it's the only path
+   *  that also discounts the order (see CheckoutService.quote). */
   private async resolveReferralPartner(
     userId: string,
     checkoutReferralCode?: string | null,
+    campaignCode?: string | null,
   ) {
+    if (campaignCode) {
+      const campaign = await this.repo.findCampaignByCode(campaignCode.trim().toUpperCase());
+      if (campaign && this.isCampaignUsable(campaign)) {
+        return { partner: campaign.partner, campaign };
+      }
+    }
     const user = await this.repo.findUserReferralAttribution(userId);
     if (user?.referredByPartnerId) {
       const partner = await this.repo.findPartnerById(user.referredByPartnerId);
-      if (partner && partner.status === "APPROVED") return partner;
+      if (partner && partner.status === "APPROVED") return { partner, campaign: null };
     }
     if (checkoutReferralCode) {
       const partner = await this.repo.findPartnerByReferralCode(checkoutReferralCode);
-      if (partner && partner.status === "APPROVED") return partner;
+      if (partner && partner.status === "APPROVED") return { partner, campaign: null };
     }
     return null;
   }
 
   /** Attaches a pending referral to a freshly-created order. No earnings are
-   *  credited until the order is paid (see confirmReferral). */
+   *  credited until the order is paid (see confirmReferral). A valid
+   *  campaignCode takes priority over checkoutReferralCode/durable
+   *  attribution — see resolveReferralPartner. */
   async createPendingReferral(
     orderId: string,
     userId: string,
     checkoutReferralCode?: string | null,
+    campaignCode?: string | null,
   ): Promise<void> {
-    const partner = await this.resolveReferralPartner(userId, checkoutReferralCode);
-    if (!partner) return;
+    const resolved = await this.resolveReferralPartner(userId, checkoutReferralCode, campaignCode);
+    if (!resolved) return;
+    const { partner, campaign } = resolved;
 
     const order = await this.repo.findOrderTotalById(orderId);
     if (!order) return;
@@ -631,6 +689,17 @@ export class DeliveryPartnerService {
     const commissionCents = Math.round(
       order.totalCents * (partner.commissionPercent / 100),
     );
+    if (campaign) {
+      await this.repo.createPendingCampaignReferralTx(
+        partner.id,
+        orderId,
+        commissionCents,
+        partner.referralCode,
+        campaign.id,
+        campaign.code,
+      );
+      return;
+    }
     await this.repo.createPendingReferralTx(
       partner.id,
       orderId,
@@ -640,7 +709,10 @@ export class DeliveryPartnerService {
   }
 
   /** Confirms a referral once its order is paid, crediting the partner's
-   *  pending/total earnings. Idempotent. */
+   *  pending/total earnings — and, if this referral came from a campaign
+   *  code, counting one redemption against its usageLimit (never at
+   *  checkout-session time, so an abandoned cart can't consume a capped
+   *  campaign's seats). Idempotent. */
   async confirmReferral(orderId: string): Promise<void> {
     const referral = await this.repo.findReferralByOrderId(orderId);
     if (!referral || referral.status !== "PENDING") return;
@@ -648,6 +720,7 @@ export class DeliveryPartnerService {
       orderId,
       referral.partnerId,
       referral.commissionCents,
+      referral.order.campaignId,
     );
     void this.notifications
       .notify({
@@ -658,6 +731,133 @@ export class DeliveryPartnerService {
         href: "/delivery-partner/referrals",
       })
       .catch(() => undefined);
+  }
+
+  // ── campaigns (admin-created; discount + commission at checkout) ─────────
+  /** Admin-only: creates a new campaign for an approved partner. At most one
+   *  ACTIVE campaign with an overlapping date range is allowed per partner
+   *  at a time — a business invariant enforced here rather than in the DB,
+   *  since it's date-range shaped, not a simple uniqueness constraint. */
+  async createCampaign(
+    partnerId: string,
+    input: CreatePartnerCampaignInput,
+  ): Promise<DeliveryPartnerCampaignDto> {
+    const partner = await this.repo.findPartnerById(partnerId);
+    if (!partner) throw new NotFoundException("Delivery partner not found");
+    if (partner.status !== "APPROVED") {
+      throw new BadRequestException("Only an approved partner can have a campaign");
+    }
+    const overlap = await this.repo.findOverlappingActiveCampaign(
+      partnerId,
+      input.startDate,
+      input.endDate,
+    );
+    if (overlap) {
+      throw new BadRequestException(
+        "This partner already has an active campaign covering part of this date range",
+      );
+    }
+    const row = await this.repo.createCampaign(partnerId, this.generateCampaignCode(), {
+      discountPercent: input.discountPercent,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      usageLimit: input.usageLimit,
+    });
+    return this.toCampaignDto(row);
+  }
+
+  async listCampaigns(partnerId: string): Promise<DeliveryPartnerCampaignDto[]> {
+    const rows = await this.repo.findCampaignsForPartner(partnerId);
+    return rows.map((r) => this.toCampaignDto(r));
+  }
+
+  async updateCampaign(
+    partnerId: string,
+    campaignId: string,
+    input: UpdatePartnerCampaignInput,
+  ): Promise<DeliveryPartnerCampaignDto> {
+    const campaign = await this.repo.findCampaignById(campaignId);
+    if (!campaign || campaign.partnerId !== partnerId) {
+      throw new NotFoundException("Campaign not found");
+    }
+    const nextActive = input.active ?? campaign.active;
+    if (nextActive) {
+      const overlap = await this.repo.findOverlappingActiveCampaign(
+        partnerId,
+        input.startDate ?? campaign.startDate,
+        input.endDate ?? campaign.endDate,
+        campaignId,
+      );
+      if (overlap) {
+        throw new BadRequestException(
+          "This partner already has an active campaign covering part of this date range",
+        );
+      }
+    }
+    const row = await this.repo.updateCampaign(campaignId, {
+      discountPercent: input.discountPercent,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      usageLimit: input.usageLimit,
+      active: input.active,
+    });
+    return this.toCampaignDto(row);
+  }
+
+  /** Blocked once a campaign has any redemptions — same "don't delete
+   *  accounting-relevant records" rule as DELETE /admin/users. Deactivate
+   *  (`active: false`) is the normal way to stop a used campaign. */
+  async deleteCampaign(partnerId: string, campaignId: string): Promise<{ ok: true }> {
+    const campaign = await this.repo.findCampaignById(campaignId);
+    if (!campaign || campaign.partnerId !== partnerId) {
+      throw new NotFoundException("Campaign not found");
+    }
+    if (campaign.usageCount > 0) {
+      throw new BadRequestException(
+        "This campaign has already been used and can't be deleted — deactivate it instead",
+      );
+    }
+    await this.repo.deleteCampaign(campaignId);
+    return { ok: true };
+  }
+
+  /** Partner-facing: own campaign history (current + past), newest first. */
+  async myCampaigns(user: RequestUser): Promise<DeliveryPartnerCampaignDto[]> {
+    const partner = await this.repo.findPartnerIdByUserId(user.id);
+    if (!partner) return [];
+    return this.listCampaigns(partner.id);
+  }
+
+  private generateCampaignCode(): string {
+    return `CMP-${randomUUID().slice(0, 6).toUpperCase()}`;
+  }
+
+  /** Validates a campaign code against a cart subtotal — same shape as
+   *  CouponsService.evaluate so CheckoutService.quote can treat the two
+   *  symmetrically. Campaigns are always GLOBAL (all courses), so unlike
+   *  coupons there's no per-course eligibility split. */
+  async evaluateCampaign(
+    code: string,
+    subtotalCents: number,
+  ): Promise<{ result: PartnerCampaignResult; discountCents: number }> {
+    const row = await this.repo.findCampaignByCode(code.trim().toUpperCase());
+    const like: PartnerCampaignLike | null = row
+      ? {
+          code: row.code,
+          partnerName: row.partner.user.name,
+          discountPercent: row.discountPercent,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          active: row.active,
+          usageLimit: row.usageLimit,
+          usageCount: row.usageCount,
+          partnerApproved: row.partner.status === "APPROVED",
+        }
+      : null;
+    const result = validatePartnerCampaign(like);
+    const discountCents =
+      result.ok && like ? partnerCampaignDiscountCents(like, subtotalCents) : 0;
+    return { result, discountCents };
   }
 }
 

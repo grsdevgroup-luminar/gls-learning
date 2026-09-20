@@ -18,6 +18,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ManagePartnerCoursesDialog } from "@/components/shared/manage-partner-courses-dialog";
+import { ManagePartnerCampaignDialog } from "@/components/shared/manage-partner-campaign-dialog";
 import { Link2, DollarSign, Users, Search, MoreHorizontal, PauseCircle, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { initials } from "@/lib/format";
@@ -186,6 +187,7 @@ export function PartnersTab() {
                   <TableCell className="pr-6 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <ManagePartnerCoursesDialog partnerId={a.id} partnerName={a.name} />
+                      <ManagePartnerCampaignDialog partnerId={a.id} partnerName={a.name} />
                       {/* A DeliveryPartner row only ever exists as APPROVED or
                           SUSPENDED in practice (created APPROVED on review,
                           never anything else from this UI) — no empty-state

@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import type { DeliveryPartnerDto } from "@skillstream/shared";
-import { useMyDeliveryPartner, useMyPartnerReferrals, referralLinkFor } from "@/lib/api/delivery-partner-hooks";
+import {
+  useMyDeliveryPartner, useMyPartnerReferrals, useMyPartnerCampaigns, referralLinkFor,
+} from "@/lib/api/delivery-partner-hooks";
 import { formatUsd, relativeDate } from "@/lib/format";
+import { Meter } from "@/components/shared/meter";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DollarSign, Link2, TrendingUp, Copy, CheckCircle2, Clock, Wallet, Loader2,
-  XCircle, PauseCircle, Handshake, Mail,
+  XCircle, PauseCircle, Handshake, Mail, Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -102,6 +105,7 @@ function NoApplication() {
 export default function DeliveryPartnerOverview() {
   const { data: partner, isLoading } = useMyDeliveryPartner();
   const { data: referrals } = useMyPartnerReferrals();
+  const { data: campaigns } = useMyPartnerCampaigns();
   const [copied, setCopied] = useState(false);
 
   if (isLoading) {
@@ -124,6 +128,14 @@ export default function DeliveryPartnerOverview() {
 
   const recent = (referrals ?? []).slice(0, 5);
   const referralLink = referralLinkFor(partner.referralCode);
+  // Only ever one at a time (server-enforced) — shown only while it's
+  // actually usable or upcoming; a partner with none sees nothing here.
+  const activeCampaign = (campaigns ?? []).find(
+    (c) => c.status === "active" || c.status === "scheduled" || c.status === "limit-reached",
+  );
+  const daysLeft = activeCampaign
+    ? Math.max(0, Math.ceil((new Date(activeCampaign.endDate).getTime() - Date.now()) / 86_400_000))
+    : 0;
 
   function copyLink() {
     navigator.clipboard.writeText(referralLink).then(() => {
@@ -174,6 +186,53 @@ export default function DeliveryPartnerOverview() {
           </p>
         </CardContent>
       </Card>
+
+      {activeCampaign && (
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Megaphone className="h-4 w-4 text-primary" />
+              Active campaign
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Share this code — members who use it at checkout get {activeCampaign.discountPercent}% off, and you
+              still earn your usual commission on what they pay.
+            </p>
+            <div className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
+              <div>
+                <div className="font-mono text-lg font-bold">{activeCampaign.code}</div>
+                <div className="text-xs text-muted-foreground">
+                  {activeCampaign.discountPercent}% off · {activeCampaign.status === "scheduled"
+                    ? `starts ${activeCampaign.startDate.slice(0, 10)}`
+                    : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Copy campaign code"
+                onClick={() => {
+                  navigator.clipboard.writeText(activeCampaign.code);
+                  toast.success("Code copied");
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            {activeCampaign.usageLimit > 0 && (
+              <div>
+                <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                  <span>{activeCampaign.usageCount.toLocaleString()} / {activeCampaign.usageLimit.toLocaleString()} used</span>
+                  <span>{Math.round((activeCampaign.usageCount / activeCampaign.usageLimit) * 100)}%</span>
+                </div>
+                <Meter value={(activeCampaign.usageCount / activeCampaign.usageLimit) * 100} height={6} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

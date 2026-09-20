@@ -376,6 +376,7 @@ export class AdminService {
             OR: [
               { id: { contains: q, mode: "insensitive" } },
               { couponCode: { contains: q, mode: "insensitive" } },
+              { campaignCode: { contains: q, mode: "insensitive" } },
               { providerPaymentId: { contains: q, mode: "insensitive" } },
               { providerRef: { contains: q, mode: "insensitive" } },
               { user: { email: { contains: q, mode: "insensitive" } } },
@@ -805,6 +806,7 @@ export class AdminService {
       createdAt: updated.createdAt.toISOString(),
       paidAt: updated.paidAt?.toISOString() ?? null,
       partnerReferralCode: updated.partnerReferralCode,
+      partnerCampaignCode: updated.campaignCode,
     };
   }
 

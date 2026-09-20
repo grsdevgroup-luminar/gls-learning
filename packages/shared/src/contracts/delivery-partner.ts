@@ -220,3 +220,52 @@ export interface PartnerGrantedCourseDto {
    *  suspended." A member's access pauses along with their partner's. */
   partnerSuspended: boolean;
 }
+
+// ─── Campaigns (admin-created, discount + commission at checkout) ──────────
+// Applicable to all courses (global, no course scope — unlike Coupon). At
+// most one active campaign with an overlapping date range per partner,
+// enforced in the service layer. See docs/FEATURE_FLOWS.md §5.2 for how this
+// composes with the existing referral-link attribution mechanism.
+
+export const CreatePartnerCampaignSchema = z
+  .object({
+    discountPercent: z.number().min(1, "Discount must be at least 1%").max(100, "Discount cannot exceed 100%"),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+    /** 0 (or omitted) = unlimited. Counts paid orders only — see
+     *  DeliveryPartnerCampaign.usageLimit in schema.prisma. */
+    usageLimit: z.number().int().min(0).max(1_000_000).default(0),
+  })
+  .refine((v) => v.endDate > v.startDate, {
+    message: "End date must be after the start date",
+    path: ["endDate"],
+  });
+export type CreatePartnerCampaignInput = z.infer<typeof CreatePartnerCampaignSchema>;
+
+export const UpdatePartnerCampaignSchema = z
+  .object({
+    discountPercent: z.number().min(1).max(100).optional(),
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
+    usageLimit: z.number().int().min(0).max(1_000_000).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((v) => !v.startDate || !v.endDate || v.endDate > v.startDate, {
+    message: "End date must be after the start date",
+    path: ["endDate"],
+  });
+export type UpdatePartnerCampaignInput = z.infer<typeof UpdatePartnerCampaignSchema>;
+
+export interface DeliveryPartnerCampaignDto {
+  id: string;
+  partnerId: string;
+  code: string;
+  discountPercent: number;
+  startDate: string;
+  endDate: string;
+  active: boolean;
+  usageLimit: number;
+  usageCount: number;
+  status: "disabled" | "scheduled" | "expired" | "limit-reached" | "active";
+  createdAt: string;
+}

@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "skillstream-dev",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "/home/sarwar/.nvm/versions/node/v24.21.0/bin/pnpm",
       "runtimeArgs": ["run", "dev:app"],
       "port": 3001
     }

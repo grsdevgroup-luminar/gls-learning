@@ -703,6 +703,14 @@ model Order {
   partnerReferralCode String?
   partnerId           String?
 
+  /// Set when the buyer checked out with a delivery-partner campaign code
+  /// (as opposed to a plain referral-link attribution, which only ever sets
+  /// partnerId/partnerReferralCode above, never this). Denormalized code
+  /// alongside the FK, same pattern as partnerId/partnerReferralCode.
+  campaignId   String?
+  campaign     DeliveryPartnerCampaign? @relation(fields: [campaignId], references: [id])
+  campaignCode String?
+
   items           OrderItem[]
   redemptions     CouponRedemption[]
   partnerReferral DeliveryPartnerReferral?
@@ -712,6 +720,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([partnerId])
+  @@index([campaignId])
 }
 
 model OrderItem {
@@ -968,6 +977,7 @@ model DeliveryPartner {
 
   referrals         DeliveryPartnerReferral[]
   courseAssignments DeliveryPartnerCourseAssignment[]
+  campaigns         DeliveryPartnerCampaign[]
   /// Users attributed to this partner at signup — see `User.referredByPartnerId`.
   referredUsers     User[]                             @relation("ReferredUsers")
 
@@ -1010,6 +1020,38 @@ model DeliveryPartnerReferral {
   reversedCents   Int             @default(0)
   status          ReferralStatus  @default(PENDING)
   createdAt       DateTime        @default(now())
+
+  @@index([partnerId])
+}
+
+/// An admin-created, time-boxed discount campaign for one approved delivery
+/// partner, applicable to all courses (global, unlike course-scoped Coupon).
+/// The generated `code` is entered manually at checkout — distinct from the
+/// partner's `referralCode`, which only ever drives link attribution, never
+/// a discount. Discount + commission (on the discounted total, via the same
+/// DeliveryPartnerReferral used by plain referrals — see
+/// DeliveryPartnerService.resolveReferralPartner) both resolve through this
+/// row. Only one campaign may be `active` with an overlapping date range per
+/// partner at a time — enforced in the service layer, not the DB, since it's
+/// a date-range invariant.
+model DeliveryPartnerCampaign {
+  id              String          @id @default(cuid())
+  partnerId       String
+  partner         DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  code            String          @unique
+  discountPercent Float
+  startDate       DateTime
+  endDate         DateTime
+  active          Boolean         @default(true)
+  /// 0 = unlimited. Counts *paid* orders only — incremented alongside
+  /// DeliveryPartnerService.confirmReferral (on payment confirmation), not at
+  /// checkout-session creation, so an abandoned cart never consumes a seat.
+  usageLimit      Int             @default(0)
+  usageCount      Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  orders Order[]
 
   @@index([partnerId])
 }
@@ -1173,13 +1215,16 @@ model Payout {
 // ─── Shopping cart ────────────────────────────────────────────────────────────
 
 model Cart {
-  id         String     @id @default(cuid())
-  userId     String     @unique
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  couponCode String?
-  items      CartItem[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couponCode   String?
+  /// Mutually exclusive with couponCode at checkout — only one discount code
+  /// applies at a time. See DeliveryPartnerCampaign.
+  campaignCode String?
+  items        CartItem[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
 
 model CartItem {

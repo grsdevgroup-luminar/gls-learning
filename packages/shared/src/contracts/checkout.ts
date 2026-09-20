@@ -4,6 +4,12 @@ import type { OrderStatus, PaymentGateway } from "../enums.js";
 export const checkoutQuoteSchema = z.object({
   courseIds: z.array(z.string().min(1)).min(1),
   couponCode: z.string().trim().optional(),
+  /** A delivery-partner campaign code, entered manually at checkout — unlike
+   *  `referralCode` below (silent, link-driven, attribution-only), this one
+   *  is an explicit discount code and mutually exclusive with couponCode:
+   *  sending both is a client bug, rejected by CheckoutService.quote rather
+   *  than silently preferring one. */
+  campaignCode: z.string().trim().optional(),
   regionCode: z.string().optional(),
   /** When true, deduct available store credit from the total after coupon.
    *  See REFUND_TO_CREDIT_PLAN.md. */
@@ -13,7 +19,10 @@ export type CheckoutQuoteInput = z.infer<typeof checkoutQuoteSchema>;
 
 export const checkoutSessionSchema = checkoutQuoteSchema.extend({
   gateway: z.enum(["STRIPE", "PAYPAL", "SSLCOMMERZ"]),
-  /** Optional delivery-partner referral code for commission attribution. */
+  /** Optional delivery-partner referral code for commission attribution only
+   *  — captured silently from a `?ref=` link, never discounts. Distinct from
+   *  `campaignCode` above; a valid campaignCode takes priority over this for
+   *  both the discount and the commission attribution on this order. */
   referralCode: z.string().trim().optional(),
 });
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionSchema>;
@@ -32,6 +41,15 @@ export interface QuoteCouponDto {
   discountCents: number;
 }
 
+export interface QuoteCampaignDto {
+  code: string;
+  valid: boolean;
+  message: string;
+  discountCents: number;
+  /** Shown alongside the discount so the buyer knows whose code they used. */
+  partnerName: string | null;
+}
+
 export interface QuoteDto {
   lines: QuoteLineDto[];
   subtotalCents: number;
@@ -46,6 +64,8 @@ export interface QuoteDto {
   currency: string;
   regionCode: string;
   coupon: QuoteCouponDto | null;
+  /** Mutually exclusive with `coupon` — at most one of the two is non-null. */
+  campaign: QuoteCampaignDto | null;
 }
 
 export interface CheckoutSessionDto {
@@ -87,6 +107,10 @@ export interface OrderDto {
   /** Set when this order was attributed to a delivery partner — refunding it
    *  will proportionally reverse that partner's commission. */
   partnerReferralCode: string | null;
+  /** Set when this order used a delivery-partner campaign code instead of a
+   *  plain referral-link attribution — same commission/refund-reversal path,
+   *  just a different origin. Mutually exclusive with couponCode. */
+  partnerCampaignCode: string | null;
 }
 
 /** Aggregate spend stats for the caller's own orders (drives billing sidebar). */

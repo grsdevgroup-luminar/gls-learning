@@ -214,7 +214,10 @@ export class DeliveryPartnerRepository {
   findReferralByOrderId(orderId: string) {
     return this.prisma.deliveryPartnerReferral.findUnique({
       where: { orderId },
-      include: { partner: { select: { userId: true } } },
+      include: {
+        partner: { select: { userId: true } },
+        order: { select: { campaignId: true } },
+      },
     });
   }
 
@@ -240,6 +243,39 @@ export class DeliveryPartnerRepository {
     ]);
   }
 
+  /** Same as createPendingReferralTx, but for a campaign-code-driven referral
+   *  — additionally stamps Order.campaignId/campaignCode (parallel to
+   *  partnerId/partnerReferralCode) so reporting can join either way. Usage
+   *  count is *not* incremented here — see confirmReferralTx, which only
+   *  counts a campaign redemption once the order is actually paid. */
+  createPendingCampaignReferralTx(
+    partnerId: string,
+    orderId: string,
+    commissionCents: number,
+    referralCode: string,
+    campaignId: string,
+    campaignCode: string,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.deliveryPartnerReferral.create({
+        data: { partnerId, orderId, commissionCents, status: "PENDING" },
+      }),
+      this.prisma.deliveryPartner.update({
+        where: { id: partnerId },
+        data: { referralCount: { increment: 1 } },
+      }),
+      this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          partnerId,
+          partnerReferralCode: referralCode,
+          campaignId,
+          campaignCode,
+        },
+      }),
+    ]);
+  }
+
   updateApplicationDocuments(applicationId: string, documents: Prisma.InputJsonValue) {
     return this.prisma.deliveryPartnerApplication.update({
       where: { id: applicationId },
@@ -247,10 +283,14 @@ export class DeliveryPartnerRepository {
     });
   }
 
+  /** `campaignId` is passed when this order's referral came from a campaign
+   *  code — a paid order is the only thing that should ever consume a
+   *  capped campaign's usageLimit (an abandoned cart must not). */
   confirmReferralTx(
     orderId: string,
     partnerId: string,
     commissionCents: number,
+    campaignId?: string | null,
   ) {
     return this.prisma.$transaction([
       this.prisma.deliveryPartnerReferral.update({
@@ -264,7 +304,80 @@ export class DeliveryPartnerRepository {
           totalEarningsCents: { increment: commissionCents },
         },
       }),
+      ...(campaignId
+        ? [
+            this.prisma.deliveryPartnerCampaign.update({
+              where: { id: campaignId },
+              data: { usageCount: { increment: 1 } },
+            }),
+          ]
+        : []),
     ]);
+  }
+
+  // ── campaigns (admin-created; see docs/FEATURE_FLOWS.md §5.2) ────────────
+
+  findCampaignsForPartner(partnerId: string) {
+    return this.prisma.deliveryPartnerCampaign.findMany({
+      where: { partnerId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  findCampaignById(id: string) {
+    return this.prisma.deliveryPartnerCampaign.findUnique({ where: { id } });
+  }
+
+  /** Checkout-time lookup — includes the partner so the caller can check
+   *  approval status and read the partner's name/commissionPercent in one
+   *  round trip. */
+  findCampaignByCode(code: string) {
+    return this.prisma.deliveryPartnerCampaign.findUnique({
+      where: { code },
+      include: { partner: { include: { user: { select: { name: true } } } } },
+    });
+  }
+
+  /** Any *other* active campaign for this partner whose date range overlaps
+   *  the given window — used to enforce "one active campaign at a time" at
+   *  create/update time. Standard interval-overlap check:
+   *  existing.start < newEnd && existing.end > newStart. */
+  findOverlappingActiveCampaign(
+    partnerId: string,
+    startDate: Date,
+    endDate: Date,
+    excludeId?: string,
+  ) {
+    return this.prisma.deliveryPartnerCampaign.findFirst({
+      where: {
+        partnerId,
+        active: true,
+        startDate: { lt: endDate },
+        endDate: { gt: startDate },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+  }
+
+  createCampaign(
+    partnerId: string,
+    code: string,
+    data: { discountPercent: number; startDate: Date; endDate: Date; usageLimit: number },
+  ) {
+    return this.prisma.deliveryPartnerCampaign.create({
+      data: { partnerId, code, ...data },
+    });
+  }
+
+  updateCampaign(
+    id: string,
+    data: Prisma.DeliveryPartnerCampaignUpdateInput,
+  ) {
+    return this.prisma.deliveryPartnerCampaign.update({ where: { id }, data });
+  }
+
+  deleteCampaign(id: string) {
+    return this.prisma.deliveryPartnerCampaign.delete({ where: { id } });
   }
 
   // ── course assignment (admin-only; see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3) ──

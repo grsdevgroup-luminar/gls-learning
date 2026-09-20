@@ -73,6 +73,7 @@ export class OrdersService {
       createdAt: row.createdAt.toISOString(),
       paidAt: row.paidAt?.toISOString() ?? null,
       partnerReferralCode: row.partnerReferralCode,
+      partnerCampaignCode: row.campaignCode,
     };
   }
 

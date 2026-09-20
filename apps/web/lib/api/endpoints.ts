@@ -58,8 +58,10 @@ import type {
   AdminDeliveryPartnerApplicationQuery,
   AdminDeliveryPartnerQuery,
   AssignPartnerCourseInput,
+  CreatePartnerCampaignInput,
   DeliveryPartnerApplicationDto,
   DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerCampaignDto,
   DeliveryPartnerCourseAssignmentDto,
   DeliveryPartnerDto,
   DeliveryPartnerInvitationDto,
@@ -69,6 +71,7 @@ import type {
   PartnerInvitationInfoDto,
   PartnerDocumentDto,
   ReviewPartnerApplicationInput,
+  UpdatePartnerCampaignInput,
   PayoutBalanceDto,
   PayoutDto,
   PayoutAccountDto,
@@ -130,6 +133,7 @@ export type {
   ReviewDto,
   DeliveryPartnerApplicationDto,
   DeliveryPartnerApplicationStatsDto,
+  DeliveryPartnerCampaignDto,
   DeliveryPartnerDto,
   DeliveryPartnerReferralDto,
   PartnerDocumentDto,
@@ -438,6 +442,8 @@ export const api = {
     apiFetch<DeliveryPartnerCourseAssignmentDto[]>("/me/delivery-partner/courses"),
   myPartnerGrantedCourses: () =>
     apiFetch<PartnerGrantedCourseDto[]>("/me/delivery-partner/granted-courses"),
+  myPartnerCampaigns: () =>
+    apiFetch<DeliveryPartnerCampaignDto[]>("/me/delivery-partner/campaigns"),
 
   // delivery partner — members + invitations (partner-authenticated, per course assignment)
   invitePartnerMember: (courseAssignmentId: string, email: string) =>
@@ -486,6 +492,22 @@ export const api = {
     ),
   adminUnassignPartnerCourse: (partnerId: string, courseId: string) =>
     apiFetch<{ ok: true }>(`/admin/delivery-partners/${partnerId}/courses/${courseId}`, { method: "DELETE" }),
+
+  // admin — delivery partner campaigns
+  adminPartnerCampaigns: (partnerId: string) =>
+    apiFetch<DeliveryPartnerCampaignDto[]>(`/admin/delivery-partners/${partnerId}/campaigns`),
+  adminCreatePartnerCampaign: (partnerId: string, body: CreatePartnerCampaignInput) =>
+    apiFetch<DeliveryPartnerCampaignDto>(
+      `/admin/delivery-partners/${partnerId}/campaigns`,
+      { method: "POST", body },
+    ),
+  adminUpdatePartnerCampaign: (partnerId: string, campaignId: string, body: UpdatePartnerCampaignInput) =>
+    apiFetch<DeliveryPartnerCampaignDto>(
+      `/admin/delivery-partners/${partnerId}/campaigns/${campaignId}`,
+      { method: "PATCH", body },
+    ),
+  adminDeletePartnerCampaign: (partnerId: string, campaignId: string) =>
+    apiFetch<{ ok: true }>(`/admin/delivery-partners/${partnerId}/campaigns/${campaignId}`, { method: "DELETE" }),
 
   // payouts (instructor + delivery partner share one ledger)
   payoutBalance: () => apiFetch<PayoutBalanceDto>("/me/payouts/balance"),
@@ -859,6 +881,13 @@ export const adminApi = {
     api.adminUpdatePartnerCourseAssignment(partnerId, courseId, memberCap),
   unassignPartnerCourse: (partnerId: string, courseId: string) =>
     api.adminUnassignPartnerCourse(partnerId, courseId),
+  partnerCampaigns: (partnerId: string) => api.adminPartnerCampaigns(partnerId),
+  createPartnerCampaign: (partnerId: string, body: CreatePartnerCampaignInput) =>
+    api.adminCreatePartnerCampaign(partnerId, body),
+  updatePartnerCampaign: (partnerId: string, campaignId: string, body: UpdatePartnerCampaignInput) =>
+    api.adminUpdatePartnerCampaign(partnerId, campaignId, body),
+  deletePartnerCampaign: (partnerId: string, campaignId: string) =>
+    api.adminDeletePartnerCampaign(partnerId, campaignId),
   payouts: api.adminPayouts,
   approvePayout: api.approvePayout,
   markPayoutPaid: api.markPayoutPaid,

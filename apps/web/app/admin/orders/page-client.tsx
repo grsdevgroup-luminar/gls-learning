@@ -28,6 +28,7 @@ import {
   Copy,
   CreditCard,
   DollarSign,
+  Handshake,
   RotateCcw,
   Search,
   ShoppingBag,
@@ -224,7 +225,7 @@ export default function AdminOrders() {
           <Input
             value={qInput}
             onChange={(e) => setQInput(e.target.value)}
-            placeholder="Search by order id, coupon, user, item…"
+            placeholder="Search by order id, coupon, referral code, user, item…"
             className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           />
         </div>
@@ -291,7 +292,7 @@ export default function AdminOrders() {
               <TableRow className={stickyHeaderRowClass}>
                 <TableHead className={`pl-6 ${stickyHeaderCellClass}`}>Order</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Items</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Coupon</TableHead>
+                <TableHead className={stickyHeaderCellClass}>Discount code</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Gateway</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Total</TableHead>
                 <TableHead className={stickyHeaderCellClass}>Status</TableHead>
@@ -381,6 +382,10 @@ function OrderRow({
       <TableCell>
         {order.couponCode ? (
           <Badge variant="secondary">{order.couponCode}</Badge>
+        ) : order.partnerCampaignCode ? (
+          <Badge variant="secondary" className="gap-1">
+            <Handshake className="h-3 w-3" /> {order.partnerCampaignCode}
+          </Badge>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}

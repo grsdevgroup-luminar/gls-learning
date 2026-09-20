@@ -17,15 +17,19 @@ import {
   AdminDeliveryPartnerApplicationQuerySchema,
   AdminDeliveryPartnerQuerySchema,
   AssignPartnerCourseSchema,
+  CreatePartnerCampaignSchema,
   InvitePartnerMemberSchema,
   ReviewPartnerApplicationSchema,
+  UpdatePartnerCampaignSchema,
   UpdatePartnerCourseAssignmentSchema,
   UpdatePartnerSchema,
   type AdminDeliveryPartnerApplicationQuery,
   type AdminDeliveryPartnerQuery,
   type AssignPartnerCourseInput,
+  type CreatePartnerCampaignInput,
   type InvitePartnerMemberInput,
   type ReviewPartnerApplicationInput,
+  type UpdatePartnerCampaignInput,
   type UpdatePartnerCourseAssignmentInput,
   type UpdatePartnerInput,
 } from "@skillstream/shared";
@@ -88,6 +92,13 @@ export class DeliveryPartnerController {
   @Get("me/delivery-partner/granted-courses")
   myGrantedCourses(@CurrentUser() user: RequestUser) {
     return this.partners.myGrantedCourses(user);
+  }
+
+  /** Read-only — partners don't create their own campaigns, only admins do.
+   *  Shows the code to share plus full history (current + past). */
+  @Get("me/delivery-partner/campaigns")
+  myCampaigns(@CurrentUser() user: RequestUser) {
+    return this.partners.myCampaigns(user);
   }
 
   // ── members + invitations (partner-authenticated; per course assignment) ──
@@ -211,5 +222,37 @@ export class DeliveryPartnerController {
   @Delete("admin/delivery-partners/:id/courses/:courseId")
   unassignCourse(@Param("id") id: string, @Param("courseId") courseId: string) {
     return this.partners.unassignCourse(id, courseId);
+  }
+
+  // ── campaigns (admin-only) ────────────────────────────────────────────────
+  @Roles("ADMIN")
+  @Get("admin/delivery-partners/:id/campaigns")
+  listCampaigns(@Param("id") id: string) {
+    return this.partners.listCampaigns(id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/delivery-partners/:id/campaigns")
+  createCampaign(
+    @Param("id") id: string,
+    @ZodBody(CreatePartnerCampaignSchema) body: CreatePartnerCampaignInput,
+  ) {
+    return this.partners.createCampaign(id, body);
+  }
+
+  @Roles("ADMIN")
+  @Patch("admin/delivery-partners/:id/campaigns/:campaignId")
+  updateCampaign(
+    @Param("id") id: string,
+    @Param("campaignId") campaignId: string,
+    @ZodBody(UpdatePartnerCampaignSchema) body: UpdatePartnerCampaignInput,
+  ) {
+    return this.partners.updateCampaign(id, campaignId, body);
+  }
+
+  @Roles("ADMIN")
+  @Delete("admin/delivery-partners/:id/campaigns/:campaignId")
+  deleteCampaign(@Param("id") id: string, @Param("campaignId") campaignId: string) {
+    return this.partners.deleteCampaign(id, campaignId);
   }
 }
