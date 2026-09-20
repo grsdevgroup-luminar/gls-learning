@@ -7,7 +7,6 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
@@ -17,16 +16,24 @@ import { memoryStorage } from "multer";
 import {
   AdminDeliveryPartnerApplicationQuerySchema,
   AdminDeliveryPartnerQuerySchema,
-  ApplyDeliveryPartnerSchema,
+  AssignPartnerCourseSchema,
+  CreatePartnerCampaignSchema,
+  InvitePartnerMemberSchema,
   ReviewPartnerApplicationSchema,
+  UpdatePartnerCampaignSchema,
+  UpdatePartnerCourseAssignmentSchema,
   UpdatePartnerSchema,
   type AdminDeliveryPartnerApplicationQuery,
   type AdminDeliveryPartnerQuery,
-  type ApplyDeliveryPartnerInput,
+  type AssignPartnerCourseInput,
+  type CreatePartnerCampaignInput,
+  type InvitePartnerMemberInput,
   type ReviewPartnerApplicationInput,
+  type UpdatePartnerCampaignInput,
+  type UpdatePartnerCourseAssignmentInput,
   type UpdatePartnerInput,
 } from "@skillstream/shared";
-import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
+import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { PARTNER_DOC_MAX_BYTES } from "../storage/storage.constants";
 import { DeliveryPartnerService } from "./delivery-partner.service";
@@ -38,14 +45,10 @@ import { PartnerDocFilePipe, type ValidatedPartnerDocFile } from "./pipes/partne
 export class DeliveryPartnerController {
   constructor(private readonly partners: DeliveryPartnerService) {}
 
-  @Post("delivery-partners/apply")
-  apply(
-    @CurrentUser() user: RequestUser,
-    @ZodBody(ApplyDeliveryPartnerSchema) body: ApplyDeliveryPartnerInput,
-  ) {
-    return this.partners.apply(user, body);
-  }
-
+  // Only reachable right after POST /auth/register-delivery-partner creates
+  // the pending application — there is no standalone "apply" endpoint (see
+  // DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §2): applying is only ever the
+  // combined signup+apply step for a brand-new visitor.
   @Post("delivery-partners/apply/docs")
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -63,12 +66,6 @@ export class DeliveryPartnerController {
     return this.partners.uploadDocument(user, title, file);
   }
 
-  @Delete("delivery-partners/apply/docs")
-  deleteDocument(@CurrentUser() user: RequestUser, @Query("key") key?: string) {
-    if (!key) throw new BadRequestException("key is required");
-    return this.partners.deleteDocument(user, key);
-  }
-
   @Get("me/delivery-partner")
   me(@CurrentUser() user: RequestUser) {
     return this.partners.me(user);
@@ -82,6 +79,74 @@ export class DeliveryPartnerController {
   @Get("me/delivery-partner/referrals")
   myReferrals(@CurrentUser() user: RequestUser) {
     return this.partners.myReferrals(user);
+  }
+
+  @Get("me/delivery-partner/courses")
+  myCourseAssignments(@CurrentUser() user: RequestUser) {
+    return this.partners.myCourseAssignments(user);
+  }
+
+  /** Every course the caller has access to via a delivery partner —
+   *  deliberately separate from org-granted courses, see
+   *  DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3. */
+  @Get("me/delivery-partner/granted-courses")
+  myGrantedCourses(@CurrentUser() user: RequestUser) {
+    return this.partners.myGrantedCourses(user);
+  }
+
+  /** Read-only — partners don't create their own campaigns, only admins do.
+   *  Shows the code to share plus full history (current + past). */
+  @Get("me/delivery-partner/campaigns")
+  myCampaigns(@CurrentUser() user: RequestUser) {
+    return this.partners.myCampaigns(user);
+  }
+
+  // ── members + invitations (partner-authenticated; per course assignment) ──
+  @Post("delivery-partner/courses/:courseAssignmentId/invite")
+  inviteMember(
+    @CurrentUser() user: RequestUser,
+    @Param("courseAssignmentId") courseAssignmentId: string,
+    @ZodBody(InvitePartnerMemberSchema) body: InvitePartnerMemberInput,
+  ) {
+    return this.partners.inviteMember(user, courseAssignmentId, body);
+  }
+
+  @Get("delivery-partner/courses/:courseAssignmentId/invitations")
+  listInvitations(
+    @CurrentUser() user: RequestUser,
+    @Param("courseAssignmentId") courseAssignmentId: string,
+  ) {
+    return this.partners.listInvitations(user, courseAssignmentId);
+  }
+
+  @Get("delivery-partner/courses/:courseAssignmentId/members")
+  listMembers(
+    @CurrentUser() user: RequestUser,
+    @Param("courseAssignmentId") courseAssignmentId: string,
+  ) {
+    return this.partners.listMembers(user, courseAssignmentId);
+  }
+
+  @Delete("delivery-partner/invitations/:inviteId")
+  revokeInvitation(@CurrentUser() user: RequestUser, @Param("inviteId") inviteId: string) {
+    return this.partners.revokeInvitation(user, inviteId);
+  }
+
+  @Delete("delivery-partner/members/:memberId")
+  removeMember(@CurrentUser() user: RequestUser, @Param("memberId") memberId: string) {
+    return this.partners.removeMember(user, memberId);
+  }
+
+  // ── invitation claim (public preview + authenticated accept) ─────────────
+  @Public()
+  @Get("delivery-partner/invitations/:token")
+  invitationInfo(@Param("token") token: string) {
+    return this.partners.invitationInfo(token);
+  }
+
+  @Post("delivery-partner/claim/:token")
+  claim(@CurrentUser() user: RequestUser, @Param("token") token: string) {
+    return this.partners.claimInvitation(user, token);
   }
 
   // ── admin ──
@@ -125,5 +190,69 @@ export class DeliveryPartnerController {
     @ZodBody(UpdatePartnerSchema) body: UpdatePartnerInput,
   ) {
     return this.partners.updatePartner(id, body);
+  }
+
+  // ── course assignment (admin-only) ────────────────────────────────────────
+  @Roles("ADMIN")
+  @Get("admin/delivery-partners/:id/courses")
+  listCourseAssignments(@Param("id") id: string) {
+    return this.partners.listCourseAssignments(id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/delivery-partners/:id/courses")
+  assignCourse(
+    @Param("id") id: string,
+    @ZodBody(AssignPartnerCourseSchema) body: AssignPartnerCourseInput,
+  ) {
+    return this.partners.assignCourse(id, body);
+  }
+
+  @Roles("ADMIN")
+  @Patch("admin/delivery-partners/:id/courses/:courseId")
+  updateCourseAssignment(
+    @Param("id") id: string,
+    @Param("courseId") courseId: string,
+    @ZodBody(UpdatePartnerCourseAssignmentSchema) body: UpdatePartnerCourseAssignmentInput,
+  ) {
+    return this.partners.updateCourseAssignment(id, courseId, body);
+  }
+
+  @Roles("ADMIN")
+  @Delete("admin/delivery-partners/:id/courses/:courseId")
+  unassignCourse(@Param("id") id: string, @Param("courseId") courseId: string) {
+    return this.partners.unassignCourse(id, courseId);
+  }
+
+  // ── campaigns (admin-only) ────────────────────────────────────────────────
+  @Roles("ADMIN")
+  @Get("admin/delivery-partners/:id/campaigns")
+  listCampaigns(@Param("id") id: string) {
+    return this.partners.listCampaigns(id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/delivery-partners/:id/campaigns")
+  createCampaign(
+    @Param("id") id: string,
+    @ZodBody(CreatePartnerCampaignSchema) body: CreatePartnerCampaignInput,
+  ) {
+    return this.partners.createCampaign(id, body);
+  }
+
+  @Roles("ADMIN")
+  @Patch("admin/delivery-partners/:id/campaigns/:campaignId")
+  updateCampaign(
+    @Param("id") id: string,
+    @Param("campaignId") campaignId: string,
+    @ZodBody(UpdatePartnerCampaignSchema) body: UpdatePartnerCampaignInput,
+  ) {
+    return this.partners.updateCampaign(id, campaignId, body);
+  }
+
+  @Roles("ADMIN")
+  @Delete("admin/delivery-partners/:id/campaigns/:campaignId")
+  deleteCampaign(@Param("id") id: string, @Param("campaignId") campaignId: string) {
+    return this.partners.deleteCampaign(id, campaignId);
   }
 }

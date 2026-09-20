@@ -92,6 +92,15 @@ export class EnrollmentRepository {
             },
           },
         },
+        // Same shape as orgAssignments/org.members — a delivery-partner
+        // course assignment is the other path to a PRIVATE course (see
+        // DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3).
+        deliveryPartnerAssignments: {
+          select: {
+            partner: { select: { status: true } },
+            members: { where: { userId }, select: { id: true } },
+          },
+        },
       },
     });
   }
@@ -105,6 +114,15 @@ export class EnrollmentRepository {
   findAnyOrgMembership(orgIds: string[], userId: string) {
     return this.prisma.orgMember.findFirst({
       where: { userId, orgId: { in: orgIds } },
+    });
+  }
+
+  /** Mirrors findAnyOrgMembership, one level deeper — is this user a member
+   *  of any delivery-partner course assignment for this specific course. */
+  findAnyPartnerMembershipForCourse(courseId: string, userId: string) {
+    return this.prisma.deliveryPartnerMember.findFirst({
+      where: { userId, courseAssignment: { courseId } },
+      select: { id: true },
     });
   }
 
@@ -180,6 +198,7 @@ export class EnrollmentRepository {
             course: {
               select: {
                 visibility: true,
+                basePriceCents: true,
                 orgAssignments: {
                   select: {
                     org: {
@@ -190,6 +209,12 @@ export class EnrollmentRepository {
                         members: { where: { userId }, select: { id: true } },
                       },
                     },
+                  },
+                },
+                deliveryPartnerAssignments: {
+                  select: {
+                    partner: { select: { status: true } },
+                    members: { where: { userId }, select: { id: true } },
                   },
                 },
                 sections: {

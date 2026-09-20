@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
   addCartItemSchema,
   mergeCartSchema,
+  setCartCampaignSchema,
   setCartCouponSchema,
   type AddCartItemInput,
   type MergeCartInput,
+  type SetCartCampaignInput,
   type SetCartCouponInput,
 } from "@skillstream/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
@@ -50,6 +52,14 @@ export class CartController {
     @ZodBody(setCartCouponSchema) body: SetCartCouponInput,
   ) {
     return this.cart.setCoupon(user.id, body.couponCode);
+  }
+
+  @Patch("campaign")
+  setCampaign(
+    @CurrentUser() user: RequestUser,
+    @ZodBody(setCartCampaignSchema) body: SetCartCampaignInput,
+  ) {
+    return this.cart.setCampaign(user.id, body.campaignCode);
   }
 
   /** Called by web store after login — merges guest localStorage cart into DB. */

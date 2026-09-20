@@ -63,6 +63,12 @@ const PARTNER_STATUS: Record<string, Prisma.DeliveryPartnerCreateInput["status"]
   rejected: "REJECTED",
   suspended: "SUSPENDED",
 };
+const REFERRAL_STATUS: Record<string, Prisma.DeliveryPartnerReferralCreateInput["status"]> = {
+  pending: "PENDING",
+  confirmed: "CONFIRMED",
+  paid: "PAID",
+  reversed: "REVERSED",
+};
 const REMINDER_TRIGGER: Record<string, any> = {
   idle: "IDLE",
   low_progress: "LOW_PROGRESS",
@@ -470,7 +476,7 @@ async function main() {
           partnerId: partner.id,
           orderId,
           commissionCents,
-          status: r.status,
+          status: REFERRAL_STATUS[r.status],
           createdAt: new Date(r.date),
         },
       });

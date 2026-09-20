@@ -175,6 +175,14 @@ export const DeliveryPartnerStatus = {
 export type DeliveryPartnerStatus =
   (typeof DeliveryPartnerStatus)[keyof typeof DeliveryPartnerStatus];
 
+export const ReferralStatus = {
+  PENDING: "PENDING",
+  CONFIRMED: "CONFIRMED",
+  PAID: "PAID",
+  REVERSED: "REVERSED",
+} as const;
+export type ReferralStatus = (typeof ReferralStatus)[keyof typeof ReferralStatus];
+
 export const OrgStatus = {
   ACTIVE: "ACTIVE",
   TRIAL: "TRIAL",

@@ -8,6 +8,7 @@ export * from "./pricing.js";
 export * from "./countries.js";
 export * from "./phone.js";
 export * from "./coupon.js";
+export * from "./partner-campaign.js";
 export * from "./progress.js";
 export * from "./org-access.js";
 export * from "./contracts/common.js";

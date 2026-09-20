@@ -10,9 +10,18 @@ export const setCartCouponSchema = z.object({
 });
 export type SetCartCouponInput = z.infer<typeof setCartCouponSchema>;
 
+/** Mutually exclusive with the coupon — setting a campaign code is expected
+ *  to accompany clearing couponCode client-side (and vice versa); the server
+ *  re-validates this at quote time regardless (see CheckoutService.quote). */
+export const setCartCampaignSchema = z.object({
+  campaignCode: z.string().trim().nullable(),
+});
+export type SetCartCampaignInput = z.infer<typeof setCartCampaignSchema>;
+
 export const mergeCartSchema = z.object({
   courseIds: z.array(z.string().min(1)).default([]),
   couponCode: z.string().trim().nullable().optional(),
+  campaignCode: z.string().trim().nullable().optional(),
 });
 export type MergeCartInput = z.infer<typeof mergeCartSchema>;
 
@@ -24,5 +33,6 @@ export interface CartItemDto {
 export interface CartDto {
   items: CartItemDto[];
   couponCode: string | null;
+  campaignCode: string | null;
   updatedAt: string;
 }

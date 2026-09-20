@@ -45,6 +45,16 @@ enum DeliveryPartnerStatus {
   SUSPENDED
 }
 
+enum ReferralStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  /// Fully or partially reversed because the underlying order was refunded
+  /// (see `reversedCents`) — a terminal state only once the whole commission
+  /// has been reversed; a partial reversal keeps the prior status.
+  REVERSED
+}
+
 enum OrgStatus {
   ACTIVE
   TRIAL
@@ -225,36 +235,45 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  studentProfile          StudentProfile?
-  instructorProfile       InstructorProfile?
-  refreshTokens           RefreshToken[]
-  passwordResetTokens     PasswordResetToken[]
-  enrollments             Enrollment[]
-  quizResults             QuizResult[]
-  lessonNotes             LessonNote[]
-  quizAttempts            QuizAttempt[]
-  reviews                 Review[]
-  comments                Comment[]
-  orders                  Order[]
-  reminderLogs            ReminderLog[]
-  couponRedemptions       CouponRedemption[]
-  authoredCourses         Course[]              @relation("InstructorCourses")
-  categoryProposals       Category[]            @relation("CategoryProposals")
-  deliveryPartner         DeliveryPartner?
-  orgMemberships          OrgMember[]
-  payoutAccount           PayoutAccount?
-  payouts                 Payout[]
-  cart                    Cart?
-  notifications           Notification[]
-  creditLedger            StudentCreditLedger[] @relation("CreditLedgerOwner")
-  creditGrants            StudentCreditLedger[] @relation("CreditLedgerAdmin")
+  /// The delivery partner this user was attributed to at signup (via `?ref=`
+  /// on the signup page) — locked in once, never overwritten by a later
+  /// referral click. Distinct from `deliveryPartner` below, which is this
+  /// user's OWN partner profile if they themselves are one.
+  referredByPartnerId String?
+  referredByPartner   DeliveryPartner? @relation("ReferredUsers", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
+
+  studentProfile             StudentProfile?
+  instructorProfile          InstructorProfile?
+  refreshTokens              RefreshToken[]
+  passwordResetTokens        PasswordResetToken[]
+  enrollments                Enrollment[]
+  quizResults                QuizResult[]
+  lessonNotes                LessonNote[]
+  quizAttempts               QuizAttempt[]
+  reviews                    Review[]
+  comments                   Comment[]
+  orders                     Order[]
+  reminderLogs               ReminderLog[]
+  couponRedemptions          CouponRedemption[]
+  authoredCourses            Course[]                @relation("InstructorCourses")
+  categoryProposals          Category[]              @relation("CategoryProposals")
+  deliveryPartner            DeliveryPartner?
+  deliveryPartnerMemberships DeliveryPartnerMember[]
+  orgMemberships             OrgMember[]
+  payoutAccount              PayoutAccount?
+  payouts                    Payout[]
+  cart                       Cart?
+  notifications              Notification[]
+  creditLedger               StudentCreditLedger[]   @relation("CreditLedgerOwner")
+  creditGrants               StudentCreditLedger[]   @relation("CreditLedgerAdmin")
   /// Denormalized — kept in sync transactionally on notification create/read,
   /// never derived from a live COUNT(*). See NOTIFICATION_SYSTEM_PLAN.md.
-  unreadNotificationCount Int                   @default(0)
-  uploads                 Upload[]
-  editedEmailTemplates    EmailTemplate[]
+  unreadNotificationCount    Int                     @default(0)
+  uploads                    Upload[]
+  editedEmailTemplates       EmailTemplate[]
 
   @@index([role])
+  @@index([referredByPartnerId])
 }
 
 model RefreshToken {
@@ -390,15 +409,16 @@ model Course {
   /// privacy) — see OrganizationsService.assignCourse.
   visibility CourseVisibility @default(PUBLIC)
 
-  sections       Section[]
-  enrollments    Enrollment[]
-  reviews        Review[]
-  comments       Comment[]
-  orderItems     OrderItem[]
-  coupons        Coupon[]
-  cartItems      CartItem[]
-  uploads        Upload[]
-  orgAssignments CourseOrgAssignment[]
+  sections                   Section[]
+  enrollments                Enrollment[]
+  reviews                    Review[]
+  comments                   Comment[]
+  orderItems                 OrderItem[]
+  coupons                    Coupon[]
+  cartItems                  CartItem[]
+  uploads                    Upload[]
+  orgAssignments             CourseOrgAssignment[]
+  deliveryPartnerAssignments DeliveryPartnerCourseAssignment[]
 
   @@index([status])
   @@index([instructorId])
@@ -683,6 +703,14 @@ model Order {
   partnerReferralCode String?
   partnerId           String?
 
+  /// Set when the buyer checked out with a delivery-partner campaign code
+  /// (as opposed to a plain referral-link attribution, which only ever sets
+  /// partnerId/partnerReferralCode above, never this). Denormalized code
+  /// alongside the FK, same pattern as partnerId/partnerReferralCode.
+  campaignId   String?
+  campaign     DeliveryPartnerCampaign? @relation(fields: [campaignId], references: [id])
+  campaignCode String?
+
   items           OrderItem[]
   redemptions     CouponRedemption[]
   partnerReferral DeliveryPartnerReferral?
@@ -692,6 +720,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([partnerId])
+  @@index([campaignId])
 }
 
 model OrderItem {
@@ -946,7 +975,11 @@ model DeliveryPartner {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
-  referrals DeliveryPartnerReferral[]
+  referrals         DeliveryPartnerReferral[]
+  courseAssignments DeliveryPartnerCourseAssignment[]
+  campaigns         DeliveryPartnerCampaign[]
+  /// Users attributed to this partner at signup — see `User.referredByPartnerId`.
+  referredUsers     User[]                             @relation("ReferredUsers")
 
   @@index([status])
 }
@@ -961,6 +994,9 @@ model DeliveryPartnerApplication {
   customFields Json                  @default("[]")
   /// Uploaded supporting documents: [{"title","key","name","sizeLabel"}].
   documents    Json                  @default("[]")
+  /// The applicant's own requested commission rate — a starting point for the
+  /// admin's review, not binding; the admin sets the actual rate on approval.
+  expectedCommissionPercent Float?
   status       DeliveryPartnerStatus @default(PENDING)
   appliedAt    DateTime              @default(now())
   reviewedAt   DateTime?
@@ -977,10 +1013,106 @@ model DeliveryPartnerReferral {
   orderId         String          @unique
   order           Order           @relation(fields: [orderId], references: [id])
   commissionCents Int
-  status          String          @default("pending") // pending | confirmed | paid
+  /// Cumulative amount reversed off `commissionCents` from refunds — lets a
+  /// multi-item order be refunded across several admin actions without
+  /// over-reversing. Status only flips to REVERSED once this reaches
+  /// `commissionCents`.
+  reversedCents   Int             @default(0)
+  status          ReferralStatus  @default(PENDING)
   createdAt       DateTime        @default(now())
 
   @@index([partnerId])
+}
+
+/// An admin-created, time-boxed discount campaign for one approved delivery
+/// partner, applicable to all courses (global, unlike course-scoped Coupon).
+/// The generated `code` is entered manually at checkout — distinct from the
+/// partner's `referralCode`, which only ever drives link attribution, never
+/// a discount. Discount + commission (on the discounted total, via the same
+/// DeliveryPartnerReferral used by plain referrals — see
+/// DeliveryPartnerService.resolveReferralPartner) both resolve through this
+/// row. Only one campaign may be `active` with an overlapping date range per
+/// partner at a time — enforced in the service layer, not the DB, since it's
+/// a date-range invariant.
+model DeliveryPartnerCampaign {
+  id              String          @id @default(cuid())
+  partnerId       String
+  partner         DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  code            String          @unique
+  discountPercent Float
+  startDate       DateTime
+  endDate         DateTime
+  active          Boolean         @default(true)
+  /// 0 = unlimited. Counts *paid* orders only — incremented alongside
+  /// DeliveryPartnerService.confirmReferral (on payment confirmation), not at
+  /// checkout-session creation, so an abandoned cart never consumes a seat.
+  usageLimit      Int             @default(0)
+  usageCount      Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  orders Order[]
+
+  @@index([partnerId])
+}
+
+/// A course a delivery partner has been approved to redistribute, admin-only
+/// to create (mirrors CourseOrgAssignment/Organization — see
+/// DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3). Access is per-course: inviting a
+/// member to one assignment does not grant access to the partner's other
+/// assigned courses. memberCap/usedSeats mirror Organization.seatCount/
+/// usedSeats exactly, just scoped to this one course-assignment rather than
+/// the whole partner.
+model DeliveryPartnerCourseAssignment {
+  id        String          @id @default(cuid())
+  courseId  String
+  course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  memberCap Int             @default(10)
+  usedSeats Int             @default(0)
+  createdAt DateTime        @default(now())
+
+  members     DeliveryPartnerMember[]
+  invitations DeliveryPartnerInvitation[]
+
+  @@unique([courseId, partnerId])
+  @@index([courseId])
+  @@index([partnerId])
+}
+
+/// One row per course-access grant, not per person — the same email can have
+/// a separate row against a second course-assignment if the partner invites
+/// them again for a different course. Flat membership, no role tiers: a
+/// delivery partner is one person, unlike an org which can have multiple
+/// admins.
+model DeliveryPartnerMember {
+  id                 String                          @id @default(cuid())
+  courseAssignmentId String
+  courseAssignment   DeliveryPartnerCourseAssignment @relation(fields: [courseAssignmentId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?                           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name               String
+  email              String
+  joinedAt           DateTime                        @default(now())
+
+  @@unique([courseAssignmentId, email])
+  @@index([courseAssignmentId])
+  @@index([userId])
+}
+
+model DeliveryPartnerInvitation {
+  id                 String                          @id @default(cuid())
+  courseAssignmentId String
+  courseAssignment   DeliveryPartnerCourseAssignment @relation(fields: [courseAssignmentId], references: [id], onDelete: Cascade)
+  email              String
+  token              String                          @unique
+  expiresAt          DateTime
+  claimedAt          DateTime?
+  createdAt          DateTime                        @default(now())
+
+  @@index([courseAssignmentId])
+  @@index([token])
 }
 
 // ─── B2B Organizations ────────────────────────────────────────────────────────
@@ -1083,13 +1215,16 @@ model Payout {
 // ─── Shopping cart ────────────────────────────────────────────────────────────
 
 model Cart {
-  id         String     @id @default(cuid())
-  userId     String     @unique
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  couponCode String?
-  items      CartItem[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couponCode   String?
+  /// Mutually exclusive with couponCode at checkout — only one discount code
+  /// applies at a time. See DeliveryPartnerCampaign.
+  campaignCode String?
+  items        CartItem[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
 
 model CartItem {

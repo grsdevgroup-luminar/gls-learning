@@ -67,6 +67,7 @@ export class AuthService {
     password: string;
     country: string;
     phone?: string;
+    referredByPartnerId?: string | null;
   }) {
     const email = normalizeEmail(input.email);
     const existing = await this.users.findByEmail(email);
@@ -80,6 +81,9 @@ export class AuthService {
       name: input.name,
       country: input.country,
       ...(input.phone ? { phone: input.phone } : {}),
+      ...(input.referredByPartnerId
+        ? { referredByPartner: { connect: { id: input.referredByPartnerId } } }
+        : {}),
       passwordHash,
       role: "STUDENT",
       studentProfile: { create: {} },
@@ -87,7 +91,12 @@ export class AuthService {
   }
 
   async register(input: RegisterInput, meta: SessionMeta) {
-    const user = await this.createStudentAccount(input);
+    // A bad/unknown/expired code must never block signup — resolve it best-
+    // effort and just fall back to no attribution.
+    const referredByPartnerId = input.referralCode
+      ? await this.deliveryPartners.resolveApprovedPartnerIdByCode(input.referralCode)
+      : null;
+    const user = await this.createStudentAccount({ ...input, referredByPartnerId });
     // Fire welcome email (non-blocking — don't fail registration on email error).
     this.email.sendWelcome(user.email, user.name).catch(() => {});
     return this.issueSession(user.id, user.email, user.role, meta);
@@ -113,7 +122,10 @@ export class AuthService {
       user.email,
       input,
     );
-    this.email.sendWelcome(user.email, user.name).catch(() => {});
+    // No welcome email here — this account isn't "welcomed as a student" yet;
+    // it's a pending application. The approval/rejection notification (with
+    // its own email) fires from reviewApplication() once an admin decides.
+    this.email.sendPartnerApplicationSubmitted(user.email, user.name).catch(() => {});
     return this.issueSession(user.id, user.email, user.role, meta);
   }
 
@@ -177,6 +189,11 @@ export class AuthService {
       instructorStatus:
         user.instructorProfile?.status ??
         (await this.instructor.latestApplicationStatus(userId)),
+      // Same idea, but delivery partners have no separate "profile" row
+      // distinct from their application — DeliveryPartner.status *is* the
+      // approved state, and the application record already carries it before
+      // that, so the latest application alone is the full answer.
+      deliveryPartnerStatus: await this.deliveryPartners.latestApplicationStatus(userId),
     };
   }
 

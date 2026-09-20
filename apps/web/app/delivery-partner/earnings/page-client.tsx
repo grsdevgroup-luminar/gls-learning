@@ -30,9 +30,10 @@ export default function PartnerEarnings() {
   const [pendingPageSize, setPendingPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
 
   const all = referrals ?? [];
-  const confirmed = all?.filter((r) => r.status === "confirmed") ?? [];
-  const paid = all?.filter((r) => r.status === "paid") ?? [];
-  const pending = all?.filter((r) => r.status === "pending") ?? [];
+  const confirmed = all?.filter((r) => r.status === "CONFIRMED") ?? [];
+  const paid = all?.filter((r) => r.status === "PAID") ?? [];
+  const pending = all?.filter((r) => r.status === "PENDING") ?? [];
+  const reversed = all?.filter((r) => r.reversedCents > 0) ?? [];
   const paidTotalPages = Math.max(1, Math.ceil(paid.length / paidPageSize));
   const pendingTotalPages = Math.max(1, Math.ceil(pending.length / pendingPageSize));
   const pagedPaid = paid.slice((paidPage - 1) * paidPageSize, paidPage * paidPageSize);
@@ -79,7 +80,7 @@ export default function PartnerEarnings() {
     {
       icon: CheckCircle2,
       label: "Confirmed",
-      value: formatUsd(confirmed.reduce((s, r) => s + r.commissionCents, 0) / 100),
+      value: formatUsd(confirmed.reduce((s, r) => s + (r.commissionCents - r.reversedCents), 0) / 100),
       sub: "Locked in, awaiting payout",
       cls: "text-primary",
     },
@@ -155,7 +156,7 @@ export default function PartnerEarnings() {
                     <TableCell className="font-medium">{r.studentName}</TableCell>
                     <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
                     <TableCell>{formatUsd(r.orderTotalCents / 100)}</TableCell>
-                    <TableCell className="font-mono font-medium text-success">+{formatUsd(r.commissionCents / 100)}</TableCell>
+                    <TableCell className="font-mono font-medium text-success">+{formatUsd((r.commissionCents - r.reversedCents) / 100)}</TableCell>
                     <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
                   </TableRow>
                 ))
@@ -168,6 +169,44 @@ export default function PartnerEarnings() {
           </div>
         </CardContent>
       </Card>
+
+      {reversed.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Reversed commissions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-0">
+            <p className="px-6 text-sm text-muted-foreground">
+              These orders were refunded after the commission was earned. A commission already paid out is deducted
+              from your next payout instead of reversing the past payment.
+            </p>
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className={stickyHeaderRowClass}>
+                    <TableHead className={stickyHeaderCellClass}>Student</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Course</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Reversed</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reversed.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.studentName}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
+                      <TableCell className="font-mono font-medium text-destructive">
+                        −{formatUsd(r.reversedCents / 100)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {pending.length > 0 && (
         <Card>

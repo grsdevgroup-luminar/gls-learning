@@ -14,7 +14,12 @@ import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Link2, DollarSign, Users, Search } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ManagePartnerCoursesDialog } from "@/components/shared/manage-partner-courses-dialog";
+import { ManagePartnerCampaignDialog } from "@/components/shared/manage-partner-campaign-dialog";
+import { Link2, DollarSign, Users, Search, MoreHorizontal, PauseCircle, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { initials } from "@/lib/format";
 import {
@@ -96,21 +101,18 @@ export function PartnersTab() {
           <TableHeader>
             <TableRow className={stickyHeaderRowClass}>
               <TableHead className={`pl-6 ${stickyHeaderCellClass}`}>Partner</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Region</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Code</TableHead>
               <TableHead className={stickyHeaderCellClass}>Commission</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Referrals</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Earnings</TableHead>
+              <TableHead className={stickyHeaderCellClass}>Activity</TableHead>
               <TableHead className={stickyHeaderCellClass}>Status</TableHead>
-              <TableHead className={`pr-6 ${stickyHeaderCellClass}`} />
+              <TableHead className={`pr-6 text-right ${stickyHeaderCellClass}`}>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               [...Array(5)].map((_, i) => (
                 <TableRow key={i}>
-                  {[...Array(8)].map((__, j) => (
-                    <TableCell key={j} className={j === 0 ? "pl-6" : j === 7 ? "pr-6" : ""}>
+                  {[...Array(5)].map((__, j) => (
+                    <TableCell key={j} className={j === 0 ? "pl-6" : j === 4 ? "pr-6" : ""}>
                       <div className="h-4 w-full animate-pulse rounded bg-muted" />
                     </TableCell>
                   ))}
@@ -118,7 +120,7 @@ export function PartnersTab() {
               ))
             ) : partners.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">No delivery partners found.</TableCell>
+                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No delivery partners found.</TableCell>
               </TableRow>
             ) : (
               partners.map((a) => (
@@ -130,12 +132,12 @@ export function PartnersTab() {
                       </Avatar>
                       <div>
                         <div className="text-sm font-medium">{a.name}</div>
-                        <div className="text-xs text-muted-foreground">{a.email}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {a.email}{a.region ? ` · ${a.region}` : ""} · <span className="font-mono">{a.referralCode}</span>
+                        </div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">{a.region || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{a.referralCode}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Input
@@ -171,34 +173,44 @@ export function PartnersTab() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">{a.referralCount}</TableCell>
-                  <TableCell className="text-sm">{formatUsd(a.totalEarningsCents / 100)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="outline" className={statusCls[a.status] ?? ""}>
-                        {a.status}
-                      </Badge>
-                      {(a.status === "APPROVED" || a.status === "SUSPENDED") && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          disabled={updateMutation.isPending}
-                          onClick={() => {
-                            const next = a.status === "APPROVED" ? "SUSPENDED" : "APPROVED";
-                            updateMutation.mutate({ id: a.id, body: { status: next } });
-                            toast.success(next === "SUSPENDED" ? "Partner suspended" : "Partner reinstated");
-                          }}
-                        >
-                          {a.status === "APPROVED" ? "Suspend" : "Reinstate"}
-                        </Button>
-                      )}
-                    </div>
+                  <TableCell className="text-sm">
+                    <div>{a.referralCount} referral{a.referralCount === 1 ? "" : "s"} · {formatUsd(a.totalEarningsCents / 100)}</div>
+                    {a.pendingEarningsCents > 0 && (
+                      <div className="text-xs text-muted-foreground">{formatUsd(a.pendingEarningsCents / 100)} pending</div>
+                    )}
                   </TableCell>
-                  <TableCell className="pr-6 text-xs text-muted-foreground">
-                    {a.pendingEarningsCents > 0
-                      ? `${formatUsd(a.pendingEarningsCents / 100)} pending`
-                      : "—"}
+                  <TableCell>
+                    <Badge variant="outline" className={statusCls[a.status] ?? ""}>
+                      {a.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="pr-6 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <ManagePartnerCoursesDialog partnerId={a.id} partnerName={a.name} />
+                      <ManagePartnerCampaignDialog partnerId={a.id} partnerName={a.name} />
+                      {/* A DeliveryPartner row only ever exists as APPROVED or
+                          SUSPENDED in practice (created APPROVED on review,
+                          never anything else from this UI) — no empty-state
+                          branch needed here. */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="More actions" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className={a.status === "APPROVED" ? "text-destructive" : "text-success"}
+                            disabled={updateMutation.isPending}
+                            onClick={() => {
+                              const next = a.status === "APPROVED" ? "SUSPENDED" : "APPROVED";
+                              updateMutation.mutate({ id: a.id, body: { status: next } });
+                              toast.success(next === "SUSPENDED" ? "Partner suspended" : "Partner reinstated");
+                            }}
+                          >
+                            {a.status === "APPROVED" ? <><PauseCircle /> Suspend</> : <><PlayCircle /> Reinstate</>}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

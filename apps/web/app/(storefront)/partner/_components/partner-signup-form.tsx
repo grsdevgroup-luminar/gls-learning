@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-type FieldErrors = Partial<Record<"name" | "email" | "password" | "country", string>>;
+type FieldErrors = Partial<Record<"name" | "email" | "password" | "country" | "expectedCommissionPercent", string>>;
 
 /** The dedicated delivery-partner journey: creates the account and submits
  *  the application — including any attached documents — in a single step,
@@ -30,6 +30,7 @@ export function PartnerSignupForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState("");
+  const [expectedCommission, setExpectedCommission] = useState("");
   const [customFields, setCustomFields] = useState<PartnerCustomField[]>([]);
   const [documents, setDocuments] = useState<StagedDocument[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +52,7 @@ export function PartnerSignupForm() {
       email: email.trim(),
       password,
       country,
+      expectedCommissionPercent: expectedCommission.trim() ? Number(expectedCommission) : undefined,
       customFields: customFields.filter((f) => f.label.trim() && f.value.trim()),
     });
     if (!result.success) {
@@ -150,6 +152,26 @@ export function PartnerSignupForm() {
                   />
                 </FormField>
               </div>
+              <FormField
+                label="Expected commission rate (optional)"
+                error={fieldErrors.expectedCommissionPercent}
+                hint="A starting point for our review — the approved rate is confirmed when your application is reviewed."
+              >
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    step="0.1"
+                    value={expectedCommission}
+                    onChange={(e) => { setExpectedCommission(e.target.value); clearError("expectedCommissionPercent"); }}
+                    placeholder="10"
+                    className="pr-8"
+                    aria-invalid={!!fieldErrors.expectedCommissionPercent}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                </div>
+              </FormField>
               <FormField label="Anything else you'd like us to know? (optional)" hint={`${customFields.length}/10`}>
                 <CustomFieldsEditor value={customFields} onChange={setCustomFields} />
               </FormField>

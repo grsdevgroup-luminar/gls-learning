@@ -372,6 +372,57 @@ export class AdminRepository {
     });
   }
 
+  /** The delivery-partner referral attached to this order, if any — refunds
+   *  need to know whether a commission was earned here before reversing it. */
+  findReferralForOrder(orderId: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerReferral.findUnique({
+      where: { orderId },
+      select: {
+        id: true,
+        partnerId: true,
+        commissionCents: true,
+        reversedCents: true,
+        status: true,
+      },
+    });
+  }
+
+  /** Reverses `reverseCents` off a partner's earnings for a refunded
+   *  commission. A CONFIRMED (not yet paid out) commission comes off both
+   *  pending and lifetime totals. A PAID commission's `paidEarningsCents` is
+   *  left untouched — that money really was sent — only `totalEarningsCents`
+   *  (lifetime earned) drops, which the payout balance calculation
+   *  (`availableCents = lifetimeEarned - paidOut - inFlight`, floored at 0)
+   *  turns into an automatic clawback against the partner's next payout. */
+  reverseReferralEarnings(
+    partnerId: string,
+    reverseCents: number,
+    wasPaidOut: boolean,
+    tx?: Db,
+  ) {
+    return this.db(tx).deliveryPartner.update({
+      where: { id: partnerId },
+      data: wasPaidOut
+        ? { totalEarningsCents: { decrement: reverseCents } }
+        : {
+            pendingEarningsCents: { decrement: reverseCents },
+            totalEarningsCents: { decrement: reverseCents },
+          },
+    });
+  }
+
+  updateReferralReversal(
+    referralId: string,
+    reversedCents: number,
+    status: Prisma.DeliveryPartnerReferralUpdateInput["status"],
+    tx?: Db,
+  ) {
+    return this.db(tx).deliveryPartnerReferral.update({
+      where: { id: referralId },
+      data: { reversedCents, status },
+    });
+  }
+
   deleteEnrollmentsForRefund(userId: string, courseIds: string[], tx?: Db) {
     if (courseIds.length === 0) return { count: 0 };
     return this.db(tx).enrollment.deleteMany({
