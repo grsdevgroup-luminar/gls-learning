@@ -140,13 +140,20 @@ captured client-side and persisted in `localStorage`
 
 See §5 for the full partner-commission flow.
 
-### 2.3 Price quote (PPP + coupons)
+### 2.3 Price quote (PPP + coupons + partner campaigns)
 1. `POST /checkout/quote` (authenticated) — resolves the buyer's pricing
    region and applies a **regional/PPP multiplier** to each course's base
    price, then validates and applies a coupon code if present (active,
    unexpired, under its usage cap, meets minimum spend, correctly scoped to
    global or a specific course).
-2. This is **the authoritative price** — the client only ever displays what
+2. **`campaignCode`** is a second, mutually exclusive discount input — a
+   delivery-partner campaign code (§5.5) instead of a coupon. The cart/
+   checkout UI enforces "one or the other" by construction (applying one
+   clears the other), and `CheckoutService.quote` rejects a request that
+   somehow sends both. Unlike a coupon, a valid campaign code also drives
+   commission attribution at session-creation time (§2.4, §5.5) — it isn't
+   just a price adjustment.
+3. This is **the authoritative price** — the client only ever displays what
    the server computed; nothing client-supplied is trusted.
 
 ### 2.4 Checkout session
@@ -158,10 +165,11 @@ See §5 for the full partner-commission flow.
    quote again** (never trusts the client), creates a `PENDING` `Order` +
    `OrderItem` rows with price *snapshots* (so later price changes don't
    retroactively alter historical orders).
-3. Resolves referral attribution (durable first, checkout-supplied code as
-   fallback — §2.2) and, if it resolves to an `APPROVED` partner, stamps a
-   `PENDING` `DeliveryPartnerReferral` onto the order (commission isn't
-   credited yet — only on payment).
+3. Resolves referral attribution — **a valid `campaignCode` takes priority
+   over everything else** (§5.5), then durable signup-time attribution, then
+   the checkout-supplied `referralCode` as a last fallback (§2.2) — and, if it
+   resolves to an `APPROVED` partner, stamps a `PENDING` `DeliveryPartnerReferral`
+   onto the order (commission isn't credited yet — only on payment).
 4. **Free path** (100%-off coupon or free course): fulfilled immediately, no
    gateway involved, straight to the success page.
 5. **Paid path**: hands off to Stripe Checkout or PayPal Orders v2 depending
@@ -460,6 +468,54 @@ the course's visibility or price — an admin can assign a `PUBLIC`, paid
 course to a partner, and a member's free access must still work even though
 the course isn't `PRIVATE`.
 
+### 5.5 Campaign codes (discount + commission, admin-created)
+A campaign is a hybrid of a coupon (discounts the buyer) and a referral
+(credits the partner) — admin-only to create, for one `APPROVED` partner at a
+time, applicable to **all courses** (global, unlike course-scoped `Coupon`).
+
+1. **Admin creates a campaign** for a partner (`ManagePartnerCampaignDialog`
+   on `/admin/delivery-partners` → Partners tab): a discount % (1–100), a
+   start/end date window, and an optional redemption cap (0 = unlimited). A
+   fresh code is generated (`CMP-XXXXXX`) — distinct from the partner's
+   `referralCode`, since a campaign is a separate, time-boxed thing, not the
+   partner's permanent link code. **At most one currently-usable
+   (active/scheduled/limit-reached) campaign per partner at a time** — the
+   server rejects a new campaign whose date range overlaps another active one
+   for the same partner; the admin dialog reflects this by hiding the create
+   form while one exists, showing a "Deactivate" action instead.
+2. **The partner sees their code** on `/delivery-partner` (Overview) only
+   while a campaign is active or scheduled — a banner with the code, discount
+   %, days remaining, and a redemption meter if a cap is set. Nothing renders
+   there for a partner with no campaign.
+3. **At checkout**, the buyer enters the code in the cart's "Partner code"
+   field (mutually exclusive with Coupon — §2.3). A valid code:
+   - Discounts the whole cart by the campaign's percentage (`partner-campaign.ts`,
+     shared between API and web for consistent preview/authoritative pricing).
+   - Takes priority over both durable signup-time attribution *and* the
+     checkout-supplied `referralCode` for this order's commission — typing an
+     explicit code is a stronger signal than passive attribution
+     (`DeliveryPartnerService.resolveReferralPartner`).
+   - Is rejected with a clear message if disabled, outside its date window,
+     the redemption cap is reached, or the owning partner is no longer
+     `APPROVED` (a suspended partner's campaign stops working immediately).
+4. **Commission is computed on the discounted total**, at the partner's own
+   standing `commissionPercent` — same formula as a plain referral, no
+   separate campaign-specific rate. The resulting `DeliveryPartnerReferral`
+   row is created and confirmed through the **exact same PENDING → CONFIRMED
+   pipeline as §5.2** — a campaign-driven referral is not a parallel system,
+   just a different way to resolve which partner gets credited.
+5. **Redemption count only increments on payment confirmation** (`orders.fulfill`),
+   never at checkout-session creation — an abandoned cart never consumes a
+   capped campaign's seats.
+6. **Refunding a campaign-driven order reverses commission proportionally**
+   through the same mechanism as §5.2/§7.10 — no campaign-specific refund
+   code exists; reusing `DeliveryPartnerReferral` end-to-end means refund
+   reversal, payout aggregation, and the partner's Referrals/Earnings pages
+   all already handle it correctly.
+7. The admin Orders table (§7.10) surfaces a campaign-discounted order's code
+   the same way it surfaces a coupon's (a badge in the "Discount code"
+   column), and the orders search box matches campaign codes too.
+
 ---
 
 ## 6. Organization (B2B) flow
@@ -550,9 +606,10 @@ defaults commission% to the applicant's requested rate, editable; optional
 note; or reject with a reason), search/filter by status. **Partners**: manage
 the approved roster — edit commission%, suspend/reinstate (both wired to
 `PATCH /admin/delivery-partners/:id`; a redesigned 5-column table replaced an
-8-column one that made Suspend hard to find), and open **Manage courses** per
+8-column one that made Suspend hard to find), open **Manage courses** per
 partner to assign/unassign published courses with a per-course member cap
-(§5.4). See §5.1.
+(§5.4), and open **Campaign** to create/deactivate that partner's discount +
+commission campaign (§5.5). See §5.1.
 
 ### 7.5 Instructors
 Review pending applications (approve/reject), browse the approved roster. See
@@ -594,12 +651,17 @@ field is admin-facing prose only, not a parsed rule language — a known,
 intentional simplification.
 
 ### 7.10 Orders & refunds
-List all orders; **Refund is credit-only — no payment-gateway call is ever
-made.** One admin action picks any subset of the order's items with
-arbitrary per-item dollar amounts (each capped at that item's remaining
-refundable), and the student is made whole entirely via store credit
-(`StudentCreditLedger`, see `REFUND_TO_CREDIT_PLAN.md`), applicable toward a
-future purchase. In the same transaction it:
+List all orders, searchable by order id, coupon code, **partner campaign
+code**, provider ref, buyer, or item title. The "Discount code" column shows
+whichever was actually used — a coupon badge, or a campaign badge (§5.5) —
+never both, since the two are mutually exclusive at checkout.
+
+**Refund is credit-only — no payment-gateway call is ever made.** One admin
+action picks any subset of the order's items with arbitrary per-item dollar
+amounts (each capped at that item's remaining refundable), and the student is
+made whole entirely via store credit (`StudentCreditLedger`, see
+`REFUND_TO_CREDIT_PLAN.md`), applicable toward a future purchase. In the same
+transaction it:
 - Decrements that course's revenue/student count and the instructor's
   earnings, prorated to the refunded amount.
 - Decrements the buyer's lifetime spend.
@@ -607,10 +669,13 @@ future purchase. In the same transaction it:
   this action (cumulative `refundedCents == priceCents`) — a dollar-partial
   refund on an otherwise-active item leaves access intact.
 - **Reverses the delivery-partner commission proportionally**, if the order
-  was attributed to one (§5.2) — a 50% refund reverses 50% of that order's
-  commission, capped so several partial refunds never reverse more than was
-  actually earned. A commission already paid out is clawed back against the
-  partner's *next* payout rather than reversed in place.
+  was attributed to one — whether via a plain referral (§5.2) or a campaign
+  code (§5.5), both resolve to the same `DeliveryPartnerReferral` row, so this
+  one reversal path handles either origin identically. A 50% refund reverses
+  50% of that order's commission, capped so several partial refunds never
+  reverse more than was actually earned. A commission already paid out is
+  clawed back against the partner's *next* payout rather than reversed in
+  place.
 - Grants the store credit and fires the student notification.
 
 Already-refunded orders (or the already-refunded portion of a
