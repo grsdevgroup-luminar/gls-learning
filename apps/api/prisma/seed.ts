@@ -427,11 +427,25 @@ async function main() {
       update: {},
       create: {
         userId: user.id,
-        referralCode: a.referralCode,
         commissionPercent: a.commissionPercent,
         region: a.region,
         status: PARTNER_STATUS[a.status],
         createdAt: new Date(a.joinedAt),
+      },
+    });
+
+    // Campaign codes are the only attribution mechanism — one long-running
+    // seed campaign per partner covers every seeded referral below.
+    const campaign = await prisma.deliveryPartnerCampaign.upsert({
+      where: { code: a.campaignCode },
+      update: {},
+      create: {
+        partnerId: partner.id,
+        code: a.campaignCode,
+        discountPercent: 15,
+        startDate: new Date(a.joinedAt),
+        endDate: new Date("2027-01-01T00:00:00Z"),
+        active: false,
       },
     });
 
@@ -461,8 +475,9 @@ async function main() {
           status: "PAID",
           createdAt: new Date(r.date),
           paidAt: new Date(r.date),
-          partnerReferralCode: a.referralCode,
           partnerId: partner.id,
+          campaignId: campaign.id,
+          campaignCode: campaign.code,
           items: {
             create: {
               courseId: course.id,

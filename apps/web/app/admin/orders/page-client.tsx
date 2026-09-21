@@ -541,9 +541,9 @@ function RefundDialog({
 
         {order && (
           <div className="space-y-4">
-            {order.partnerReferralCode && (
+            {order.partnerCampaignCode && (
               <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-                This order was referred by partner code <span className="font-mono font-medium">{order.partnerReferralCode}</span>
+                This order used partner campaign code <span className="font-mono font-medium">{order.partnerCampaignCode}</span>
                 {" "}— refunding it will proportionally reverse that partner&apos;s commission.
               </p>
             )}

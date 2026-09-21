@@ -48,9 +48,6 @@ function SignupForm() {
       email,
       password,
       country,
-      // Locked in as durable attribution server-side if it resolves to an
-      // approved partner — see AuthService.register(). Never blocks signup.
-      referralCode: getReferralCode() ?? undefined,
     });
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Enter valid account details');

@@ -274,16 +274,11 @@ export class CheckoutService {
     // never completes doesn't drain the wallet. `order.creditAppliedCents`
     // carries the intent forward. See REFUND_TO_CREDIT_PLAN.md.
 
-    // Attribute a delivery-partner referral (pending until the order is paid).
-    // Always attempted — durable signup-time attribution can apply even
-    // without a `?ref=` code on this specific checkout (see
-    // DeliveryPartnerService.resolveReferralPartner). A valid campaign code
-    // takes priority over both the durable attribution and the plain
-    // referralCode fallback — see that method's doc comment.
+    // Attribute a delivery-partner referral (pending until the order is
+    // paid) when checkout used a valid campaign code — the only attribution
+    // mechanism. A no-op otherwise.
     await this.deliveryPartners.createPendingReferral(
       order.id,
-      userId,
-      input.referralCode ?? null,
       quote.campaign?.valid ? quote.campaign.code : null,
     );
 

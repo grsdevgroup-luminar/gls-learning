@@ -6,13 +6,11 @@ import { DeliveryPartnerService } from "../delivery-partner.service";
 import type { DeliveryPartnerRepository } from "../delivery-partner.repository";
 
 const orderId = "order_1";
-const userId = "user_1";
 const now = new Date("2026-06-15T00:00:00Z");
 
 function partner(id: string, overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id,
-    referralCode: `CODE_${id}`,
     commissionPercent: 10,
     status: "APPROVED",
     ...overrides,
@@ -43,10 +41,7 @@ function makeService(repoOverrides: Partial<DeliveryPartnerRepository>) {
     findOrderTotalById: vi.fn().mockResolvedValue({ totalCents: 1000 }),
     findReferralByOrderId: vi.fn().mockResolvedValue(null),
     createPendingReferralTx: vi.fn().mockResolvedValue(undefined),
-    createPendingCampaignReferralTx: vi.fn().mockResolvedValue(undefined),
     findCampaignByCode: vi.fn().mockResolvedValue(null),
-    findUserReferralAttribution: vi.fn().mockResolvedValue({ referredByPartnerId: null }),
-    findPartnerByReferralCode: vi.fn().mockResolvedValue(null),
     ...repoOverrides,
   };
   const repo = baseRepo as unknown as DeliveryPartnerRepository;
@@ -57,126 +52,70 @@ function makeService(repoOverrides: Partial<DeliveryPartnerRepository>) {
 }
 
 describe("DeliveryPartnerService campaign-code attribution", () => {
-  it("a valid campaign code wins over durable signup-time attribution", async () => {
+  it("a valid campaign code attributes and credits commission", async () => {
     vi.setSystemTime(now);
     const findCampaignByCode = vi.fn().mockResolvedValue(campaignRow());
-    const findUserReferralAttribution = vi.fn().mockResolvedValue({ referredByPartnerId: "partner_signup" });
-    const findPartnerById = vi.fn().mockResolvedValue(partner("partner_signup"));
-    const createPendingCampaignReferralTx = vi.fn().mockResolvedValue(undefined);
-    const service = makeService({
-      findCampaignByCode,
-      findUserReferralAttribution,
-      findPartnerById,
-      createPendingCampaignReferralTx,
-    });
+    const createPendingReferralTx = vi.fn().mockResolvedValue(undefined);
+    const service = makeService({ findCampaignByCode, createPendingReferralTx });
 
-    await service.createPendingReferral(orderId, userId, null, "cmp-abc123");
+    await service.createPendingReferral(orderId, "cmp-abc123");
 
-    expect(findUserReferralAttribution).not.toHaveBeenCalled();
-    expect(createPendingCampaignReferralTx).toHaveBeenCalledWith(
+    expect(findCampaignByCode).toHaveBeenCalledWith("CMP-ABC123");
+    expect(createPendingReferralTx).toHaveBeenCalledWith(
       "partner_campaign",
       orderId,
       100, // 10% of 1000
-      "CODE_partner_campaign",
       "campaign_1",
       "CMP-ABC123",
     );
     vi.useRealTimers();
   });
 
-  it("a valid campaign code wins over the checkout-time referralCode fallback", async () => {
-    vi.setSystemTime(now);
-    const findCampaignByCode = vi.fn().mockResolvedValue(campaignRow());
-    const findPartnerByReferralCode = vi.fn().mockResolvedValue(partner("partner_checkout"));
-    const createPendingCampaignReferralTx = vi.fn().mockResolvedValue(undefined);
-    const service = makeService({
-      findCampaignByCode,
-      findPartnerByReferralCode,
-      createPendingCampaignReferralTx,
-    });
+  it("no code at all creates no referral", async () => {
+    const createPendingReferralTx = vi.fn().mockResolvedValue(undefined);
+    const service = makeService({ createPendingReferralTx });
 
-    await service.createPendingReferral(orderId, userId, "CODE_partner_checkout", "CMP-ABC123");
+    await service.createPendingReferral(orderId, null);
 
-    expect(findPartnerByReferralCode).not.toHaveBeenCalled();
-    expect(createPendingCampaignReferralTx).toHaveBeenCalledWith(
-      "partner_campaign",
-      orderId,
-      100,
-      "CODE_partner_campaign",
-      "campaign_1",
-      "CMP-ABC123",
-    );
-    vi.useRealTimers();
+    expect(createPendingReferralTx).not.toHaveBeenCalled();
   });
 
-  it("falls back to normal resolution when the campaign has expired", async () => {
+  it("an expired campaign creates no referral", async () => {
     vi.setSystemTime(new Date("2026-07-15T00:00:00Z")); // after campaign.endDate
     const findCampaignByCode = vi.fn().mockResolvedValue(campaignRow());
-    const findUserReferralAttribution = vi.fn().mockResolvedValue({ referredByPartnerId: null });
-    const findPartnerByReferralCode = vi.fn().mockResolvedValue(partner("partner_checkout"));
     const createPendingReferralTx = vi.fn().mockResolvedValue(undefined);
-    const createPendingCampaignReferralTx = vi.fn().mockResolvedValue(undefined);
-    const service = makeService({
-      findCampaignByCode,
-      findUserReferralAttribution,
-      findPartnerByReferralCode,
-      createPendingReferralTx,
-      createPendingCampaignReferralTx,
-    });
+    const service = makeService({ findCampaignByCode, createPendingReferralTx });
 
-    await service.createPendingReferral(orderId, userId, "CODE_partner_checkout", "CMP-ABC123");
-
-    expect(createPendingCampaignReferralTx).not.toHaveBeenCalled();
-    expect(createPendingReferralTx).toHaveBeenCalledWith(
-      "partner_checkout",
-      orderId,
-      100,
-      "CODE_partner_checkout",
-    );
-    vi.useRealTimers();
-  });
-
-  it("falls back to normal resolution when the campaign's usage limit is reached", async () => {
-    vi.setSystemTime(now);
-    const findCampaignByCode = vi.fn().mockResolvedValue(
-      campaignRow({ usageLimit: 100, usageCount: 100 }),
-    );
-    const findUserReferralAttribution = vi.fn().mockResolvedValue({ referredByPartnerId: null });
-    const findPartnerByReferralCode = vi.fn().mockResolvedValue(null);
-    const createPendingReferralTx = vi.fn().mockResolvedValue(undefined);
-    const service = makeService({
-      findCampaignByCode,
-      findUserReferralAttribution,
-      findPartnerByReferralCode,
-      createPendingReferralTx,
-    });
-
-    await service.createPendingReferral(orderId, userId, null, "CMP-ABC123");
+    await service.createPendingReferral(orderId, "CMP-ABC123");
 
     expect(createPendingReferralTx).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 
-  it("falls back to normal resolution when the campaign's partner is suspended", async () => {
+  it("a limit-reached campaign creates no referral", async () => {
+    vi.setSystemTime(now);
+    const findCampaignByCode = vi.fn().mockResolvedValue(
+      campaignRow({ usageLimit: 100, usageCount: 100 }),
+    );
+    const createPendingReferralTx = vi.fn().mockResolvedValue(undefined);
+    const service = makeService({ findCampaignByCode, createPendingReferralTx });
+
+    await service.createPendingReferral(orderId, "CMP-ABC123");
+
+    expect(createPendingReferralTx).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("a campaign whose partner is suspended creates no referral", async () => {
     vi.setSystemTime(now);
     const findCampaignByCode = vi.fn().mockResolvedValue(
       campaignRow({ partner: { ...partner("partner_campaign", { status: "SUSPENDED" }), user: { name: "Acme" } } }),
     );
-    const findUserReferralAttribution = vi.fn().mockResolvedValue({ referredByPartnerId: null });
-    const findPartnerByReferralCode = vi.fn().mockResolvedValue(null);
     const createPendingReferralTx = vi.fn().mockResolvedValue(undefined);
-    const createPendingCampaignReferralTx = vi.fn().mockResolvedValue(undefined);
-    const service = makeService({
-      findCampaignByCode,
-      findUserReferralAttribution,
-      findPartnerByReferralCode,
-      createPendingReferralTx,
-      createPendingCampaignReferralTx,
-    });
+    const service = makeService({ findCampaignByCode, createPendingReferralTx });
 
-    await service.createPendingReferral(orderId, userId, null, "CMP-ABC123");
+    await service.createPendingReferral(orderId, "CMP-ABC123");
 
-    expect(createPendingCampaignReferralTx).not.toHaveBeenCalled();
     expect(createPendingReferralTx).not.toHaveBeenCalled();
     vi.useRealTimers();
   });

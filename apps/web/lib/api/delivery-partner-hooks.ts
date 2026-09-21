@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api } from "./endpoints";
+import { api, partnerApi } from "./endpoints";
 
 export const useMyDeliveryPartner = () =>
   useQuery({ queryKey: ["me", "delivery-partner"], queryFn: () => api.myDeliveryPartner() });
@@ -25,6 +25,20 @@ export const useMyPartnerCampaigns = () =>
     queryFn: () => api.myPartnerCampaigns(),
   });
 
-/** Referral link built from the current origin so it works in every env. */
-export const referralLinkFor = (code: string) =>
-  `${typeof window !== "undefined" ? window.location.origin : ""}/?ref=${code}`;
+export const useMyPartnerCourseAssignments = () =>
+  useQuery({
+    queryKey: ["me", "delivery-partner", "courses"],
+    queryFn: partnerApi.courses,
+  });
+
+export const useMyPartnerMembers = () =>
+  useQuery({
+    queryKey: ["me", "delivery-partner", "members"],
+    queryFn: () => api.myDeliveryPartnerMembers(),
+  });
+
+export const useMyPartnerInvitations = () =>
+  useQuery({
+    queryKey: ["me", "delivery-partner", "invitations"],
+    queryFn: () => api.myDeliveryPartnerInvitations(),
+  });

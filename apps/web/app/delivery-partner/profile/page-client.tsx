@@ -1,33 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { useMyDeliveryPartner, referralLinkFor } from "@/lib/api/delivery-partner-hooks";
+import { useMyDeliveryPartner } from "@/lib/api/delivery-partner-hooks";
 import { PartnerMissingState, PartnerPageLoading, PartnerStatusState } from "../_components/partner-page-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Copy, CheckCircle2, Link2, User } from "lucide-react";
-import { toast } from "sonner";
+import { User } from "lucide-react";
 
 export default function PartnerProfile() {
   const { data: partner, isLoading } = useMyDeliveryPartner();
-  const [copied, setCopied] = useState(false);
 
   if (isLoading) return <PartnerPageLoading />;
   if (!partner) return <PartnerMissingState />;
   if (partner.status !== "APPROVED") return <PartnerStatusState status={partner.status} />;
-
-  const referralLink = referralLinkFor(partner.referralCode);
-
-  function copyLink() {
-    navigator.clipboard.writeText(referralLink).then(() => {
-      setCopied(true);
-      toast.success("Referral link copied!");
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
 
   const statusColors: Record<string, string> = {
     APPROVED: "text-success",
@@ -41,7 +25,7 @@ export default function PartnerProfile() {
     <div className="mx-auto max-w-2xl space-y-6 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground">Your partner details and referral credentials.</p>
+        <p className="text-muted-foreground">Your partner details.</p>
       </div>
 
       <Card>
@@ -78,44 +62,6 @@ export default function PartnerProfile() {
                 {new Date(partner.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Link2 className="h-4 w-4" /> Referral credentials
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <Label>Referral code</Label>
-            <div className="flex gap-2">
-              <Input readOnly value={partner.referralCode} className="font-mono font-semibold" />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  navigator.clipboard.writeText(partner.referralCode);
-                  toast.success("Code copied!");
-                }}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label>Referral link</Label>
-            <div className="flex gap-2">
-              <Input readOnly value={referralLink} className="font-mono text-xs" />
-              <Button variant="outline" size="icon" onClick={copyLink} aria-label="Copy referral link">
-                {copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Every purchase made through this link earns you {partner.commissionPercent}% commission.
-            </p>
           </div>
         </CardContent>
       </Card>

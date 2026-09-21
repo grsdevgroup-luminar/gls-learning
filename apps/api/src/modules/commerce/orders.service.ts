@@ -72,7 +72,6 @@ export class OrdersService {
       refundedCents: row.refundedCents,
       createdAt: row.createdAt.toISOString(),
       paidAt: row.paidAt?.toISOString() ?? null,
-      partnerReferralCode: row.partnerReferralCode,
       partnerCampaignCode: row.campaignCode,
     };
   }

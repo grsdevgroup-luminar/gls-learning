@@ -67,7 +67,6 @@ export class AuthService {
     password: string;
     country: string;
     phone?: string;
-    referredByPartnerId?: string | null;
   }) {
     const email = normalizeEmail(input.email);
     const existing = await this.users.findByEmail(email);
@@ -81,9 +80,6 @@ export class AuthService {
       name: input.name,
       country: input.country,
       ...(input.phone ? { phone: input.phone } : {}),
-      ...(input.referredByPartnerId
-        ? { referredByPartner: { connect: { id: input.referredByPartnerId } } }
-        : {}),
       passwordHash,
       role: "STUDENT",
       studentProfile: { create: {} },
@@ -91,12 +87,7 @@ export class AuthService {
   }
 
   async register(input: RegisterInput, meta: SessionMeta) {
-    // A bad/unknown/expired code must never block signup — resolve it best-
-    // effort and just fall back to no attribution.
-    const referredByPartnerId = input.referralCode
-      ? await this.deliveryPartners.resolveApprovedPartnerIdByCode(input.referralCode)
-      : null;
-    const user = await this.createStudentAccount({ ...input, referredByPartnerId });
+    const user = await this.createStudentAccount(input);
     // Fire welcome email (non-blocking — don't fail registration on email error).
     this.email.sendWelcome(user.email, user.name).catch(() => {});
     return this.issueSession(user.id, user.email, user.role, meta);

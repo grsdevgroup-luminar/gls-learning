@@ -4,11 +4,11 @@ import type { OrderStatus, PaymentGateway } from "../enums.js";
 export const checkoutQuoteSchema = z.object({
   courseIds: z.array(z.string().min(1)).min(1),
   couponCode: z.string().trim().optional(),
-  /** A delivery-partner campaign code, entered manually at checkout — unlike
-   *  `referralCode` below (silent, link-driven, attribution-only), this one
-   *  is an explicit discount code and mutually exclusive with couponCode:
-   *  sending both is a client bug, rejected by CheckoutService.quote rather
-   *  than silently preferring one. */
+  /** A delivery-partner campaign code, entered manually at checkout — an
+   *  explicit discount code, mutually exclusive with couponCode: sending both
+   *  is a client bug, rejected by CheckoutService.quote rather than silently
+   *  preferring one. Also the sole delivery-partner commission attribution
+   *  mechanism — there is no separate referral-link path. */
   campaignCode: z.string().trim().optional(),
   regionCode: z.string().optional(),
   /** When true, deduct available store credit from the total after coupon.
@@ -19,11 +19,6 @@ export type CheckoutQuoteInput = z.infer<typeof checkoutQuoteSchema>;
 
 export const checkoutSessionSchema = checkoutQuoteSchema.extend({
   gateway: z.enum(["STRIPE", "PAYPAL", "SSLCOMMERZ"]),
-  /** Optional delivery-partner referral code for commission attribution only
-   *  — captured silently from a `?ref=` link, never discounts. Distinct from
-   *  `campaignCode` above; a valid campaignCode takes priority over this for
-   *  both the discount and the commission attribution on this order. */
-  referralCode: z.string().trim().optional(),
 });
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionSchema>;
 
@@ -104,12 +99,9 @@ export interface OrderDto {
   refundedCents: number;
   createdAt: string;
   paidAt: string | null;
-  /** Set when this order was attributed to a delivery partner — refunding it
-   *  will proportionally reverse that partner's commission. */
-  partnerReferralCode: string | null;
-  /** Set when this order used a delivery-partner campaign code instead of a
-   *  plain referral-link attribution — same commission/refund-reversal path,
-   *  just a different origin. Mutually exclusive with couponCode. */
+  /** Set when this order was attributed to a delivery partner via a campaign
+   *  code — refunding it will proportionally reverse that partner's
+   *  commission. Mutually exclusive with couponCode. */
   partnerCampaignCode: string | null;
 }
 

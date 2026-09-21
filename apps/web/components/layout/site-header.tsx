@@ -37,7 +37,8 @@ import {
   LogOut,
   Shield,
   PenSquare,
-  Link2,
+  Megaphone,
+  Users,
   Building2,
 } from "lucide-react";
 
@@ -294,9 +295,14 @@ export function SiteHeader() {
                       <LayoutDashboard /> Delivery partner dashboard
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      render={<Link href="/delivery-partner/campaigns" />}
+                    >
+                      <Megaphone /> Campaigns
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       render={<Link href="/delivery-partner/referrals" />}
                     >
-                      <Link2 /> My referrals
+                      <Users /> My members
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       render={<Link href="/delivery-partner/earnings" />}

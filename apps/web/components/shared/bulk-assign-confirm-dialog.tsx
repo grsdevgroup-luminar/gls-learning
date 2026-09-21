@@ -50,8 +50,9 @@ export function BulkAssignConfirmDialog({
             <Input
               id="bulk-member-cap"
               type="number"
-              min={1}
+              min={0}
               max={1000}
+              placeholder="0 = unlimited"
               value={memberCap}
               onChange={(e) => onMemberCapChange?.(Number(e.target.value))}
               className="w-28"
