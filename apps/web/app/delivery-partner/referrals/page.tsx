@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import SalesReferralsClient from "./page-client";
+import PartnerMembersClient from "./page-client";
 
-export const metadata: Metadata = { title: "Referrals" };
+export const metadata: Metadata = { title: "Members" };
 
-export default function SalesReferralsPage() {
-  return <SalesReferralsClient />;
+export default function PartnerMembersPage() {
+  return <PartnerMembersClient />;
 }

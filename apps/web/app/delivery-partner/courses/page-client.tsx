@@ -60,9 +60,12 @@ export default function PartnerCoursesPage() {
     if (category !== ALL_CATEGORIES) {
       rows = rows.filter((a) => a.course.category === category);
     }
+    // Unlimited (memberCap 0) assignments have no fill pressure — sort them
+    // after every capped assignment, most-full first.
+    const seatPressure = (a: (typeof rows)[number]) => (a.memberCap > 0 ? a.usedSeats / a.memberCap : 0);
     const sorted = [...rows];
     if (sort === "title") sorted.sort((a, b) => a.course.title.localeCompare(b.course.title));
-    else if (sort === "seats") sorted.sort((a, b) => b.usedSeats / b.memberCap - a.usedSeats / a.memberCap);
+    else if (sort === "seats") sorted.sort((a, b) => seatPressure(b) - seatPressure(a));
     else sorted.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     return sorted;
   }, [all, q, category, sort]);
@@ -160,7 +163,9 @@ export default function PartnerCoursesPage() {
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{a.usedSeats} / {a.memberCap}</TableCell>
+                  <TableCell className="text-sm">
+                    {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap}` : `${a.usedSeats} (unlimited)`}
+                  </TableCell>
                   <TableCell className="text-right">
                     <ManageMembersDialog assignment={a} />
                   </TableCell>

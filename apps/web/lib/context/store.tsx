@@ -22,7 +22,6 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_REGION, FALLBACK_REGION, type RegionRow } from "@/lib/pricing";
 import { toast } from "sonner";
-import { captureReferralFromUrl } from "@/lib/referral";
 import { api } from "@/lib/api/endpoints";
 import { useCatalog } from "@/lib/api/hooks";
 import { qk } from "@/lib/api/query-keys";
@@ -198,7 +197,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setMounted(true);
     }, 0);
-    captureReferralFromUrl();
     return () => clearTimeout(id);
   }, []);
 

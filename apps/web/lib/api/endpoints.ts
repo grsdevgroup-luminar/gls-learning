@@ -444,6 +444,10 @@ export const api = {
     apiFetch<PartnerGrantedCourseDto[]>("/me/delivery-partner/granted-courses"),
   myPartnerCampaigns: () =>
     apiFetch<DeliveryPartnerCampaignDto[]>("/me/delivery-partner/campaigns"),
+  myDeliveryPartnerMembers: () =>
+    apiFetch<DeliveryPartnerMemberDto[]>("/me/delivery-partner/members"),
+  myDeliveryPartnerInvitations: () =>
+    apiFetch<DeliveryPartnerInvitationDto[]>("/me/delivery-partner/invitations"),
 
   // delivery partner — members + invitations (partner-authenticated, per course assignment)
   invitePartnerMember: (courseAssignmentId: string, email: string) =>
@@ -658,6 +662,8 @@ export const partnerApi = {
   invitationInfo: (token: string) => api.partnerInvitationInfo(token),
   claim: (token: string) => api.claimPartnerInvitation(token),
   grantedCourses: () => api.myPartnerGrantedCourses(),
+  allMembers: () => api.myDeliveryPartnerMembers(),
+  allInvitations: () => api.myDeliveryPartnerInvitations(),
 };
 
 // ── admin pricing (region / PPP tiers) ─────────────────────────────────────

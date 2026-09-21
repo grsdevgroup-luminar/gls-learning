@@ -133,7 +133,7 @@ export function PartnersTab() {
                       <div>
                         <div className="text-sm font-medium">{a.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {a.email}{a.region ? ` · ${a.region}` : ""} · <span className="font-mono">{a.referralCode}</span>
+                          {a.email}{a.region ? ` · ${a.region}` : ""}
                         </div>
                       </div>
                     </div>
