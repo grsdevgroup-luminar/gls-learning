@@ -13,7 +13,8 @@ export const ENROLLMENT_INCLUDE = {
     select: {
       lessonId: true,
       completed: true,
-      lesson: { select: { durationSec: true } },
+      pptxCompleted: true,
+      lesson: { select: { durationSec: true, pptxDurationSec: true } },
     },
   },
   certificate: true,
@@ -164,6 +165,10 @@ export class EnrollmentRepository {
   }
 
   /** Type + owning course, for validating a watch-time report before it's trusted. */
+  findLessonPptxContext(lessonId: string) {
+    return this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { pptxStorageKey: true, resources: true, section: { select: { courseId: true } } } });
+  }
+
   findLessonForWatchTime(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
@@ -263,6 +268,15 @@ export class EnrollmentRepository {
     });
   }
 
+  setPptxCompleted(enrollmentId: string, lessonId: string, completed: boolean) {
+    return this.prisma.lessonProgress.upsert({
+      where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
+      update: { pptxCompleted: completed },
+      create: { enrollmentId, lessonId, completed: false, pptxCompleted: completed },
+      select: { pptxCompleted: true },
+    });
+  }
+
   countLessonsAndCompleted(courseId: string, enrollmentId: string) {
     return this.prisma.$transaction([
       this.prisma.lesson.count({ where: { section: { courseId } } }),
@@ -321,11 +335,11 @@ export class EnrollmentRepository {
   findLessonProgressSince(userId: string, since: Date) {
     return this.prisma.lessonProgress.findMany({
       where: {
-        completed: true,
+        OR: [{ completed: true }, { pptxCompleted: true }],
         completedAt: { gte: since },
         enrollment: { userId },
       },
-      select: { completedAt: true, lesson: { select: { durationSec: true } } },
+      select: { completedAt: true, completed: true, pptxCompleted: true, lesson: { select: { durationSec: true, pptxDurationSec: true } } },
     });
   }
 

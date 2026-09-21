@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Param,
@@ -20,6 +21,7 @@ import {
 import type { Env } from "../../config/env";
 import { LessonResourceService } from "./lesson-resource.service";
 import {
+  PptxFilePipe,
   ResourceFilePipe,
   type ValidatedResourceFile,
 } from "./pipes/resource-file.pipe";
@@ -76,5 +78,25 @@ export class LessonResourceController {
   ) {
     if (!storageKey) throw new BadRequestException("storageKey is required");
     return this.resources.remove(user, lessonId, storageKey);
+  }
+}
+
+
+@ApiTags("authoring")
+@ApiBearerAuth()
+@Roles("INSTRUCTOR", "ADMIN")
+@Controller("authoring/lessons/:lessonId/pptx")
+export class LessonPptxController {
+  constructor(private readonly resources: LessonResourceService) {}
+  @Post()
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: Number(process.env.STORAGE_MAX_BYTES) || 10 * 1024 * 1024 } }))
+  upload(@CurrentUser() user: RequestUser, @Param("lessonId") lessonId: string, @UploadedFile(PptxFilePipe) file: ValidatedResourceFile, @Body("durationSec") durationSec?: string) {
+    const seconds = Math.max(0, Math.min(86400, Number(durationSec ?? 0) || 0));
+    return this.resources.uploadPptx(user, lessonId, file, seconds);
+  }
+  @Delete()
+  remove(@CurrentUser() user: RequestUser, @Param("lessonId") lessonId: string) {
+    return this.resources.removePptx(user, lessonId);
   }
 }

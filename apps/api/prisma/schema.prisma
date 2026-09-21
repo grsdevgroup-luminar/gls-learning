@@ -497,6 +497,10 @@ model Lesson {
   articleContent String?
   resources      Json       @default("[]")
   cfVideoUid     String?
+  pptxStorageKey String?
+  pptxName       String?
+  pptxSizeLabel  String?
+  pptxDurationSec Int       @default(0)
   createdAt      DateTime   @default(now())
 
   quiz           Quiz?
@@ -602,6 +606,7 @@ model LessonProgress {
   // `false` means previously completed then unchecked — the row stays so
   // time learned remains credited. Sequential access and progress % ignore it.
   completed    Boolean    @default(true)
+  pptxCompleted Boolean   @default(false)
   completedAt  DateTime   @default(now())
 
   @@unique([enrollmentId, lessonId])

@@ -72,3 +72,22 @@ export class ResourceFilePipe
     };
   }
 }
+
+
+@Injectable()
+export class PptxFilePipe implements PipeTransform<Express.Multer.File | undefined, ValidatedResourceFile> {
+  constructor(private readonly config: ConfigService<Env, true>) {}
+  transform(file: Express.Multer.File | undefined): ValidatedResourceFile {
+    if (!file) throw new BadRequestException("Missing PowerPoint file");
+    const maxBytes = this.config.get("STORAGE_MAX_BYTES", { infer: true }) ?? 10 * 1024 * 1024;
+    const ext = path.extname(file.originalname).slice(1).toLowerCase();
+    const mime = file.mimetype.toLowerCase();
+    if (file.size > maxBytes || ext !== "pptx" || mime !== "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+      throw new UnsupportedMediaTypeException("Only .pptx PowerPoint files are supported.");
+    }
+    if (file.buffer.length < 4 || file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b) {
+      throw new UnsupportedMediaTypeException("Only .pptx PowerPoint files are supported.");
+    }
+    return { buffer: file.buffer, size: file.size, mimeType: mime, extension: ext, originalName: file.originalname };
+  }
+}

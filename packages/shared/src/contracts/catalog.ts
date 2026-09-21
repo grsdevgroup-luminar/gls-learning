@@ -101,6 +101,14 @@ export interface LessonResourceDto {
   storageKey?: string;
 }
 
+export interface LessonPptxDto {
+  name: string;
+  url: string;
+  sizeLabel?: string;
+  durationSec: number;
+  storageKey?: string;
+}
+
 export interface LessonPublicDto {
   id: string;
   title: string;
@@ -112,6 +120,7 @@ export interface LessonPublicDto {
   /** Whether a Cloudflare Stream video is attached (course builder upload status). */
   hasVideo: boolean;
   resources: LessonResourceDto[];
+  pptx: LessonPptxDto | null;
   /** Owner/admin only (course builder) — omitted from the public catalog so
    *  paid article content can't be read without enrolling. */
   articleContent?: string | null;

@@ -225,6 +225,11 @@ export const api = {
       { method: "POST", body: { watchedSec }, keepalive },
     ),
 
+  pptxCompletion: (courseId: string, lessonId: string) =>
+    apiFetch<{ completed: boolean }>(`/enrollments/${courseId}/lessons/${lessonId}/pptx-completion`),
+  setPptxCompletion: (courseId: string, lessonId: string, completed: boolean) =>
+    apiFetch<{ completed: boolean }>(`/enrollments/${courseId}/lessons/${lessonId}/pptx-completion`, { method: "POST", body: { completed } }),
+
   // media
   playback: (lessonId: string) =>
     apiFetch<PlaybackDto>(`/lessons/${lessonId}/playback`),
@@ -825,6 +830,11 @@ export const authoringApi = {
 
   /** Uploads a single lesson resource. The backend enforces the 10 MB cap and
    *  MIME whitelist; the UI is expected to pre-validate for a nicer UX. */
+  uploadLessonPptx: (lessonId: string, file: File, durationSec: number) => {
+    const form = new FormData(); form.append("file", file, file.name); form.append("durationSec", String(durationSec));
+    return apiFetchMultipart<{ name: string; sizeLabel?: string; durationSec: number }>(`/authoring/lessons/${lessonId}/pptx`, form);
+  },
+  deleteLessonPptx: (lessonId: string) => apiFetch<{ ok: true }>(`/authoring/lessons/${lessonId}/pptx`, { method: "DELETE" }),
   uploadLessonResource: (lessonId: string, file: File) => {
     const form = new FormData();
     form.append("file", file, file.name);

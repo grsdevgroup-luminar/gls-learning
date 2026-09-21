@@ -109,6 +109,7 @@ export const lessonSchema = z.object({
   articleContent: z.string().nullable().optional(),
   cfVideoUid: z.string().nullable().optional(),
   resources: z.array(lessonResourceSchema).max(20).optional(),
+  pptxDurationSec: z.number().int().min(0).max(86400).optional(),
 });
 export type LessonInput = z.infer<typeof lessonSchema>;
 

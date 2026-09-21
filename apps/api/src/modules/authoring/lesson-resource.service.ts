@@ -12,6 +12,7 @@ import type { RequestUser } from "../../common/decorators/decorators";
 import { AuthoringRepository } from "./authoring.repository";
 import {
   RESOURCE_KEY_PREFIX,
+  PPTX_KEY_PREFIX,
   STORAGE_DRIVER,
 } from "../storage/storage.constants";
 import type { StorageDriver } from "../storage/storage.driver";
@@ -90,6 +91,29 @@ export class LessonResourceService {
     }
 
     return resource;
+  }
+
+  async uploadPptx(user: RequestUser, lessonId: string, file: ValidatedResourceFile, durationSec: number) {
+    await this.assertLessonAccess(lessonId, user);
+    const prior = await this.repo.findLessonPptx(lessonId);
+    const key = `${PPTX_KEY_PREFIX}/${lessonId}/${ulid()}.pptx`;
+    const stored = await this.storage.put({ key, body: file.buffer, contentType: file.mimeType, contentLength: file.size, originalName: file.originalName });
+    try {
+      await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: stored.key, pptxName: file.originalName, pptxSizeLabel: humanSize(file.size), pptxDurationSec: durationSec });
+    } catch (err) {
+      await this.storage.delete(stored.key).catch(() => undefined); throw err;
+    }
+    if (prior?.pptxStorageKey) await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
+    return { name: file.originalName, sizeLabel: humanSize(file.size), durationSec };
+  }
+
+  async removePptx(user: RequestUser, lessonId: string) {
+    await this.assertLessonAccess(lessonId, user);
+    const prior = await this.repo.findLessonPptx(lessonId);
+    if (!prior?.pptxStorageKey) throw new NotFoundException("PowerPoint not found");
+    await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: null, pptxName: null, pptxSizeLabel: null, pptxDurationSec: 0 });
+    await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
+    return { ok: true };
   }
 
   async remove(

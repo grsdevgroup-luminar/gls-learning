@@ -84,6 +84,11 @@ interface BLesson {
   videoLabel: string | null;
   articleContent: string;
   resources: LessonResourceDto[];
+  pendingResourceFiles: File[];
+  pptxName: string | null;
+  pptxDurationSec: number;
+  pendingPptxFile: File | null;
+  removePptx: boolean;
   durationSec: number;
   type: BuilderLessonType;
   quiz?: BuilderQuiz;
@@ -155,6 +160,11 @@ function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       videoLabel: null,
       articleContent: l.articleContent ?? "",
       resources: l.resources ?? [],
+      pendingResourceFiles: [],
+      pptxName: l.pptx?.name ?? null,
+      pptxDurationSec: l.pptx?.durationSec ?? 0,
+      pendingPptxFile: null,
+      removePptx: false,
       durationSec: l.durationSec,
       type: TYPE_FROM_API[l.type] ?? "video",
       quiz: undefined, // loaded lazily for quiz lessons
@@ -322,7 +332,7 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], durationSec: 0, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], pendingResourceFiles: [], pptxName: null, pptxDurationSec: 0, pendingPptxFile: null, removePptx: false, durationSec: 0, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
@@ -365,7 +375,9 @@ export function CourseBuilder({
       const incomplete = sections
         .flatMap((section) => section.lessons)
         .filter((lesson) => {
-          const hasResource = lesson.resources.some((resource) => resource.name.trim() && resource.url.trim());
+          const hasResource =
+            lesson.resources.some((resource) => resource.name.trim() && resource.url.trim()) ||
+            lesson.pendingResourceFiles.length > 0;
           if (lesson.type === "video") return !lesson.cfVideoUid && !lesson.hasVideo;
           if (lesson.type === "quiz") {
             return !lesson.quiz?.questions.some(
@@ -509,6 +521,12 @@ export function CourseBuilder({
             await authoringApi.updateLesson(l.id, lessonBody);
           }
           lessonServerIds.set(l.id, lessonServerId);
+
+          if (l.removePptx && !l.pendingPptxFile && !isTemp(lessonServerId)) await authoringApi.deleteLessonPptx(lessonServerId);
+          if (l.pendingPptxFile && !isTemp(lessonServerId)) await authoringApi.uploadLessonPptx(lessonServerId, l.pendingPptxFile, l.pptxDurationSec);
+          for (const file of l.pendingResourceFiles) {
+            await authoringApi.uploadLessonResource(lessonServerId, file);
+          }
 
           // Sync quiz content for quiz lessons (replace-all strategy).
           if (l.type === "quiz" && l.quiz && (l.quizDirty || isTemp(l.id))) {
@@ -879,11 +897,28 @@ export function CourseBuilder({
                             />
                           )}
                         </div>
+                        {l.type === "video" && (
+                          <div className="mt-4 rounded-lg border border-dashed p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div><Label className="text-sm">PowerPoint presentation (Optional)</Label><p className="text-xs text-muted-foreground">Only .pptx files are supported. Add an estimated learning time.</p></div>
+                              <input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (!file.name.toLowerCase().endsWith(".pptx") || file.type !== "application/vnd.openxmlformats-officedocument.presentationml.presentation") { toast.error("Only .pptx PowerPoint files are supported."); e.currentTarget.value = ""; return; } patchLesson(s.id, l.id, { pendingPptxFile: file, pptxName: file.name, removePptx: false }); }} />
+                            </div>
+                            {l.pptxName && <div className="mt-2 flex items-center gap-2 text-xs"><FileText className="h-4 w-4 text-primary" /><span className="flex-1 truncate">Current: {l.pptxName}</span><Button type="button" size="sm" variant="ghost" onClick={() => patchLesson(s.id, l.id, { pendingPptxFile: null, pptxName: null, removePptx: true })}>Remove</Button></div>}
+                            {(l.pendingPptxFile || l.pptxName) && <div className="mt-2 flex items-center gap-2"><Label htmlFor={`pptx-duration-${l.id}`} className="text-xs">Learning time (minutes)</Label><Input id={`pptx-duration-${l.id}`} type="number" min="0" max="1440" value={Math.round(l.pptxDurationSec / 60)} onChange={(e) => patchLesson(s.id, l.id, { pptxDurationSec: Math.max(0, Number(e.target.value) || 0) * 60 })} className="h-8 w-24" /></div>}
+                          </div>
+                        )}
+
                         <LessonResources
                           lessonId={l.id}
                           isNew={isTemp(l.id)}
                           resources={l.resources}
                           onChange={(resources) => patchLesson(s.id, l.id, { resources })}
+                          pendingFiles={l.pendingResourceFiles}
+                          onPendingUpload={(file) =>
+                            patchLesson(s.id, l.id, {
+                              pendingResourceFiles: [...l.pendingResourceFiles, file],
+                            })
+                          }
                         />
                       </div>
                     ))}
@@ -1067,11 +1102,15 @@ function LessonResources({
   isNew,
   resources,
   onChange,
+  pendingFiles,
+  onPendingUpload,
 }: {
   lessonId: string;
   isNew: boolean;
   resources: LessonResourceDto[];
   onChange: (next: LessonResourceDto[]) => void;
+  pendingFiles: File[];
+  onPendingUpload: (file: File) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -1091,6 +1130,12 @@ function LessonResources({
     const ext = ("." + (file.name.split(".").pop() ?? "")).toLowerCase();
     if (!RESOURCE_ACCEPT_EXTENSIONS.includes(ext as (typeof RESOURCE_ACCEPT_EXTENSIONS)[number])) {
       toast.error(`Unsupported file type: ${ext || "unknown"}`);
+      return;
+    }
+    if (isNew) {
+      onPendingUpload(file);
+      toast.success(`${file.name} queued — save the lesson to finish uploading.`);
+      if (fileInput.current) fileInput.current.value = "";
       return;
     }
     setUploading(true);
@@ -1119,7 +1164,7 @@ function LessonResources({
     onChange(resources?.filter((_, x) => x !== i) ?? []);
   }
 
-  const canUpload = !isNew && !uploading && resources.length < RESOURCE_LIMIT;
+  const canUpload = !uploading && resources.length + pendingFiles.length < RESOURCE_LIMIT;
 
   return (
     <div className="mt-3 space-y-2 border-t pt-3">
@@ -1129,6 +1174,14 @@ function LessonResources({
           {resources.length}/{RESOURCE_LIMIT}
         </span>
       </div>
+
+      {pendingFiles.map((file) => (
+        <div key={`pending-${file.name}-${file.lastModified}`} className="flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground">
+          <Upload className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{file.name}</span>
+          <span className="ml-auto shrink-0">Pending save</span>
+        </div>
+      ))}
 
       {resources?.map((r, i) =>
         r.storageKey ? (
@@ -1207,7 +1260,7 @@ function LessonResources({
           className="h-7"
           onClick={() => fileInput.current?.click()}
           disabled={!canUpload}
-          title={isNew ? "Save the lesson to attach files" : undefined}
+          title={isNew ? "The file will upload when the lesson is saved" : undefined}
         >
           {uploading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
           Upload file
@@ -1217,13 +1270,13 @@ function LessonResources({
           variant="ghost"
           className="h-7 text-muted-foreground"
           onClick={() => onChange([...resources, { name: "", url: "" }])}
-          disabled={resources.length >= RESOURCE_LIMIT}
+          disabled={resources.length + pendingFiles.length >= RESOURCE_LIMIT}
         >
           <Plus className="mr-1.5 h-4 w-4"/> Add link
         </Button>
         {isNew && (
           <span className="text-[11px] text-muted-foreground">
-            Save the lesson first to attach files.
+            Files are uploaded when you save the lesson.
           </span>
         )}
       </div>

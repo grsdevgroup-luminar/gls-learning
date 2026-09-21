@@ -18,6 +18,7 @@ import {
   type ActivityDayDto,
   type ActivityPeriod,
   type WatchTimeResultDto,
+  parseLessonResources,
 } from "@skillstream/shared";
 import { ConfigService } from "@nestjs/config";
 import { AdminAlertsService } from "../email/admin-alerts.service";
@@ -89,7 +90,7 @@ export class EnrollmentService {
     // Lifetime credit: any lesson that has ever been completed, including
     // ones later unchecked. Progress % still uses currently-complete only.
     const timeLearnedSec = row.lessonProgress.reduce(
-      (sum, p) => sum + p.lesson.durationSec,
+      (sum, p) => sum + (p.completed ? p.lesson.durationSec : 0) + (p.pptxCompleted ? p.lesson.pptxDurationSec : 0),
       0,
     );
     return {
@@ -126,7 +127,7 @@ export class EnrollmentService {
       const key = r.completedAt.toISOString().slice(0, 10);
       minutesByDate.set(
         key,
-        (minutesByDate.get(key) ?? 0) + Math.round(r.lesson.durationSec / 60),
+        (minutesByDate.get(key) ?? 0) + Math.round(((r.completed ? r.lesson.durationSec : 0) + (r.pptxCompleted ? r.lesson.pptxDurationSec : 0)) / 60),
       );
     }
 
@@ -412,6 +413,26 @@ export class EnrollmentService {
    * Additive and never deduplicated by position — rewatching a segment
    * reports again, by design (this is "watch time", not "coverage").
    */
+  async getPptxCompletion(userId: string, courseId: string, lessonId: string) {
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
+    if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+    const lesson = await this.repo.findLessonPptxContext(lessonId);
+    if (!lesson || lesson.section.courseId !== courseId || (!lesson.pptxStorageKey && !parseLessonResources(lesson.resources).some((resource) => resource.name.toLowerCase().endsWith(".pptx")))) throw new NotFoundException("PowerPoint not found");
+    await this.assertLessonAccessible(userId, lessonId);
+    const progress = await this.repo.findLessonProgress(enrollment.id, lessonId);
+    return { completed: progress?.pptxCompleted ?? false };
+  }
+
+  async setPptxCompletion(userId: string, courseId: string, lessonId: string, completed: boolean) {
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
+    if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
+    const lesson = await this.repo.findLessonPptxContext(lessonId);
+    if (!lesson || lesson.section.courseId !== courseId || (!lesson.pptxStorageKey && !parseLessonResources(lesson.resources).some((resource) => resource.name.toLowerCase().endsWith(".pptx")))) throw new NotFoundException("PowerPoint not found");
+    await this.assertLessonAccessible(userId, lessonId);
+    const progress = await this.repo.setPptxCompleted(enrollment.id, lessonId, completed);
+    return { completed: progress.pptxCompleted };
+  }
+
   async recordWatchTime(
     userId: string,
     courseId: string,

@@ -18,6 +18,10 @@ export async function signCourseResourceUrls(
         const resolved = await Promise.all(
           lesson.resources.map((r) => signOne(r, storage)),
         );
+        if (lesson.pptx) {
+          const key = lesson.pptx.storageKey;
+          if (key) { lesson.pptx.url = await storage.getUrl(key); delete lesson.pptx.storageKey; }
+        }
         lesson.resources = resolved.filter(
           (r): r is LessonResourceDto => r !== null,
         );
