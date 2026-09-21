@@ -66,19 +66,23 @@ export function ManageMembersDialog({
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
-  const seatsFull = assignment.usedSeats >= assignment.memberCap;
+  const unlimited = assignment.memberCap === 0;
+  const seatsFull = !unlimited && assignment.usedSeats >= assignment.memberCap;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEmail(""); }}>
       <DialogTrigger render={<Button variant="outline" size="sm" className="gap-1.5" />}>
-        <Users className="h-3.5 w-3.5" /> {assignment.usedSeats}/{assignment.memberCap} members
+        <Users className="h-3.5 w-3.5" />
+        {unlimited ? `${assignment.usedSeats} members` : `${assignment.usedSeats}/${assignment.memberCap} members`}
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{assignment.course.title} — members</DialogTitle>
           <DialogDescription>
-            Invite people by email to give them free access to this course. {assignment.usedSeats} of{" "}
-            {assignment.memberCap} seats used.
+            Invite people by email to give them free access to this course.{" "}
+            {unlimited
+              ? `${assignment.usedSeats} members so far — unlimited seats.`
+              : `${assignment.usedSeats} of ${assignment.memberCap} seats used.`}
           </DialogDescription>
         </DialogHeader>
 

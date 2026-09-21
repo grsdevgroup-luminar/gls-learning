@@ -76,7 +76,6 @@ export class DeliveryPartnerService {
       name: a.user.name,
       email: a.user.email,
       region: a.region,
-      referralCode: a.referralCode,
       commissionPercent: a.commissionPercent,
       status: a.status,
       totalEarningsCents: a.totalEarningsCents,
@@ -249,7 +248,6 @@ export class DeliveryPartnerService {
       name: app.name,
       email: app.email,
       region: "",
-      referralCode: "",
       commissionPercent: 0,
       status: app.status,
       totalEarningsCents: 0,
@@ -319,7 +317,7 @@ export class DeliveryPartnerService {
     input: InvitePartnerMemberInput,
   ): Promise<DeliveryPartnerInvitationDto> {
     const { partner, assignment } = await this.assertOwnAssignment(user, courseAssignmentId);
-    if (assignment.usedSeats >= assignment.memberCap) {
+    if (assignment.memberCap > 0 && assignment.usedSeats >= assignment.memberCap) {
       throw new BadRequestException("No seats remaining for this course");
     }
     const email = input.email.toLowerCase();
@@ -420,7 +418,7 @@ export class DeliveryPartnerService {
     const assignment = await this.repo.runTransaction(async (tx) => {
       const current = await this.repo.findCourseAssignmentById(invite.courseAssignmentId, tx);
       if (!current) throw new NotFoundException("Course assignment not found");
-      if (current.usedSeats >= current.memberCap) {
+      if (current.memberCap > 0 && current.usedSeats >= current.memberCap) {
         throw new BadRequestException("This course is full");
       }
       await this.repo.upsertMember(invite.courseAssignmentId, user.id, dbUser.email, dbUser.name, tx);
@@ -484,7 +482,6 @@ export class DeliveryPartnerService {
     const where: Prisma.DeliveryPartnerWhereInput = query.q
       ? {
           OR: [
-            { referralCode: { contains: query.q, mode: "insensitive" } },
             { user: { name: { contains: query.q, mode: "insensitive" } } },
             { user: { email: { contains: query.q, mode: "insensitive" } } },
           ],
@@ -525,7 +522,6 @@ export class DeliveryPartnerService {
         await this.repo.updateUserRole(app.userId, "DELIVERY_PARTNER", tx);
         await this.repo.upsertDeliveryPartner(
           app.userId,
-          this.generateCode(),
           input.commissionPercent ?? 10,
           tx,
         );
@@ -554,10 +550,6 @@ export class DeliveryPartnerService {
     }
 
     return this.toAppDto(result);
-  }
-
-  private generateCode(): string {
-    return `REF-${randomUUID().slice(0, 6).toUpperCase()}`;
   }
 
   // ── course assignment (admin-only; mirrors OrganizationsService's) ───────
@@ -606,15 +598,6 @@ export class DeliveryPartnerService {
   }
 
   // ── referral attribution (called from checkout / fulfillment) ───────────
-  /** Resolves a `?ref=` code captured at signup to an APPROVED partner's id,
-   *  or null if the code is unknown/invalid/not approved — called by
-   *  AuthService.register() to set the durable User.referredByPartnerId.
-   *  Never throws: a bad referral code should never block signup. */
-  async resolveApprovedPartnerIdByCode(referralCode: string): Promise<string | null> {
-    const partner = await this.repo.findPartnerByReferralCode(referralCode);
-    return partner && partner.status === "APPROVED" ? partner.id : null;
-  }
-
   /** Whether a campaign is currently redeemable: owning partner approved, and
    *  the campaign itself reads "active" (not disabled/scheduled/expired/
    *  limit-reached). Shared with CheckoutService's quote-time validation via
@@ -633,50 +616,21 @@ export class DeliveryPartnerService {
     );
   }
 
-  /** Durable, signup-time attribution (`User.referredByPartnerId`) wins over a
-   *  later `?ref=` click carried into checkout — first touch, locked in once
-   *  at registration, so a customer can't be silently re-attributed to a
-   *  different partner later. The checkout-supplied code is only a fallback
-   *  for accounts that predate this attribution field.
-   *
-   *  An explicit, currently-usable campaign code takes priority over *both*
-   *  of the above — typing a partner's code at checkout is a stronger,
-   *  order-specific signal than passive attribution, and it's the only path
-   *  that also discounts the order (see CheckoutService.quote). */
-  private async resolveReferralPartner(
-    userId: string,
-    checkoutReferralCode?: string | null,
-    campaignCode?: string | null,
-  ) {
-    if (campaignCode) {
-      const campaign = await this.repo.findCampaignByCode(campaignCode.trim().toUpperCase());
-      if (campaign && this.isCampaignUsable(campaign)) {
-        return { partner: campaign.partner, campaign };
-      }
-    }
-    const user = await this.repo.findUserReferralAttribution(userId);
-    if (user?.referredByPartnerId) {
-      const partner = await this.repo.findPartnerById(user.referredByPartnerId);
-      if (partner && partner.status === "APPROVED") return { partner, campaign: null };
-    }
-    if (checkoutReferralCode) {
-      const partner = await this.repo.findPartnerByReferralCode(checkoutReferralCode);
-      if (partner && partner.status === "APPROVED") return { partner, campaign: null };
-    }
-    return null;
+  /** Resolves a checkout-time campaign code to its (partner, campaign) pair —
+   *  the only delivery-partner attribution mechanism. Returns null for an
+   *  unknown, inactive, expired, or limit-reached code. */
+  private async resolveCampaign(campaignCode?: string | null) {
+    if (!campaignCode) return null;
+    const campaign = await this.repo.findCampaignByCode(campaignCode.trim().toUpperCase());
+    if (!campaign || !this.isCampaignUsable(campaign)) return null;
+    return { partner: campaign.partner, campaign };
   }
 
-  /** Attaches a pending referral to a freshly-created order. No earnings are
-   *  credited until the order is paid (see confirmReferral). A valid
-   *  campaignCode takes priority over checkoutReferralCode/durable
-   *  attribution — see resolveReferralPartner. */
-  async createPendingReferral(
-    orderId: string,
-    userId: string,
-    checkoutReferralCode?: string | null,
-    campaignCode?: string | null,
-  ): Promise<void> {
-    const resolved = await this.resolveReferralPartner(userId, checkoutReferralCode, campaignCode);
+  /** Attaches a pending referral to a freshly-created order when it used a
+   *  delivery-partner campaign code. No earnings are credited until the order
+   *  is paid (see confirmReferral). A no-op when the code doesn't resolve. */
+  async createPendingReferral(orderId: string, campaignCode?: string | null): Promise<void> {
+    const resolved = await this.resolveCampaign(campaignCode);
     if (!resolved) return;
     const { partner, campaign } = resolved;
 
@@ -689,22 +643,12 @@ export class DeliveryPartnerService {
     const commissionCents = Math.round(
       order.totalCents * (partner.commissionPercent / 100),
     );
-    if (campaign) {
-      await this.repo.createPendingCampaignReferralTx(
-        partner.id,
-        orderId,
-        commissionCents,
-        partner.referralCode,
-        campaign.id,
-        campaign.code,
-      );
-      return;
-    }
     await this.repo.createPendingReferralTx(
       partner.id,
       orderId,
       commissionCents,
-      partner.referralCode,
+      campaign.id,
+      campaign.code,
     );
   }
 

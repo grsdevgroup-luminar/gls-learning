@@ -10,7 +10,6 @@ import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { formatLocal } from "@/lib/pricing";
-import { getReferralCode, clearReferralCode } from "@/lib/referral";
 import { formatUsd } from "@/lib/format";
 import { toast } from "sonner";
 import { CourseArt } from "@/components/shared/course-art";
@@ -133,11 +132,9 @@ export default function CheckoutPage() {
               : method === "sslcommerz"
                 ? "SSLCOMMERZ"
                 : "STRIPE",
-          referralCode: getReferralCode() ?? undefined,
         },
         idempotencyKey,
       );
-      clearReferralCode();
       // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
       // Do NOT clear the cart here — payment isn't confirmed yet. If the user
       // hits Back from the gateway (or cancels), the checkout page must still

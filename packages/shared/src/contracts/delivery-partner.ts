@@ -97,7 +97,6 @@ export const DeliveryPartnerDto = z.object({
   name: z.string(),
   email: z.string(),
   region: z.string(),
-  referralCode: z.string(),
   commissionPercent: z.number(),
   status: z.nativeEnum(DeliveryPartnerStatus),
   totalEarningsCents: z.number(),
@@ -153,16 +152,17 @@ export interface DeliveryPartnerApplicationStatsDto {
 // per-course: a member invited through one course assignment does not get
 // access to the partner's other assigned courses.
 
-/** Admin-only — sets the per-course member cap at assignment time, mirroring
- *  Organization.seatCount. */
+/** Admin-only — sets the per-course member cap at assignment time. 0 (the
+ *  default) = unlimited, same convention as DeliveryPartnerCampaign.usageLimit;
+ *  an admin can still set a specific cap, mirroring Organization.seatCount. */
 export const AssignPartnerCourseSchema = z.object({
   courseId: z.string(),
-  memberCap: z.number().int().min(1).max(1000).default(10),
+  memberCap: z.number().int().min(0).max(1000).default(0),
 });
 export type AssignPartnerCourseInput = z.infer<typeof AssignPartnerCourseSchema>;
 
 export const UpdatePartnerCourseAssignmentSchema = z.object({
-  memberCap: z.number().int().min(1).max(1000),
+  memberCap: z.number().int().min(0).max(1000),
 });
 export type UpdatePartnerCourseAssignmentInput = z.infer<
   typeof UpdatePartnerCourseAssignmentSchema
@@ -224,8 +224,8 @@ export interface PartnerGrantedCourseDto {
 // ─── Campaigns (admin-created, discount + commission at checkout) ──────────
 // Applicable to all courses (global, no course scope — unlike Coupon). At
 // most one active campaign with an overlapping date range per partner,
-// enforced in the service layer. See docs/FEATURE_FLOWS.md §5.2 for how this
-// composes with the existing referral-link attribution mechanism.
+// enforced in the service layer. The sole delivery-partner commission
+// attribution mechanism — see docs/FEATURE_FLOWS.md §5.2.
 
 export const CreatePartnerCampaignSchema = z
   .object({

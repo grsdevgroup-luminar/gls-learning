@@ -235,13 +235,6 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  /// The delivery partner this user was attributed to at signup (via `?ref=`
-  /// on the signup page) — locked in once, never overwritten by a later
-  /// referral click. Distinct from `deliveryPartner` below, which is this
-  /// user's OWN partner profile if they themselves are one.
-  referredByPartnerId String?
-  referredByPartner   DeliveryPartner? @relation("ReferredUsers", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
-
   studentProfile             StudentProfile?
   instructorProfile          InstructorProfile?
   refreshTokens              RefreshToken[]
@@ -273,7 +266,6 @@ model User {
   editedEmailTemplates       EmailTemplate[]
 
   @@index([role])
-  @@index([referredByPartnerId])
 }
 
 model RefreshToken {
@@ -700,13 +692,11 @@ model Order {
   createdAt           DateTime       @default(now())
   paidAt              DateTime?
 
-  partnerReferralCode String?
-  partnerId           String?
+  /// Set when the buyer checked out with a delivery-partner campaign code —
+  /// the sole attribution path (there is no non-campaign referral). Denormalized
+  /// alongside the FK so reporting doesn't need to join DeliveryPartnerReferral.
+  partnerId String?
 
-  /// Set when the buyer checked out with a delivery-partner campaign code
-  /// (as opposed to a plain referral-link attribution, which only ever sets
-  /// partnerId/partnerReferralCode above, never this). Denormalized code
-  /// alongside the FK, same pattern as partnerId/partnerReferralCode.
   campaignId   String?
   campaign     DeliveryPartnerCampaign? @relation(fields: [campaignId], references: [id])
   campaignCode String?
@@ -964,7 +954,6 @@ model DeliveryPartner {
   id                   String                @id @default(cuid())
   userId               String                @unique
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  referralCode         String                @unique
   commissionPercent    Float                 @default(10)
   region               String                @default("")
   status               DeliveryPartnerStatus @default(PENDING)
@@ -978,8 +967,6 @@ model DeliveryPartner {
   referrals         DeliveryPartnerReferral[]
   courseAssignments DeliveryPartnerCourseAssignment[]
   campaigns         DeliveryPartnerCampaign[]
-  /// Users attributed to this partner at signup — see `User.referredByPartnerId`.
-  referredUsers     User[]                             @relation("ReferredUsers")
 
   @@index([status])
 }
@@ -1026,11 +1013,10 @@ model DeliveryPartnerReferral {
 
 /// An admin-created, time-boxed discount campaign for one approved delivery
 /// partner, applicable to all courses (global, unlike course-scoped Coupon).
-/// The generated `code` is entered manually at checkout — distinct from the
-/// partner's `referralCode`, which only ever drives link attribution, never
-/// a discount. Discount + commission (on the discounted total, via the same
-/// DeliveryPartnerReferral used by plain referrals — see
-/// DeliveryPartnerService.resolveReferralPartner) both resolve through this
+/// The generated `code` is entered manually at checkout — the only way a
+/// delivery partner attributes and discounts an order (see
+/// DeliveryPartnerService.resolveCampaign). Discount + commission (on the
+/// discounted total, via DeliveryPartnerReferral) both resolve through this
 /// row. Only one campaign may be `active` with an overlapping date range per
 /// partner at a time — enforced in the service layer, not the DB, since it's
 /// a date-range invariant.
@@ -1060,16 +1046,16 @@ model DeliveryPartnerCampaign {
 /// to create (mirrors CourseOrgAssignment/Organization — see
 /// DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3). Access is per-course: inviting a
 /// member to one assignment does not grant access to the partner's other
-/// assigned courses. memberCap/usedSeats mirror Organization.seatCount/
-/// usedSeats exactly, just scoped to this one course-assignment rather than
-/// the whole partner.
+/// assigned courses. usedSeats mirrors Organization.usedSeats, just scoped to
+/// this one course-assignment rather than the whole partner.
 model DeliveryPartnerCourseAssignment {
   id        String          @id @default(cuid())
   courseId  String
   course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
   partnerId String
   partner   DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  memberCap Int             @default(10)
+  /// 0 = unlimited — same convention as DeliveryPartnerCampaign.usageLimit.
+  memberCap Int             @default(0)
   usedSeats Int             @default(0)
   createdAt DateTime        @default(now())
 

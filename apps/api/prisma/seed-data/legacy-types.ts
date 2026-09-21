@@ -287,7 +287,9 @@ export interface DeliveryPartner {
   avatar: string;
   phone?: string;
   region: string;
-  referralCode: string;
+  /** Seed-only: the code for this partner's one seeded historical campaign
+   *  (DeliveryPartnerCampaign.code) — attribution is campaign-only. */
+  campaignCode: string;
   commissionPercent: number;
   status: DeliveryPartnerStatus;
   joinedAt: string; // ISO

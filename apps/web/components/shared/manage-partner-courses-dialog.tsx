@@ -25,7 +25,7 @@ import { toast } from "sonner";
 
 const ALL_CATEGORIES = "ALL";
 const PAGE_SIZE = 8;
-const DEFAULT_MEMBER_CAP = 10;
+const DEFAULT_MEMBER_CAP = 0;
 
 /** Fetches every course matching the filter across all pages — the picker
  *  itself only ever loads one page at a time, but a bulk assign needs the
@@ -202,7 +202,7 @@ export function ManagePartnerCoursesDialog({
             <DialogTitle>{partnerName} — courses</DialogTitle>
             <DialogDescription>
               Assign or remove the courses this delivery partner can redistribute — each assignment sets how many
-              members that partner can invite to it.
+              members that partner can invite to it (0 = unlimited).
             </DialogDescription>
           </DialogHeader>
 
@@ -224,13 +224,15 @@ export function ManagePartnerCoursesDialog({
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm">{a.course.title}</div>
                           <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                            <Users className="h-3 w-3" /> {a.usedSeats} / {a.memberCap} members
+                            <Users className="h-3 w-3" />
+                            {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap} members` : `${a.usedSeats} members (unlimited)`}
                           </div>
                         </div>
                         <Input
                           type="number"
-                          min={1}
+                          min={0}
                           max={1000}
+                          placeholder="0 = unlimited"
                           className="h-7 w-16 shrink-0 text-sm"
                           value={capInputs[a.course.id] ?? a.memberCap}
                           onChange={(e) => setCapInputs((p) => ({ ...p, [a.course.id]: e.target.value }))}
@@ -328,10 +330,11 @@ export function ManagePartnerCoursesDialog({
                         )}
                         <Input
                           type="number"
-                          min={1}
+                          min={0}
                           max={1000}
+                          placeholder="0 = unlimited"
                           aria-label="Member cap"
-                          className="h-8 w-16 shrink-0 text-sm"
+                          className="h-8 w-20 shrink-0 text-sm"
                           value={assignCapInputs[c.id] ?? DEFAULT_MEMBER_CAP}
                           onChange={(e) => setAssignCapInputs((p) => ({ ...p, [c.id]: e.target.value }))}
                         />

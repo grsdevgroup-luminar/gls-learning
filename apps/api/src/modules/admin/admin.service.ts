@@ -805,7 +805,6 @@ export class AdminService {
       refundedCents: updated.refundedCents,
       createdAt: updated.createdAt.toISOString(),
       paidAt: updated.paidAt?.toISOString() ?? null,
-      partnerReferralCode: updated.partnerReferralCode,
       partnerCampaignCode: updated.campaignCode,
     };
   }

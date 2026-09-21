@@ -24,7 +24,3 @@ export const useMyPartnerCampaigns = () =>
     queryKey: ["me", "delivery-partner", "campaigns"],
     queryFn: () => api.myPartnerCampaigns(),
   });
-
-/** Referral link built from the current origin so it works in every env. */
-export const referralLinkFor = (code: string) =>
-  `${typeof window !== "undefined" ? window.location.origin : ""}/?ref=${code}`;
