@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/card';
 import { Reveal, Stagger, StaggerItem, Magnetic } from '@/components/shared/motion';
 import { FormField } from '@/components/shared/form-field';
+import { PasswordRequirements } from '@/components/shared/password-requirements';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -421,6 +422,7 @@ export default function AccountPage() {
                 </div>
               </FormField>
             </Stagger>
+            <PasswordRequirements value={newPassword} />
             <Button
               disabled={passwordMutation.isPending || !currentPassword || !newPassword}
               onClick={handlePasswordSubmit}

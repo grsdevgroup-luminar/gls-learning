@@ -11,7 +11,7 @@ import type {
 // Prisma payload shapes (with the relations the mappers require).
 const summaryInclude = {
   instructor: { include: { instructorProfile: true } },
-  sections: { include: { lessons: { select: { durationSec: true, pptxDurationSec: true } } } },
+  sections: { include: { lessons: { select: { type: true, durationSec: true, pptxDurationSec: true } } } },
 } satisfies Prisma.CourseInclude;
 
 export type CourseSummaryRow = Prisma.CourseGetPayload<{
@@ -67,7 +67,7 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
   let lessonCount = 0;
   for (const s of row.sections) {
     for (const l of s.lessons) {
-      durationSec += l.durationSec + (l.pptxDurationSec ?? 0);
+      durationSec += l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0);
       lessonCount += 1;
     }
   }
@@ -113,7 +113,7 @@ export function toCourseDetail(
     title: s.title,
     order: s.order,
     lessons: s.lessons.map((l) => {
-      durationSec += l.durationSec + (l.pptxDurationSec ?? 0);
+      durationSec += l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0);
       lessonCount += 1;
       // Preview lessons are the course's marketing surface — their resources
       // (slides, starter code) must be downloadable by anyone browsing the
@@ -121,7 +121,7 @@ export function toCourseDetail(
       // both the `includeLessonResources` gate (public catalog) and the
       // sequential-access gate (enrolled but hasn't reached this lesson yet).
       const lessonResources = parseLessonResources(l.resources);
-      const pptxResource = !opts?.includeArticleContent
+      const pptxResource = l.type === "VIDEO" && !opts?.includeArticleContent
         ? lessonResources.find((resource) => resource.name.toLowerCase().endsWith(".pptx"))
         : undefined;
       const exposeResources =
@@ -131,16 +131,16 @@ export function toCourseDetail(
       return {
         id: l.id,
         title: l.title,
-        durationSec: l.durationSec + (l.pptxDurationSec ?? 0),
+        durationSec: l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0),
         type: l.type,
         preview: l.preview,
         order: l.order,
         hasQuiz: l.quiz !== null,
         hasVideo: l.cfVideoUid !== null,
         resources: exposeResources ? lessonResources : [],
-        pptx: exposeResources && l.pptxStorageKey && l.pptxName
+        pptx: l.type === "VIDEO" && exposeResources && l.pptxStorageKey && l.pptxName
           ? ({ name: l.pptxName, url: "", sizeLabel: l.pptxSizeLabel ?? undefined, durationSec: l.pptxDurationSec, storageKey: l.pptxStorageKey } satisfies LessonPptxDto)
-          : exposeResources && pptxResource
+          : l.type === "VIDEO" && exposeResources && pptxResource
             ? ({ name: pptxResource.name, url: pptxResource.url, sizeLabel: pptxResource.sizeLabel, durationSec: 0, storageKey: pptxResource.storageKey } satisfies LessonPptxDto)
             : null,
         ...(opts?.includeArticleContent

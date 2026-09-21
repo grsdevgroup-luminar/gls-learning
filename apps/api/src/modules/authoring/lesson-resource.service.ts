@@ -94,7 +94,8 @@ export class LessonResourceService {
   }
 
   async uploadPptx(user: RequestUser, lessonId: string, file: ValidatedResourceFile, durationSec: number) {
-    await this.assertLessonAccess(lessonId, user);
+    const lesson = await this.assertLessonAccess(lessonId, user);
+    if (lesson.type !== "VIDEO") throw new BadRequestException("PowerPoint slides can only be attached to video lessons");
     const prior = await this.repo.findLessonPptx(lessonId);
     const key = `${PPTX_KEY_PREFIX}/${lessonId}/${ulid()}.pptx`;
     const stored = await this.storage.put({ key, body: file.buffer, contentType: file.mimeType, contentLength: file.size, originalName: file.originalName });
@@ -108,7 +109,8 @@ export class LessonResourceService {
   }
 
   async removePptx(user: RequestUser, lessonId: string) {
-    await this.assertLessonAccess(lessonId, user);
+    const lesson = await this.assertLessonAccess(lessonId, user);
+    if (lesson.type !== "VIDEO") throw new BadRequestException("PowerPoint slides can only be attached to video lessons");
     const prior = await this.repo.findLessonPptx(lessonId);
     if (!prior?.pptxStorageKey) throw new NotFoundException("PowerPoint not found");
     await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: null, pptxName: null, pptxSizeLabel: null, pptxDurationSec: 0 });

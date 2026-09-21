@@ -44,8 +44,9 @@ export function PptxViewer({
       if (cancelled || !host.current || !slideData || rendering) return;
       const frame = host.current.parentElement;
       const availableWidth = frame?.clientWidth ?? host.current.clientWidth;
-      const availableHeight = Math.max(240, window.innerHeight - 230);
-      const width = Math.max(280, Math.min(Math.floor(availableWidth), Math.floor(availableHeight * 16 / 9)));
+      const availableHeight = Math.max(360, window.innerHeight - 90);
+      const slideHeight = Math.max(240, availableHeight - 64);
+      const width = Math.max(280, Math.min(Math.floor(availableWidth), Math.floor(slideHeight * 16 / 9)));
       const height = Math.round(width * 9 / 16);
       host.current.style.width = `${width}px`;
       host.current.style.height = `${height}px`;
@@ -90,6 +91,7 @@ export function PptxViewer({
     return () => {
       cancelled = true;
       resizeObserver?.disconnect();
+      window.removeEventListener("resize", renderAtCurrentSize);
       cancelAnimationFrame(resizeFrame);
       renderer.current?.destroy();
       renderer.current = null;
@@ -100,14 +102,18 @@ export function PptxViewer({
     const viewer = renderer.current;
     if (!viewer || slideCount < 2) return;
     viewer.renderPreSlide();
-    setCurrentSlide((slide) => slide <= 1 ? slideCount : slide - 1);
+    const nextSlide = currentSlideRef.current <= 1 ? slideCount : currentSlideRef.current - 1;
+    currentSlideRef.current = nextSlide;
+    setCurrentSlide(nextSlide);
   }
 
   function goNext() {
     const viewer = renderer.current;
     if (!viewer || slideCount < 2) return;
     viewer.renderNextSlide();
-    setCurrentSlide((slide) => slide >= slideCount ? 1 : slide + 1);
+    const nextSlide = currentSlideRef.current >= slideCount ? 1 : currentSlideRef.current + 1;
+    currentSlideRef.current = nextSlide;
+    setCurrentSlide(nextSlide);
   }
 
   async function markCompleted() {
@@ -125,20 +131,21 @@ export function PptxViewer({
   return (
     <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
       <style>{`.pptx-preview-wrapper-next,.pptx-preview-wrapper-pagination{display:none!important}.pptx-preview-wrapper{width:100%!important;height:100%!important;background:transparent!important}.pptx-preview-slide-wrapper{margin:0 auto!important;box-shadow:0 12px 30px rgb(15 23 42 / 0.14)}`}</style>
-      <div className="relative flex justify-center overflow-hidden bg-gradient-to-br from-secondary/60 via-background to-primary/5 p-2 sm:p-5">
+      <div className="relative flex justify-center overflow-hidden bg-gradient-to-br from-secondary/60 via-background to-primary/5 p-1 pb-14 sm:p-3 sm:pb-16">
         {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm"><div className="flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm text-muted-foreground shadow-sm"><Loader2 className="size-4 animate-spin text-primary" /> Loading slides</div></div>}
         <div ref={host} className="mx-auto aspect-video w-full overflow-hidden rounded-xl" />
-      </div>
-      <div className="flex items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
-        <Button variant="outline" size="sm" onClick={goPrevious} disabled={loading || slideCount < 2}>
-          <ChevronLeft /> Previous
-        </Button>
-        <div className="hidden h-1.5 flex-1 overflow-hidden rounded-full bg-secondary sm:block">
-          <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: slideCount ? `${(currentSlide / slideCount) * 100}%` : "0%" }} />
+        <div className="absolute bottom-3 left-3 right-3 z-20 flex items-center justify-between gap-3 rounded-xl border bg-card/90 px-3 py-2 shadow-lg backdrop-blur sm:left-8 sm:right-8 sm:px-4">
+          <Button variant="outline" size="sm" onClick={goPrevious} disabled={loading || slideCount < 2}>
+            <ChevronLeft /> Previous
+          </Button>
+          <div className="hidden h-1.5 flex-1 overflow-hidden rounded-full bg-secondary sm:block">
+            <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: slideCount ? `${(currentSlide / slideCount) * 100}%` : "0%" }} />
+          </div>
+          <span className="text-xs tabular-nums text-muted-foreground sm:hidden">{currentSlide} / {slideCount || "-"}</span>
+          <Button size="sm" onClick={goNext} disabled={loading || slideCount < 2}>
+            Next <ChevronRight />
+          </Button>
         </div>
-        <Button size="sm" onClick={goNext} disabled={loading || slideCount < 2}>
-          Next <ChevronRight />
-        </Button>
       </div>
       <div className="border-t bg-secondary/20 p-4 sm:px-5">
         <button type="button" onClick={markCompleted} disabled={loading || saving} className={cn("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors", completed ? "border-success/30 bg-success/5" : "border-border bg-card hover:bg-muted/60")}>

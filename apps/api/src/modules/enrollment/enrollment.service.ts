@@ -417,7 +417,7 @@ export class EnrollmentService {
     const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
     const lesson = await this.repo.findLessonPptxContext(lessonId);
-    if (!lesson || lesson.section.courseId !== courseId || (!lesson.pptxStorageKey && !parseLessonResources(lesson.resources).some((resource) => resource.name.toLowerCase().endsWith(".pptx")))) throw new NotFoundException("PowerPoint not found");
+    if (!lesson || lesson.type !== "VIDEO" || lesson.section.courseId !== courseId || (!lesson.pptxStorageKey && !parseLessonResources(lesson.resources).some((resource) => resource.name.toLowerCase().endsWith(".pptx")))) throw new NotFoundException("PowerPoint not found");
     await this.assertLessonAccessible(userId, lessonId);
     const progress = await this.repo.findLessonProgress(enrollment.id, lessonId);
     return { completed: progress?.pptxCompleted ?? false };
@@ -427,7 +427,7 @@ export class EnrollmentService {
     const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
     const lesson = await this.repo.findLessonPptxContext(lessonId);
-    if (!lesson || lesson.section.courseId !== courseId || (!lesson.pptxStorageKey && !parseLessonResources(lesson.resources).some((resource) => resource.name.toLowerCase().endsWith(".pptx")))) throw new NotFoundException("PowerPoint not found");
+    if (!lesson || lesson.type !== "VIDEO" || lesson.section.courseId !== courseId || (!lesson.pptxStorageKey && !parseLessonResources(lesson.resources).some((resource) => resource.name.toLowerCase().endsWith(".pptx")))) throw new NotFoundException("PowerPoint not found");
     await this.assertLessonAccessible(userId, lessonId);
     const progress = await this.repo.setPptxCompleted(enrollment.id, lessonId, completed);
     return { completed: progress.pptxCompleted };

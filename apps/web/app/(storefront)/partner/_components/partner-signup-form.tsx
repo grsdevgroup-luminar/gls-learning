@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { PasswordRequirements } from "@/components/shared/password-requirements";
 
 type FieldErrors = Partial<Record<"name" | "email" | "password" | "country" | "expectedCommissionPercent", string>>;
 
@@ -151,6 +152,7 @@ export function PartnerSignupForm() {
                     onChange={(code) => { setCountry(code); clearError("country"); }}
                   />
                 </FormField>
+                <PasswordRequirements value={password} />
               </div>
               <FormField
                 label="Expected commission rate (optional)"

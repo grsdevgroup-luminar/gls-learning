@@ -174,9 +174,9 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <QuizPlayer key={current.id} courseId={course.id} lessonId={current.id} />
             </div>
           ) : (
-            <div className="relative z-0 flex min-h-0 shrink-0 flex-col items-stretch overflow-hidden p-2 lg:p-5">
+            <div className="relative z-0 flex min-h-0 shrink-0 flex-col items-stretch overflow-hidden p-1 lg:p-3">
               {current.pptx?.url && (
-                <div className="mb-4 self-end inline-flex w-fit items-center rounded-full border bg-muted/50 p-0.5 shadow-sm">
+                <div className="absolute right-3 top-3 z-30 inline-flex w-fit items-center rounded-full border bg-background/90 p-0.5 shadow-md backdrop-blur">
                   <button type="button" aria-pressed={contentMode === "video"} onClick={() => setContentMode("video")} className={cn("h-7 min-w-16 rounded-full px-4 text-xs font-medium transition-colors", contentMode === "video" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>Video</button>
                   <button type="button" aria-pressed={contentMode === "slides"} onClick={() => setContentMode("slides")} className={cn("h-7 min-w-16 rounded-full px-4 text-xs font-medium transition-colors", contentMode === "slides" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>Slides</button>
                 </div>
@@ -196,7 +196,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                   />
                 </div>
               ) : (
-                <div className="flex min-h-[320px] w-full items-center justify-center rounded-xl border border-dashed bg-secondary/20 p-6 text-center text-sm text-muted-foreground">
+                <div className="flex min-h-[180px] w-full items-center justify-center rounded-xl border border-dashed bg-secondary/20 p-6 text-center text-sm text-muted-foreground">
                   This lesson has no video. Select Slides to view the PowerPoint presentation.
                 </div>
               )}

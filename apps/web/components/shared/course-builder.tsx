@@ -900,7 +900,7 @@ export function CourseBuilder({
                         {l.type === "video" && (
                           <div className="mt-4 rounded-lg border border-dashed p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div><Label className="text-sm">PowerPoint presentation (Optional)</Label><p className="text-xs text-muted-foreground">Only .pptx files are supported. Add an estimated learning time.</p></div>
+                              <div><Label className="text-sm">Featured PowerPoint slides (Optional)</Label><p className="text-xs text-muted-foreground">Attach one .pptx to show in Slides mode. Add other files under Downloadable resources.</p></div>
                               <input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (!file.name.toLowerCase().endsWith(".pptx") || file.type !== "application/vnd.openxmlformats-officedocument.presentationml.presentation") { toast.error("Only .pptx PowerPoint files are supported."); e.currentTarget.value = ""; return; } patchLesson(s.id, l.id, { pendingPptxFile: file, pptxName: file.name, removePptx: false }); }} />
                             </div>
                             {l.pptxName && <div className="mt-2 flex items-center gap-2 text-xs"><FileText className="h-4 w-4 text-primary" /><span className="flex-1 truncate">Current: {l.pptxName}</span><Button type="button" size="sm" variant="ghost" onClick={() => patchLesson(s.id, l.id, { pendingPptxFile: null, pptxName: null, removePptx: true })}>Remove</Button></div>}

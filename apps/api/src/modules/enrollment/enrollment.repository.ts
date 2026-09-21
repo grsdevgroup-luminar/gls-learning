@@ -166,7 +166,7 @@ export class EnrollmentRepository {
 
   /** Type + owning course, for validating a watch-time report before it's trusted. */
   findLessonPptxContext(lessonId: string) {
-    return this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { pptxStorageKey: true, resources: true, section: { select: { courseId: true } } } });
+    return this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { type: true, pptxStorageKey: true, resources: true, section: { select: { courseId: true } } } });
   }
 
   findLessonForWatchTime(lessonId: string) {

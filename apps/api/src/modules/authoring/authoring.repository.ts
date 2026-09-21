@@ -90,7 +90,7 @@ export class AuthoringRepository {
   findLessonCourseId(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
-      select: { section: { select: { courseId: true } } },
+      select: { type: true, section: { select: { courseId: true } } },
     });
   }
 
