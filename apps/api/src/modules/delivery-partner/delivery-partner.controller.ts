@@ -101,6 +101,19 @@ export class DeliveryPartnerController {
     return this.partners.myCampaigns(user);
   }
 
+  /** Every direct-invite member/pending-invite across all of the caller's
+   *  course assignments — the partner-wide counterpart to the per-assignment
+   *  listMembers/listInvitations below. */
+  @Get("me/delivery-partner/members")
+  myMembers(@CurrentUser() user: RequestUser) {
+    return this.partners.myMembers(user);
+  }
+
+  @Get("me/delivery-partner/invitations")
+  myInvitations(@CurrentUser() user: RequestUser) {
+    return this.partners.myInvitations(user);
+  }
+
   // ── members + invitations (partner-authenticated; per course assignment) ──
   @Post("delivery-partner/courses/:courseAssignmentId/invite")
   inviteMember(

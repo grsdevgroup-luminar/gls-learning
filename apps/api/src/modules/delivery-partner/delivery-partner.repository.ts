@@ -290,27 +290,6 @@ export class DeliveryPartnerRepository {
     });
   }
 
-  /** Any *other* active campaign for this partner whose date range overlaps
-   *  the given window — used to enforce "one active campaign at a time" at
-   *  create/update time. Standard interval-overlap check:
-   *  existing.start < newEnd && existing.end > newStart. */
-  findOverlappingActiveCampaign(
-    partnerId: string,
-    startDate: Date,
-    endDate: Date,
-    excludeId?: string,
-  ) {
-    return this.prisma.deliveryPartnerCampaign.findFirst({
-      where: {
-        partnerId,
-        active: true,
-        startDate: { lt: endDate },
-        endDate: { gt: startDate },
-        ...(excludeId ? { id: { not: excludeId } } : {}),
-      },
-    });
-  }
-
   createCampaign(
     partnerId: string,
     code: string,
@@ -442,6 +421,21 @@ export class DeliveryPartnerRepository {
     });
   }
 
+  /** Same shape as findActiveInvitationsForAssignment, but across every
+   *  course assignment the partner holds — powers the partner-wide "direct
+   *  invites" list instead of the per-course dialog. */
+  findInvitationsForPartner(partnerId: string) {
+    return this.prisma.deliveryPartnerInvitation.findMany({
+      where: {
+        claimedAt: null,
+        expiresAt: { gt: new Date() },
+        courseAssignment: { partnerId },
+      },
+      orderBy: { createdAt: "desc" },
+      include: { courseAssignment: { include: { course: { select: { title: true } } } } },
+    });
+  }
+
   findInvitationById(inviteId: string) {
     return this.prisma.deliveryPartnerInvitation.findUnique({ where: { id: inviteId } });
   }
@@ -468,6 +462,17 @@ export class DeliveryPartnerRepository {
     return this.prisma.deliveryPartnerMember.findMany({
       where: { courseAssignmentId },
       orderBy: { joinedAt: "desc" },
+    });
+  }
+
+  /** Same shape as findMembersForAssignment, but across every course
+   *  assignment the partner holds — powers the partner-wide "direct invites"
+   *  list instead of the per-course dialog. */
+  findMembersForPartner(partnerId: string) {
+    return this.prisma.deliveryPartnerMember.findMany({
+      where: { courseAssignment: { partnerId } },
+      orderBy: { joinedAt: "desc" },
+      include: { courseAssignment: { include: { course: { select: { title: true } } } } },
     });
   }
 

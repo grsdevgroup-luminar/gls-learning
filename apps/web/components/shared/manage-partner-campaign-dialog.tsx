@@ -13,14 +13,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Megaphone, Copy, PauseCircle, Trash2, Percent, Search, Plus, Pencil, X,
+  Megaphone, Copy, PauseCircle, Trash2, Percent, Search, Plus, Pencil, Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,9 +32,6 @@ const statusStyle: Record<PartnerCampaignStatus, { label: string; className: str
   expired: { label: "Expired", className: "text-muted-foreground" },
   "limit-reached": { label: "Limit reached", className: "text-warning" },
 };
-
-const STATUS_FILTERS = ["all", "active", "scheduled", "limit-reached", "expired", "disabled"] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -55,10 +53,12 @@ const emptyForm = (): FormState => ({
 
 /**
  * Admin-only: create, edit, and manage every discount + commission campaign
- * a delivery partner holds — a partner can run several at once (the server's
- * only rule is no two *active* campaigns with overlapping dates), so this
- * lists all of them with search/status filtering rather than showing a
- * single "current" slot.
+ * a delivery partner holds — a partner can run any number at once, including
+ * several active ones with overlapping dates (each is redeemed by its own
+ * distinct code, so there's no ambiguity at checkout), so this lists all of
+ * them with search/status filtering rather than showing a single "current"
+ * slot. Mirrors ManagePartnerCoursesDialog's wide, two-column layout: a
+ * browsable list on the left, a persistent create/edit panel on the right.
  */
 export function ManagePartnerCampaignDialog({
   partnerId,
@@ -70,8 +70,7 @@ export function ManagePartnerCampaignDialog({
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [formOpen, setFormOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<PartnerCampaignStatus | "all">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
 
@@ -85,16 +84,9 @@ export function ManagePartnerCampaignDialog({
     void qc.invalidateQueries({ queryKey: ["admin", "delivery-partners", partnerId, "campaigns"] });
   };
 
-  const closeForm = () => {
-    setFormOpen(false);
+  const resetToCreate = () => {
     setEditingId(null);
     setForm(emptyForm());
-  };
-
-  const startCreate = () => {
-    setEditingId(null);
-    setForm(emptyForm());
-    setFormOpen(true);
   };
 
   const startEdit = (c: DeliveryPartnerCampaignDto) => {
@@ -106,7 +98,6 @@ export function ManagePartnerCampaignDialog({
       endDate: c.endDate.slice(0, 10),
       active: c.active,
     });
-    setFormOpen(true);
   };
 
   const createMutation = useMutation({
@@ -119,7 +110,7 @@ export function ManagePartnerCampaignDialog({
       }),
     onSuccess: (c) => {
       toast.success(`Campaign created — code ${c.code}`);
-      closeForm();
+      resetToCreate();
       invalidate();
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -136,7 +127,7 @@ export function ManagePartnerCampaignDialog({
       }),
     onSuccess: () => {
       toast.success("Campaign updated");
-      closeForm();
+      resetToCreate();
       invalidate();
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -181,32 +172,148 @@ export function ManagePartnerCampaignDialog({
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (!v) { setSearch(""); setStatusFilter("all"); closeForm(); }
+        if (!v) { setSearch(""); setStatusFilter("all"); resetToCreate(); }
       }}
     >
       <DialogTrigger render={<Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" />}>
         <Megaphone className="h-3 w-3" /> Campaigns
       </DialogTrigger>
-      <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] flex-col sm:w-[min(720px,calc(100vw-3rem))]">
+      <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] w-[calc(100vw-2rem)] !max-w-none flex-col sm:w-[min(680px,calc(100vw-3rem))] sm:min-w-[560px] lg:w-[min(1080px,calc(100vw-4rem))] lg:min-w-[900px]">
         <DialogHeader>
-          <DialogTitle>{partnerName} — campaigns</DialogTitle>
-          <DialogDescription>
-            Time-boxed discount codes, applicable to every course. Buyers apply one at checkout instead of a coupon;{" "}
-            {partnerName} earns their usual commission on the discounted total. A partner can hold several campaigns
-            at once, as long as no two active ones overlap in date.
-          </DialogDescription>
+          <div className="flex items-center gap-1.5">
+            <DialogTitle>{partnerName} — campaigns</DialogTitle>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+                    aria-label="About campaigns"
+                  />
+                }
+              >
+                <Info className="h-4 w-4" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-left leading-relaxed" side="bottom" align="start">
+                Time-boxed discount codes, applicable to every course. Buyers apply one at checkout instead of a
+                coupon; {partnerName} earns their usual commission on the discounted total. A partner can hold any
+                number of campaigns at once, even with overlapping dates — each has its own code, so buyers just use
+                the one they were given.
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
-          {formOpen ? (
-            <div className="space-y-3 rounded-lg border p-4">
+        <div className="-mx-1 min-h-0 flex-1 overflow-auto px-1 lg:overflow-hidden">
+          <div className="space-y-5 lg:grid lg:h-full lg:grid-cols-[1fr_300px] lg:gap-6 lg:space-y-0">
+            <section className="lg:flex lg:min-h-0 lg:flex-col">
+              <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by code…"
+                    className="search-input h-8 border-input bg-background pl-8 text-sm focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v as PartnerCampaignStatus | "all")}>
+                  <SelectTrigger className="h-8 w-full sm:w-40"><SelectValue /></SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {(["active", "scheduled", "limit-reached", "expired", "disabled"] as const).map((s) => (
+                      <SelectItem key={s} value={s}>{statusStyle[s].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)
+                ) : all.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed py-10 text-center">
+                    <Megaphone className="h-6 w-6 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No campaigns yet — create one on the right.</p>
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">No campaigns match this search/filter.</p>
+                ) : (
+                  filtered.map((c) => (
+                    <div key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border p-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-sm font-semibold">{c.code}</span>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Copy code"
+                          onClick={() => { navigator.clipboard?.writeText(c.code); toast.success("Code copied"); }}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <Badge variant="outline" className={statusStyle[c.status].className}>
+                        {statusStyle[c.status].label}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-sm font-semibold">
+                        <Percent className="h-3.5 w-3.5 text-primary" /> {c.discountPercent}%
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {c.startDate.slice(0, 10)} → {c.endDate.slice(0, 10)}
+                      </span>
+                      {c.usageLimit > 0 && (
+                        <div className="flex min-w-[140px] flex-1 items-center gap-2">
+                          <Meter value={(c.usageCount / c.usageLimit) * 100} height={6} className="flex-1" />
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {c.usageCount.toLocaleString()}/{c.usageLimit.toLocaleString()} seats
+                          </span>
+                        </div>
+                      )}
+                      <div className="ml-auto flex items-center gap-1.5">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(c)}>
+                          <Pencil className="h-3 w-3" /> Edit
+                        </Button>
+                        {c.active && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={deactivateMutation.isPending}
+                            onClick={() => deactivateMutation.mutate(c.id)}
+                          >
+                            <PauseCircle className="h-3 w-3" /> Deactivate
+                          </Button>
+                        )}
+                        {c.usageCount === 0 && (
+                          <ConfirmDialog
+                            trigger={
+                              <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                                <Trash2 className="h-3 w-3" /> Delete
+                              </Button>
+                            }
+                            title={`Delete campaign "${c.code}"?`}
+                            description="This can't be undone."
+                            pending={deleteMutation.isPending}
+                            onConfirm={() => deleteMutation.mutate(c.id)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-3 border-t pt-4 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {editingId ? "Edit campaign" : "New campaign"}
                 </p>
-                <Button size="icon-sm" variant="ghost" aria-label="Cancel" onClick={closeForm}>
-                  <X className="h-4 w-4" />
-                </Button>
+                {editingId && (
+                  <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" onClick={resetToCreate}>
+                    <Plus className="h-3 w-3" /> New
+                  </Button>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -218,7 +325,7 @@ export function ManagePartnerCampaignDialog({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Seat cap</Label>
+                  <Label>Seat</Label>
                   <Input
                     value={form.usageLimit}
                     onChange={(e) => setForm((p) => ({ ...p, usageLimit: e.target.value }))}
@@ -257,107 +364,7 @@ export function ManagePartnerCampaignDialog({
               <Button className="w-full" disabled={saving} onClick={submitForm}>
                 <Megaphone className="h-4 w-4" /> {editingId ? "Save changes" : "Create campaign"}
               </Button>
-            </div>
-          ) : (
-            <Button variant="outline" className="w-full" onClick={startCreate}>
-              <Plus className="h-4 w-4" /> New campaign
-            </Button>
-          )}
-
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by code…"
-                className="search-input h-8 border-input bg-background pl-8 text-sm focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v as StatusFilter)}>
-              <SelectTrigger className="h-8 w-full sm:w-40"><SelectValue /></SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectItem value="all">All statuses</SelectItem>
-                {(["active", "scheduled", "limit-reached", "expired", "disabled"] as const).map((s) => (
-                  <SelectItem key={s} value={s}>{statusStyle[s].label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
-            ) : all.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No campaigns yet.</p>
-            ) : filtered.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No campaigns match this search/filter.</p>
-            ) : (
-              filtered.map((c) => (
-                <div key={c.id} className="space-y-2 rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-sm font-semibold">{c.code}</span>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label="Copy code"
-                        onClick={() => { navigator.clipboard?.writeText(c.code); toast.success("Code copied"); }}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <Badge variant="outline" className={statusStyle[c.status].className}>
-                      {statusStyle[c.status].label}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-lg font-bold">
-                    <Percent className="h-4 w-4 text-primary" /> {c.discountPercent}%
-                    <span className="text-xs font-normal text-muted-foreground">
-                      off · {c.startDate.slice(0, 10)} → {c.endDate.slice(0, 10)}
-                    </span>
-                  </div>
-                  {c.usageLimit > 0 && (
-                    <div>
-                      <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>{c.usageCount.toLocaleString()} / {c.usageLimit.toLocaleString()} seats used</span>
-                        <span>{Math.round((c.usageCount / c.usageLimit) * 100)}%</span>
-                      </div>
-                      <Meter value={(c.usageCount / c.usageLimit) * 100} height={6} />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(c)}>
-                      <Pencil className="h-3 w-3" /> Edit
-                    </Button>
-                    {c.active && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        disabled={deactivateMutation.isPending}
-                        onClick={() => deactivateMutation.mutate(c.id)}
-                      >
-                        <PauseCircle className="h-3 w-3" /> Deactivate
-                      </Button>
-                    )}
-                    {c.usageCount === 0 && (
-                      <ConfirmDialog
-                        trigger={
-                          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
-                            <Trash2 className="h-3 w-3" /> Delete
-                          </Button>
-                        }
-                        title={`Delete campaign "${c.code}"?`}
-                        description="This can't be undone."
-                        pending={deleteMutation.isPending}
-                        onConfirm={() => deleteMutation.mutate(c.id)}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
+            </section>
           </div>
         </div>
       </DialogContent>

@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 const items: NavItem[] = [
   { href: "/delivery-partner", label: "Overview", icon: "LayoutDashboard", exact: true },
   { href: "/delivery-partner/courses", label: "Courses", icon: "BookOpen" },
-  { href: "/delivery-partner/referrals", label: "Referrals", icon: "Link2" },
+  { href: "/delivery-partner/campaigns", label: "Campaigns", icon: "Megaphone" },
+  { href: "/delivery-partner/referrals", label: "Members", icon: "Users" },
   { href: "/delivery-partner/earnings", label: "Earnings", icon: "DollarSign" },
   { href: "/delivery-partner/profile", label: "Profile", icon: "UserCog" },
 ];

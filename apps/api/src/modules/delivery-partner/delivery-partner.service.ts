@@ -276,6 +276,7 @@ export class DeliveryPartnerService {
       commissionCents: r.commissionCents,
       reversedCents: r.reversedCents,
       status: r.status,
+      campaignCode: r.order.campaignCode,
       createdAt: r.createdAt.toISOString(),
     }));
   }
@@ -289,6 +290,40 @@ export class DeliveryPartnerService {
     const partner = await this.repo.findPartnerByUserId(user.id);
     if (!partner || partner.status !== "APPROVED") return [];
     return this.listCourseAssignments(partner.id);
+  }
+
+  /** Every direct-invite member across all of the partner's course
+   *  assignments — the partner-wide counterpart to listMembers (which is
+   *  scoped to one courseAssignmentId at a time for the per-course dialog). */
+  async myMembers(user: RequestUser): Promise<DeliveryPartnerMemberDto[]> {
+    const partner = await this.repo.findPartnerByUserId(user.id);
+    if (!partner || partner.status !== "APPROVED") return [];
+    const rows = await this.repo.findMembersForPartner(partner.id);
+    return rows.map((r) => ({
+      id: r.id,
+      courseAssignmentId: r.courseAssignmentId,
+      userId: r.userId,
+      name: r.name,
+      email: r.email,
+      joinedAt: r.joinedAt.toISOString(),
+      courseTitle: r.courseAssignment.course.title,
+    }));
+  }
+
+  /** Every pending direct invite across all of the partner's course
+   *  assignments — the partner-wide counterpart to listInvitations. */
+  async myInvitations(user: RequestUser): Promise<DeliveryPartnerInvitationDto[]> {
+    const partner = await this.repo.findPartnerByUserId(user.id);
+    if (!partner || partner.status !== "APPROVED") return [];
+    const rows = await this.repo.findInvitationsForPartner(partner.id);
+    return rows.map((r) => ({
+      id: r.id,
+      courseAssignmentId: r.courseAssignmentId,
+      email: r.email,
+      expiresAt: r.expiresAt.toISOString(),
+      createdAt: r.createdAt.toISOString(),
+      courseTitle: r.courseAssignment.course.title,
+    }));
   }
 
   /** Confirms the caller actually owns this course assignment before letting
@@ -340,6 +375,7 @@ export class DeliveryPartnerService {
       email: invitation.email,
       expiresAt: invitation.expiresAt.toISOString(),
       createdAt: invitation.createdAt.toISOString(),
+      courseTitle: assignment.course.title,
     };
   }
 
@@ -347,7 +383,7 @@ export class DeliveryPartnerService {
     user: RequestUser,
     courseAssignmentId: string,
   ): Promise<DeliveryPartnerInvitationDto[]> {
-    await this.assertOwnAssignment(user, courseAssignmentId);
+    const { assignment } = await this.assertOwnAssignment(user, courseAssignmentId);
     const rows = await this.repo.findActiveInvitationsForAssignment(courseAssignmentId);
     return rows.map((r) => ({
       id: r.id,
@@ -355,6 +391,7 @@ export class DeliveryPartnerService {
       email: r.email,
       expiresAt: r.expiresAt.toISOString(),
       createdAt: r.createdAt.toISOString(),
+      courseTitle: assignment.course.title,
     }));
   }
 
@@ -362,7 +399,7 @@ export class DeliveryPartnerService {
     user: RequestUser,
     courseAssignmentId: string,
   ): Promise<DeliveryPartnerMemberDto[]> {
-    await this.assertOwnAssignment(user, courseAssignmentId);
+    const { assignment } = await this.assertOwnAssignment(user, courseAssignmentId);
     const rows = await this.repo.findMembersForAssignment(courseAssignmentId);
     return rows.map((r) => ({
       id: r.id,
@@ -371,6 +408,7 @@ export class DeliveryPartnerService {
       name: r.name,
       email: r.email,
       joinedAt: r.joinedAt.toISOString(),
+      courseTitle: assignment.course.title,
     }));
   }
 
@@ -678,10 +716,11 @@ export class DeliveryPartnerService {
   }
 
   // ── campaigns (admin-created; discount + commission at checkout) ─────────
-  /** Admin-only: creates a new campaign for an approved partner. At most one
-   *  ACTIVE campaign with an overlapping date range is allowed per partner
-   *  at a time — a business invariant enforced here rather than in the DB,
-   *  since it's date-range shaped, not a simple uniqueness constraint. */
+  /** Admin-only: creates a new campaign for an approved partner. A partner
+   *  may hold any number of campaigns, including several active ones with
+   *  overlapping or identical date ranges — each is redeemed by its own
+   *  distinct code, so there's no ambiguity at checkout regardless of how
+   *  many are live at once. */
   async createCampaign(
     partnerId: string,
     input: CreatePartnerCampaignInput,
@@ -690,16 +729,6 @@ export class DeliveryPartnerService {
     if (!partner) throw new NotFoundException("Delivery partner not found");
     if (partner.status !== "APPROVED") {
       throw new BadRequestException("Only an approved partner can have a campaign");
-    }
-    const overlap = await this.repo.findOverlappingActiveCampaign(
-      partnerId,
-      input.startDate,
-      input.endDate,
-    );
-    if (overlap) {
-      throw new BadRequestException(
-        "This partner already has an active campaign covering part of this date range",
-      );
     }
     const row = await this.repo.createCampaign(partnerId, this.generateCampaignCode(), {
       discountPercent: input.discountPercent,
@@ -723,20 +752,6 @@ export class DeliveryPartnerService {
     const campaign = await this.repo.findCampaignById(campaignId);
     if (!campaign || campaign.partnerId !== partnerId) {
       throw new NotFoundException("Campaign not found");
-    }
-    const nextActive = input.active ?? campaign.active;
-    if (nextActive) {
-      const overlap = await this.repo.findOverlappingActiveCampaign(
-        partnerId,
-        input.startDate ?? campaign.startDate,
-        input.endDate ?? campaign.endDate,
-        campaignId,
-      );
-      if (overlap) {
-        throw new BadRequestException(
-          "This partner already has an active campaign covering part of this date range",
-        );
-      }
     }
     const row = await this.repo.updateCampaign(campaignId, {
       discountPercent: input.discountPercent,

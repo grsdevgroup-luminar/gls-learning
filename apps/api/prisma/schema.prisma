@@ -1017,9 +1017,9 @@ model DeliveryPartnerReferral {
 /// delivery partner attributes and discounts an order (see
 /// DeliveryPartnerService.resolveCampaign). Discount + commission (on the
 /// discounted total, via DeliveryPartnerReferral) both resolve through this
-/// row. Only one campaign may be `active` with an overlapping date range per
-/// partner at a time — enforced in the service layer, not the DB, since it's
-/// a date-range invariant.
+/// row. A partner may hold any number of campaigns at once, including
+/// several active ones with overlapping or identical date ranges — each is
+/// redeemed by its own distinct `code`, so there's no ambiguity at checkout.
 model DeliveryPartnerCampaign {
   id              String          @id @default(cuid())
   partnerId       String

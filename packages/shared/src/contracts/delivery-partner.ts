@@ -119,6 +119,9 @@ export const DeliveryPartnerReferralDto = z.object({
   // order (or part of it) was refunded after this commission was earned.
   reversedCents: z.number(),
   status: z.nativeEnum(ReferralStatus),
+  // The campaign code the buyer checked out with — every referral has one,
+  // it's nullable only because the underlying Order column is.
+  campaignCode: z.string().nullable(),
   createdAt: z.string(),
 });
 export type DeliveryPartnerReferralDto = z.infer<typeof DeliveryPartnerReferralDto>;
@@ -189,6 +192,9 @@ export interface DeliveryPartnerMemberDto {
   name: string;
   email: string;
   joinedAt: string;
+  /** The assignment's course title — denormalized so a partner-wide member
+   *  list (spanning every course assignment) doesn't need a second lookup. */
+  courseTitle: string;
 }
 
 export interface DeliveryPartnerInvitationDto {
@@ -197,6 +203,7 @@ export interface DeliveryPartnerInvitationDto {
   email: string;
   expiresAt: string;
   createdAt: string;
+  courseTitle: string;
 }
 
 /** Public preview shown at the claim link before the visitor signs in. */
