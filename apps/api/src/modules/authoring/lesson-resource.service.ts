@@ -112,7 +112,10 @@ export class LessonResourceService {
     const lesson = await this.assertLessonAccess(lessonId, user);
     if (lesson.type !== "VIDEO") throw new BadRequestException("PowerPoint slides can only be attached to video lessons");
     const prior = await this.repo.findLessonPptx(lessonId);
-    if (!prior?.pptxStorageKey) throw new NotFoundException("PowerPoint not found");
+    // DELETE is intentionally idempotent: the client may be clearing a draft
+    // flag for a lesson that never had a server-side PPTX, or racing another
+    // successful removal. Access and lesson-type checks above still apply.
+    if (!prior?.pptxStorageKey) return { ok: true };
     await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: null, pptxName: null, pptxSizeLabel: null, pptxDurationSec: 0 });
     await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
     return { ok: true };

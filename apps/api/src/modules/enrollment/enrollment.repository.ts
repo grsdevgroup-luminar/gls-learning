@@ -14,6 +14,7 @@ export const ENROLLMENT_INCLUDE = {
       lessonId: true,
       completed: true,
       pptxCompleted: true,
+      completedAt: true,
       lesson: { select: { durationSec: true, pptxDurationSec: true } },
     },
   },
@@ -271,7 +272,10 @@ export class EnrollmentRepository {
   setPptxCompleted(enrollmentId: string, lessonId: string, completed: boolean) {
     return this.prisma.lessonProgress.upsert({
       where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
-      update: { pptxCompleted: completed },
+      update: {
+        pptxCompleted: completed,
+        ...(completed ? { completedAt: new Date() } : {}),
+      },
       create: { enrollmentId, lessonId, completed: false, pptxCompleted: completed },
       select: { pptxCompleted: true },
     });

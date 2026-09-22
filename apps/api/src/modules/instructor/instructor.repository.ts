@@ -102,6 +102,12 @@ export class InstructorRepository {
     });
   }
 
+  findPublishedCourseStatsByInstructorIds(instructorIds: string[]) {
+    return this.prisma.course.findMany({
+      where: { instructorId: { in: instructorIds }, status: "PUBLISHED" },
+      select: { instructorId: true, studentCount: true, ratingAvg: true, reviewCount: true, ratingWeightedCount: true },
+    });
+  }
   findApprovedProfileByUserId(userId: string) {
     return this.prisma.user.findFirst({
       where: { id: userId, instructorProfile: { status: InstructorStatus.APPROVED } },

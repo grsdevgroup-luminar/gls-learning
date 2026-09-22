@@ -61,6 +61,8 @@ export class CheckoutService {
     // Mutually exclusive by design (only one discount code applies at a
     // time) — the storefront UI makes this state unreachable, but a client
     // bug shouldn't silently mis-price an order, so it's rejected here too.
+    if (userId) await this.assertCanPurchase(userId, input.courseIds);
+
     if (input.couponCode && input.campaignCode) {
       throw new BadRequestException(
         "Only one code — a coupon or a partner referral code — can be applied at a time",
@@ -131,6 +133,13 @@ export class CheckoutService {
     };
   }
 
+  private async assertCanPurchase(userId: string, courseIds: string[]): Promise<void> {
+    const courses = await this.repo.findPublishedCourseOwnersByIds([...new Set(courseIds)]);
+    if (courses.some((course) => course.instructorId === userId)) {
+      throw new ForbiddenException("Instructors cannot purchase their own courses");
+    }
+  }
+
   /** Admin gateway kill-switch (PlatformSettings). Enforced here, server-side —
    *  the storefront hiding a button is not a control. */
   private async assertGatewayEnabled(
@@ -164,6 +173,9 @@ export class CheckoutService {
     idempotencyKey?: string,
   ): Promise<CheckoutSessionDto> {
     await this.assertGatewayEnabled(input.gateway);
+    // Enforce ownership rules before idempotency replay so an old order cannot
+    // bypass the current business rule through a repeated request.
+    await this.assertCanPurchase(userId, input.courseIds);
 
     // Idempotency: replayed requests with the same key resolve to the same
     // Order, and — if we already spun up a gateway session — the same redirect

@@ -86,6 +86,7 @@ interface BLesson {
   resources: LessonResourceDto[];
   pendingResourceFiles: File[];
   pptxName: string | null;
+  hasServerPptx: boolean;
   pptxDurationSec: number;
   pendingPptxFile: File | null;
   removePptx: boolean;
@@ -162,6 +163,7 @@ function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       resources: l.resources ?? [],
       pendingResourceFiles: [],
       pptxName: l.pptx?.name ?? null,
+      hasServerPptx: !!l.pptx,
       pptxDurationSec: l.pptx?.durationSec ?? 0,
       pendingPptxFile: null,
       removePptx: false,
@@ -332,7 +334,7 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], pendingResourceFiles: [], pptxName: null, pptxDurationSec: 0, pendingPptxFile: null, removePptx: false, durationSec: 0, type: "video" as const }] } : x)));
+    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], pendingResourceFiles: [], pptxName: null, hasServerPptx: false, pptxDurationSec: 0, pendingPptxFile: null, removePptx: false, durationSec: 0, type: "video" as const }] } : x)));
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
     setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
@@ -522,7 +524,10 @@ export function CourseBuilder({
           }
           lessonServerIds.set(l.id, lessonServerId);
 
-          if (l.removePptx && !l.pendingPptxFile && !isTemp(lessonServerId)) await authoringApi.deleteLessonPptx(lessonServerId);
+          // A remove flag can be set for a brand-new lesson that never had a
+          // server attachment. Only delete when the loaded server state proves
+          // that an asset existed; the API is idempotent as a race-safe fallback.
+          if (l.removePptx && !l.pendingPptxFile && l.hasServerPptx && !isTemp(lessonServerId)) await authoringApi.deleteLessonPptx(lessonServerId);
           if (l.pendingPptxFile && !isTemp(lessonServerId)) await authoringApi.uploadLessonPptx(lessonServerId, l.pendingPptxFile, l.pptxDurationSec);
           for (const file of l.pendingResourceFiles) {
             await authoringApi.uploadLessonResource(lessonServerId, file);

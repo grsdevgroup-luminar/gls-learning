@@ -212,16 +212,15 @@ export class ReviewsService {
 
   /** Recompute denormalized course rating from APPROVED reviews. */
   private async recompute(courseId: string): Promise<void> {
-    const rows = await this.repo.aggregateApprovedForCourse(courseId);
-    const weightedCount = rows.reduce((sum, row) => sum + row.ratingWeight, 0);
-    const weightedSum = rows.reduce((sum, row) => sum + row.rating * row.ratingWeight, 0);
-    const completedReviewCount = rows.filter((row) => row.ratingStage === "COMPLETED").length;
+    const [aggregate] = await this.repo.aggregateApprovedForCourse(courseId);
+    const weightedCount = aggregate?.weightedCount ?? 0;
+    const weightedSum = aggregate?.weightedSum ?? 0;
     await this.repo.updateCourseRating(
       courseId,
       weightedCount > 0 ? weightedSum / weightedCount : 0,
-      rows.length,
+      aggregate?.reviewCount ?? 0,
       weightedCount,
-      completedReviewCount,
+      aggregate?.completedReviewCount ?? 0,
     );
   }
 }

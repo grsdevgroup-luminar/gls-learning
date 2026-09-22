@@ -142,10 +142,20 @@ export class ReviewsRepository {
   }
 
   aggregateApprovedForCourse(courseId: string) {
-    return this.prisma.review.findMany({
-      where: { courseId, status: "APPROVED" },
-      select: { rating: true, ratingWeight: true, ratingStage: true },
-    });
+    return this.prisma.$queryRaw<Array<{
+      weightedSum: number;
+      weightedCount: number;
+      reviewCount: number;
+      completedReviewCount: number;
+    }>>`
+      SELECT
+        COALESCE(SUM("rating" * "ratingWeight"), 0)::double precision AS "weightedSum",
+        COALESCE(SUM("ratingWeight"), 0)::double precision AS "weightedCount",
+        COUNT(*)::integer AS "reviewCount",
+        COUNT(*) FILTER (WHERE "ratingStage" = 'COMPLETED')::integer AS "completedReviewCount"
+      FROM "Review"
+      WHERE "courseId" = ${courseId} AND "status" = 'APPROVED'
+    `;
   }
 
   updateCourseRating(courseId: string, ratingAvg: number, reviewCount: number, ratingWeightedCount: number, completedReviewCount: number) {

@@ -90,7 +90,10 @@ export class EnrollmentService {
     // Lifetime credit: any lesson that has ever been completed, including
     // ones later unchecked. Progress % still uses currently-complete only.
     const timeLearnedSec = row.lessonProgress.reduce(
-      (sum, p) => sum + (p.completed ? p.lesson.durationSec : 0) + (p.pptxCompleted ? p.lesson.pptxDurationSec : 0),
+      // completedAt is retained when a lesson is unchecked, so lifetime
+      // learning credit must use the retained progress row rather than the
+      // current completion toggle.
+      (sum, p) => sum + (p.completedAt ? p.lesson.durationSec : 0) + (p.pptxCompleted ? p.lesson.pptxDurationSec : 0),
       0,
     );
     return {

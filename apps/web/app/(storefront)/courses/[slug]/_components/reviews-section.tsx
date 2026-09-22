@@ -42,7 +42,8 @@ export function ReviewsSection({
     myReview?.status === "APPROVED"
       ? [
           {
-            id: myReview.id ?? "mine",
+            // Synthetic key prevents a collision with the same review in the public list.
+            id: "mine:" + (myReview.id ?? course.id),
             courseId: course.id,
             courseTitle: course.title,
             author: user?.name ?? "You",
@@ -106,7 +107,7 @@ export function ReviewsSection({
                   {r.ratingStage === "STARTED" && (
                     <Badge variant="outline" className="text-[10px]">Early learner</Badge>
                   )}
-                  {r.id === "mine" && (
+                  {r.id.startsWith("mine:") && (
                     <Badge variant="secondary" className="text-[10px]">You</Badge>
                   )}
                 </div>

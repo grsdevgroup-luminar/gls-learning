@@ -186,8 +186,23 @@ export class InstructorService {
   /** Approved instructors, best-rated first — powers the public roster. */
   async roster(): Promise<InstructorRosterDto[]> {
     const rows = await this.repo.findApprovedInstructorsRoster();
-    const mapped = await Promise.all(rows.map(async (u) => {
-      const live = await this.repo.computeInstructorStats(u.id);
+    const courses = await this.repo.findPublishedCourseStatsByInstructorIds(rows.map((u) => u.id));
+    const stats = new Map<string, { studentCount: number; ratingSum: number; weight: number }>();
+    for (const course of courses) {
+      const current = stats.get(course.instructorId) ?? { studentCount: 0, ratingSum: 0, weight: 0 };
+      const weight = course.ratingWeightedCount > 0 ? course.ratingWeightedCount : course.reviewCount;
+      stats.set(course.instructorId, {
+        studentCount: current.studentCount + course.studentCount,
+        ratingSum: current.ratingSum + course.ratingAvg * weight,
+        weight: current.weight + weight,
+      });
+    }
+    const mapped = rows.map((u) => {
+      const aggregate = stats.get(u.id);
+      const live = {
+        studentCount: aggregate?.studentCount ?? 0,
+        ratingAvg: aggregate && aggregate.weight > 0 ? aggregate.ratingSum / aggregate.weight : 0,
+      };
       return {
         id: u.id,
         name: u.name,
@@ -198,7 +213,7 @@ export class InstructorService {
         studentCount: live.studentCount,
         courseCount: u.instructorProfile?.courseCount ?? 0,
       };
-    }));
+    });
     return mapped.sort((a, b) => b.ratingAvg - a.ratingAvg);
   }
   async publicProfile(id: string): Promise<InstructorPublicProfileDto> {
