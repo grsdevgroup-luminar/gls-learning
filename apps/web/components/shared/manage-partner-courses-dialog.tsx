@@ -8,6 +8,8 @@ import { useCategories } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { CourseArt } from "@/components/shared/course-art";
+import { UnlimitedNumberInput } from "@/components/shared/unlimited-number-input";
+import { CourseVisibilityIcon } from "@/components/shared/course-visibility-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,10 +19,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { AdminPagination } from "@/app/admin/_components/admin-pagination";
 import { BulkAssignConfirmDialog } from "@/components/shared/bulk-assign-confirm-dialog";
-import { BookOpenCheck, Plus, Search, X, BookOpen, Lock, Globe, Layers, Users } from "lucide-react";
+import { BookOpenCheck, Plus, Search, X, BookOpen, Layers, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const ALL_CATEGORIES = "ALL";
@@ -202,7 +203,7 @@ export function ManagePartnerCoursesDialog({
             <DialogTitle>{partnerName} — courses</DialogTitle>
             <DialogDescription>
               Assign or remove the courses this delivery partner can redistribute — each assignment sets how many
-              members that partner can invite to it (0 = unlimited).
+              members that partner can invite to it. Click the ∞ button for no cap.
             </DialogDescription>
           </DialogHeader>
 
@@ -221,21 +222,18 @@ export function ManagePartnerCoursesDialog({
                     assigned.map((a) => (
                       <div key={a.id} className="flex items-center gap-3 rounded-lg border p-2">
                         <CourseArt seed={a.course.thumbnail} title={a.course.title} className="h-8 w-8 shrink-0 rounded-md" />
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1" title={a.course.title}>
                           <div className="truncate text-sm">{a.course.title}</div>
                           <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                            <Users className="h-3 w-3" />
+                            <Users className="h-3 w-3 shrink-0" />
                             {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap} members` : `${a.usedSeats} members (unlimited)`}
                           </div>
                         </div>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={1000}
-                          placeholder="0 = unlimited"
-                          className="h-7 w-16 shrink-0 text-sm"
-                          value={capInputs[a.course.id] ?? a.memberCap}
-                          onChange={(e) => setCapInputs((p) => ({ ...p, [a.course.id]: e.target.value }))}
+                        <UnlimitedNumberInput
+                          aria-label="Member cap"
+                          inputClassName="h-7 w-20 shrink-0 text-sm"
+                          value={capInputs[a.course.id] ?? String(a.memberCap)}
+                          onChange={(v) => setCapInputs((p) => ({ ...p, [a.course.id]: v }))}
                         />
                         {capInputs[a.course.id] !== undefined && (
                           <Button
@@ -315,39 +313,28 @@ export function ManagePartnerCoursesDialog({
                     available.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
                         <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1" title={`${c.title} — ${c.category} · ${c.level}`}>
                           <div className="truncate text-sm">{c.title}</div>
                           <div className="truncate text-xs text-muted-foreground">{c.category} · {c.level}</div>
                         </div>
-                        {c.visibility === "PRIVATE" ? (
-                          <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
-                            <Lock data-icon="inline-start" /> Private
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                            <Globe data-icon="inline-start" /> Public
-                          </Badge>
-                        )}
-                        <Input
-                          type="number"
-                          min={0}
-                          max={1000}
-                          placeholder="0 = unlimited"
+                        <CourseVisibilityIcon visibility={c.visibility} />
+                        <UnlimitedNumberInput
                           aria-label="Member cap"
-                          className="h-8 w-20 shrink-0 text-sm"
-                          value={assignCapInputs[c.id] ?? DEFAULT_MEMBER_CAP}
-                          onChange={(e) => setAssignCapInputs((p) => ({ ...p, [c.id]: e.target.value }))}
+                          inputClassName="h-8 w-20 shrink-0 text-sm"
+                          value={assignCapInputs[c.id] ?? String(DEFAULT_MEMBER_CAP)}
+                          onChange={(v) => setAssignCapInputs((p) => ({ ...p, [c.id]: v }))}
                         />
                         <Button
-                          size="sm"
+                          size="icon-sm"
                           variant="outline"
+                          aria-label="Add course"
                           onClick={() => assignMutation.mutate({
                             courseId: c.id,
                             memberCap: Number(assignCapInputs[c.id] ?? DEFAULT_MEMBER_CAP),
                           })}
                           disabled={assignMutation.isPending}
                         >
-                          <Plus className="h-4 w-4" /> Add
+                          <Plus className="h-4 w-4" />
                         </Button>
                       </div>
                     ))

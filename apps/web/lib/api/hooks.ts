@@ -22,6 +22,7 @@ import type {
 } from "@skillstream/shared";
 import { api } from "./endpoints";
 import { cleanParams, qk } from "./query-keys";
+import { useSession } from "./session";
 
 // Re-exported for existing importers — the canonical definition lives in
 // query-keys.ts (no "use client") so Server Components can also use it when
@@ -188,23 +189,28 @@ export const useMyCreditHistory = (params: { page: number; pageSize: number }) =
 // ── notifications ───────────────────────────────────────────────────────────
 /** Ambient bell badge — cheap endpoint, polled slowly forever. Not "instant";
  *  see the checkout success page for the one screen that needs that instead. */
-export const useUnreadNotificationCount = () =>
-  useQuery({
+export const useUnreadNotificationCount = () => {
+  const { isAuthenticated } = useSession();
+  return useQuery({
     queryKey: qk.unreadNotificationCount,
     queryFn: api.unreadNotificationCount,
     refetchInterval: 25_000,
+    enabled: isAuthenticated,
   });
+};
 
 export const useNotifications = (
   params: { page: number; pageSize: number },
   enabled = true,
-) =>
-  useQuery({
+) => {
+  const { isAuthenticated } = useSession();
+  return useQuery({
     queryKey: qk.notifications(params),
     queryFn: () => api.myNotifications(params),
-    enabled,
+    enabled: enabled && isAuthenticated,
     placeholderData: (prev) => prev,
   });
+};
 
 export function useMarkNotificationRead() {
   const qc = useQueryClient();

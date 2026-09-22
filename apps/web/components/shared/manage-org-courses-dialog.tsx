@@ -8,6 +8,7 @@ import { useCategories } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { CourseArt } from "@/components/shared/course-art";
+import { CourseVisibilityIcon } from "@/components/shared/course-visibility-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,10 +18,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { AdminPagination } from "@/app/admin/_components/admin-pagination";
 import { BulkAssignConfirmDialog } from "@/components/shared/bulk-assign-confirm-dialog";
-import { BookOpenCheck, Plus, Search, X, BookOpen, Lock, Globe, Layers } from "lucide-react";
+import { BookOpenCheck, Plus, Search, X, BookOpen, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 const ALL_CATEGORIES = "ALL";
@@ -208,16 +208,8 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                     assigned.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
                         <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
-                        <div className="min-w-0 flex-1 truncate text-sm">{c.title}</div>
-                        {c.visibility === "PRIVATE" ? (
-                          <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
-                            <Lock data-icon="inline-start" /> Private
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                            <Globe data-icon="inline-start" /> Public
-                          </Badge>
-                        )}
+                        <div className="min-w-0 flex-1 truncate text-sm" title={c.title}>{c.title}</div>
+                        <CourseVisibilityIcon visibility={c.visibility} />
                         <Button
                           size="icon-sm"
                           variant="ghost"
@@ -290,26 +282,19 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                     available.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
                         <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1" title={`${c.title} — ${c.category} · ${c.level}`}>
                           <div className="truncate text-sm">{c.title}</div>
                           <div className="truncate text-xs text-muted-foreground">{c.category} · {c.level}</div>
                         </div>
-                        {c.visibility === "PRIVATE" ? (
-                          <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
-                            <Lock data-icon="inline-start" /> Private
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                            <Globe data-icon="inline-start" /> Public
-                          </Badge>
-                        )}
+                        <CourseVisibilityIcon visibility={c.visibility} />
                         <Button
-                          size="sm"
+                          size="icon-sm"
                           variant="outline"
+                          aria-label="Add course"
                           onClick={() => assignMutation.mutate(c.id)}
                           disabled={assignMutation.isPending}
                         >
-                          <Plus className="h-4 w-4" /> Add
+                          <Plus className="h-4 w-4" />
                         </Button>
                       </div>
                     ))

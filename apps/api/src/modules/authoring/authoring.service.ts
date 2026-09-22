@@ -565,22 +565,22 @@ export class AuthoringService {
   private async assertLessonAccess(lessonId: string, user: RequestUser) {
     const lesson = await this.repo.findLessonCourseId(lessonId);
     if (!lesson) throw new NotFoundException("Lesson not found");
-    await this.assertCourseAccess(lesson.section.courseId, user);
-    return lesson;
+    const course = await this.assertCourseAccess(lesson.section.courseId, user);
+    return { lesson, course, courseId: lesson.section.courseId };
   }
 
   private async assertQuizAccess(quizId: string, user: RequestUser) {
     const quiz = await this.repo.findQuizLessonId(quizId);
     if (!quiz) throw new NotFoundException("Quiz not found");
-    await this.assertLessonAccess(quiz.lessonId, user);
-    return quiz;
+    const { course, courseId } = await this.assertLessonAccess(quiz.lessonId, user);
+    return { quiz, course, courseId };
   }
 
   private async assertQuestionAccess(questionId: string, user: RequestUser) {
     const q = await this.repo.findQuestionQuizLessonId(questionId);
     if (!q) throw new NotFoundException("Question not found");
-    await this.assertLessonAccess(q.quiz.lessonId, user);
-    return q;
+    const { course, courseId } = await this.assertLessonAccess(q.quiz.lessonId, user);
+    return { question: q, course, courseId };
   }
 
   private quizDetail(quizId: string) {
@@ -595,25 +595,34 @@ export class AuthoringService {
   }
 
   async createQuiz(user: RequestUser, lessonId: string, input: CreateQuizInput) {
-    await this.assertLessonAccess(lessonId, user);
+    const { course, courseId } = await this.assertLessonAccess(lessonId, user);
     const quiz = await this.repo.upsertQuiz(lessonId, input.passScore);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "added a quiz");
+    }
     return this.quizDetail(quiz.id);
   }
 
   async updateQuiz(user: RequestUser, quizId: string, input: UpdateQuizInput) {
-    await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user);
     await this.repo.updateQuiz(quizId, input.passScore);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "updated a quiz");
+    }
     return this.quizDetail(quizId);
   }
 
   async deleteQuiz(user: RequestUser, quizId: string) {
-    await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user);
     await this.repo.deleteQuiz(quizId);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "deleted a quiz");
+    }
     return { ok: true as const };
   }
 
   async addQuestion(user: RequestUser, quizId: string, input: CreateQuizQuestionInput) {
-    await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user);
     const count = await this.repo.countQuestions(quizId);
     await this.repo.createQuestion({
       quiz: { connect: { id: quizId } },
@@ -628,6 +637,9 @@ export class AuthoringService {
         })),
       },
     });
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "added a quiz question");
+    }
     return this.quizDetail(quizId);
   }
 
@@ -636,7 +648,7 @@ export class AuthoringService {
     questionId: string,
     input: UpdateQuizQuestionInput,
   ) {
-    await this.assertQuestionAccess(questionId, user);
+    const { course, courseId } = await this.assertQuestionAccess(questionId, user);
     const quizId = await this.repo
       .findQuestionQuizIdOrThrow(questionId)
       .then((r) => r.quizId);
@@ -654,21 +666,30 @@ export class AuthoringService {
         order: o.order ?? i,
       })),
     );
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "updated a quiz question");
+    }
     return this.quizDetail(quizId);
   }
 
   async deleteQuestion(user: RequestUser, questionId: string) {
-    await this.assertQuestionAccess(questionId, user);
+    const { course, courseId } = await this.assertQuestionAccess(questionId, user);
     const quizId = await this.repo
       .findQuestionQuizIdOrThrow(questionId)
       .then((r) => r.quizId);
     await this.repo.deleteQuestion(questionId);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "deleted a quiz question");
+    }
     return this.quizDetail(quizId);
   }
 
   async reorderQuestions(user: RequestUser, quizId: string, ids: string[]) {
-    await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user);
     await this.repo.reorderQuestions(ids);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "reordered quiz questions");
+    }
     return this.quizDetail(quizId);
   }
 }

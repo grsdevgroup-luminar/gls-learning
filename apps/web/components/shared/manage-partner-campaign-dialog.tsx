@@ -7,6 +7,7 @@ import { adminApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Meter } from "@/components/shared/meter";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { UnlimitedNumberInput } from "@/components/shared/unlimited-number-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -326,11 +327,11 @@ export function ManagePartnerCampaignDialog({
                 </div>
                 <div className="space-y-1.5">
                   <Label>Seat</Label>
-                  <Input
+                  <UnlimitedNumberInput
                     value={form.usageLimit}
-                    onChange={(e) => setForm((p) => ({ ...p, usageLimit: e.target.value }))}
-                    inputMode="numeric"
-                    placeholder="0 = unlimited"
+                    onChange={(v) => setForm((p) => ({ ...p, usageLimit: v }))}
+                    max={1_000_000}
+                    aria-label="Seat limit"
                   />
                 </div>
               </div>
