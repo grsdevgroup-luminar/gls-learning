@@ -37,6 +37,11 @@ export default async function StudentLayout({ children }: { children: React.Reac
   if (user?.deliveryPartnerStatus === "PENDING") {
     redirect("/delivery-partner");
   }
+  // Org admins have their own portal — keep them out of the student shell
+  // (proxy.ts also redirects /dashboard, but this catches /account too).
+  if (user?.role === "ORG_ADMIN") {
+    redirect("/org");
+  }
   const name = user?.name ?? "Student";
   const email = user?.email ?? "";
   return (
