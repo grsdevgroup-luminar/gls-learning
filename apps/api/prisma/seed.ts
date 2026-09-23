@@ -605,7 +605,7 @@ async function main() {
       where: { id: organization.id },
       data: {
         usedSeats: await prisma.orgMember.count({
-          where: { orgId: organization.id },
+          where: { orgId: organization.id, role: "MEMBER" },
         }),
       },
     });
