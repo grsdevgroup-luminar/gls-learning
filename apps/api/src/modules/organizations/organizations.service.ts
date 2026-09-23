@@ -234,9 +234,10 @@ export class OrganizationsService {
     if (org.usedSeats >= org.seatCount)
       throw new BadRequestException("No seats remaining");
     const token = randomUUID();
+    const email = input.email.toLowerCase();
     const invitation = await this.repo.createInvitation({
       orgId,
-      email: input.email.toLowerCase(),
+      email,
       role: input.role,
       token,
       expiresAt: new Date(Date.now() + 7 * 86_400_000),
@@ -246,6 +247,21 @@ export class OrganizationsService {
     this.email
       .sendOrgInvite(invitation.email, org.name, invitation.role, token)
       .catch(() => {});
+    // If the invited email already belongs to a platform user, also surface
+    // the invite in their in-app notification feed, not just via email.
+    const existingUser = await this.repo.findUserByEmail(email);
+    if (existingUser) {
+      this.notifications
+        .notify({
+          userId: existingUser.id,
+          event: "ORG_INVITE_RECEIVED",
+          title: "Organization invitation",
+          body: `You've been invited to join ${org.name} as ${input.role === "ADMIN" ? "an admin" : "a member"}.`,
+          href: `/join/${token}`,
+          skipEmail: true, // the invite email above already covers delivery
+        })
+        .catch(() => {});
+    }
     return invitation;
   }
 

@@ -110,6 +110,7 @@ export function PortalShell({
     // Store rehydrates from the guest cart on the user-change effect.
     await logoutMut.mutateAsync();
     router.push("/");
+    router.refresh();
   }
 
   const isActive = (it: NavItem) =>
