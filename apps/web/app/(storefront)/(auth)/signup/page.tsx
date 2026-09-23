@@ -17,7 +17,6 @@ import { CoursePreferencesModal } from '@/components/shared/course-preferences-m
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { registerSchema } from '@skillstream/shared';
-import { getReferralCode } from '@/lib/referral';
 import { PasswordRequirements } from '@/components/shared/password-requirements';
 
 const perks = [
