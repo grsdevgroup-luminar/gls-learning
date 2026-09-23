@@ -45,6 +45,13 @@ export const UploadStatus = {
 } as const;
 export type UploadStatus = (typeof UploadStatus)[keyof typeof UploadStatus];
 
+export const NameChangeRequestStatus = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const;
+export type NameChangeRequestStatus =
+  (typeof NameChangeRequestStatus)[keyof typeof NameChangeRequestStatus];
 export const InstructorStatus = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
@@ -74,6 +81,13 @@ export const ReviewStatus = {
   HIDDEN: "HIDDEN",
 } as const;
 export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus];
+
+export const RatingStage = {
+  STARTED: "STARTED",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+} as const;
+export type RatingStage = (typeof RatingStage)[keyof typeof RatingStage];
 
 export const OrderStatus = {
   PENDING: "PENDING",

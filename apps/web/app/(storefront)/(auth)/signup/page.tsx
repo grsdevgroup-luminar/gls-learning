@@ -17,12 +17,13 @@ import { CoursePreferencesModal } from '@/components/shared/course-preferences-m
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { registerSchema } from '@skillstream/shared';
+import { getReferralCode } from '@/lib/referral';
+import { PasswordRequirements } from '@/components/shared/password-requirements';
 
 const perks = [
   '500,000+ learners',
   'Region-fair pricing',
   'Certificates of completion',
-  '30-day guarantee',
 ];
 
 function SignupForm() {
@@ -184,6 +185,7 @@ function SignupForm() {
                     </Button>
                   </div>
                 </FormField>
+                <PasswordRequirements value={password} />
               </Stagger>
               {validationError && (
                 <p role="alert" className="mt-3 text-sm text-destructive">

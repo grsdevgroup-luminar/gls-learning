@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle2, XCircle } from "lucide-react";
 import { ApplicationsTab } from "./_components/applications-tab";
 import { RosterTab } from "./_components/roster-tab";
+import { NameChangeRequestsTab } from "./_components/name-change-requests-tab";
 
 export default function AdminInstructors() {
   const qc = useQueryClient();
@@ -34,6 +35,7 @@ export default function AdminInstructors() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="name-changes">Name changes</TabsTrigger>
           <TabsTrigger value="roster">Active instructors</TabsTrigger>
         </TabsList>
 
@@ -52,6 +54,14 @@ export default function AdminInstructors() {
           />
         </TabsContent>
 
+        <TabsContent value="name-changes" className="flex min-h-0 flex-1 flex-col gap-4 pt-4">
+          <NameChangeRequestsTab
+            onMutated={() => {
+              qc.invalidateQueries({ queryKey: ["admin", "instructor-name-change-requests"] });
+              qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+            }}
+          />
+        </TabsContent>
         <TabsContent value="roster" className="flex min-h-0 flex-1 flex-col gap-4 pt-4">
           <RosterTab />
         </TabsContent>

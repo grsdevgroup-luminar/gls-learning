@@ -35,6 +35,7 @@ export default function InstructorProfile() {
 
   const { data: categories = [] } = useCategories();
 
+  const [requestedName, setRequestedName] = useState("");
   const [title, setTitle] = useState("");
   const [expertise, setExpertise] = useState("");
   const [bio, setBio] = useState("");
@@ -81,6 +82,7 @@ export default function InstructorProfile() {
   const [prevProfile, setPrevProfile] = useState<typeof profile>();
   if (profile && profile !== prevProfile) {
     setPrevProfile(profile);
+    setRequestedName(profile.pendingNameChange?.requestedName ?? profile.name);
     setTitle(profile.title ?? "");
     setExpertise(profile.expertise ?? "");
     setBio(profile.bio ?? "");
@@ -93,6 +95,15 @@ export default function InstructorProfile() {
     setOtherUrl(profile.otherUrl ?? "");
   }
 
+  const nameChangeMutation = useMutation({
+    mutationFn: () => instructorApi.requestInstructorNameChange(requestedName.trim()),
+    onSuccess: () => {
+      toast.success("Name-change request submitted", { description: "An admin must approve it before your profile changes." });
+      void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
   const saveMutation = useMutation({
     mutationFn: (input: UpdateInstructorProfileInput) => api.updateInstructorProfile(input),
     onSuccess: () => {
@@ -211,6 +222,11 @@ export default function InstructorProfile() {
         <DetailsCard
           profileName={profile.name}
           profileEmail={profile.email}
+          requestedName={requestedName}
+          pendingNameChange={profile.pendingNameChange}
+          onRequestedNameChange={setRequestedName}
+          onRequestNameChange={() => nameChangeMutation.mutate()}
+          requestingNameChange={nameChangeMutation.isPending}
           title={title}
           onTitleChange={(v) => { setTitle(v); clearError("title"); }}
           titleError={fieldErrors.title}

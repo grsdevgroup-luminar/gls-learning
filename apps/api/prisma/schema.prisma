@@ -117,6 +117,11 @@ enum InstructorStatus {
   REJECTED
 }
 
+enum NameChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 enum EnrollmentStatus {
   IN_PROGRESS
   COMPLETED
@@ -133,6 +138,12 @@ enum ReviewStatus {
   PENDING
   APPROVED
   HIDDEN
+}
+
+enum RatingStage {
+  STARTED
+  IN_PROGRESS
+  COMPLETED
 }
 
 enum OrderStatus {
@@ -238,6 +249,8 @@ model User {
 
   studentProfile             StudentProfile?
   instructorProfile          InstructorProfile?
+
+  nameChangeRequests      InstructorNameChangeRequest[]
   refreshTokens              RefreshToken[]
   passwordResetTokens        PasswordResetToken[]
   enrollments                Enrollment[]
@@ -326,6 +339,21 @@ model InstructorProfile {
   otherUrl      String?
 }
 
+model InstructorNameChangeRequest {
+  id            String                 @id @default(cuid())
+  userId        String
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentName   String
+  requestedName String
+  status        NameChangeRequestStatus @default(PENDING)
+  requestedAt   DateTime               @default(now())
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  note          String?
+
+  @@index([status])
+  @@index([userId, status])
+}
 model InstructorApplication {
   id          String           @id @default(cuid())
   userId      String?
@@ -389,6 +417,8 @@ model Course {
   requirements       String[]
   ratingAvg          Float        @default(0)
   reviewCount        Int          @default(0)
+  ratingWeightedCount Float       @default(0)
+  completedReviewCount Int        @default(0)
   studentCount       Int          @default(0)
   revenueCents       Int          @default(0)
   createdAt          DateTime     @default(now())
@@ -413,6 +443,7 @@ model Course {
   orgAssignments             CourseOrgAssignment[]
   deliveryPartnerAssignments DeliveryPartnerCourseAssignment[]
 
+  @@unique([instructorId, title])
   @@index([status])
   @@index([instructorId])
   @@index([category])
@@ -459,6 +490,10 @@ model Lesson {
   articleContent String?
   resources      Json       @default("[]")
   cfVideoUid     String?
+  pptxStorageKey String?
+  pptxName       String?
+  pptxSizeLabel  String?
+  pptxDurationSec Int       @default(0)
   createdAt      DateTime   @default(now())
 
   quiz           Quiz?
@@ -564,6 +599,7 @@ model LessonProgress {
   // `false` means previously completed then unchecked — the row stays so
   // time learned remains credited. Sequential access and progress % ignore it.
   completed    Boolean    @default(true)
+  pptxCompleted Boolean   @default(false)
   completedAt  DateTime   @default(now())
 
   @@unique([enrollmentId, lessonId])
@@ -634,6 +670,9 @@ model Review {
   userId             String
   user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   rating             Int
+  progressPercent    Int           @default(0)
+  ratingStage        RatingStage   @default(STARTED)
+  ratingWeight       Float         @default(0.35)
   // Legacy storage retained for database compatibility; not exposed in review APIs or UI.
   title              String
   body               String
@@ -1175,6 +1214,8 @@ model PayoutAccount {
 /// history stays accurate even if the payee later edits their account.
 ///
 /// `amountCents` is the gross withdrawn from the payee's available balance;
+///
+///
 /// `netCents` is what actually reaches the payee after platform + gateway fees.
 /// `providerRef` stores the Stripe transfer id (`tr_xxx`) for STRIPE payouts.
 model Payout {

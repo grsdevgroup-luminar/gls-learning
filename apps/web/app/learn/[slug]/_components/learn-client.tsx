@@ -17,6 +17,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { QuizPlayer } from "./quiz-player";
+import { PptxViewer } from "./pptx-viewer";
 import { CircularProgress } from "@/components/shared/circular-progress";
 import { StarRatingInput } from "@/components/shared/star-rating-input";
 import { Logo } from "@/components/shared/logo";
@@ -78,6 +79,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   // lesson that was on screen, not wherever `resumeLesson` below lands —
   // that fallback is only for a fresh visit with no lesson selected yet.
   const [currentId, setCurrentId] = useState<string | null>(() => searchParams.get("lesson"));
+  const [contentMode, setContentMode] = useState<"video" | "slides">("video");
   const enrolled = mounted && isEnrolled(course.id);
   const completedIds = mounted
     ? new Set(flat.filter((lesson) => isLessonDone(course.id, lesson.id)).map((lesson) => lesson.id))
@@ -101,6 +103,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   const selected = (flat.find((l) => l.id === currentId) ?? resumeLesson ?? firstAccessible)!;
   const current = (canAccess(selected) ? selected : firstAccessible ?? selected)!;
   const currentAccessible = canAccess(current);
+  useEffect(() => { setContentMode(current.pptx?.url && !current.hasVideo ? "slides" : "video"); }, [current.id, current.pptx, current.hasVideo]);
 
   // Mirror whichever lesson actually ends up on screen into the URL —
   // covers explicit navigation (sidebar, Previous/Next) as well as the
@@ -171,18 +174,32 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               <QuizPlayer key={current.id} courseId={course.id} lessonId={current.id} />
             </div>
           ) : (
-            <div className="relative z-0 flex min-h-0 shrink-0 items-start justify-center overflow-hidden p-2 lg:p-5">
-              <div className="w-full shrink-0 overflow-hidden rounded-xl">
-                <ProtectedPlayer
-                  key={current.id}
-                  courseId={course.id}
-                  lessonId={current.id}
-                  title={current.title}
-                  watermark={user?.email ?? ""}
-                  seed={course.thumbnail}
-                  onComplete={markAndMaybeAdvance}
-                />
-              </div>
+            <div className="relative z-0 flex min-h-0 shrink-0 flex-col items-stretch overflow-hidden p-1 lg:p-3">
+              {current.pptx?.url && (
+                <div className="absolute right-3 top-3 z-30 inline-flex w-fit items-center rounded-full border bg-background/90 p-0.5 shadow-md backdrop-blur">
+                  <button type="button" aria-pressed={contentMode === "video"} onClick={() => setContentMode("video")} className={cn("h-7 min-w-16 rounded-full px-4 text-xs font-medium transition-colors", contentMode === "video" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>Video</button>
+                  <button type="button" aria-pressed={contentMode === "slides"} onClick={() => setContentMode("slides")} className={cn("h-7 min-w-16 rounded-full px-4 text-xs font-medium transition-colors", contentMode === "slides" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>Slides</button>
+                </div>
+              )}
+              {contentMode === "slides" && current.pptx?.url ? (
+                <PptxViewer courseId={course.id} lessonId={current.id} url={current.pptx.url} />
+              ) : current.hasVideo ? (
+                <div className="w-full shrink-0 overflow-hidden rounded-xl">
+                  <ProtectedPlayer
+                    key={current.id}
+                    courseId={course.id}
+                    lessonId={current.id}
+                    title={current.title}
+                    watermark={user?.email ?? ""}
+                    seed={course.thumbnail}
+                    onComplete={markAndMaybeAdvance}
+                  />
+                </div>
+              ) : (
+                <div className="flex min-h-[180px] w-full items-center justify-center rounded-xl border border-dashed bg-secondary/20 p-6 text-center text-sm text-muted-foreground">
+                  This lesson has no video. Select Slides to view the PowerPoint presentation.
+                </div>
+              )}
             </div>
           )}
 

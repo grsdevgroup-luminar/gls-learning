@@ -61,6 +61,8 @@ export class CheckoutService {
     // Mutually exclusive by design (only one discount code applies at a
     // time) — the storefront UI makes this state unreachable, but a client
     // bug shouldn't silently mis-price an order, so it's rejected here too.
+    if (userId) await this.assertCanPurchase(userId, input.courseIds);
+
     if (input.couponCode && input.campaignCode) {
       throw new BadRequestException(
         "Only one code — a coupon or a partner referral code — can be applied at a time",
@@ -131,6 +133,13 @@ export class CheckoutService {
     };
   }
 
+  private async assertCanPurchase(userId: string, courseIds: string[]): Promise<void> {
+    const courses = await this.repo.findPublishedCourseOwnersByIds([...new Set(courseIds)]);
+    if (courses.some((course) => course.instructorId === userId)) {
+      throw new ForbiddenException("Instructors cannot purchase their own courses");
+    }
+  }
+
   /** Admin gateway kill-switch (PlatformSettings). Enforced here, server-side —
    *  the storefront hiding a button is not a control. */
   private async assertGatewayEnabled(
@@ -164,6 +173,9 @@ export class CheckoutService {
     idempotencyKey?: string,
   ): Promise<CheckoutSessionDto> {
     await this.assertGatewayEnabled(input.gateway);
+    // Enforce ownership rules before idempotency replay so an old order cannot
+    // bypass the current business rule through a repeated request.
+    await this.assertCanPurchase(userId, input.courseIds);
 
     // Idempotency: replayed requests with the same key resolve to the same
     // Order, and — if we already spun up a gateway session — the same redirect
@@ -189,16 +201,39 @@ export class CheckoutService {
     if (purchasableCourseIds.length === 0)
       throw new BadRequestException("You already own these courses");
 
+    // Reconcile any existing provider sessions before deciding whether a new
+    // checkout can be created. This keeps completed or abandoned payments from
+    // blocking a later attempt.
+    const pendingOrders =
+      await this.repo.findPendingOrdersByUserAndCourseIds(
+        userId,
+        purchasableCourseIds,
+      );
+    for (const pendingOrder of pendingOrders) {
+      const resolution = await this.payments.reconcilePendingPayment(pendingOrder);
+      if (resolution.status === "PAID") {
+        await this.orders.fulfill(pendingOrder.id, resolution.providerPaymentId);
+      } else if (resolution.status === "ABANDONED") {
+        await this.repo.markFailedIfPending(pendingOrder.id, userId);
+      }
+    }
+
+    const ownedAfterReconciliation = await this.repo.findOwnedEnrollments(
+      userId,
+      purchasableCourseIds,
+    );
+    const ownedAfterSet = new Set(ownedAfterReconciliation.map((o) => o.courseId));
+    const courseIds = purchasableCourseIds.filter((id) => !ownedAfterSet.has(id));
+    if (courseIds.length === 0)
+      throw new BadRequestException("You already own these courses");
+
     // A new checkout attempt may use a fresh idempotency key (for example
     // after returning from a canceled provider session). Do not create a
     // second pending order for a course that is already awaiting payment.
     // Mixed carts continue with only the courses that do not have a pending
     // order; the existing pending order remains available to resume.
     const openOrders =
-      await this.repo.findPendingOrdersByUserAndCourseIds(
-        userId,
-        purchasableCourseIds,
-    );
+      await this.repo.findPendingOrdersByUserAndCourseIds(userId, courseIds);
     // Choosing a different payment method abandons the earlier attempt. Without
     // this, the pending order from the previous gateway would be resurrected
     // and the user sent back to the gateway they just switched away from.
@@ -213,7 +248,7 @@ export class CheckoutService {
     const pendingCourseIds = new Set(
       remainingPendingOrders.flatMap((order) => order.items.map((item) => item.courseId)),
     );
-    const newCourseIds = purchasableCourseIds.filter(
+    const newCourseIds = courseIds.filter(
       (id) => !pendingCourseIds.has(id),
     );
     if (newCourseIds.length === 0)

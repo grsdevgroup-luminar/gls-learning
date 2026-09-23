@@ -131,7 +131,15 @@ describe("AuthoringService.update — visibility gating", () => {
     const { service, repo } = makeService({ findLessonsForPublishValidation: vi.fn().mockResolvedValue([]) });
 
     await expect(service.setStatus(admin, "course_1", { status: "PUBLISHED" })).rejects.toThrow(
-      "Add at least one lesson before publishing this course",
+      "Add at least one lesson before submitting this course",
+    );
+    expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
+  });
+  it("blocks submitting a course for review when it has no lessons", async () => {
+    const { service, repo } = makeService({ findLessonsForPublishValidation: vi.fn().mockResolvedValue([]) });
+
+    await expect(service.setStatus(admin, "course_1", { status: "REVIEW" })).rejects.toThrow(
+      "Add at least one lesson before submitting this course",
     );
     expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
   });

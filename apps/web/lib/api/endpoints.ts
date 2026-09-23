@@ -31,6 +31,7 @@ import type {
   ApplyInstructorInput,
   EnrollmentDto,
   InstructorApplicationDto,
+  InstructorNameChangeRequestDto,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -117,6 +118,7 @@ export type {
   CourseSummaryDto,
   EnrollmentDto,
   InstructorApplicationDto,
+  InstructorNameChangeRequestDto,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -223,6 +225,11 @@ export const api = {
       { method: "POST", body: { watchedSec }, keepalive },
     ),
 
+  pptxCompletion: (courseId: string, lessonId: string) =>
+    apiFetch<{ completed: boolean }>(`/enrollments/${courseId}/lessons/${lessonId}/pptx-completion`),
+  setPptxCompletion: (courseId: string, lessonId: string, completed: boolean) =>
+    apiFetch<{ completed: boolean }>(`/enrollments/${courseId}/lessons/${lessonId}/pptx-completion`, { method: "POST", body: { completed } }),
+
   // media
   playback: (lessonId: string) =>
     apiFetch<PlaybackDto>(`/lessons/${lessonId}/playback`),
@@ -314,6 +321,12 @@ export const api = {
       { method: "POST", body: { note } },
     ),
 
+  instructorNameChangeRequests: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<InstructorNameChangeRequestDto>>(`/admin/instructor-name-change-requests${qs(params)}`),
+  approveInstructorNameChange: (id: string) =>
+    apiFetch<InstructorNameChangeRequestDto>(`/admin/instructor-name-change-requests/${id}/approve`, { method: "POST" }),
+  rejectInstructorNameChange: (id: string, note: string) =>
+    apiFetch<InstructorNameChangeRequestDto>(`/admin/instructor-name-change-requests/${id}/reject`, { method: "POST", body: { note } }),
   // certificates
   myCertificates: () => apiFetch<CertificateDto[]>("/me/certificates"),
   // lesson notes (private per learner; enrollment required to write)
@@ -569,6 +582,8 @@ export const api = {
     courseId: string,
     params: Record<string, string | number | undefined> = {},
   ) => apiFetch<Paginated<ReviewDto>>(`/me/courses/${courseId}/reviews${qs(params)}`),
+  requestInstructorNameChange: (requestedName: string) =>
+    apiFetch<InstructorNameChangeRequestDto>("/me/instructor/name-change-requests", { method: "POST", body: { requestedName } }),
   updateInstructorProfile: (body: UpdateInstructorProfileInput) =>
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
@@ -821,6 +836,11 @@ export const authoringApi = {
 
   /** Uploads a single lesson resource. The backend enforces the 10 MB cap and
    *  MIME whitelist; the UI is expected to pre-validate for a nicer UX. */
+  uploadLessonPptx: (lessonId: string, file: File, durationSec: number) => {
+    const form = new FormData(); form.append("file", file, file.name); form.append("durationSec", String(durationSec));
+    return apiFetchMultipart<{ name: string; sizeLabel?: string; durationSec: number }>(`/authoring/lessons/${lessonId}/pptx`, form);
+  },
+  deleteLessonPptx: (lessonId: string) => apiFetch<{ ok: true }>(`/authoring/lessons/${lessonId}/pptx`, { method: "DELETE" }),
   uploadLessonResource: (lessonId: string, file: File) => {
     const form = new FormData();
     form.append("file", file, file.name);
@@ -870,6 +890,9 @@ export const adminApi = {
     api.adminInstructors(params),
   approveInstructorApplication: api.approveInstructorApplication,
   rejectInstructorApplication: api.rejectInstructorApplication,
+  instructorNameChangeRequests: (params: Record<string, string | number | undefined> = {}) => api.instructorNameChangeRequests(params),
+  approveInstructorNameChange: api.approveInstructorNameChange,
+  rejectInstructorNameChange: api.rejectInstructorNameChange,
   deliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
     api.adminDeliveryPartnerApplications(params),
   deliveryPartnerApplicationStats: () => api.adminDeliveryPartnerApplicationStats(),
@@ -902,6 +925,7 @@ export const adminApi = {
 
 export const instructorApi = {
   profile: () => api.instructorProfile(),
+  requestInstructorNameChange: api.requestInstructorNameChange,
   courses: () => api.instructorCourses(),
   courseReviews: (
     courseId: string,

@@ -10,16 +10,19 @@ import { destinationFor } from "@/lib/auth/destination";
 import { Logo } from "@/components/shared/logo";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
+import { PasswordRequirements } from "@/components/shared/password-requirements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 function ForcePasswordChangeForm() {
   const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [isPending, setIsPending] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -67,25 +70,30 @@ function ForcePasswordChangeForm() {
           <FormField label="New password" htmlFor="password">
             <Input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="At least 8 characters"
               autoComplete="new-password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="pr-10"
             />
+            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-9 text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
           </FormField>
+          <PasswordRequirements value={password} />
           <FormField label="Confirm password" htmlFor="confirm">
             <Input
               id="confirm"
-              type="password"
+              type={showConfirm ? "text" : "password"}
               placeholder="Repeat your new password"
               autoComplete="new-password"
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
+              className="pr-10"
             />
+            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-9 text-muted-foreground hover:text-foreground" aria-label={showConfirm ? "Hide confirmation password" : "Show confirmation password"} aria-pressed={showConfirm} onClick={() => setShowConfirm((current) => !current)}>{showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
           </FormField>
         </Stagger>
 

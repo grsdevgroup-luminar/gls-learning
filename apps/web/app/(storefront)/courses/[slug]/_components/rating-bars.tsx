@@ -4,9 +4,11 @@ import { Stars } from "@/components/shared/stars";
 export function RatingBars({
   reviews,
   rating,
+  completedReviewCount,
 }: {
   reviews: { rating: number }[];
   rating: number;
+  completedReviewCount?: number;
 }) {
   const counts = [5, 4, 3, 2, 1].map((star) => ({
     star,
@@ -19,6 +21,9 @@ export function RatingBars({
         <div className="text-4xl font-bold">{rating.toFixed(1)}</div>
         <Stars rating={rating} size={16} />
         <div className="mt-1 text-xs text-muted-foreground">Course rating</div>
+        {completedReviewCount !== undefined && completedReviewCount > 0 && (
+          <div className="mt-1 text-xs text-muted-foreground">{completedReviewCount} completed</div>
+        )}
       </div>
       <div className="flex-1 space-y-1.5">
         {counts?.map((c) => (

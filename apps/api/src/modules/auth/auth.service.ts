@@ -211,7 +211,12 @@ export class AuthService {
     return { ok: true };
   }
 
-  async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUserDto> {
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUserDto> {    if (input.name !== undefined) {
+      const currentUser = await this.users.findById(userId);
+      if (currentUser?.role === UserRole.INSTRUCTOR) {
+        throw new BadRequestException("Instructor names must be changed through an admin-verified request");
+      }
+    }
     // `?? undefined` would swallow an explicit null, leaving no way to clear
     // a field the schema declares nullable — only an absent key means "leave".
     // When `avatar` is set explicitly the caller is choosing an external URL

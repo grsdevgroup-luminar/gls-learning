@@ -35,7 +35,7 @@ export function ContactCard() {
     mutationFn: () =>
       apiFetch<void>("/auth/me/profile", {
         method: "PATCH",
-        body: { name: user?.name ?? "", country: country || null, phone: phone.trim() || null },
+        body: { country: country || null, phone: phone.trim() || null },
       }),
     onSuccess: () => {
       toast.success("Contact info saved");

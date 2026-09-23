@@ -5,12 +5,13 @@ import type {
   CourseSummaryDto,
   InstructorSummaryDto,
   SectionDto,
+  LessonPptxDto,
 } from "@skillstream/shared";
 
 // Prisma payload shapes (with the relations the mappers require).
 const summaryInclude = {
   instructor: { include: { instructorProfile: true } },
-  sections: { include: { lessons: { select: { durationSec: true } } } },
+  sections: { include: { lessons: { select: { type: true, durationSec: true, pptxDurationSec: true } } } },
 } satisfies Prisma.CourseInclude;
 
 export type CourseSummaryRow = Prisma.CourseGetPayload<{
@@ -66,7 +67,7 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
   let lessonCount = 0;
   for (const s of row.sections) {
     for (const l of s.lessons) {
-      durationSec += l.durationSec;
+      durationSec += l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0);
       lessonCount += 1;
     }
   }
@@ -88,6 +89,8 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
     originalPriceCents: row.originalPriceCents,
     ratingAvg: row.ratingAvg,
     reviewCount: row.reviewCount,
+    ratingWeightedCount: row.ratingWeightedCount,
+    completedReviewCount: row.completedReviewCount,
     studentCount: row.studentCount,
     durationSec,
     lessonCount,
@@ -110,13 +113,17 @@ export function toCourseDetail(
     title: s.title,
     order: s.order,
     lessons: s.lessons.map((l) => {
-      durationSec += l.durationSec;
+      durationSec += l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0);
       lessonCount += 1;
       // Preview lessons are the course's marketing surface — their resources
       // (slides, starter code) must be downloadable by anyone browsing the
       // catalog, not just enrolled learners. So `preview === true` bypasses
       // both the `includeLessonResources` gate (public catalog) and the
       // sequential-access gate (enrolled but hasn't reached this lesson yet).
+      const lessonResources = parseLessonResources(l.resources);
+      const pptxResource = l.type === "VIDEO" && !opts?.includeArticleContent
+        ? lessonResources.find((resource) => resource.name.toLowerCase().endsWith(".pptx"))
+        : undefined;
       const exposeResources =
         l.preview ||
         (opts?.includeLessonResources === true &&
@@ -124,13 +131,18 @@ export function toCourseDetail(
       return {
         id: l.id,
         title: l.title,
-        durationSec: l.durationSec,
+        durationSec: l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0),
         type: l.type,
         preview: l.preview,
         order: l.order,
         hasQuiz: l.quiz !== null,
         hasVideo: l.cfVideoUid !== null,
-        resources: exposeResources ? parseLessonResources(l.resources) : [],
+        resources: exposeResources ? lessonResources : [],
+        pptx: l.type === "VIDEO" && exposeResources && l.pptxStorageKey && l.pptxName
+          ? ({ name: l.pptxName, url: "", sizeLabel: l.pptxSizeLabel ?? undefined, durationSec: l.pptxDurationSec, storageKey: l.pptxStorageKey } satisfies LessonPptxDto)
+          : l.type === "VIDEO" && exposeResources && pptxResource
+            ? ({ name: pptxResource.name, url: pptxResource.url, sizeLabel: pptxResource.sizeLabel, durationSec: 0, storageKey: pptxResource.storageKey } satisfies LessonPptxDto)
+            : null,
         ...(opts?.includeArticleContent
           ? { articleContent: l.articleContent }
           : {}),
@@ -156,6 +168,8 @@ export function toCourseDetail(
     originalPriceCents: row.originalPriceCents,
     ratingAvg: row.ratingAvg,
     reviewCount: row.reviewCount,
+    ratingWeightedCount: row.ratingWeightedCount,
+    completedReviewCount: row.completedReviewCount,
     studentCount: row.studentCount,
     durationSec,
     lessonCount,

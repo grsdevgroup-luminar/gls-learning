@@ -90,7 +90,7 @@ export class AuthoringRepository {
   findLessonCourseId(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
-      select: { section: { select: { courseId: true } } },
+      select: { type: true, section: { select: { courseId: true } } },
     });
   }
 
@@ -114,6 +114,20 @@ export class AuthoringRepository {
     return this.prisma.course.findUnique({ where: { slug } });
   }
 
+  findCourseByInstructorAndTitle(
+    instructorId: string,
+    title: string,
+    excludeCourseId?: string,
+  ) {
+    return this.prisma.course.findFirst({
+      where: {
+        instructorId,
+        title: { equals: title.trim(), mode: "insensitive" },
+        ...(excludeCourseId ? { id: { not: excludeCourseId } } : {}),
+      },
+      select: { id: true },
+    });
+  }
   findCourseDetailOrThrow(id: string) {
     return this.prisma.course.findUniqueOrThrow({
       where: { id },
@@ -291,6 +305,14 @@ export class AuthoringRepository {
       }
       return { removed, remaining };
     });
+  }
+
+  findLessonPptx(lessonId: string) {
+    return this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { pptxStorageKey: true, pptxName: true, pptxSizeLabel: true } });
+  }
+
+  updateLessonPptx(lessonId: string, data: { pptxStorageKey: string | null; pptxName: string | null; pptxSizeLabel: string | null; pptxDurationSec?: number }) {
+    return this.prisma.lesson.update({ where: { id: lessonId }, data });
   }
 
   reorderSections(ids: string[]) {

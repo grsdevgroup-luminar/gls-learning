@@ -43,6 +43,8 @@ export const ALLOWED_RESOURCE_EXTENSIONS: readonly string[] = Object.keys(
 /** Object-key prefix under the bucket / local upload dir. Keeps room for
  *  future prefixes (`avatars/`, `thumbnails/`) without collision. */
 export const RESOURCE_KEY_PREFIX = "resources";
+export const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+export const PPTX_KEY_PREFIX = "pptx";
 
 // ── Avatars ──────────────────────────────────────────────────────────────────
 

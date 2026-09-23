@@ -37,6 +37,63 @@ export class InstructorRepository {
     return this.prisma.instructorApplication.create({ data });
   }
 
+  findPendingNameChangeRequest(userId: string) {
+    return this.prisma.instructorNameChangeRequest.findFirst({
+      where: { userId, status: "PENDING" },
+      orderBy: { requestedAt: "desc" },
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  createNameChangeRequest(data: Prisma.InstructorNameChangeRequestUncheckedCreateInput) {
+    return this.prisma.instructorNameChangeRequest.create({
+      data,
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  findNameChangeRequestById(id: string) {
+    return this.prisma.instructorNameChangeRequest.findUnique({
+      where: { id },
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  findNameChangeRequestsPage(
+    where: Prisma.InstructorNameChangeRequestWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.instructorNameChangeRequest.findMany({
+        where,
+        include: { user: { select: { email: true } } },
+        orderBy: { requestedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.instructorNameChangeRequest.count({ where }),
+    ]);
+  }
+
+  updateNameChangeRequest(
+    id: string,
+    data: Prisma.InstructorNameChangeRequestUpdateInput,
+    tx?: Db,
+  ) {
+    return this.db(tx).instructorNameChangeRequest.update({
+      where: { id },
+      data,
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  updateUserName(userId: string, name: string, tx?: Db) {
+    return this.db(tx).user.update({
+      where: { id: userId },
+      data: { name, nameChangeCount: { increment: 1 } },
+    });
+  }
   findApprovedInstructorsRoster() {
     return this.prisma.user.findMany({
       where: { instructorProfile: { status: InstructorStatus.APPROVED } },
@@ -45,6 +102,12 @@ export class InstructorRepository {
     });
   }
 
+  findPublishedCourseStatsByInstructorIds(instructorIds: string[]) {
+    return this.prisma.course.findMany({
+      where: { instructorId: { in: instructorIds }, status: "PUBLISHED" },
+      select: { instructorId: true, studentCount: true, ratingAvg: true, reviewCount: true, ratingWeightedCount: true },
+    });
+  }
   findApprovedProfileByUserId(userId: string) {
     return this.prisma.user.findFirst({
       where: { id: userId, instructorProfile: { status: InstructorStatus.APPROVED } },
@@ -156,15 +219,16 @@ export class InstructorRepository {
   async computeInstructorStats(instructorId: string) {
     const courses = await this.prisma.course.findMany({
       where: { instructorId, status: "PUBLISHED" },
-      select: { studentCount: true, ratingAvg: true, reviewCount: true },
+      select: { studentCount: true, ratingAvg: true, reviewCount: true, ratingWeightedCount: true },
     });
     let students = 0;
     let ratingSum = 0;
     let reviewSum = 0;
     for (const c of courses) {
       students += c.studentCount;
-      ratingSum += c.ratingAvg * c.reviewCount;
-      reviewSum += c.reviewCount;
+      const weight = c.ratingWeightedCount > 0 ? c.ratingWeightedCount : c.reviewCount;
+      ratingSum += c.ratingAvg * weight;
+      reviewSum += weight;
     }
     return {
       studentCount: students,

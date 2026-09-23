@@ -5,6 +5,8 @@ import { FormField } from "@/components/shared/form-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import type { InstructorNameChangeRequestDto } from "@/lib/api/endpoints";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -16,6 +18,11 @@ export const BIO_MAX_LENGTH = 4000;
 export function DetailsCard({
   profileName,
   profileEmail,
+  requestedName,
+  pendingNameChange,
+  onRequestedNameChange,
+  onRequestNameChange,
+  requestingNameChange,
   title,
   onTitleChange,
   titleError,
@@ -27,6 +34,11 @@ export function DetailsCard({
 }: {
   profileName: string;
   profileEmail: string;
+  requestedName: string;
+  pendingNameChange?: InstructorNameChangeRequestDto | null;
+  onRequestedNameChange: (value: string) => void;
+  onRequestNameChange: () => void;
+  requestingNameChange: boolean;
   title: string;
   onTitleChange: (value: string) => void;
   titleError?: string;
@@ -43,8 +55,30 @@ export function DetailsCard({
         <CardContent className="space-y-4">
           <Stagger className="space-y-4" gap={0.05}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Full name">
-                <Input value={profileName} readOnly className="opacity-70" />
+              <FormField label="Full name" hint={pendingNameChange ? "Pending admin verification" : "Name changes require admin approval"}>
+                <Input
+                  value={requestedName}
+                  onChange={(e) => onRequestedNameChange(e.target.value)}
+                  disabled={!!pendingNameChange || requestingNameChange}
+                  maxLength={120}
+                />
+                {pendingNameChange && (
+                  <p className="mt-1 text-xs text-warning">
+                    Requested: {pendingNameChange.requestedName}. Your current name remains visible until approved.
+                  </p>
+                )}
+                {!pendingNameChange && requestedName.trim() !== profileName && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    disabled={!requestedName.trim() || requestingNameChange}
+                    onClick={onRequestNameChange}
+                  >
+                    {requestingNameChange ? "Submitting…" : "Request name change"}
+                  </Button>
+                )}
               </FormField>
               <FormField label="Email">
                 <Input value={profileEmail} readOnly className="opacity-70" />

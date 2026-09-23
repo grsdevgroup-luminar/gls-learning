@@ -16,12 +16,16 @@ import { memoryStorage } from "multer";
 import {
   adminInstructorApplicationQuerySchema,
   adminInstructorQuerySchema,
+  nameChangeRequestQuerySchema,
+  requestInstructorNameChangeSchema,
   applyInstructorSchema,
   rejectApplicationSchema,
   reviewApplicationSchema,
   updateInstructorProfileSchema,
   type AdminInstructorApplicationQuery,
   type AdminInstructorQuery,
+  type NameChangeRequestQuery,
+  type RequestInstructorNameChangeInput,
   type ApplyInstructorInput,
   type RejectApplicationInput,
   type ReviewApplicationInput,
@@ -94,7 +98,36 @@ export class InstructorController {
     return this.instructor.updateProfile(user, body);
   }
 
+  @Post("me/instructor/name-change-requests")
+  requestNameChange(
+    @CurrentUser() user: RequestUser,
+    @ZodBody(requestInstructorNameChangeSchema) body: RequestInstructorNameChangeInput,
+  ) {
+    return this.instructor.requestNameChange(user, body);
+  }
   // ── admin ──
+  @Roles("ADMIN")
+  @Get("admin/instructor-name-change-requests")
+  listNameChangeRequests(
+    @ZodQuery(nameChangeRequestQuerySchema) query: NameChangeRequestQuery,
+  ) {
+    return this.instructor.listNameChangeRequests(query);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/instructor-name-change-requests/:id/approve")
+  approveNameChange(@CurrentUser() admin: RequestUser, @Param("id") id: string) {
+    return this.instructor.approveNameChange(admin, id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/instructor-name-change-requests/:id/reject")
+  rejectNameChange(
+    @Param("id") id: string,
+    @ZodBody(rejectApplicationSchema) body: RejectApplicationInput,
+  ) {
+    return this.instructor.rejectNameChange(id, body.note);
+  }
   @Roles("ADMIN")
   @Get("admin/instructor-applications")
   listApplications(

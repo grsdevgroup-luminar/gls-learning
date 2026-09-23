@@ -20,6 +20,7 @@ import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { instructorSignupSchema } from "@skillstream/shared";
 import { ApplySocialLinks, type SocialLinkField } from "./apply-social-links";
+import { PasswordRequirements } from "@/components/shared/password-requirements";
 
 const OTHER_EXPERTISE = "__other__";
 
@@ -198,6 +199,7 @@ export function InstructorSignupForm() {
                     onChange={(code) => { setCountry(code); clearError("country"); }}
                   />
                 </FormField>
+                <PasswordRequirements value={password} />
               </div>
               <FormField label={<>Phone <span className="text-destructive" aria-hidden="true">*</span></>} error={fieldErrors.phone} hint="Calling code follows your country">
                 <PhoneInput country={country} value={phone} onChange={(value) => { setPhone(value); clearError("phone"); }} />

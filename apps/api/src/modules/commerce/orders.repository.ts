@@ -23,6 +23,13 @@ export class OrdersRepository {
     });
   }
 
+  findPublishedCourseOwnersByIds(ids: string[]) {
+    return this.prisma.course.findMany({
+      where: { id: { in: ids }, status: "PUBLISHED", visibility: "PUBLIC" },
+      select: { id: true, instructorId: true },
+    });
+  }
+
   findPlatformSettings() {
     return this.prisma.platformSettings.findUnique({
       where: { id: "singleton" },

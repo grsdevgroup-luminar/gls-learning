@@ -9,6 +9,7 @@ import type {
   PaginationQuery,
   ReviewDto,
   ReviewStatusInput,
+  RatingStage,
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { AdminAlertsService } from "../email/admin-alerts.service";
@@ -37,6 +38,9 @@ export class ReviewsService {
       helpful: r.helpful,
       createdAt: r.createdAt.toISOString(),
       courseTitle: r.course.title,
+      progressPercent: r.progressPercent,
+      ratingStage: r.ratingStage,
+      ratingWeight: r.ratingWeight,
     };
   }
 
@@ -71,15 +75,26 @@ export class ReviewsService {
     courseId: string,
     input: CreateReviewInput,
   ): Promise<ReviewDto> {
-    const canReview = await this.enrollment.canReview(userId, courseId);
+    const context = await this.enrollment.reviewContext(userId, courseId);
 
-    if (!canReview) {
+    if (!context) {
       throw new ForbiddenException(
         "You must be enrolled in this course before submitting a review",
       );
     }
 
-    const review = await this.repo.upsertReview(userId, courseId, input);
+    const ratingStage: RatingStage = context.status === "COMPLETED" || context.progressPercent >= 100
+      ? "COMPLETED"
+      : context.progressPercent >= 25
+        ? "IN_PROGRESS"
+        : "STARTED";
+    const ratingWeight = ratingStage === "COMPLETED" ? 1 : ratingStage === "IN_PROGRESS" ? 0.65 : 0.35;
+    const review = await this.repo.upsertReview(userId, courseId, {
+      ...input,
+      progressPercent: context.progressPercent,
+      ratingStage,
+      ratingWeight,
+    });
     await this.recompute(courseId);
     // Best-effort admin alert; never blocks the learner's review.
     const course = await this.repo.findCourseTitle(courseId);
@@ -170,14 +185,15 @@ export class ReviewsService {
   }
 
   async adminStats(): Promise<AdminReviewStatsDto> {
-    const [approvedAgg, pending] = await this.repo.adminStats();
+    const [approvedRows, pending] = await this.repo.adminStats();
+    const weightedCount = approvedRows.reduce((sum, row) => sum + row.ratingWeight, 0);
+    const weightedSum = approvedRows.reduce((sum, row) => sum + row.rating * row.ratingWeight, 0);
     return {
-      avgRating: approvedAgg._avg.rating ?? 0,
-      approved: approvedAgg._count,
+      avgRating: weightedCount > 0 ? weightedSum / weightedCount : 0,
+      approved: approvedRows.length,
       pending,
     };
   }
-
   async adminCourses(): Promise<AdminReviewCourseOptionDto[]> {
     const rows = await this.repo.findDistinctCourses();
     return rows
@@ -196,11 +212,15 @@ export class ReviewsService {
 
   /** Recompute denormalized course rating from APPROVED reviews. */
   private async recompute(courseId: string): Promise<void> {
-    const agg = await this.repo.aggregateApprovedForCourse(courseId);
+    const [aggregate] = await this.repo.aggregateApprovedForCourse(courseId);
+    const weightedCount = aggregate?.weightedCount ?? 0;
+    const weightedSum = aggregate?.weightedSum ?? 0;
     await this.repo.updateCourseRating(
       courseId,
-      agg._avg.rating ?? 0,
-      agg._count,
+      weightedCount > 0 ? weightedSum / weightedCount : 0,
+      aggregate?.reviewCount ?? 0,
+      weightedCount,
+      aggregate?.completedReviewCount ?? 0,
     );
   }
 }

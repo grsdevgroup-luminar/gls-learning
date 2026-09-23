@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
   recordWatchTimeSchema,
@@ -55,6 +55,16 @@ export class EnrollmentController {
     @Param("lessonId") lessonId: string,
   ) {
     return this.enrollment.toggleLesson(user.id, courseId, lessonId);
+  }
+
+  @Get("enrollments/:courseId/lessons/:lessonId/pptx-completion")
+  pptxCompletion(@CurrentUser() user: RequestUser, @Param("courseId") courseId: string, @Param("lessonId") lessonId: string) {
+    return this.enrollment.getPptxCompletion(user.id, courseId, lessonId);
+  }
+
+  @Post("enrollments/:courseId/lessons/:lessonId/pptx-completion")
+  setPptxCompletion(@CurrentUser() user: RequestUser, @Param("courseId") courseId: string, @Param("lessonId") lessonId: string, @Body("completed") completed: boolean) {
+    return this.enrollment.setPptxCompletion(user.id, courseId, lessonId, completed === true);
   }
 
   @Post("enrollments/:courseId/lessons/:lessonId/watch-time")

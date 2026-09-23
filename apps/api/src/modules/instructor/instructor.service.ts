@@ -11,6 +11,9 @@ import type {
   AdminInstructorQuery,
   ApplyInstructorInput,
   InstructorApplicationDto,
+  InstructorNameChangeRequestDto,
+  NameChangeRequestQuery,
+  RequestInstructorNameChangeInput,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -183,22 +186,41 @@ export class InstructorService {
   /** Approved instructors, best-rated first — powers the public roster. */
   async roster(): Promise<InstructorRosterDto[]> {
     const rows = await this.repo.findApprovedInstructorsRoster();
-    return rows.map((u) => ({
-      id: u.id,
-      name: u.name,
-      avatar: u.avatar,
-      title: u.instructorProfile?.title ?? "",
-      bio: u.instructorProfile?.bio ?? "",
-      ratingAvg: u.instructorProfile?.ratingAvg ?? 0,
-      studentCount: u.instructorProfile?.studentCount ?? 0,
-      courseCount: u.instructorProfile?.courseCount ?? 0,
-    }));
+    const courses = await this.repo.findPublishedCourseStatsByInstructorIds(rows.map((u) => u.id));
+    const stats = new Map<string, { studentCount: number; ratingSum: number; weight: number }>();
+    for (const course of courses) {
+      const current = stats.get(course.instructorId) ?? { studentCount: 0, ratingSum: 0, weight: 0 };
+      const weight = course.ratingWeightedCount > 0 ? course.ratingWeightedCount : course.reviewCount;
+      stats.set(course.instructorId, {
+        studentCount: current.studentCount + course.studentCount,
+        ratingSum: current.ratingSum + course.ratingAvg * weight,
+        weight: current.weight + weight,
+      });
+    }
+    const mapped = rows.map((u) => {
+      const aggregate = stats.get(u.id);
+      const live = {
+        studentCount: aggregate?.studentCount ?? 0,
+        ratingAvg: aggregate && aggregate.weight > 0 ? aggregate.ratingSum / aggregate.weight : 0,
+      };
+      return {
+        id: u.id,
+        name: u.name,
+        avatar: u.avatar,
+        title: u.instructorProfile?.title ?? "",
+        bio: u.instructorProfile?.bio ?? "",
+        ratingAvg: live.ratingAvg,
+        studentCount: live.studentCount,
+        courseCount: u.instructorProfile?.courseCount ?? 0,
+      };
+    });
+    return mapped.sort((a, b) => b.ratingAvg - a.ratingAvg);
   }
-
   async publicProfile(id: string): Promise<InstructorPublicProfileDto> {
     const u = await this.repo.findApprovedProfileByUserId(id);
     if (!u?.instructorProfile) throw new NotFoundException("Instructor not found");
     const p = u.instructorProfile;
+    const live = await this.repo.computeInstructorStats(u.id);
     return {
       id: u.id,
       name: u.name,
@@ -206,8 +228,8 @@ export class InstructorService {
       title: p.title,
       bio: p.bio,
       expertise: p.expertise,
-      ratingAvg: p.ratingAvg,
-      studentCount: p.studentCount,
+      ratingAvg: live.ratingAvg,
+      studentCount: live.studentCount,
       courseCount: p.courseCount,
       joinedAt: u.createdAt.toISOString(),
       sampleUrl: p.sampleUrl,
@@ -220,7 +242,8 @@ export class InstructorService {
   }
 
   /** An InstructorProfile row only exists once an application is approved,
-   *  so a pending or rejected applicant would otherwise see `null` here and
+   *  so a pending or rejected applicant would otherwise see
+   *  `null` here and
    *  the frontend's ApprovalGate would show "not an instructor yet" instead
    *  of their actual status. */
   async myProfile(user: RequestUser): Promise<InstructorProfileDto | null> {
@@ -228,6 +251,7 @@ export class InstructorService {
     if (u?.instructorProfile) {
       const p = u.instructorProfile;
       const live = await this.repo.computeInstructorStats(u.id);
+      const pendingNameChange = await this.repo.findPendingNameChangeRequest(u.id);
       return {
         userId: u.id,
         name: u.name,
@@ -248,6 +272,7 @@ export class InstructorService {
         facebookUrl: p.facebookUrl,
         otherUrl: p.otherUrl,
         joinedAt: u.createdAt.toISOString(),
+        pendingNameChange: pendingNameChange ? toNameChangeDto(pendingNameChange) : null,
       };
     }
 
@@ -276,6 +301,27 @@ export class InstructorService {
     };
   }
 
+  async requestNameChange(
+    user: RequestUser,
+    input: RequestInstructorNameChangeInput,
+  ): Promise<InstructorNameChangeRequestDto> {
+    const current = await this.repo.findUserWithProfile(user.id);
+    if (!current?.instructorProfile || current.instructorProfile.status !== "APPROVED") {
+      throw new ForbiddenException("Only approved instructors can request a name change");
+    }
+    const requestedName = input.requestedName.trim();
+    if (requestedName === current.name) {
+      throw new BadRequestException("The requested name is the same as your current name");
+    }
+    const pending = await this.repo.findPendingNameChangeRequest(user.id);
+    if (pending) throw new BadRequestException("You already have a pending name-change request");
+    const request = await this.repo.createNameChangeRequest({
+      userId: user.id,
+      currentName: current.name,
+      requestedName,
+    });
+    return toNameChangeDto(request);
+  }
   async updateProfile(
     user: RequestUser,
     input: UpdateInstructorProfileInput,
@@ -339,6 +385,64 @@ export class InstructorService {
     return profile;
   }
 
+  async listNameChangeRequests(query: NameChangeRequestQuery): Promise<Paginated<InstructorNameChangeRequestDto>> {
+    const where: Prisma.InstructorNameChangeRequestWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { currentName: { contains: query.q, mode: "insensitive" } },
+              { requestedName: { contains: query.q, mode: "insensitive" } },
+              { user: { name: { contains: query.q, mode: "insensitive" } } },
+              { user: { email: { contains: query.q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.repo.findNameChangeRequestsPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map(toNameChangeDto),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async approveNameChange(admin: RequestUser, id: string): Promise<InstructorNameChangeRequestDto> {
+    const request = await this.repo.findNameChangeRequestById(id);
+    if (!request) throw new NotFoundException("Name-change request not found");
+    if (request.status !== "PENDING") throw new BadRequestException("This request has already been reviewed");
+    const current = await this.repo.findUserByIdOrThrow(request.userId);
+    if (current.name !== request.currentName) {
+      throw new BadRequestException("The instructor name changed before this request was reviewed");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await this.repo.updateNameChangeRequest(
+        id,
+        { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id },
+        tx,
+      );
+      await this.repo.updateUserName(request.userId, request.requestedName, tx);
+      return toNameChangeDto(updated);
+    });
+  }
+
+  async rejectNameChange(id: string, note: string): Promise<InstructorNameChangeRequestDto> {
+    const request = await this.repo.findNameChangeRequestById(id);
+    if (!request) throw new NotFoundException("Name-change request not found");
+    if (request.status !== "PENDING") throw new BadRequestException("This request has already been reviewed");
+    const updated = await this.repo.updateNameChangeRequest(id, {
+      status: "REJECTED",
+      reviewedAt: new Date(),
+      note,
+    });
+    return toNameChangeDto(updated);
+  }
   // ── admin ──────────────────────────────────────────────────────────────
   async listApplications(
     query: AdminInstructorApplicationQuery,
@@ -518,4 +622,23 @@ function humanSize(bytes: number): string {
     unitIdx += 1;
   }
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIdx]}`;
+}
+
+function toNameChangeDto(
+  request: Prisma.InstructorNameChangeRequestGetPayload<{
+    include: { user: { select: { email: true } } };
+  }>,
+): InstructorNameChangeRequestDto {
+  return {
+    id: request.id,
+    userId: request.userId,
+    currentName: request.currentName,
+    requestedName: request.requestedName,
+    status: request.status,
+    requestedAt: request.requestedAt.toISOString(),
+    reviewedAt: request.reviewedAt?.toISOString() ?? null,
+    reviewedBy: request.reviewedBy,
+    note: request.note,
+    email: request.user.email,
+  };
 }

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useCoursePreferences, useMyEnrollments, useRecommendedCourses } from "@/lib/api/hooks";
+import {
+  useCoursePreferences,
+  useMyEnrollments,
+  useRecommendedCourses,
+} from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
 import { CoursePreferencesModal } from "@/components/shared/course-preferences-modal";
 import { CourseArt } from "@/components/shared/course-art";
@@ -11,30 +15,58 @@ import { CircularProgress } from "@/components/shared/circular-progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Clock, Award, PlayCircle, ArrowRight, Bell, ChevronRight, TrendingUp, SlidersHorizontal } from "lucide-react";
+import {
+  BookOpen,
+  Clock,
+  Award,
+  PlayCircle,
+  ArrowRight,
+  Bell,
+  ChevronRight,
+  TrendingUp,
+  SlidersHorizontal,
+} from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export default function DashboardClient() {
   const { user, isLoading: sessionLoading } = useSession();
   const { data: enrollments, isLoading: enrollLoading } = useMyEnrollments();
-  const { data: recommendedCourses, isLoading: coursesLoading } = useRecommendedCourses(4);
-  const { data: preferences, isLoading: preferencesLoading } = useCoursePreferences();
+  const { data: recommendedCourses, isLoading: coursesLoading } =
+    useRecommendedCourses(4);
+  const { data: preferences, isLoading: preferencesLoading } =
+    useCoursePreferences();
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const isLoading = sessionLoading || enrollLoading;
 
   if (isLoading) {
     return (
       <div className="space-y-10 p-6 md:p-8">
-        <header className="flex flex-wrap items-start justify-between gap-4"><div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-8 w-56" /></div><Skeleton className="h-9 w-36" /></header>
-        <Skeleton className="h-28 w-full rounded-xl" /><Skeleton className="h-48 w-full rounded-xl" />
-        <div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-40 w-full rounded-xl" /></div>
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-56" />
+          </div>
+          <Skeleton className="h-9 w-36" />
+        </header>
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
   const enrolled = enrollments ?? [];
-  const inProgress = enrolled.filter((e) => e.status === "IN_PROGRESS").sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
+  const inProgress = enrolled
+    .filter((e) => e.status === "IN_PROGRESS")
+    .sort(
+      (a, b) =>
+        new Date(b.lastActivityAt).getTime() -
+        new Date(a.lastActivityAt).getTime(),
+    );
   const completed = enrolled.filter((e) => e.status === "COMPLETED");
   const resume = inProgress[0] ?? null;
   const timeLearnedSec = enrolled.reduce((sum, e) => sum + e.timeLearnedSec, 0);
@@ -42,32 +74,314 @@ export default function DashboardClient() {
   const recommended = recommendedCourses ?? [];
   const savedCategories = preferences?.categories ?? [];
   const stats = [
-    { icon: BookOpen, label: "Enrolled", value: enrolled.length, tint: "var(--tint-indigo)" },
-    { icon: Clock, label: "Time learned", value: formatDuration(timeLearnedSec), tint: "var(--tint-sky)" },
-    { icon: TrendingUp, label: "In progress", value: inProgress.length, tint: "var(--tint-amber)" },
-    { icon: Award, label: "Certificates", value: completed.length, tint: "var(--tint-emerald)" },
+    {
+      icon: BookOpen,
+      label: "Enrolled",
+      value: enrolled.length,
+      tint: "var(--tint-indigo)",
+    },
+    {
+      icon: Clock,
+      label: "Time learned",
+      value: formatDuration(timeLearnedSec),
+      tint: "var(--tint-sky)",
+    },
+    {
+      icon: TrendingUp,
+      label: "In progress",
+      value: inProgress.length,
+      tint: "var(--tint-amber)",
+    },
+    {
+      icon: Award,
+      label: "Certificates",
+      value: completed.length,
+      tint: "var(--tint-emerald)",
+    },
   ];
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   return (
     <div className="space-y-10 p-6 md:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-medium text-muted-foreground">Dashboard</p><h1 className="mt-1 text-3xl font-bold tracking-tight">Welcome back, {firstName}</h1></div><Button variant="outline" render={<Link href="/courses" />}>Browse courses <ArrowRight /></Button></header>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Dashboard</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            Welcome back, {firstName}
+          </h1>
+        </div>
+        <Button variant="outline" render={<Link href="/courses" />}>
+          Browse courses <ArrowRight />
+        </Button>
+      </header>
 
-      <section className="grid gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-[3fr_2fr]"><div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-4">{stats.map((s) => <div key={s.label} className="group bg-card p-5" style={{ ["--tile" as string]: s.tint }}><span className="icon-tile size-8"><s.icon className="size-4" /></span><div className="mt-3 text-2xl font-bold leading-none tracking-tight tabular-nums">{s.value}</div><div className="mt-1.5 text-xs text-muted-foreground">{s.label}</div></div>)}</div><div className="flex items-center justify-between gap-4 bg-card p-5"><div><div className="flex items-center gap-1.5 text-sm font-semibold"><TrendingUp className="size-4 text-primary" /> Learning stats</div><p className="mt-1 text-xs text-muted-foreground">{completed.length} course{completed.length !== 1 ? "s" : ""} completed</p></div><div className="flex flex-col items-end gap-1"><span className="text-2xl font-bold tabular-nums">{formatDuration(watchTimeSec)}</span><span className="text-xs text-muted-foreground">total watch time</span></div></div></section>
+      <section className="grid gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-[3fr_2fr]">
+        <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-4">
+          {stats.map((s) => (
+            <div
+              key={s.label}
+              className="group bg-card p-5"
+              style={{ ["--tile" as string]: s.tint }}
+            >
+              <span className="icon-tile size-8">
+                <s.icon className="size-4" />
+              </span>
+              <div className="mt-3 text-2xl font-bold leading-none tracking-tight tabular-nums">
+                {s.value}
+              </div>
+              <div className="mt-1.5 text-xs text-muted-foreground">
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between gap-4 bg-card p-5">
+          <div>
+            <div className="flex items-center gap-1.5 text-sm font-semibold">
+              <TrendingUp className="size-4 text-primary" /> Learning stats
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {completed.length} course{completed.length !== 1 ? "s" : ""}{" "}
+              completed
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-2xl font-bold tabular-nums">
+              {formatDuration(watchTimeSec)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              total watch time
+            </span>
+          </div>
+        </div>
+      </section>
 
-      {resume && <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"><div className="grid md:grid-cols-[2fr_3fr]"><div className="relative"><CourseArt seed={resume.course.thumbnail} title={resume.course.title} category={resume.course.category} className="h-full min-h-48" iconSize={56} /><div className="absolute inset-0 grid place-items-center bg-black/15"><span className="grid size-12 place-items-center rounded-full bg-background/90 text-primary shadow-lg backdrop-blur"><PlayCircle className="size-6" /></span></div></div><div className="flex flex-col justify-center gap-3 p-7"><Badge variant="secondary" className="w-fit">Continue learning</Badge><h2 className="text-xl font-bold tracking-tight">{resume.course.title}</h2><p className="text-sm text-muted-foreground">{resume.course.instructor.name} · {resume.completedCount}/{resume.lessonCount} lessons complete</p><div className="flex items-center gap-3"><Meter value={resume.progressPct} className="max-w-xs" /><span className="text-sm font-semibold tabular-nums">{resume.progressPct}%</span></div><Button className="w-fit" render={<Link href={`/learn/${resume.course.slug}`} />}><PlayCircle /> Resume course</Button></div></div></section>}
+      {resume && (
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="grid md:grid-cols-[2fr_3fr]">
+            <div className="relative">
+              <CourseArt
+                seed={resume.course.thumbnail}
+                title={resume.course.title}
+                category={resume.course.category}
+                className="h-full min-h-48"
+                iconSize={56}
+              />
+              <div className="absolute inset-0 grid place-items-center bg-black/15">
+                <span className="grid size-12 place-items-center rounded-full bg-background/90 text-primary shadow-lg backdrop-blur">
+                  <PlayCircle className="size-6" />
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col justify-center gap-3 p-7">
+              <Badge variant="secondary" className="w-fit">
+                Continue learning
+              </Badge>
+              <h2 className="text-xl font-bold tracking-tight">
+                {resume.course.title}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {resume.course.instructor.name} · {resume.completedCount}/
+                {resume.lessonCount} lessons complete
+              </p>
+              <div className="flex items-center gap-3">
+                <Meter value={resume.progressPct} className="max-w-xs" />
+                <span className="text-sm font-semibold tabular-nums">
+                  {resume.progressPct}%
+                </span>
+              </div>
+              <Button
+                className="w-fit"
+                render={<Link href={`/learn/${resume.course.slug}`} />}
+              >
+                <PlayCircle /> Resume course
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
-      {enrolled.length > 0 && <section><h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Your courses</h2><div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">{enrolled.map((e, i) => <Link key={e.id} href={`/learn/${e.course.slug}`} className={cn("group flex items-center gap-4 p-3.5 transition-colors hover:bg-secondary/50", i > 0 && "border-t border-border")}><CourseArt seed={e.course.thumbnail} title={e.course.title} className="h-14 w-24 shrink-0 rounded-lg" iconSize={22} /><div className="flex min-w-0 flex-1 flex-col gap-1.5"><span className="truncate text-sm font-semibold group-hover:text-primary">{e.course.title}</span><div className="flex items-center gap-3"><Meter value={e.progressPct} height={5} className="max-w-48" /><span className="shrink-0 text-xs text-muted-foreground tabular-nums">{e.completedCount}/{e.lessonCount} · {e.progressPct}%</span></div></div>{e.status === "COMPLETED" ? <CircularProgress value={100} size={32} strokeWidth={3} showLabel={false} className="shrink-0"><Award className="size-4 text-success" /></CircularProgress> : <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />}</Link>)}</div></section>}
+      {enrolled.length > 0 && (
+        <section>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Your courses
+          </h2>
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            {enrolled.map((e, i) => (
+              <Link
+                key={e.id}
+                href={`/learn/${e.course.slug}`}
+                className={cn(
+                  "group flex items-center gap-4 p-3.5 transition-colors hover:bg-secondary/50",
+                  i > 0 && "border-t border-border",
+                )}
+              >
+                <CourseArt
+                  seed={e.course.thumbnail}
+                  title={e.course.title}
+                  className="h-14 w-24 shrink-0 rounded-lg"
+                  iconSize={22}
+                />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <span className="truncate text-sm font-semibold group-hover:text-primary">
+                    {e.course.title}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <Meter
+                      value={e.progressPct}
+                      height={5}
+                      className="max-w-48"
+                    />
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {e.completedCount}/{e.lessonCount} · {e.progressPct}%
+                    </span>
+                  </div>
+                </div>
+                {e.status === "COMPLETED" ? (
+                  <CircularProgress
+                    value={100}
+                    size={32}
+                    strokeWidth={3}
+                    showLabel={false}
+                    className="shrink-0"
+                  >
+                    <Award className="size-4 text-success" />
+                  </CircularProgress>
+                ) : (
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {enrolled.length === 0 && <section className="rounded-xl border border-border bg-card p-10 text-center"><BookOpen className="mx-auto mb-3 size-10 text-muted-foreground" /><h2 className="text-lg font-semibold">No courses yet</h2><p className="mt-1 text-sm text-muted-foreground">Browse the catalog to find your first course.</p><Button className="mt-4" render={<Link href="/courses" />}>Browse courses</Button></section>}
+      {enrolled.length === 0 && (
+        <section className="rounded-xl border border-border bg-card p-10 text-center">
+          <BookOpen className="mx-auto mb-3 size-10 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">No courses yet</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Browse the catalog to find your first course.
+          </p>
+          <Button className="mt-4" render={<Link href="/courses" />}>
+            Browse courses
+          </Button>
+        </section>
+      )}
 
-      <section className="flex flex-col gap-4 rounded-xl border border-border bg-secondary/50 p-4 sm:flex-row sm:items-center sm:p-5"><div className="flex items-start gap-4 sm:flex-1"><div className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-card text-primary"><Bell className="size-5" /></div><div className="min-w-0 flex-1"><h3 className="font-semibold">Stay on track with smart reminders</h3><p className="text-sm text-muted-foreground">We&apos;ll nudge you by email or SMS if you go idle — manage exactly how in your account.</p></div></div><Button variant="outline" className="w-full sm:w-auto" render={<Link href="/account" />}>Reminder settings</Button></section>
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-secondary/50 p-4 sm:flex-row sm:items-center sm:p-5">
+        <div className="flex items-start gap-4 sm:flex-1">
+          <div className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-card text-primary">
+            <Bell className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold">
+              Stay on track with smart reminders
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              We&apos;ll nudge you by email or SMS if you go idle — manage
+              exactly how in your account.
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto"
+          render={<Link href="/account" />}
+        >
+          Reminder settings
+        </Button>
+      </section>
 
-      <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex items-center gap-2 text-sm font-semibold"><SlidersHorizontal className="size-4 text-primary" /> Learning preferences</div><p className="mt-1 text-sm text-muted-foreground">Choose the three areas used to personalize your recommendations.</p>{preferencesLoading ? <div className="mt-4 flex gap-2"><Skeleton className="h-7 w-24 rounded-full" /><Skeleton className="h-7 w-28 rounded-full" /><Skeleton className="h-7 w-20 rounded-full" /></div> : savedCategories.length > 0 ? <div className="mt-4 flex flex-wrap gap-2">{savedCategories.map((category) => <span key={category} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">{category}</span>)}</div> : <p className="mt-4 text-xs text-muted-foreground">No preferences saved yet.</p>}</div><Button variant="outline" className="shrink-0" disabled={preferencesLoading} onClick={() => setPreferencesOpen(true)}><SlidersHorizontal /> Edit preferences</Button></div></section>
+      <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <SlidersHorizontal className="size-4 text-primary" /> Learning
+              preferences
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Choose the three areas used to personalize your recommendations.
+            </p>
+            {preferencesLoading ? (
+              <div className="mt-4 flex gap-2">
+                <Skeleton className="h-7 w-24 rounded-full" />
+                <Skeleton className="h-7 w-28 rounded-full" />
+                <Skeleton className="h-7 w-20 rounded-full" />
+              </div>
+            ) : savedCategories.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {savedCategories.map((category) => (
+                  <span
+                    key={category}
+                    className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                  >
+                    {category}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-muted-foreground">
+                No preferences saved yet.
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            disabled={preferencesLoading}
+            onClick={() => setPreferencesOpen(true)}
+          >
+            <SlidersHorizontal /> Edit preferences
+          </Button>
+        </div>
+      </section>
 
-      {!coursesLoading && recommended.length > 0 && <section><div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recommended for you</h2><Button variant="ghost" size="sm" render={<Link href="/courses" />}>See all <ArrowRight /></Button></div><div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">{recommended.map((c) => <Link key={c.id} href={`/courses/${c.slug}`} className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"><CourseArt seed={c.thumbnail} title={c.title} category={c.category} className="aspect-16/10" iconSize={40} /><div className="p-3"><p className="truncate text-sm font-semibold group-hover:text-primary">{c.title}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{c.instructor.name}</p></div></Link>)}</div></section>}
+      {!coursesLoading && recommended.length > 0 && (
+        <section>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Recommended for you
+            </h2>
+            <Button variant="ghost" size="sm" render={<Link href="/courses" />}>
+              See all <ArrowRight />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+            {recommended.map((c) => (
+              <Link
+                key={c.id}
+                href={`/courses/${c.slug}`}
+                className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <CourseArt
+                  seed={c.thumbnail}
+                  title={c.title}
+                  category={c.category}
+                  className="aspect-16/10"
+                  iconSize={40}
+                />
+                <div className="p-3">
+                  <p className="truncate text-sm font-semibold group-hover:text-primary">
+                    {c.title}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {c.instructor.name}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <CoursePreferencesModal studentOnly open={preferencesOpen} initialCategories={savedCategories} onOpenChange={setPreferencesOpen} onSaved={() => setPreferencesOpen(false)} />
+      <CoursePreferencesModal
+        studentOnly
+        open={preferencesOpen}
+        initialCategories={savedCategories}
+        onOpenChange={setPreferencesOpen}
+        onSaved={() => setPreferencesOpen(false)}
+      />
     </div>
   );
 }

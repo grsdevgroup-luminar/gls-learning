@@ -7,6 +7,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { passwordSchema } from "@skillstream/shared";
 import { Reveal, Stagger } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
+import { PasswordRequirements } from "@/components/shared/password-requirements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -145,6 +146,7 @@ export function PasswordCard() {
               </div>
             </FormField>
           </Stagger>
+          <PasswordRequirements value={newPassword} />
           <Button
             variant="outline"
             disabled={passwordMutation.isPending || !currentPassword || !newPassword}
