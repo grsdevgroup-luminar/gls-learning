@@ -151,6 +151,8 @@ export interface InstructorProfileDto {
   courseCount: number;
   earningsCents: number;
   status: InstructorStatus;
+  /** Admin's reason when `status` is REJECTED — null otherwise. */
+  note: string | null;
   sampleUrl?: string | null;
   linkedinUrl?: string | null;
   twitterUrl?: string | null;
@@ -159,6 +161,9 @@ export interface InstructorProfileDto {
   otherUrl?: string | null;
   joinedAt?: string;
   pendingNameChange?: InstructorNameChangeRequestDto | null;
+  /** Most recently rejected name-change request, so its reason can still be
+   *  shown after the request drops out of the PENDING-only query above. */
+  lastRejectedNameChange?: InstructorNameChangeRequestDto | null;
 }
 
 /** Public instructor profile — no email/earnings, safe to serve unauthenticated. */

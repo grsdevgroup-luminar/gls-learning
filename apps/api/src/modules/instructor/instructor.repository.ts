@@ -45,6 +45,14 @@ export class InstructorRepository {
     });
   }
 
+  findLastRejectedNameChangeRequest(userId: string) {
+    return this.prisma.instructorNameChangeRequest.findFirst({
+      where: { userId, status: "REJECTED" },
+      orderBy: { reviewedAt: "desc" },
+      include: { user: { select: { email: true } } },
+    });
+  }
+
   createNameChangeRequest(data: Prisma.InstructorNameChangeRequestUncheckedCreateInput) {
     return this.prisma.instructorNameChangeRequest.create({
       data,

@@ -55,7 +55,7 @@ export const PayoutDto = z.object({
 export type PayoutDto = z.infer<typeof PayoutDto>;
 
 export const RejectPayoutSchema = z.object({
-  note: z.string().max(500).optional(),
+  note: z.string().trim().min(1, "A rejection reason is required").max(500),
 });
 export type RejectPayoutInput = z.infer<typeof RejectPayoutSchema>;
 

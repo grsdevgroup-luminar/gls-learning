@@ -224,6 +224,7 @@ export default function InstructorProfile() {
           profileEmail={profile.email}
           requestedName={requestedName}
           pendingNameChange={profile.pendingNameChange}
+          lastRejectedNameChange={profile.lastRejectedNameChange}
           onRequestedNameChange={setRequestedName}
           onRequestNameChange={() => nameChangeMutation.mutate()}
           requestingNameChange={nameChangeMutation.isPending}

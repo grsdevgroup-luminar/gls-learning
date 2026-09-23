@@ -20,6 +20,7 @@ export function DetailsCard({
   profileEmail,
   requestedName,
   pendingNameChange,
+  lastRejectedNameChange,
   onRequestedNameChange,
   onRequestNameChange,
   requestingNameChange,
@@ -36,6 +37,7 @@ export function DetailsCard({
   profileEmail: string;
   requestedName: string;
   pendingNameChange?: InstructorNameChangeRequestDto | null;
+  lastRejectedNameChange?: InstructorNameChangeRequestDto | null;
   onRequestedNameChange: (value: string) => void;
   onRequestNameChange: () => void;
   requestingNameChange: boolean;
@@ -78,6 +80,16 @@ export function DetailsCard({
                   >
                     {requestingNameChange ? "Submitting…" : "Request name change"}
                   </Button>
+                )}
+                {!pendingNameChange && lastRejectedNameChange && (
+                  <div className="mt-2 rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 text-xs">
+                    <p className="font-medium text-destructive">
+                      Your request to change your name to &quot;{lastRejectedNameChange.requestedName}&quot; wasn&apos;t approved
+                    </p>
+                    {lastRejectedNameChange.note && (
+                      <p className="mt-1 text-muted-foreground">{lastRejectedNameChange.note}</p>
+                    )}
+                  </div>
                 )}
               </FormField>
               <FormField label="Email">

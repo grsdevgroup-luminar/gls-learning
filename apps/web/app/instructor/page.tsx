@@ -92,6 +92,12 @@ export default function InstructorOverview() {
               as an instructor right now. You&apos;re welcome to strengthen your
               sample and re-apply in the future.
             </p>
+            {profile.note && (
+              <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-left text-sm text-foreground">
+                <p className="font-medium text-destructive">Reason</p>
+                <p className="mt-1 leading-relaxed">{profile.note}</p>
+              </div>
+            )}
             <div className="mt-6 flex flex-col items-center gap-3">
               <Button render={<Link href="/teach" />} variant="outline">
                 Re-apply

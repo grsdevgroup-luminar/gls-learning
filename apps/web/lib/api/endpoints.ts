@@ -558,7 +558,7 @@ export const api = {
     apiFetch<PayoutDto>(`/admin/payouts/${id}/approve`, { method: "POST" }),
   markPayoutPaid: (id: string) =>
     apiFetch<PayoutDto>(`/admin/payouts/${id}/mark-paid`, { method: "POST" }),
-  rejectPayout: (id: string, note?: string) =>
+  rejectPayout: (id: string, note: string) =>
     apiFetch<PayoutDto>(`/admin/payouts/${id}/reject`, { method: "POST", body: { note } }),
 
   // instructor

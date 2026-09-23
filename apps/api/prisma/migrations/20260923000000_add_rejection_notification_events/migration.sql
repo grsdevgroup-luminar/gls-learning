@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "NotificationEvent" ADD VALUE 'PAYOUT_REJECTED';
+ALTER TYPE "NotificationEvent" ADD VALUE 'NAME_CHANGE_REJECTED';

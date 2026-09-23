@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, Info } from "lucide-react";
 import { api } from "@/lib/api/endpoints";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const statusCls: Record<string, string> = {
   REQUESTED: "text-warning",
@@ -418,9 +419,27 @@ function PayoutHistoryCard({
                     {relativeDate(p.requestedAt)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusCls[p.status] ?? ""}>
-                      {p.status}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className={statusCls[p.status] ?? ""}>
+                        {p.status}
+                      </Badge>
+                      {p.status === "REJECTED" && p.note && (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                type="button"
+                                className="text-muted-foreground"
+                                aria-label="Rejection reason"
+                              />
+                            }
+                          >
+                            <Info className="size-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-64">{p.note}</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {p.providerRef ? (
