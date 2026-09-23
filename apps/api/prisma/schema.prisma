@@ -1156,6 +1156,8 @@ model Organization {
   suspensionMode OrgSuspensionMode?
   accessLocksAt  DateTime?
   seatCount      Int                @default(10)
+  /// Billable member seats in use — OrgMember rows with role MEMBER only.
+  /// The provisioned org admin (OrgMember.role ADMIN) does not count.
   usedSeats      Int                @default(0)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt

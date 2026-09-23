@@ -309,7 +309,8 @@ export class OrganizationsService {
         invite.role,
         tx,
       );
-      await this.repo.incrementUsedSeats(invite.orgId, tx);
+      if (invite.role === "MEMBER")
+        await this.repo.incrementUsedSeats(invite.orgId, tx);
       await this.repo.markInvitationClaimed(token, tx);
       if (invite.role === "ADMIN")
         await this.repo.updateUserRole(user.id, "ORG_ADMIN", tx);
@@ -333,12 +334,16 @@ export class OrganizationsService {
       }
 
       // Notify once per threshold crossed by *this* join, not on every join
-      // once already over it.
-      const updatedSeats = org.usedSeats + 1;
+      // once already over it. Only member invites consume a seat.
+      const updatedSeats =
+        invite.role === "MEMBER" ? org.usedSeats + 1 : org.usedSeats;
       const nearingAt = Math.ceil(org.seatCount * 0.8);
       const justFilled = org.usedSeats < org.seatCount && updatedSeats >= org.seatCount;
       const justNearing =
-        !justFilled && org.usedSeats < nearingAt && updatedSeats >= nearingAt;
+        invite.role === "MEMBER" &&
+        !justFilled &&
+        org.usedSeats < nearingAt &&
+        updatedSeats >= nearingAt;
 
       if (justFilled || justNearing) {
         const body = justFilled
@@ -375,7 +380,8 @@ export class OrganizationsService {
         throw new BadRequestException("An organization must keep one admin");
     }
     await this.repo.deleteMember(memberId);
-    await this.repo.decrementUsedSeats(orgId);
+    if (member.role === "MEMBER")
+      await this.repo.decrementUsedSeats(orgId);
     return this.toDto(await this.getRow(orgId));
   }
 

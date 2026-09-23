@@ -75,7 +75,7 @@ export class OrganizationsRepository {
     return this.db(tx).organization.create({
       data: {
         ...org,
-        usedSeats: 1,
+        usedSeats: 0,
         members: {
           create: {
             email: admin.email,
