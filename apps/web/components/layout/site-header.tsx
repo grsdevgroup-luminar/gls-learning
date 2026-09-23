@@ -311,9 +311,7 @@ export function SiteHeader() {
                     </DropdownMenuItem>
                   </>
                 ) : role === "ORG_ADMIN" ? (
-                  <DropdownMenuItem
-                    render={<Link href="/admin/organizations" />}
-                  >
+                  <DropdownMenuItem render={<Link href="/org" />}>
                     <Building2 /> Organization portal
                   </DropdownMenuItem>
                 ) : (

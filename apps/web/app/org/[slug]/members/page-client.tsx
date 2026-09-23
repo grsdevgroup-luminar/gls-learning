@@ -19,9 +19,6 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { UserPlus, Trash2, Search, Users, MailPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
@@ -33,7 +30,6 @@ export default function OrgMembers() {
   const q = useDebouncedSearch(qInput);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
 
   const { data: org } = useQuery({
     queryKey: ["org", params.slug],
@@ -52,11 +48,10 @@ export default function OrgMembers() {
   };
 
   const inviteMutation = useMutation({
-    mutationFn: () => orgApi.invite(org!.id, email.trim(), role),
+    mutationFn: () => orgApi.invite(org!.id, email.trim()),
     onSuccess: () => {
       toast.success(`Invited ${email}`, { description: "They'll get access when they claim the invite." });
       setEmail("");
-      setRole("MEMBER");
       setInviteOpen(false);
       refresh();
     },
@@ -113,18 +108,6 @@ export default function OrgMembers() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label>Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as "ADMIN" | "MEMBER")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MEMBER">Member</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
