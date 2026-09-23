@@ -233,6 +233,10 @@ export class OrganizationsService {
     const org = await this.getRow(orgId);
     if (org.usedSeats >= org.seatCount)
       throw new BadRequestException("No seats remaining");
+    // Org admins invite members only — additional org admins are provisioned
+    // at org creation, not via the self-service invite flow.
+    if (user.role !== "ADMIN" && input.role === "ADMIN")
+      throw new BadRequestException("Org admins can only invite members");
     const token = randomUUID();
     const email = input.email.toLowerCase();
     const invitation = await this.repo.createInvitation({

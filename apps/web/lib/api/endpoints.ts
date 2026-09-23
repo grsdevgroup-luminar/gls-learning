@@ -620,10 +620,10 @@ export const orgApi = {
       graceDays: number;
     }>,
   ) => apiFetch<OrganizationDto>(`/organizations/${orgId}`, { method: "PATCH", body }),
-  invite: (orgId: string, email: string, role: "ADMIN" | "MEMBER") =>
+  invite: (orgId: string, email: string) =>
     apiFetch<{ id: string; token: string; email: string }>(
       `/organizations/${orgId}/invite`,
-      { method: "POST", body: { email, role } },
+      { method: "POST", body: { email, role: "MEMBER" } },
     ),
   invitations: (orgId: string) =>
     apiFetch<{ id: string; email: string; role: string; expiresAt: string }[]>(
