@@ -11,13 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Wallet, Clock, CheckCircle2, Search, X } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Wallet, Clock, CheckCircle2, Search, X, Info } from "lucide-react";
 
 const statusCls: Record<string, string> = {
   REQUESTED: "text-warning",
@@ -136,7 +141,19 @@ export default function AdminPayouts() {
 
   const approve = useMutation(mutationFor(api.approvePayout, "Payout approved"));
   const markPaid = useMutation(mutationFor(api.markPayoutPaid, "Marked as paid"));
-  const reject = useMutation(mutationFor((id) => api.rejectPayout(id), "Payout rejected"));
+
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const reject = useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) => api.rejectPayout(id, note),
+    onSuccess: () => {
+      toast.success("Payout rejected");
+      qc.invalidateQueries({ queryKey: ["admin-payouts"] });
+      setRejectingId(null);
+      setRejectReason("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const rows = payouts ?? [];
   const open = rows.filter((p) => p.status === "REQUESTED" || p.status === "APPROVED");
@@ -319,9 +336,27 @@ export default function AdminPayouts() {
                       {relativeDate(p.requestedAt)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusCls[p.status] ?? ""}>
-                        {p.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={statusCls[p.status] ?? ""}>
+                          {p.status}
+                        </Badge>
+                        {p.status === "REJECTED" && p.note && (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground"
+                                  aria-label="Rejection reason"
+                                />
+                              }
+                            >
+                              <Info className="size-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-64">{p.note}</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {(p.status === "REQUESTED" || p.status === "APPROVED") && (
@@ -345,7 +380,7 @@ export default function AdminPayouts() {
                           <Button
                             size="sm" variant="ghost" className="h-7 text-xs text-destructive"
                             disabled={reject.isPending}
-                            onClick={() => reject.mutate(p.id)}
+                            onClick={() => setRejectingId(p.id)}
                           >
                             Reject
                           </Button>
@@ -359,6 +394,45 @@ export default function AdminPayouts() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!rejectingId}
+        onOpenChange={(open) => {
+          setRejectingId(open ? rejectingId : null);
+          if (!open) setRejectReason("");
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Reject payout</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 w-full space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="payout-rejection-reason" className="text-sm font-medium">Rejection reason</label>
+              <Textarea
+                id="payout-rejection-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Explain why this payout wasn't approved — the payee will see this."
+                className="min-h-24 w-full resize-y"
+              />
+            </div>
+            <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setRejectingId(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full text-destructive sm:w-auto"
+                disabled={!rejectReason.trim() || reject.isPending}
+                onClick={() => rejectingId && reject.mutate({ id: rejectingId, note: rejectReason.trim() })}
+              >
+                <X /> Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

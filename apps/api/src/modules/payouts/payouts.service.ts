@@ -371,7 +371,7 @@ export class PayoutsService {
   async reject(
     admin: RequestUser,
     id: string,
-    note?: string,
+    note: string,
   ): Promise<PayoutDto> {
     const payout = await this.repo.findPayoutById(id);
     if (!payout) throw new NotFoundException("Payout not found");
@@ -383,6 +383,15 @@ export class PayoutsService {
       processedAt: new Date(),
       processedBy: admin.id,
     });
+    void this.notifications
+      .notify({
+        userId: payout.payeeUserId,
+        event: "PAYOUT_REJECTED",
+        title: "Payout rejected",
+        body: note,
+        href: payoutHref(payout.payeeType),
+      })
+      .catch(() => undefined);
     return this.toDto(updated, updated.payee);
   }
 

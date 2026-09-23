@@ -579,9 +579,9 @@ export class DeliveryPartnerService {
             ? "DELIVERY_PARTNER_APPLICATION_APPROVED"
             : "DELIVERY_PARTNER_APPLICATION_REJECTED",
           title: approved ? "Delivery partner application approved" : "Delivery partner application update",
-          body: approved
-            ? approvedBody
-            : (result.note ?? "Your delivery partner application was not approved this time."),
+          // The schema requires `note` on a REJECTED review, so this is
+          // always the admin's actual reason, never a generic fallback.
+          body: approved ? approvedBody : (result.note ?? ""),
           href: approved ? "/delivery-partner/referrals" : "/partner",
         })
         .catch(() => undefined);

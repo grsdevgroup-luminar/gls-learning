@@ -10,12 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Info } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const statusCls: Record<string, string> = {
   REQUESTED: "text-warning",
@@ -190,9 +192,27 @@ export function PayoutPanel() {
                       {relativeDate(p.requestedAt)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusCls[p.status] ?? ""}>
-                        {p.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={statusCls[p.status] ?? ""}>
+                          {p.status}
+                        </Badge>
+                        {p.status === "REJECTED" && p.note && (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground"
+                                  aria-label="Rejection reason"
+                                />
+                              }
+                            >
+                              <Info className="size-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-64">{p.note}</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

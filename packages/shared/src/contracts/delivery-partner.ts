@@ -70,6 +70,16 @@ export const ReviewPartnerApplicationSchema = z.object({
   status: z.enum([DeliveryPartnerStatus.APPROVED, DeliveryPartnerStatus.REJECTED]),
   commissionPercent: z.number().min(1, "Commission must be at least 1%").max(50, "Commission cannot exceed 50%").optional(),
   note: z.string().max(1000).optional(),
+}).superRefine((val, ctx) => {
+  // A rejection with no reason leaves the applicant with nothing to act on —
+  // required here, unlike the approval note, which stays optional context.
+  if (val.status === DeliveryPartnerStatus.REJECTED && !val.note?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["note"],
+      message: "A rejection reason is required",
+    });
+  }
 });
 export type ReviewPartnerApplicationInput = z.infer<
   typeof ReviewPartnerApplicationSchema

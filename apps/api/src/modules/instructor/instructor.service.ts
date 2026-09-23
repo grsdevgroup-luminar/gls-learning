@@ -252,6 +252,9 @@ export class InstructorService {
       const p = u.instructorProfile;
       const live = await this.repo.computeInstructorStats(u.id);
       const pendingNameChange = await this.repo.findPendingNameChangeRequest(u.id);
+      const lastRejectedNameChange = pendingNameChange
+        ? null
+        : await this.repo.findLastRejectedNameChangeRequest(u.id);
       return {
         userId: u.id,
         name: u.name,
@@ -265,6 +268,7 @@ export class InstructorService {
         courseCount: p.courseCount,
         earningsCents: p.earningsCents,
         status: p.status,
+        note: null,
         sampleUrl: p.sampleUrl,
         linkedinUrl: p.linkedinUrl,
         twitterUrl: p.twitterUrl,
@@ -273,6 +277,7 @@ export class InstructorService {
         otherUrl: p.otherUrl,
         joinedAt: u.createdAt.toISOString(),
         pendingNameChange: pendingNameChange ? toNameChangeDto(pendingNameChange) : null,
+        lastRejectedNameChange: lastRejectedNameChange ? toNameChangeDto(lastRejectedNameChange) : null,
       };
     }
 
@@ -292,6 +297,7 @@ export class InstructorService {
       courseCount: 0,
       earningsCents: 0,
       status: app.status,
+      note: app.note,
       sampleUrl: app.sampleUrl,
       linkedinUrl: app.linkedinUrl,
       twitterUrl: app.twitterUrl,
@@ -441,6 +447,15 @@ export class InstructorService {
       reviewedAt: new Date(),
       note,
     });
+    void this.notifications
+      .notify({
+        userId: request.userId,
+        event: "NAME_CHANGE_REJECTED",
+        title: "Name change request update",
+        body: note,
+        href: "/instructor/profile",
+      })
+      .catch(() => undefined);
     return toNameChangeDto(updated);
   }
   // ── admin ──────────────────────────────────────────────────────────────
@@ -516,6 +531,7 @@ export class InstructorService {
           courseCount: p.courseCount,
           earningsCents: p.earningsCents,
           status: p.status,
+          note: null,
           sampleUrl: p.sampleUrl,
           linkedinUrl: p.linkedinUrl,
           twitterUrl: p.twitterUrl,
