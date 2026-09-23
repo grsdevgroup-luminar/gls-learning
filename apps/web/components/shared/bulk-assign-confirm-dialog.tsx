@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UnlimitedNumberInput } from "@/components/shared/unlimited-number-input";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -47,15 +47,11 @@ export function BulkAssignConfirmDialog({
         {memberCap !== undefined && (
           <div className="space-y-1.5">
             <Label htmlFor="bulk-member-cap">Member cap per course</Label>
-            <Input
+            <UnlimitedNumberInput
               id="bulk-member-cap"
-              type="number"
-              min={0}
-              max={1000}
-              placeholder="0 = unlimited"
-              value={memberCap}
-              onChange={(e) => onMemberCapChange?.(Number(e.target.value))}
-              className="w-28"
+              value={String(memberCap)}
+              onChange={(v) => onMemberCapChange?.(Number(v))}
+              inputClassName="w-28"
             />
           </div>
         )}
