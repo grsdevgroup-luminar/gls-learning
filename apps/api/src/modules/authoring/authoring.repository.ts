@@ -174,8 +174,57 @@ export class AuthoringRepository {
     });
   }
 
-  deleteCourse(id: string) {
-    return this.prisma.course.delete({ where: { id } });
+  deleteCourse(id: string, tx?: Db) {
+    return this.db(tx).course.delete({ where: { id } });
+  }
+
+  // ── course deletion requests (instructor-initiated, admin-approved) ─────
+  findPendingDeletionRequest(courseId: string) {
+    return this.prisma.courseDeletionRequest.findFirst({
+      where: { courseId, status: "PENDING" },
+    });
+  }
+
+  createDeletionRequest(data: {
+    courseId: string;
+    courseTitle: string;
+    instructorId: string;
+    reason: string;
+  }) {
+    return this.prisma.courseDeletionRequest.create({ data });
+  }
+
+  findDeletionRequestById(id: string) {
+    return this.prisma.courseDeletionRequest.findUnique({
+      where: { id },
+      include: { instructor: { select: { name: true } } },
+    });
+  }
+
+  async findDeletionRequestsPage(
+    where: Prisma.CourseDeletionRequestWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    const [rows, total] = await Promise.all([
+      this.prisma.courseDeletionRequest.findMany({
+        where,
+        include: { instructor: { select: { name: true } } },
+        orderBy: { requestedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.courseDeletionRequest.count({ where }),
+    ]);
+    return [rows, total] as const;
+  }
+
+  updateDeletionRequest(
+    id: string,
+    data: Prisma.CourseDeletionRequestUpdateInput,
+    tx?: Db,
+  ) {
+    return this.db(tx).courseDeletionRequest.update({ where: { id }, data });
   }
 
   findManyCoursesByInstructor(instructorId: string) {

@@ -7,7 +7,7 @@ import { adminApi, authoringApi, type InstructorCourseDto } from "@/lib/api/endp
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ReasonConfirmDialog } from "@/components/shared/reason-confirm-dialog";
 import { CourseOrganizationsDialog } from "@/components/shared/course-organizations-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DeletionRequestsTab } from "./_components/deletion-requests-tab";
 import { formatUsd, compactNumber } from "@/lib/format";
 import {
   Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe,
@@ -99,8 +101,9 @@ export default function AdminCourses() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => authoringApi.deleteCourse(id),
-    onSuccess: (_, id) => {
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      authoringApi.deleteCourse(id, reason),
+    onSuccess: (_, { id }) => {
       const c = courses?.find((x) => x.id === id);
       toast.success("Course deleted", { description: c?.title });
       invalidate();
@@ -120,6 +123,12 @@ export default function AdminCourses() {
         <Button render={<Link href="/admin/courses/new" />}><Plus /> New course</Button>
       </div>
 
+      <Tabs defaultValue="all" className="flex min-h-0 flex-1 flex-col gap-4">
+      <TabsList className="shrink-0">
+        <TabsTrigger value="all">All courses</TabsTrigger>
+        <TabsTrigger value="deletion-requests">Deletion requests</TabsTrigger>
+      </TabsList>
+      <TabsContent value="all" className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -255,17 +264,30 @@ export default function AdminCourses() {
         <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
 
-      <ConfirmDialog
+      <ReasonConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         title={`Delete course "${deleteTarget?.title}"?`}
-        description="This cannot be undone."
+        description="This cannot be undone. If this course belongs to an instructor, they'll be notified by email with the reason below."
+        reasonLabel="Reason for deletion"
+        reasonPlaceholder="e.g. Violates content guidelines"
         pending={deleteMutation.isPending}
-        onConfirm={async () => {
+        onConfirm={async (reason) => {
           if (!deleteTarget) return;
-          await deleteMutation.mutateAsync(deleteTarget.id);
+          await deleteMutation.mutateAsync({ id: deleteTarget.id, reason });
         }}
       />
+      </TabsContent>
+
+      <TabsContent value="deletion-requests" className="flex min-h-0 flex-1 flex-col gap-4">
+        <DeletionRequestsTab
+          onMutated={() => {
+            void qc.invalidateQueries({ queryKey: ["admin", "course-deletion-requests"] });
+            invalidate();
+          }}
+        />
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

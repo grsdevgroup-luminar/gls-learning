@@ -8,29 +8,37 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
+  courseDeletionRequestQuerySchema,
   courseStatusSchema,
   createCourseSchema,
   createQuizQuestionSchema,
   createQuizSchema,
+  deleteCourseSchema,
   lessonSchema,
+  rejectApplicationSchema,
   reorderSchema,
+  requestCourseDeletionSchema,
   sectionSchema,
   updateCourseSchema,
   updateQuizQuestionSchema,
   updateQuizSchema,
+  type CourseDeletionRequestQuery,
   type CourseStatusInput,
   type CreateCourseInput,
   type CreateQuizInput,
   type CreateQuizQuestionInput,
+  type DeleteCourseInput,
   type LessonInput,
+  type RejectApplicationInput,
   type ReorderInput,
+  type RequestCourseDeletionInput,
   type SectionInput,
   type UpdateCourseInput,
   type UpdateQuizInput,
   type UpdateQuizQuestionInput,
 } from "@skillstream/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
-import { ZodBody } from "../../common/utils/swagger";
+import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AuthoringService } from "./authoring.service";
 
 @ApiTags("authoring")
@@ -94,9 +102,58 @@ export class AuthoringController {
   ) {
     return this.authoring.validateStatus(user, id, body);
   }
+  // Deleting a course can affect enrolled students and revenue, so only an
+  // admin can do it directly — overrides the controller-level @Roles above.
+  // An instructor can only ever request it, below.
+  @Roles("ADMIN")
   @Delete("courses/:id")
-  remove(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.authoring.remove(user, id);
+  remove(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @ZodBody(deleteCourseSchema) body: DeleteCourseInput,
+  ) {
+    return this.authoring.remove(user, id, body.reason);
+  }
+
+  @Post("courses/:id/deletion-requests")
+  requestDeletion(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @ZodBody(requestCourseDeletionSchema) body: RequestCourseDeletionInput,
+  ) {
+    return this.authoring.requestDeletion(user, id, body.reason);
+  }
+
+  @Get("me/instructor/course-deletion-requests")
+  myDeletionRequests(@CurrentUser() user: RequestUser) {
+    return this.authoring.myDeletionRequests(user);
+  }
+
+  @Roles("ADMIN")
+  @Get("admin/course-deletion-requests")
+  listDeletionRequests(
+    @ZodQuery(courseDeletionRequestQuerySchema)
+    query: CourseDeletionRequestQuery,
+  ) {
+    return this.authoring.listDeletionRequests(query);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/course-deletion-requests/:id/approve")
+  approveDeletionRequest(
+    @CurrentUser() admin: RequestUser,
+    @Param("id") id: string,
+  ) {
+    return this.authoring.approveDeletionRequest(admin, id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/course-deletion-requests/:id/reject")
+  rejectDeletionRequest(
+    @Param("id") id: string,
+    @ZodBody(rejectApplicationSchema) body: RejectApplicationInput,
+  ) {
+    return this.authoring.rejectDeletionRequest(id, body.note);
   }
 
   // sections

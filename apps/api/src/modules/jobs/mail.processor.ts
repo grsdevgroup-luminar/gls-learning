@@ -3,6 +3,7 @@ import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { EmailService } from "../email/email.service";
 import type { MailJobData } from "../email/mail-job.types";
+import { NotificationsService } from "../notifications/notifications.service";
 import { MAIL_QUEUE } from "./jobs.constants";
 import { NotificationsRepository } from "./notifications.repository";
 
@@ -20,6 +21,7 @@ export class MailProcessor extends WorkerHost {
   constructor(
     private readonly email: EmailService,
     private readonly repo: NotificationsRepository,
+    private readonly notifications: NotificationsService,
   ) {
     super();
   }
@@ -38,7 +40,10 @@ export class MailProcessor extends WorkerHost {
   }
 
   /** Fires once a job has exhausted every retry — the only point at which an
-   *  email is truly, permanently undelivered rather than "still retrying". */
+   *  email is truly, permanently undelivered rather than "still retrying".
+   *  Every email on this queue is transactional (password reset, receipts,
+   *  application decisions, ...), never marketing, so alerting on every
+   *  exhausted job here is never noisy the way it would be for reminders. */
   @OnWorkerEvent("failed")
   async onFailed(job: Job<MailJobData> | undefined): Promise<void> {
     if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
@@ -56,6 +61,19 @@ export class MailProcessor extends WorkerHost {
       // Delivery failure must never crash the worker if the audit table or
       // an older database schema is unavailable.
       this.logger.error("Could not record failed mail delivery", err as Error);
+    }
+    try {
+      // Previously this failure was only ever visible in server logs — an
+      // admin had no way to know a critical send (e.g. a password reset) had
+      // silently died until a user complained. Surface it in the admin inbox.
+      await this.notifications.notifyAdmins({
+        event: "EMAIL_DELIVERY_FAILED",
+        title: "An email failed to send",
+        body: `The "${job.data.key}" email to ${job.data.to} could not be delivered after ${job.attemptsMade} attempt${job.attemptsMade === 1 ? "" : "s"}. Check the email provider configuration.`,
+        href: "/admin/marketing",
+      });
+    } catch (err) {
+      this.logger.error("Could not notify admins of failed mail delivery", err as Error);
     }
   }
 }

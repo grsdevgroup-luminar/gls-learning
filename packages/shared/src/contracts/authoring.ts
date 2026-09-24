@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { passwordSchema } from "./auth.js";
 import { learningCategorySchema } from "./catalog.js";
+import { searchQuerySchema } from "./common.js";
 import { isValidPhone } from "../phone.js";
 import { CourseVisibility } from "../enums.js";
 
@@ -69,6 +70,39 @@ export const courseStatusSchema = z.object({
   status: z.enum(["DRAFT", "REVIEW", "PUBLISHED"]),
 });
 export type CourseStatusInput = z.infer<typeof courseStatusSchema>;
+
+export const deleteCourseSchema = z.object({
+  reason: z.string().trim().min(1, "A reason is required.").max(500),
+});
+export type DeleteCourseInput = z.infer<typeof deleteCourseSchema>;
+
+/** An instructor can only ever request deletion of a course they own — the
+ *  course is deleted for real only once an admin approves the request. Same
+ *  shape as deleteCourseSchema (a required reason), kept as its own type so
+ *  the two call sites can diverge later without a breaking rename. */
+export const requestCourseDeletionSchema = deleteCourseSchema;
+export type RequestCourseDeletionInput = DeleteCourseInput;
+
+export const courseDeletionRequestQuerySchema = searchQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+export type CourseDeletionRequestQuery = z.infer<
+  typeof courseDeletionRequestQuerySchema
+>;
+
+export interface CourseDeletionRequestDto {
+  id: string;
+  courseId: string | null;
+  courseTitle: string;
+  instructorId: string;
+  instructorName: string;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+}
 
 export const sectionSchema = z.object({
   title: z.string().min(1).max(160),

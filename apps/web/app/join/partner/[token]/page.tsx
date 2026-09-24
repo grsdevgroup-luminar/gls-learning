@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { partnerApi } from "@/lib/api/endpoints";
 import { useSession } from "@/lib/api/session";
@@ -20,7 +19,6 @@ export default function JoinPartnerPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { isAuthenticated, isLoading: sessionLoading } = useSession();
-  const claimed = useRef(false);
 
   const { data: invite, isLoading } = useQuery({
     queryKey: ["partner-invite", token],
@@ -39,13 +37,6 @@ export default function JoinPartnerPage() {
     onError: (err) => toast.error("Could not join", { description: getApiErrorMessage(err) }),
   });
 
-  useEffect(() => {
-    if (!claimed.current && invite?.valid && isAuthenticated && !sessionLoading) {
-      claimed.current = true;
-      claim.mutate();
-    }
-  }, [invite?.valid, isAuthenticated, sessionLoading, claim]);
-
   return (
     <InviteClaimShell
       next={`/join/partner/${token}`}
@@ -56,6 +47,8 @@ export default function JoinPartnerPage() {
       email={invite?.email ?? null}
       claimPending={claim.isPending}
       claimSuccess={claim.isSuccess}
+      onAccept={() => claim.mutate()}
+      onDecline={() => router.push("/")}
       icon={Handshake}
       heroTitle={`You've been invited to ${invite?.courseTitle ?? "a course"}`}
       heroDescription={`${invite?.partnerName ?? "A delivery partner"} has given you free access to this course.`}

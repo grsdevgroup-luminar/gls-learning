@@ -122,6 +122,11 @@ enum NameChangeRequestStatus {
   APPROVED
   REJECTED
 }
+enum CourseDeletionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 enum EnrollmentStatus {
   IN_PROGRESS
   COMPLETED
@@ -225,6 +230,14 @@ enum NotificationEvent {
   ORG_INVITE_EXPIRED
   ORG_INVITE_RECEIVED
   TABLE_SIZE_WARNING
+  ORG_MEMBER_REMOVED
+  COURSE_DELETED_BY_ADMIN
+  EMAIL_DELIVERY_FAILED
+  INSTRUCTOR_APPLICATION_SUBMITTED
+  DELIVERY_PARTNER_APPLICATION_SUBMITTED
+  COURSE_DELETION_REQUESTED
+  COURSE_DELETION_REQUEST_APPROVED
+  COURSE_DELETION_REQUEST_REJECTED
 }
 
 // ─── Identity & roles ─────────────────────────────────────────────────────────
@@ -280,6 +293,7 @@ model User {
   unreadNotificationCount    Int                     @default(0)
   uploads                    Upload[]
   editedEmailTemplates       EmailTemplate[]
+  courseDeletionRequests     CourseDeletionRequest[]
 
   @@index([role])
 }
@@ -355,6 +369,31 @@ model InstructorNameChangeRequest {
 
   @@index([status])
   @@index([userId, status])
+}
+
+/// An instructor's request to delete a course they own — course deletion can
+/// affect enrolled students and revenue, so an instructor can only ever
+/// request it; the course is only actually deleted once an admin approves.
+/// courseId is SetNull (not Cascade) and courseTitle is snapshotted at
+/// request time, so this row survives as an audit trail past the very
+/// approval that deletes the course it refers to.
+model CourseDeletionRequest {
+  id           String                      @id @default(cuid())
+  courseId     String?
+  course       Course?                     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseTitle  String
+  instructorId String
+  instructor   User                        @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  reason       String
+  status       CourseDeletionRequestStatus @default(PENDING)
+  requestedAt  DateTime                    @default(now())
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  reviewNote   String?
+
+  @@index([status])
+  @@index([courseId])
+  @@index([instructorId])
 }
 model InstructorApplication {
   id          String           @id @default(cuid())
@@ -444,6 +483,7 @@ model Course {
   uploads                    Upload[]
   orgAssignments             CourseOrgAssignment[]
   deliveryPartnerAssignments DeliveryPartnerCourseAssignment[]
+  deletionRequests           CourseDeletionRequest[]
 
   @@unique([instructorId, title])
   @@index([status])

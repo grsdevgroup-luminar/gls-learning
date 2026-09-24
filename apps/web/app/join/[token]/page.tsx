@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgApi } from "@/lib/api/endpoints";
 import { useSession } from "@/lib/api/session";
@@ -15,7 +14,6 @@ export default function JoinPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { isAuthenticated, isLoading: sessionLoading } = useSession();
-  const claimed = useRef(false);
 
   const { data: invite, isLoading } = useQuery({
     queryKey: ["invite", token],
@@ -35,14 +33,6 @@ export default function JoinPage() {
     onError: (err) => toast.error("Could not join", { description: getApiErrorMessage(err) }),
   });
 
-  // Auto-claim once the session is known and the user is signed in.
-  useEffect(() => {
-    if (!claimed.current && invite?.valid && isAuthenticated && !sessionLoading) {
-      claimed.current = true;
-      claim.mutate();
-    }
-  }, [invite?.valid, isAuthenticated, sessionLoading, claim]);
-
   return (
     <InviteClaimShell
       next={`/join/${token}`}
@@ -53,6 +43,8 @@ export default function JoinPage() {
       email={invite?.email ?? null}
       claimPending={claim.isPending}
       claimSuccess={claim.isSuccess}
+      onAccept={() => claim.mutate()}
+      onDecline={() => router.push("/")}
       icon={Building2}
       heroTitle={`You're invited to ${invite?.orgName ?? "an organization"}`}
       heroDescription={`Join as ${invite?.role === "ADMIN" ? "an admin" : "a member"} to access your company's courses.`}

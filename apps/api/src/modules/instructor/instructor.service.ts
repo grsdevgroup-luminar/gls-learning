@@ -109,14 +109,14 @@ export class InstructorService {
   /** Shared by `apply()` (an existing account applying) and
    *  `createSignupApplication()` (a brand-new instructor account created and
    *  applying in the same step, from the dedicated signup journey). */
-  private createApplicationRecord(
+  private async createApplicationRecord(
     userId: string,
     name: string,
     email: string,
     input: Omit<ApplyInstructorInput, "cvKey" | "cvName" | "cvSizeLabel"> &
       Partial<Pick<ApplyInstructorInput, "cvKey" | "cvName" | "cvSizeLabel">>,
   ) {
-    return this.repo.createApplication({
+    const app = await this.repo.createApplication({
       userId,
       name,
       email,
@@ -134,6 +134,15 @@ export class InstructorService {
       cvSizeLabel: input.cvSizeLabel,
       status: "PENDING",
     });
+    void this.notifications
+      .notifyAdmins({
+        event: "INSTRUCTOR_APPLICATION_SUBMITTED",
+        title: "New instructor application",
+        body: `${name} applied to become an instructor.`,
+        href: "/admin/instructors",
+      })
+      .catch(() => undefined);
+    return app;
   }
 
   /** Used by the dedicated instructor-signup journey (AuthService, right
