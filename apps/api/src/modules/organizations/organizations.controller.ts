@@ -4,10 +4,12 @@ import {
   AssignOrgCourseSchema,
   CreateOrganizationSchema,
   InviteOrgMemberSchema,
+  RemoveOrgMemberSchema,
   UpdateOrganizationSchema,
   type AssignOrgCourseInput,
   type CreateOrganizationInput,
   type InviteOrgMemberInput,
+  type RemoveOrgMemberInput,
   type UpdateOrganizationInput,
 } from "@skillstream/shared";
 import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
@@ -80,8 +82,9 @@ export class OrganizationsController {
     @CurrentUser() user: RequestUser,
     @Param("id") id: string,
     @Param("memberId") memberId: string,
+    @ZodBody(RemoveOrgMemberSchema) body: RemoveOrgMemberInput,
   ) {
-    return this.orgs.removeMember(user, id, memberId);
+    return this.orgs.removeMember(user, id, memberId, body.reason);
   }
 
   @Get("organizations/:id/invitations")

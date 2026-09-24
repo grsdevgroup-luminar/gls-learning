@@ -145,6 +145,7 @@ export default function InstructorOverview() {
   }
 
   const published = (courses ?? []).filter((c) => c.status === "PUBLISHED");
+  const draftCount = (courses ?? []).filter((c) => c.status === "DRAFT").length;
   const inReview = (courses ?? []).filter((c) => c.status === "REVIEW").length;
   const firstName = profile?.name?.split(" ")[0] ?? "Instructor";
 
@@ -168,8 +169,8 @@ export default function InstructorOverview() {
         </header>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm sm:grid-cols-3 lg:grid-cols-6">
+            {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-card p-5">
                 <div className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
                 <div className="mt-3 h-7 w-20 animate-pulse rounded bg-muted" />
@@ -178,8 +179,10 @@ export default function InstructorOverview() {
             ))}
           </div>
         ) : (
-          <StatStrip className="grid-cols-2 lg:grid-cols-4">
+          <StatStrip className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             <Stat icon={BookOpen} label="Published courses" value={published.length} tint="var(--tint-indigo)" />
+            <Stat icon={Pencil} label="Draft courses" value={draftCount} tint="var(--tint-blue)" />
+            <Stat icon={Clock} label="Under review" value={inReview} tint="var(--tint-teal)" />
             <Stat
               icon={Users}
               label="Total students"

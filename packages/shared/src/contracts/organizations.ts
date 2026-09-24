@@ -29,6 +29,11 @@ export const InviteOrgMemberSchema = z.object({
 });
 export type InviteOrgMemberInput = z.infer<typeof InviteOrgMemberSchema>;
 
+export const RemoveOrgMemberSchema = z.object({
+  reason: z.string().trim().min(1, "A reason is required.").max(500),
+});
+export type RemoveOrgMemberInput = z.infer<typeof RemoveOrgMemberSchema>;
+
 export const AssignOrgCourseSchema = z.object({
   courseId: z.string(),
 });

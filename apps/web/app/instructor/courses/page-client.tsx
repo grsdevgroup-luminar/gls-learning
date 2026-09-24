@@ -1,24 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { instructorApi, type CourseSummaryDto } from "@/lib/api/endpoints";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { instructorApi, type CourseDeletionRequestDto, type CourseSummaryDto } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { ApprovalGate } from "../_components/approval-gate";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
+import { ReasonConfirmDialog } from "@/components/shared/reason-confirm-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatUsd, compactNumber } from "@/lib/format";
-import { Plus, Users, Pencil, Eye, Sparkles } from "lucide-react";
+import { Plus, Users, Pencil, Eye, Sparkles, Trash2, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function InstructorCourses() {
+  const qc = useQueryClient();
   const { data: courses, isLoading, error } = useQuery({
     queryKey: ["instructor", "courses"],
     queryFn: instructorApi.courses,
   });
+  const { data: deletionRequests } = useQuery({
+    queryKey: ["instructor", "course-deletion-requests"],
+    queryFn: instructorApi.myCourseDeletionRequests,
+  });
 
   const count = courses?.length ?? 0;
+  const pendingByCourseId = new Map(
+    (deletionRequests ?? [])
+      .filter((r) => r.status === "PENDING" && r.courseId)
+      .map((r) => [r.courseId as string, r]),
+  );
+
+  const requestDeletionMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      instructorApi.requestCourseDeletion(id, reason),
+    onSuccess: () => {
+      toast.success("Deletion request sent", { description: "An admin will review it shortly." });
+      void qc.invalidateQueries({ queryKey: ["instructor", "course-deletion-requests"] });
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
 
   return (
     <ApprovalGate>
@@ -73,7 +97,15 @@ export default function InstructorCourses() {
         ) : (
           <div className="space-y-3">
             {(courses ?? []).map((c) => (
-              <CourseCard key={c.id} course={c} />
+              <CourseCard
+                key={c.id}
+                course={c}
+                pendingRequest={pendingByCourseId.get(c.id) ?? null}
+                onRequestDeletion={async (reason) => {
+                  await requestDeletionMutation.mutateAsync({ id: c.id, reason });
+                }}
+                requestPending={requestDeletionMutation.isPending}
+              />
             ))}
           </div>
         )}
@@ -82,7 +114,17 @@ export default function InstructorCourses() {
   );
 }
 
-function CourseCard({ course }: { course: CourseSummaryDto }) {
+function CourseCard({
+  course,
+  pendingRequest,
+  onRequestDeletion,
+  requestPending,
+}: {
+  course: CourseSummaryDto;
+  pendingRequest: CourseDeletionRequestDto | null;
+  onRequestDeletion: (reason: string) => Promise<void>;
+  requestPending: boolean;
+}) {
   const lessonCount = course.lessonCount ?? 0;
 
   return (
@@ -103,7 +145,7 @@ function CourseCard({ course }: { course: CourseSummaryDto }) {
           <span>{formatUsd(course.basePriceCents / 100).replace(".00", "")} base price</span>
         </div>
       </div>
-      <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+      <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
         {course.status === "PUBLISHED" && (
           <Button variant="ghost" size="sm" render={<Link href={`/courses/${course.slug}`} />}>
             <Eye /> View
@@ -112,6 +154,26 @@ function CourseCard({ course }: { course: CourseSummaryDto }) {
         <Button variant="outline" size="sm" render={<Link href={`/instructor/courses/${course.id}/edit`} />}>
           <Pencil /> Edit
         </Button>
+        {pendingRequest ? (
+          <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">
+            <Clock data-icon="inline-start" /> Deletion requested
+          </Badge>
+        ) : (
+          <ReasonConfirmDialog
+            trigger={
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 /> Request deletion
+              </Button>
+            }
+            title={`Request deletion of "${course.title}"?`}
+            description="An admin will review your request. The course is only removed once they approve it."
+            reasonLabel="Reason for deletion"
+            reasonPlaceholder="e.g. Content is outdated and I won't be updating it"
+            confirmLabel="Send request"
+            pending={requestPending}
+            onConfirm={(reason) => onRequestDeletion(reason)}
+          />
+        )}
       </div>
     </Card>
   );

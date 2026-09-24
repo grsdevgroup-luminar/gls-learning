@@ -13,6 +13,7 @@ import type {
   AutomationRuleDto,
   CommentDto,
   CouponDto,
+  CourseDeletionRequestDto,
   CourseDetailDto,
   CourseSummaryDto,
   CreateCommentInput,
@@ -110,6 +111,7 @@ export type {
   AutomationRuleDto,
   CommentDto,
   CouponDto,
+  CourseDeletionRequestDto,
   EmailTemplateDto,
   EmailTemplatePreviewDto,
   ReminderLogDto,
@@ -633,9 +635,10 @@ export const orgApi = {
     apiFetch<{ ok: true }>(`/organizations/${orgId}/invitations/${inviteId}`, {
       method: "DELETE",
     }),
-  removeMember: (orgId: string, memberId: string) =>
+  removeMember: (orgId: string, memberId: string, reason: string) =>
     apiFetch<OrganizationDto>(`/organizations/${orgId}/members/${memberId}`, {
       method: "DELETE",
+      body: { reason },
     }),
   invitationInfo: (token: string) =>
     apiFetch<{
@@ -776,8 +779,26 @@ export const authoringApi = {
       method: "POST",
       body: { status },
     }),
-  deleteCourse: (id: string) =>
-    apiFetch<{ ok: true }>(`/courses/${id}`, { method: "DELETE" }),
+  deleteCourse: (id: string, reason: string) =>
+    apiFetch<{ ok: true }>(`/courses/${id}`, { method: "DELETE", body: { reason } }),
+  requestCourseDeletion: (id: string, reason: string) =>
+    apiFetch<CourseDeletionRequestDto>(`/courses/${id}/deletion-requests`, {
+      method: "POST",
+      body: { reason },
+    }),
+  myCourseDeletionRequests: () =>
+    apiFetch<CourseDeletionRequestDto[]>("/me/instructor/course-deletion-requests"),
+  courseDeletionRequests: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<CourseDeletionRequestDto>>(`/admin/course-deletion-requests${qs(params)}`),
+  approveCourseDeletionRequest: (id: string) =>
+    apiFetch<CourseDeletionRequestDto>(`/admin/course-deletion-requests/${id}/approve`, {
+      method: "POST",
+    }),
+  rejectCourseDeletionRequest: (id: string, note: string) =>
+    apiFetch<CourseDeletionRequestDto>(`/admin/course-deletion-requests/${id}/reject`, {
+      method: "POST",
+      body: { note },
+    }),
   addSection: (courseId: string, body: { title: string; order?: number }) =>
     apiFetch<CourseDetailDto>(`/courses/${courseId}/sections`, {
       method: "POST",
@@ -921,6 +942,10 @@ export const adminApi = {
   approvePayout: api.approvePayout,
   markPayoutPaid: api.markPayoutPaid,
   rejectPayout: api.rejectPayout,
+  courseDeletionRequests: (params: Record<string, string | number | undefined> = {}) =>
+    authoringApi.courseDeletionRequests(params),
+  approveCourseDeletionRequest: authoringApi.approveCourseDeletionRequest,
+  rejectCourseDeletionRequest: authoringApi.rejectCourseDeletionRequest,
 };
 
 export const instructorApi = {
@@ -931,4 +956,6 @@ export const instructorApi = {
     courseId: string,
     params: Record<string, string | number | undefined> = {},
   ) => api.instructorCourseReviews(courseId, params),
+  requestCourseDeletion: authoringApi.requestCourseDeletion,
+  myCourseDeletionRequests: authoringApi.myCourseDeletionRequests,
 };

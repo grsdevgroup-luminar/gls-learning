@@ -8,17 +8,22 @@ import {
 } from "@nestjs/common";
 import {
   parseLessonResources,
+  type CourseDeletionRequestDto,
+  type CourseDeletionRequestQuery,
   type CreateCourseInput,
   type CourseStatusInput,
   type CreateQuizInput,
   type CreateQuizQuestionInput,
   type LessonInput,
+  type Paginated,
   type SectionInput,
   type UpdateCourseInput,
   type UpdateQuizInput,
   type UpdateQuizQuestionInput,
 } from "@skillstream/shared";
+import type { Prisma } from "@prisma/client";
 import type { RequestUser } from "../../common/decorators/decorators";
+import { PrismaService } from "../../prisma/prisma.service";
 import { AuthoringRepository } from "./authoring.repository";
 import {
   toCourseDetail,
@@ -62,6 +67,7 @@ function slugify(s: string): string {
 export class AuthoringService {
   constructor(
     private readonly repo: AuthoringRepository,
+    private readonly prisma: PrismaService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
     private readonly categories: CategoriesService,
     private readonly media: MediaService,
@@ -327,17 +333,207 @@ export class AuthoringService {
       );
   }
 
-  async remove(user: RequestUser, id: string) {
+  async remove(user: RequestUser, id: string, reason: string) {
     const course = await this.assertCourseAccess(id, user);
     const videoLessons = await this.repo.findCfVideoUidsByCourse(id);
-    await this.repo.deleteCourse(id);
+    // An admin deleting directly (rather than through the approval flow)
+    // still resolves any pending instructor deletion request for this course
+    // — otherwise it would sit PENDING forever pointing at a course that's
+    // already gone. Same transaction as the delete itself: if deleteCourse
+    // fails (e.g. the FK-restrict guard below), the request must stay PENDING
+    // too, not get marked APPROVED for a deletion that never happened.
+    const pendingRequest = await this.repo.findPendingDeletionRequest(id);
+    await this.prisma.$transaction(async (tx) => {
+      if (pendingRequest) {
+        await this.repo.updateDeletionRequest(
+          pendingRequest.id,
+          { status: "APPROVED", reviewedAt: new Date(), reviewedBy: user.id, reviewNote: reason },
+          tx,
+        );
+      }
+      await this.repo.deleteCourse(id, tx);
+    });
     await this.releaseLessonVideoUids(videoLessons);
     if (this.isAdminEditingOthersCourse(user, course)) {
-      // The edit page is gone along with the course — send the instructor to
-      // their course list instead of a link that would 404.
-      this.notifyInstructorOfAdminChange(course, id, "deleted your course", "/instructor/courses");
+      // Unlike a field edit (notifyInstructorOfAdminChange, in-app only), a
+      // deletion is significant enough to also email the instructor — and it
+      // always carries the admin's reason, not just "deleted your course".
+      void this.notifications
+        .notify({
+          userId: course.instructorId,
+          event: "COURSE_DELETED_BY_ADMIN",
+          title: "Course deleted by admin",
+          body: `An admin deleted your course "${course.title}" — reason: ${reason}`,
+          // The edit page is gone along with the course — send the instructor
+          // to their course list instead of a link that would 404.
+          href: "/instructor/courses",
+        })
+        .catch(() => undefined);
     }
     return { ok: true as const };
+  }
+
+  // ── course deletion requests (instructor-initiated, admin-approved) ─────
+  // Deleting a course can strand enrolled students and revenue, so an
+  // instructor can only ever request it — the course itself is only removed
+  // once an admin approves. `remove()` above (admin's own direct delete)
+  // stays the one place that actually calls repo.deleteCourse.
+  private toDeletionRequestDto(row: {
+    id: string;
+    courseId: string | null;
+    courseTitle: string;
+    instructorId: string;
+    instructor: { name: string };
+    reason: string;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    requestedAt: Date;
+    reviewedAt: Date | null;
+    reviewedBy: string | null;
+    reviewNote: string | null;
+  }): CourseDeletionRequestDto {
+    return {
+      id: row.id,
+      courseId: row.courseId,
+      courseTitle: row.courseTitle,
+      instructorId: row.instructorId,
+      instructorName: row.instructor.name,
+      reason: row.reason,
+      status: row.status,
+      requestedAt: row.requestedAt.toISOString(),
+      reviewedAt: row.reviewedAt?.toISOString() ?? null,
+      reviewedBy: row.reviewedBy,
+      reviewNote: row.reviewNote,
+    };
+  }
+
+  async requestDeletion(
+    user: RequestUser,
+    id: string,
+    reason: string,
+  ): Promise<CourseDeletionRequestDto> {
+    const course = await this.assertCourseAccess(id, user);
+    if (user.role === "ADMIN")
+      throw new BadRequestException("Admins delete courses directly — see DELETE /courses/:id");
+    const pending = await this.repo.findPendingDeletionRequest(id);
+    if (pending) throw new BadRequestException("A deletion request for this course is already pending");
+    const created = await this.repo.createDeletionRequest({
+      courseId: id,
+      courseTitle: course.title,
+      instructorId: user.id,
+      reason,
+    });
+    void this.notifications
+      .notifyAdmins({
+        event: "COURSE_DELETION_REQUESTED",
+        title: "Course deletion requested",
+        body: `An instructor requested deletion of "${course.title}" — reason: ${reason}`,
+        href: "/admin/course-deletion-requests",
+      })
+      .catch(() => undefined);
+    // Re-fetch with the instructor include — createDeletionRequest's plain
+    // .create() doesn't carry it, and the DTO mapper needs instructor.name.
+    const request = await this.repo.findDeletionRequestById(created.id);
+    return this.toDeletionRequestDto(request!);
+  }
+
+  async myDeletionRequests(user: RequestUser): Promise<CourseDeletionRequestDto[]> {
+    const [rows] = await this.repo.findDeletionRequestsPage(
+      { instructorId: user.id },
+      1,
+      50,
+    );
+    return rows.map((r) => this.toDeletionRequestDto(r));
+  }
+
+  async listDeletionRequests(
+    query: CourseDeletionRequestQuery,
+  ): Promise<Paginated<CourseDeletionRequestDto>> {
+    const where: Prisma.CourseDeletionRequestWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { courseTitle: { contains: query.q, mode: "insensitive" } },
+              { instructor: { name: { contains: query.q, mode: "insensitive" } } },
+              { instructor: { email: { contains: query.q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.repo.findDeletionRequestsPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map((r) => this.toDeletionRequestDto(r)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async approveDeletionRequest(
+    admin: RequestUser,
+    id: string,
+  ): Promise<CourseDeletionRequestDto> {
+    const request = await this.repo.findDeletionRequestById(id);
+    if (!request) throw new NotFoundException("Deletion request not found");
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This request has already been reviewed");
+    if (!request.courseId)
+      throw new BadRequestException("The course no longer exists — reject this request instead");
+    const videoLessons = await this.repo.findCfVideoUidsByCourse(request.courseId);
+    // One transaction: if deleteCourse fails (e.g. the course still has real
+    // orders — see the FK-restrict note on OrderItem.course in schema.prisma),
+    // the request must stay PENDING, not get marked APPROVED for a deletion
+    // that never actually happened.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await this.repo.updateDeletionRequest(
+        id,
+        { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id },
+        tx,
+      );
+      await this.repo.deleteCourse(request.courseId!, tx);
+      return row;
+    });
+    await this.releaseLessonVideoUids(videoLessons);
+    void this.notifications
+      .notify({
+        userId: request.instructorId,
+        event: "COURSE_DELETION_REQUEST_APPROVED",
+        title: "Course deletion approved",
+        body: `Your request to delete "${request.courseTitle}" was approved — the course has been removed.`,
+        href: "/instructor/courses",
+      })
+      .catch(() => undefined);
+    return this.toDeletionRequestDto({ ...updated, instructor: request.instructor });
+  }
+
+  async rejectDeletionRequest(
+    id: string,
+    note: string,
+  ): Promise<CourseDeletionRequestDto> {
+    const request = await this.repo.findDeletionRequestById(id);
+    if (!request) throw new NotFoundException("Deletion request not found");
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This request has already been reviewed");
+    const updated = await this.repo.updateDeletionRequest(id, {
+      status: "REJECTED",
+      reviewedAt: new Date(),
+      reviewNote: note,
+    });
+    void this.notifications
+      .notify({
+        userId: request.instructorId,
+        event: "COURSE_DELETION_REQUEST_REJECTED",
+        title: "Course deletion rejected",
+        body: `Your request to delete "${request.courseTitle}" was rejected — reason: ${note}`,
+        href: "/instructor/courses",
+      })
+      .catch(() => undefined);
+    return this.toDeletionRequestDto({ ...updated, instructor: request.instructor });
   }
 
   private async releaseLessonVideoUids(

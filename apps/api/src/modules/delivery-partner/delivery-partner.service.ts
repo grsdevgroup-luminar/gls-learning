@@ -146,13 +146,13 @@ export class DeliveryPartnerService {
    *  signup+apply step (`createSignupApplication`, called right after a brand
    *  new account is created). An existing account cannot self-initiate one;
    *  see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §2 for why. */
-  private createApplicationRecord(
+  private async createApplicationRecord(
     userId: string,
     name: string,
     email: string,
     input: DeliveryPartnerSignupInput,
   ) {
-    return this.repo.createApplication({
+    const app = await this.repo.createApplication({
       userId,
       name,
       email,
@@ -161,6 +161,15 @@ export class DeliveryPartnerService {
       expectedCommissionPercent: input.expectedCommissionPercent ?? null,
       status: "PENDING",
     });
+    void this.notifications
+      .notifyAdmins({
+        event: "DELIVERY_PARTNER_APPLICATION_SUBMITTED",
+        title: "New delivery partner application",
+        body: `${name} applied to become a delivery partner.`,
+        href: "/admin/delivery-partners",
+      })
+      .catch(() => undefined);
+    return app;
   }
 
   /** Used by the dedicated delivery-partner signup journey (AuthService,

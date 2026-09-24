@@ -370,7 +370,12 @@ export class OrganizationsService {
     return this.toDto(await this.getRow(invite.orgId));
   }
 
-  async removeMember(user: RequestUser, idOrSlug: string, memberId: string) {
+  async removeMember(
+    user: RequestUser,
+    idOrSlug: string,
+    memberId: string,
+    reason: string,
+  ) {
     const orgId = await this.assertOrgAdmin(user, idOrSlug);
     const member = await this.repo.findMember(memberId, orgId);
     if (!member) throw new NotFoundException("Member not found");
@@ -379,9 +384,20 @@ export class OrganizationsService {
       if (admins <= 1)
         throw new BadRequestException("An organization must keep one admin");
     }
+    const org = await this.getRow(orgId);
     await this.repo.deleteMember(memberId);
     if (member.role === "MEMBER")
       await this.repo.decrementUsedSeats(orgId);
+    if (member.userId) {
+      void this.notifications
+        .notify({
+          userId: member.userId,
+          event: "ORG_MEMBER_REMOVED",
+          title: "Removed from organization",
+          body: `You were removed from ${org.name} — reason: ${reason}`,
+        })
+        .catch(() => undefined);
+    }
     return this.toDto(await this.getRow(orgId));
   }
 

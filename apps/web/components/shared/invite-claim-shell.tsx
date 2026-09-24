@@ -27,6 +27,8 @@ export function InviteClaimShell({
   email,
   claimPending,
   claimSuccess,
+  onAccept,
+  onDecline,
   icon: Icon,
   heroTitle,
   heroDescription,
@@ -41,6 +43,11 @@ export function InviteClaimShell({
   email: string | null;
   claimPending: boolean;
   claimSuccess: boolean;
+  /** Signed-in + valid invite: the person must explicitly accept before the
+   *  claim runs — clicking the invite (or the notification/email link that
+   *  led here) is not itself consent. */
+  onAccept: () => void;
+  onDecline: () => void;
   icon: LucideIcon;
   heroTitle: string;
   heroDescription: string;
@@ -91,12 +98,40 @@ export function InviteClaimShell({
     );
   }
 
-  // Valid invite, signed in → claiming in progress (auto-claim runs in the caller).
-  if (isAuthenticated) {
+  // Valid invite, signed in, claim in flight or just succeeded (redirect is
+  // about to happen in the caller's onSuccess).
+  if (isAuthenticated && (claimPending || claimSuccess)) {
     return shell(
       <div className="flex flex-col items-center gap-3 py-6 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
         <p className="text-sm">{joiningLabel}</p>
+      </div>,
+    );
+  }
+
+  // Valid invite, signed in, not yet decided → require an explicit choice.
+  // Never auto-claim just because this page loaded: that would add someone
+  // to an organization (or grant course access) from a click they may not
+  // have meant as consent, e.g. a forwarded link or a notification opened
+  // out of curiosity.
+  if (isAuthenticated) {
+    return shell(
+      <div className="flex flex-col items-center gap-5 py-2 text-center">
+        <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
+          <Icon className="h-7 w-7" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold">{heroTitle}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{heroDescription}</p>
+        </div>
+        <div className="flex w-full flex-col gap-2">
+          <Button className="sheen w-full" size="lg" onClick={onAccept}>
+            Accept
+          </Button>
+          <Button variant="outline" className="w-full" size="lg" onClick={onDecline}>
+            Decline
+          </Button>
+        </div>
       </div>,
     );
   }

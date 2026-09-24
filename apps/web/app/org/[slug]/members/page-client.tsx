@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { initials, relativeDate } from "@/lib/format";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ReasonConfirmDialog } from "@/components/shared/reason-confirm-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +59,8 @@ export default function OrgMembers() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (memberId: string) => orgApi.removeMember(org!.id, memberId),
+    mutationFn: ({ memberId, reason }: { memberId: string; reason: string }) =>
+      orgApi.removeMember(org!.id, memberId, reason),
     onSuccess: () => {
       toast.success("Member removed");
       refresh();
@@ -202,7 +203,7 @@ export default function OrgMembers() {
                     </TableCell>
                     <TableCell>
                       {m.role !== "ADMIN" && (
-                        <ConfirmDialog
+                        <ReasonConfirmDialog
                           trigger={
                             <Button
                               variant="ghost"
@@ -214,10 +215,14 @@ export default function OrgMembers() {
                             </Button>
                           }
                           title={`Remove ${m.name}?`}
-                          description="They will lose access to this organization's courses."
+                          description="They will lose access to this organization's courses. They'll be notified with the reason below."
+                          reasonLabel="Reason for removal"
+                          reasonPlaceholder="e.g. No longer with the company"
                           confirmLabel="Remove"
                           pending={removeMutation.isPending}
-                          onConfirm={async () => { await removeMutation.mutateAsync(m.id); }}
+                          onConfirm={async (reason) => {
+                            await removeMutation.mutateAsync({ memberId: m.id, reason });
+                          }}
                         />
                       )}
                     </TableCell>

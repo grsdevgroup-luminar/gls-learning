@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import type { Env } from "../../config/env";
 import { OrganizationsModule } from "../organizations/organizations.module";
 import { MediaModule } from "../media/media.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { AutomationService } from "./automation.service";
 import { FxService } from "./fx.service";
 import { MailProcessor } from "./mail.processor";
@@ -51,6 +52,7 @@ function parseRedis(url: string | undefined) {
     ),
     OrganizationsModule,
     MediaModule,
+    NotificationsModule,
   ],
   providers: [
     AutomationService,
