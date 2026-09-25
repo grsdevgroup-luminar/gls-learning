@@ -57,7 +57,7 @@ export function DetailsCard({
         <CardContent className="space-y-4">
           <Stagger className="space-y-4" gap={0.05}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Full name" hint={pendingNameChange ? "Pending admin verification" : "Name changes require admin approval"}>
+              <FormField label="Full name" hint={pendingNameChange ? "Profile review pending" : "Name changes require profile review"}>
                 <Input
                   value={requestedName}
                   onChange={(e) => onRequestedNameChange(e.target.value)}
@@ -66,7 +66,7 @@ export function DetailsCard({
                 />
                 {pendingNameChange && (
                   <p className="mt-1 text-xs text-warning">
-                    Requested: {pendingNameChange.requestedName}. Your current name remains visible until approved.
+                    Requested: {pendingNameChange.requestedName}. Your current name, instructor access, courses, students, and earnings remain unchanged until approval.
                   </p>
                 )}
                 {!pendingNameChange && requestedName.trim() !== profileName && (

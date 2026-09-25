@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle2, XCircle } from "lucide-react";
 import { ApplicationsTab } from "./_components/applications-tab";
 import { RosterTab } from "./_components/roster-tab";
-import { NameChangeRequestsTab } from "./_components/name-change-requests-tab";
 
 export default function AdminInstructors() {
   const qc = useQueryClient();
@@ -22,47 +21,74 @@ export default function AdminInstructors() {
     <div className="flex h-screen flex-col space-y-6 p-6 md:p-8">
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">Instructors</h1>
-        <p className="text-muted-foreground">Review applications and manage your teaching roster.</p>
+        <p className="text-muted-foreground">
+          Review instructor applications and profile name changes while keeping
+          approved instructors active.
+        </p>
       </div>
 
-      <Tabs defaultValue="applications" className="flex min-h-0 flex-1 flex-col">
+      <Tabs
+        defaultValue="applications"
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <TabsList className="shrink-0">
           <TabsTrigger value="applications">
             Applications
             {!!stats?.pending && (
-              <Badge variant="outline" className="ml-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] text-warning border-warning/30 bg-warning/10">
+              <Badge
+                variant="outline"
+                className="ml-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] text-warning border-warning/30 bg-warning/10"
+              >
                 {stats.pending}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="name-changes">Name changes</TabsTrigger>
           <TabsTrigger value="roster">Active instructors</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="applications" className="flex min-h-0 flex-1 flex-col gap-4 pt-4">
+        <TabsContent
+          value="applications"
+          className="flex min-h-0 flex-1 flex-col gap-4 pt-4"
+        >
           <StatStrip className="grid-cols-2 shrink-0 lg:grid-cols-3">
-            <Stat icon={Clock} label="Pending applications" value={stats?.pending ?? "—"} tint="var(--tint-amber)" />
-            <Stat icon={CheckCircle2} label="Approved applications" value={stats?.approved ?? "—"} tint="var(--tint-emerald)" />
-            <Stat icon={XCircle} label="Rejected" value={stats?.rejected ?? "—"} tint="var(--tint-rose)" />
+            <Stat
+              icon={Clock}
+              label="Pending applications"
+              value={stats?.pending ?? "—"}
+              tint="var(--tint-amber)"
+            />
+            <Stat
+              icon={CheckCircle2}
+              label="Approved applications"
+              value={stats?.approved ?? "—"}
+              tint="var(--tint-emerald)"
+            />
+            <Stat
+              icon={XCircle}
+              label="Rejected"
+              value={stats?.rejected ?? "—"}
+              tint="var(--tint-rose)"
+            />
           </StatStrip>
           <ApplicationsTab
             onMutated={() => {
-              qc.invalidateQueries({ queryKey: ["admin", "instructor-applications"] });
-              qc.invalidateQueries({ queryKey: ["admin", "instructor-application-stats"] });
-              qc.invalidateQueries({ queryKey: ["admin", "instructor-roster"] });
+              qc.invalidateQueries({
+                queryKey: ["admin", "instructor-applications"],
+              });
+              qc.invalidateQueries({
+                queryKey: ["admin", "instructor-application-stats"],
+              });
+              qc.invalidateQueries({
+                queryKey: ["admin", "instructor-roster"],
+              });
             }}
           />
         </TabsContent>
 
-        <TabsContent value="name-changes" className="flex min-h-0 flex-1 flex-col gap-4 pt-4">
-          <NameChangeRequestsTab
-            onMutated={() => {
-              qc.invalidateQueries({ queryKey: ["admin", "instructor-name-change-requests"] });
-              qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
-            }}
-          />
-        </TabsContent>
-        <TabsContent value="roster" className="flex min-h-0 flex-1 flex-col gap-4 pt-4">
+        <TabsContent
+          value="roster"
+          className="flex min-h-0 flex-1 flex-col gap-4 pt-4"
+        >
           <RosterTab />
         </TabsContent>
       </Tabs>

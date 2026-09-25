@@ -135,6 +135,37 @@ describe("AuthoringService.update — visibility gating", () => {
     );
     expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
   });
+  it("blocks an admin from publishing a DRAFT course", async () => {
+    const { service, repo } = makeService({
+      findCourseInstructor: vi.fn().mockResolvedValue(makeCourseInstructorRow({ status: "DRAFT" })),
+    });
+
+    await expect(service.setStatus(admin, "course_1", { status: "PUBLISHED" })).rejects.toThrow(
+      "The instructor must submit this course for review",
+    );
+    expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
+  });
+
+  it("blocks an admin from moving a DRAFT course into review", async () => {
+    const { service, repo } = makeService({
+      findCourseInstructor: vi.fn().mockResolvedValue(makeCourseInstructorRow({ status: "DRAFT" })),
+    });
+
+    await expect(service.setStatus(admin, "course_1", { status: "REVIEW" })).rejects.toThrow(
+      "The instructor must submit this course for review",
+    );
+    expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
+  });
+
+  it("allows an admin to publish a course already submitted for review", async () => {
+    const { service, repo } = makeService({
+      findCourseInstructor: vi.fn().mockResolvedValue(makeCourseInstructorRow({ status: "REVIEW" })),
+      findCoursePriorStatus: vi.fn().mockResolvedValue({ publishedAt: null, instructorId: "instr_1" }),
+    });
+
+    await service.setStatus(admin, "course_1", { status: "PUBLISHED" });
+    expect(repo.setCourseStatusWithInstructorBump).toHaveBeenCalled();
+  });
   it("blocks submitting a course for review when it has no lessons", async () => {
     const { service, repo } = makeService({ findLessonsForPublishValidation: vi.fn().mockResolvedValue([]) });
 

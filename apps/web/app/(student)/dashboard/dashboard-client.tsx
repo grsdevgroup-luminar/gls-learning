@@ -69,6 +69,13 @@ export default function DashboardClient() {
     );
   const completed = enrolled.filter((e) => e.status === "COMPLETED");
   const resume = inProgress[0] ?? null;
+  // Enrollment status starts as IN_PROGRESS at purchase time. Use actual
+  // learning signals for the CTA so a newly purchased course says Start,
+  // while a course with progress, completed lesson time, or watch time says
+  // Resume.
+  const hasStarted = resume
+    ? resume.progressPct > 0 || resume.timeLearnedSec > 0 || resume.watchTimeSec > 0
+    : false;
   const timeLearnedSec = enrolled.reduce((sum, e) => sum + e.timeLearnedSec, 0);
   const watchTimeSec = enrolled.reduce((sum, e) => sum + e.watchTimeSec, 0);
   const recommended = recommendedCourses ?? [];
@@ -175,7 +182,7 @@ export default function DashboardClient() {
             </div>
             <div className="flex flex-col justify-center gap-3 p-7">
               <Badge variant="secondary" className="w-fit">
-                Continue learning
+                {hasStarted ? "Continue learning" : "Ready to start"}
               </Badge>
               <h2 className="text-xl font-bold tracking-tight">
                 {resume.course.title}
@@ -194,7 +201,7 @@ export default function DashboardClient() {
                 className="w-fit"
                 render={<Link href={`/learn/${resume.course.slug}`} />}
               >
-                <PlayCircle /> Resume course
+                {hasStarted ? "Resume course" : "Start course"}
               </Button>
             </div>
           </div>

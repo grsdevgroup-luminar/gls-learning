@@ -22,7 +22,7 @@ export default function PartnerProfile() {
   const statusLabel = partner.status.charAt(0) + partner.status.slice(1).toLowerCase();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6 md:p-8">
+    <div className="space-y-6 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground">Your partner details.</p>

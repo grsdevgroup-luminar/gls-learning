@@ -274,7 +274,7 @@ export class AuthoringService {
 
   async setStatus(user: RequestUser, id: string, input: CourseStatusInput) {
     const course = await this.assertCourseAccess(id, user);
-    await this.validateStatusChange(course, id, input.status);
+    await this.validateStatusChange(user, course, id, input.status);
     // Check prior state BEFORE update to detect first publish.
     const prior = await this.repo.findCoursePriorStatus(id);
     const isFirstPublish = input.status === "PUBLISHED" && !prior?.publishedAt;
@@ -294,15 +294,33 @@ export class AuthoringService {
   /** Validate without changing data so the builder can fail before saving fields. */
   async validateStatus(user: RequestUser, id: string, input: CourseStatusInput) {
     const course = await this.assertCourseAccess(id, user);
-    await this.validateStatusChange(course, id, input.status);
+    await this.validateStatusChange(user, course, id, input.status);
     return { ok: true as const };
   }
 
   private async validateStatusChange(
-    course: { category: string },
+    user: RequestUser,
+    course: { category: string; status: string },
     id: string,
     status: CourseStatusInput["status"],
   ) {
+    // Drafts are visible to admins for monitoring, but only the instructor
+    // can submit one for review. This prevents an admin UI action or a direct
+    // API request from bypassing the instructor review gate.
+    if (user.role === "ADMIN" && course.status === "DRAFT" && status !== "DRAFT") {
+      throw new BadRequestException(
+        "The instructor must submit this course for review before admin approval",
+      );
+    }
+
+    // Publishing is only valid after the instructor has submitted the course
+    // for review. Re-publishing an already published course remains allowed.
+    if (status === "PUBLISHED" && course.status !== "REVIEW" && course.status !== "PUBLISHED") {
+      throw new BadRequestException(
+        "The instructor must submit this course for review before it can be published",
+      );
+    }
+
     if (status === "REVIEW" || status === "PUBLISHED") {
       if (status === "PUBLISHED") await this.categories.assertActive(course.category);
       const lessons = await this.repo.findLessonsForPublishValidation(id);

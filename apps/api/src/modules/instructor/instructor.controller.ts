@@ -31,7 +31,12 @@ import {
   type ReviewApplicationInput,
   type UpdateInstructorProfileInput,
 } from "@skillstream/shared";
-import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
+import {
+  CurrentUser,
+  Public,
+  Roles,
+  type RequestUser,
+} from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { CV_MAX_BYTES } from "../storage/storage.constants";
 import { InstructorService } from "./instructor.service";
@@ -101,7 +106,8 @@ export class InstructorController {
   @Post("me/instructor/name-change-requests")
   requestNameChange(
     @CurrentUser() user: RequestUser,
-    @ZodBody(requestInstructorNameChangeSchema) body: RequestInstructorNameChangeInput,
+    @ZodBody(requestInstructorNameChangeSchema)
+    body: RequestInstructorNameChangeInput,
   ) {
     return this.instructor.requestNameChange(user, body);
   }
@@ -116,17 +122,21 @@ export class InstructorController {
 
   @Roles("ADMIN")
   @Post("admin/instructor-name-change-requests/:id/approve")
-  approveNameChange(@CurrentUser() admin: RequestUser, @Param("id") id: string) {
+  approveNameChange(
+    @CurrentUser() admin: RequestUser,
+    @Param("id") id: string,
+  ) {
     return this.instructor.approveNameChange(admin, id);
   }
 
   @Roles("ADMIN")
   @Post("admin/instructor-name-change-requests/:id/reject")
   rejectNameChange(
+    @CurrentUser() admin: RequestUser,
     @Param("id") id: string,
     @ZodBody(rejectApplicationSchema) body: RejectApplicationInput,
   ) {
-    return this.instructor.rejectNameChange(id, body.note);
+    return this.instructor.rejectNameChange(admin, id, body.note);
   }
   @Roles("ADMIN")
   @Get("admin/instructor-applications")
@@ -154,20 +164,22 @@ export class InstructorController {
   @Roles("ADMIN")
   @Post("admin/instructor-applications/:id/approve")
   approve(
+    @CurrentUser() admin: RequestUser,
     @Param("id") id: string,
     @ZodBody(reviewApplicationSchema)
     body: ReviewApplicationInput,
   ) {
-    return this.instructor.approve(id, body.note);
+    return this.instructor.approve(id, body.note, admin.id);
   }
 
   @Roles("ADMIN")
   @Post("admin/instructor-applications/:id/reject")
   reject(
+    @CurrentUser() admin: RequestUser,
     @Param("id") id: string,
     @ZodBody(rejectApplicationSchema)
     body: RejectApplicationInput,
   ) {
-    return this.instructor.reject(id, body.note);
+    return this.instructor.reject(id, body.note, admin.id);
   }
 }
