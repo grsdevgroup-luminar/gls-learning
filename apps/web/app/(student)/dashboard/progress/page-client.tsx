@@ -130,6 +130,9 @@ export default function ProgressPage() {
         ) : (
           <div className="space-y-3">
             {courses?.map((enrollment) => {
+              const hasStarted = enrollment.progressPct > 0
+                || enrollment.timeLearnedSec > 0
+                || enrollment.watchTimeSec > 0;
               const actionHref =
                 enrollment.progressPct === 100
                   ? `/courses/${enrollment.course.slug}#write-a-review`
@@ -161,7 +164,7 @@ export default function ProgressPage() {
                     <div className="flex items-center gap-3">
                       <span className="text-lg font-bold tabular-nums">{enrollment.progressPct}%</span>
                       <Button size="sm" variant="outline" render={<Link href={actionHref} />}>
-                        {enrollment.progressPct === 100 ? "Review" : "Resume"}
+                        {enrollment.progressPct === 100 ? "Review" : hasStarted ? "Resume" : "Start"}
                       </Button>
                     </div>
                   </CardContent>

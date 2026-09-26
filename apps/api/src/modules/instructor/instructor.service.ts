@@ -54,11 +54,23 @@ export class InstructorService {
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
+  /** Resolve uploaded avatars from their durable storage key so admin and
+   * public profile reads never return an expired upload-time URL. */
+  private async resolveAvatar(user: {
+    avatar: string | null;
+    avatarKey: string | null;
+  }): Promise<string | null> {
+    if (!user.avatarKey) return user.avatar;
+    return this.storage.getUrl(user.avatarKey).catch(() => user.avatar);
+  }
+
   /** Re-resolves the CV's URL through the storage driver on every read (the
-   *  key is what's durable; a signed S3 URL minted at upload time may have
-   *  expired by the time an admin opens the application — same reasoning as
-   *  the avatar re-resolve in AuthService). */
-  private async toAppDto(a: InstructorApplication): Promise<InstructorApplicationDto> {
+   * key is what's durable; a signed S3 URL minted at upload time may have
+   * expired by the time an admin opens the application - same reasoning as
+   * the avatar re-resolve in AuthService). */
+  private async toAppDto(
+    a: InstructorApplication,
+  ): Promise<InstructorApplicationDto> {
     const cvUrl = a.cvKey
       ? await this.storage.getUrl(a.cvKey).catch(() => null)
       : null;
@@ -91,18 +103,27 @@ export class InstructorService {
   ): Promise<InstructorApplicationDto> {
     const dbUser = await this.repo.findUserByIdOrThrow(user.id);
     const pending = await this.repo.findPendingApplication(user.id);
-    if (pending) throw new BadRequestException("You already have a pending application");
+    if (pending)
+      throw new BadRequestException("You already have a pending application");
 
     // The CV was uploaded in a separate multipart request before this JSON
     // body was submitted — the client only carries the key forward, so make
     // sure it actually belongs to this user rather than trusting it blindly
     // (the key namespace is `cvs/{userId}/...`, so a mismatch means either a
     // bug or a tampered request).
-    if (input.cvKey && !input.cvKey.startsWith(`${CV_KEY_PREFIX}/${user.id}/`)) {
+    if (
+      input.cvKey &&
+      !input.cvKey.startsWith(`${CV_KEY_PREFIX}/${user.id}/`)
+    ) {
       throw new BadRequestException("Invalid CV reference");
     }
 
-    const app = await this.createApplicationRecord(user.id, dbUser.name, dbUser.email, input);
+    const app = await this.createApplicationRecord(
+      user.id,
+      dbUser.name,
+      dbUser.email,
+      input,
+    );
     return this.toAppDto(app);
   }
 
@@ -167,7 +188,10 @@ export class InstructorService {
     return app?.status ?? null;
   }
 
-  async uploadCv(user: RequestUser, file: ValidatedCvFile): Promise<InstructorCvUploadDto> {
+  async uploadCv(
+    user: RequestUser,
+    file: ValidatedCvFile,
+  ): Promise<InstructorCvUploadDto> {
     const key = `${CV_KEY_PREFIX}/${user.id}/${ulid()}.${file.extension}`;
     const stored = await this.storage.put({
       key,
@@ -195,45 +219,63 @@ export class InstructorService {
   /** Approved instructors, best-rated first — powers the public roster. */
   async roster(): Promise<InstructorRosterDto[]> {
     const rows = await this.repo.findApprovedInstructorsRoster();
-    const courses = await this.repo.findPublishedCourseStatsByInstructorIds(rows.map((u) => u.id));
-    const stats = new Map<string, { studentCount: number; ratingSum: number; weight: number }>();
+    const courses = await this.repo.findPublishedCourseStatsByInstructorIds(
+      rows.map((u) => u.id),
+    );
+    const stats = new Map<
+      string,
+      { studentCount: number; ratingSum: number; weight: number }
+    >();
     for (const course of courses) {
-      const current = stats.get(course.instructorId) ?? { studentCount: 0, ratingSum: 0, weight: 0 };
-      const weight = course.ratingWeightedCount > 0 ? course.ratingWeightedCount : course.reviewCount;
+      const current = stats.get(course.instructorId) ?? {
+        studentCount: 0,
+        ratingSum: 0,
+        weight: 0,
+      };
+      const weight =
+        course.ratingWeightedCount > 0
+          ? course.ratingWeightedCount
+          : course.reviewCount;
       stats.set(course.instructorId, {
         studentCount: current.studentCount + course.studentCount,
         ratingSum: current.ratingSum + course.ratingAvg * weight,
         weight: current.weight + weight,
       });
     }
-    const mapped = rows.map((u) => {
-      const aggregate = stats.get(u.id);
-      const live = {
-        studentCount: aggregate?.studentCount ?? 0,
-        ratingAvg: aggregate && aggregate.weight > 0 ? aggregate.ratingSum / aggregate.weight : 0,
-      };
-      return {
-        id: u.id,
-        name: u.name,
-        avatar: u.avatar,
-        title: u.instructorProfile?.title ?? "",
-        bio: u.instructorProfile?.bio ?? "",
-        ratingAvg: live.ratingAvg,
-        studentCount: live.studentCount,
-        courseCount: u.instructorProfile?.courseCount ?? 0,
-      };
-    });
+    const mapped = await Promise.all(
+      rows.map(async (u) => {
+        const aggregate = stats.get(u.id);
+        const live = {
+          studentCount: aggregate?.studentCount ?? 0,
+          ratingAvg:
+            aggregate && aggregate.weight > 0
+              ? aggregate.ratingSum / aggregate.weight
+              : 0,
+        };
+        return {
+          id: u.id,
+          name: u.name,
+          avatar: await this.resolveAvatar(u),
+          title: u.instructorProfile?.title ?? "",
+          bio: u.instructorProfile?.bio ?? "",
+          ratingAvg: live.ratingAvg,
+          studentCount: live.studentCount,
+          courseCount: u.instructorProfile?.courseCount ?? 0,
+        };
+      }),
+    );
     return mapped.sort((a, b) => b.ratingAvg - a.ratingAvg);
   }
   async publicProfile(id: string): Promise<InstructorPublicProfileDto> {
     const u = await this.repo.findApprovedProfileByUserId(id);
-    if (!u?.instructorProfile) throw new NotFoundException("Instructor not found");
+    if (!u?.instructorProfile)
+      throw new NotFoundException("Instructor not found");
     const p = u.instructorProfile;
     const live = await this.repo.computeInstructorStats(u.id);
     return {
       id: u.id,
       name: u.name,
-      avatar: u.avatar,
+      avatar: await this.resolveAvatar(u),
       title: p.title,
       bio: p.bio,
       expertise: p.expertise,
@@ -260,7 +302,9 @@ export class InstructorService {
     if (u?.instructorProfile) {
       const p = u.instructorProfile;
       const live = await this.repo.computeInstructorStats(u.id);
-      const pendingNameChange = await this.repo.findPendingNameChangeRequest(u.id);
+      const pendingNameChange = await this.repo.findPendingNameChangeRequest(
+        u.id,
+      );
       const lastRejectedNameChange = pendingNameChange
         ? null
         : await this.repo.findLastRejectedNameChangeRequest(u.id);
@@ -268,7 +312,7 @@ export class InstructorService {
         userId: u.id,
         name: u.name,
         email: u.email,
-        avatar: u.avatar,
+        avatar: await this.resolveAvatar(u),
         title: p.title,
         bio: p.bio,
         expertise: p.expertise,
@@ -285,8 +329,12 @@ export class InstructorService {
         facebookUrl: p.facebookUrl,
         otherUrl: p.otherUrl,
         joinedAt: u.createdAt.toISOString(),
-        pendingNameChange: pendingNameChange ? toNameChangeDto(pendingNameChange) : null,
-        lastRejectedNameChange: lastRejectedNameChange ? toNameChangeDto(lastRejectedNameChange) : null,
+        pendingNameChange: pendingNameChange
+          ? toNameChangeDto(pendingNameChange)
+          : null,
+        lastRejectedNameChange: lastRejectedNameChange
+          ? toNameChangeDto(lastRejectedNameChange)
+          : null,
       };
     }
 
@@ -321,19 +369,53 @@ export class InstructorService {
     input: RequestInstructorNameChangeInput,
   ): Promise<InstructorNameChangeRequestDto> {
     const current = await this.repo.findUserWithProfile(user.id);
-    if (!current?.instructorProfile || current.instructorProfile.status !== "APPROVED") {
-      throw new ForbiddenException("Only approved instructors can request a name change");
+    if (
+      !current?.instructorProfile ||
+      current.instructorProfile.status !== "APPROVED"
+    ) {
+      throw new ForbiddenException(
+        "Only approved instructors can request a name change",
+      );
     }
     const requestedName = input.requestedName.trim();
     if (requestedName === current.name) {
-      throw new BadRequestException("The requested name is the same as your current name");
+      throw new BadRequestException(
+        "The requested name is the same as your current name",
+      );
     }
     const pending = await this.repo.findPendingNameChangeRequest(user.id);
-    if (pending) throw new BadRequestException("You already have a pending name-change request");
-    const request = await this.repo.createNameChangeRequest({
-      userId: user.id,
-      currentName: current.name,
-      requestedName,
+    if (pending)
+      throw new BadRequestException(
+        "You already have a pending name-change request",
+      );
+    const application = await this.repo.findLatestApplicationByUser(user.id);
+    if (!application || application.status !== "APPROVED") {
+      throw new BadRequestException(
+        "Your approved instructor application could not be found",
+      );
+    }
+
+    const request = await this.prisma.$transaction(async (tx) => {
+      const created = await this.repo.createNameChangeRequest(
+        {
+          userId: user.id,
+          currentName: current.name,
+          requestedName,
+        },
+        tx,
+      );
+      await this.repo.updateApplication(
+        application.id,
+        {
+          name: requestedName,
+          status: "PENDING",
+          reviewedAt: null,
+          reviewedBy: null,
+          note: null,
+        },
+        tx,
+      );
+      return created;
     });
     return toNameChangeDto(request);
   }
@@ -346,7 +428,8 @@ export class InstructorService {
 
     // Link fields are "clearable": "" means remove the link (-> null),
     // omitted means leave it untouched, anything else is the new value.
-    const nullableUrl = (v?: string) => (v === undefined ? undefined : v || null);
+    const nullableUrl = (v?: string) =>
+      v === undefined ? undefined : v || null;
     const linkFields = {
       sampleUrl: nullableUrl(input.sampleUrl),
       linkedinUrl: nullableUrl(input.linkedinUrl),
@@ -371,7 +454,10 @@ export class InstructorService {
         await this.repo.updateInstructorProfile(user.id, profileData, tx);
 
         // Keep the Admin application view synchronized with the live profile.
-        const application = await this.repo.findLatestApplicationByUserWithDb(user.id, tx);
+        const application = await this.repo.findLatestApplicationByUserWithDb(
+          user.id,
+          tx,
+        );
         if (application?.status === "APPROVED") {
           await this.repo.updateApplication(
             application.id,
@@ -387,7 +473,8 @@ export class InstructorService {
       });
     } else {
       const application = await this.repo.findLatestApplicationByUser(user.id);
-      if (!application) throw new NotFoundException("Instructor profile not found");
+      if (!application)
+        throw new NotFoundException("Instructor profile not found");
       await this.repo.updateApplication(application.id, {
         headline: input.title,
         bio: input.bio,
@@ -400,7 +487,9 @@ export class InstructorService {
     return profile;
   }
 
-  async listNameChangeRequests(query: NameChangeRequestQuery): Promise<Paginated<InstructorNameChangeRequestDto>> {
+  async listNameChangeRequests(
+    query: NameChangeRequestQuery,
+  ): Promise<Paginated<InstructorNameChangeRequestDto>> {
     const where: Prisma.InstructorNameChangeRequestWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.q
@@ -428,13 +517,19 @@ export class InstructorService {
     };
   }
 
-  async approveNameChange(admin: RequestUser, id: string): Promise<InstructorNameChangeRequestDto> {
+  async approveNameChange(
+    admin: RequestUser,
+    id: string,
+  ): Promise<InstructorNameChangeRequestDto> {
     const request = await this.repo.findNameChangeRequestById(id);
     if (!request) throw new NotFoundException("Name-change request not found");
-    if (request.status !== "PENDING") throw new BadRequestException("This request has already been reviewed");
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This request has already been reviewed");
     const current = await this.repo.findUserByIdOrThrow(request.userId);
     if (current.name !== request.currentName) {
-      throw new BadRequestException("The instructor name changed before this request was reviewed");
+      throw new BadRequestException(
+        "The instructor name changed before this request was reviewed",
+      );
     }
     return this.prisma.$transaction(async (tx) => {
       const updated = await this.repo.updateNameChangeRequest(
@@ -442,19 +537,71 @@ export class InstructorService {
         { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id },
         tx,
       );
+      const application = await this.repo.findLatestApplicationByUserWithDb(
+        request.userId,
+        tx,
+      );
+      if (
+        application?.status === "PENDING" &&
+        application.name === request.requestedName
+      ) {
+        await this.repo.updateApplication(
+          application.id,
+          {
+            status: "APPROVED",
+            reviewedAt: new Date(),
+            reviewedBy: admin.id,
+            note: null,
+          },
+          tx,
+        );
+      }
       await this.repo.updateUserName(request.userId, request.requestedName, tx);
       return toNameChangeDto(updated);
     });
   }
 
-  async rejectNameChange(id: string, note: string): Promise<InstructorNameChangeRequestDto> {
+  async rejectNameChange(
+    admin: RequestUser,
+    id: string,
+    note: string,
+  ): Promise<InstructorNameChangeRequestDto> {
     const request = await this.repo.findNameChangeRequestById(id);
     if (!request) throw new NotFoundException("Name-change request not found");
-    if (request.status !== "PENDING") throw new BadRequestException("This request has already been reviewed");
-    const updated = await this.repo.updateNameChangeRequest(id, {
-      status: "REJECTED",
-      reviewedAt: new Date(),
-      note,
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This request has already been reviewed");
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await this.repo.updateNameChangeRequest(
+        id,
+        {
+          status: "REJECTED",
+          reviewedAt: new Date(),
+          reviewedBy: admin.id,
+          note,
+        },
+        tx,
+      );
+      const application = await this.repo.findLatestApplicationByUserWithDb(
+        request.userId,
+        tx,
+      );
+      if (
+        application?.status === "PENDING" &&
+        application.name === request.requestedName
+      ) {
+        await this.repo.updateApplication(
+          application.id,
+          {
+            status: "APPROVED",
+            name: request.currentName,
+            reviewedAt: new Date(),
+            reviewedBy: admin.id,
+            note,
+          },
+          tx,
+        );
+      }
+      return result;
     });
     void this.notifications
       .notify({
@@ -499,11 +646,14 @@ export class InstructorService {
   }
 
   async applicationStats(): Promise<InstructorApplicationStatsDto> {
-    const [pending, approved, rejected] = await this.repo.applicationStatusCounts();
+    const [pending, approved, rejected] =
+      await this.repo.applicationStatusCounts();
     return { pending, approved, rejected };
   }
 
-  async adminRoster(query: AdminInstructorQuery): Promise<Paginated<InstructorProfileDto>> {
+  async adminRoster(
+    query: AdminInstructorQuery,
+  ): Promise<Paginated<InstructorProfileDto>> {
     const where: Prisma.UserWhereInput = {
       instructorProfile: {
         status: "APPROVED",
@@ -514,7 +664,11 @@ export class InstructorService {
             OR: [
               { name: { contains: query.q, mode: "insensitive" } },
               { email: { contains: query.q, mode: "insensitive" } },
-              { instructorProfile: { title: { contains: query.q, mode: "insensitive" } } },
+              {
+                instructorProfile: {
+                  title: { contains: query.q, mode: "insensitive" },
+                },
+              },
             ],
           }
         : {}),
@@ -525,31 +679,33 @@ export class InstructorService {
       query.pageSize,
     );
     return {
-      items: rows.map((u) => {
-        const p = u.instructorProfile!;
-        return {
-          userId: u.id,
-          name: u.name,
-          email: u.email,
-          avatar: u.avatar,
-          title: p.title,
-          bio: p.bio,
-          expertise: p.expertise,
-          ratingAvg: p.ratingAvg,
-          studentCount: p.studentCount,
-          courseCount: p.courseCount,
-          earningsCents: p.earningsCents,
-          status: p.status,
-          note: null,
-          sampleUrl: p.sampleUrl,
-          linkedinUrl: p.linkedinUrl,
-          twitterUrl: p.twitterUrl,
-          youtubeUrl: p.youtubeUrl,
-          facebookUrl: p.facebookUrl,
-          otherUrl: p.otherUrl,
-          joinedAt: u.createdAt.toISOString(),
-        };
-      }),
+      items: await Promise.all(
+        rows.map(async (u) => {
+          const p = u.instructorProfile!;
+          return {
+            userId: u.id,
+            name: u.name,
+            email: u.email,
+            avatar: await this.resolveAvatar(u),
+            title: p.title,
+            bio: p.bio,
+            expertise: p.expertise,
+            ratingAvg: p.ratingAvg,
+            studentCount: p.studentCount,
+            courseCount: p.courseCount,
+            earningsCents: p.earningsCents,
+            status: p.status,
+            note: null,
+            sampleUrl: p.sampleUrl,
+            linkedinUrl: p.linkedinUrl,
+            twitterUrl: p.twitterUrl,
+            youtubeUrl: p.youtubeUrl,
+            facebookUrl: p.facebookUrl,
+            otherUrl: p.otherUrl,
+            joinedAt: u.createdAt.toISOString(),
+          };
+        }),
+      ),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -557,10 +713,33 @@ export class InstructorService {
     };
   }
 
-  async approve(appId: string, note?: string): Promise<InstructorApplicationDto> {
+  async approve(
+    appId: string,
+    note?: string,
+    adminId?: string,
+  ): Promise<InstructorApplicationDto> {
     const app = await this.repo.findApplicationById(appId);
     if (!app) throw new NotFoundException("Application not found");
 
+    if (app.userId && app.status === "PENDING") {
+      const profile = await this.repo.findApprovedProfileByUserId(app.userId);
+      const nameChange = await this.repo.findPendingNameChangeRequest(
+        app.userId,
+      );
+      if (profile && nameChange?.requestedName === app.name) {
+        if (!adminId)
+          throw new ForbiddenException(
+            "Admin identity is required for profile review",
+          );
+        await this.approveNameChange(
+          { id: adminId } as RequestUser,
+          nameChange.id,
+        );
+        const refreshed = await this.repo.findApplicationById(appId);
+        if (!refreshed) throw new NotFoundException("Application not found");
+        return this.toAppDto(refreshed);
+      }
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       const a = await this.repo.updateApplication(
         appId,
@@ -610,7 +789,37 @@ export class InstructorService {
     return this.toAppDto(updated);
   }
 
-  async reject(appId: string, note: string): Promise<InstructorApplicationDto> {
+  async reject(
+    appId: string,
+    note: string,
+    adminId?: string,
+  ): Promise<InstructorApplicationDto> {
+    const existing = await this.repo.findApplicationById(appId);
+    if (!existing) throw new NotFoundException("Application not found");
+
+    if (existing.userId && existing.status === "PENDING") {
+      const profile = await this.repo.findApprovedProfileByUserId(
+        existing.userId,
+      );
+      const nameChange = await this.repo.findPendingNameChangeRequest(
+        existing.userId,
+      );
+      if (profile && nameChange?.requestedName === existing.name) {
+        if (!adminId)
+          throw new ForbiddenException(
+            "Admin identity is required for profile review",
+          );
+        await this.rejectNameChange(
+          { id: adminId } as RequestUser,
+          nameChange.id,
+          note,
+        );
+        const refreshed = await this.repo.findApplicationById(appId);
+        if (!refreshed) throw new NotFoundException("Application not found");
+        return this.toAppDto(refreshed);
+      }
+    }
+
     const app = await this.repo.updateApplication(appId, {
       status: "REJECTED",
       reviewedAt: new Date(),

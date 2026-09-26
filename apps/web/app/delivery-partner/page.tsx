@@ -127,7 +127,7 @@ export default function DeliveryPartnerOverview() {
   const scheduledCampaigns = allCampaigns.filter((c) => c.status === "scheduled");
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-6 md:p-10">
+    <div className="space-y-8 p-6 md:p-8">
       <header>
         <p className="text-sm font-medium text-muted-foreground">Delivery Partner</p>
         <h1 className="mt-1 font-heading text-3xl font-bold tracking-tight">
