@@ -41,6 +41,7 @@ export function pageTitleForPathname(pathname: string): string | undefined {
     [/^\/dashboard\/team$/, "Team courses"],
     [/^\/dashboard\/certificates$/, "Certificates"],
     [/^\/dashboard\/billing$/, "Billing"],
+    [/^\/dashboard\/credits$/, "Store credit"],
     [/^\/dashboard$/, "Dashboard"],
     [/^\/account$/, "Account"],
 

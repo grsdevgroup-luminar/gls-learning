@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/shared/form-field";
 import { Building2, Mail, Globe, Calendar, Shield } from "lucide-react";
+import { ChangePasswordCard } from "@/components/shared/change-password-card";
 
 const statusColors: Record<string, string> = {
   ACTIVE: "text-success",
@@ -22,7 +23,11 @@ const statusColors: Record<string, string> = {
 export default function OrgAccount() {
   const params = useParams<{ slug: string }>();
   const qc = useQueryClient();
-  const [edit, setEdit] = useState<{ name: string; domain: string; logoUrl: string } | null>(null);
+  const [edit, setEdit] = useState<{
+    name: string;
+    domain: string;
+    logoUrl: string;
+  } | null>(null);
   const { data: org } = useQuery({
     queryKey: ["org", params.slug],
     queryFn: () => orgApi.bySlug(params.slug),
@@ -71,13 +76,17 @@ export default function OrgAccount() {
     <div className="space-y-6 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Account</h1>
-        <p className="text-muted-foreground">Organization details and plan information.</p>
+        <p className="text-muted-foreground">
+          Organization details and plan information.
+        </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-base">
-            <span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Organization info</span>
+            <span className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" /> Organization info
+            </span>
             <span className="flex items-center gap-2">
               <Badge variant="outline" className={statusColors[org.status]}>
                 {org.status.charAt(0) + org.status.slice(1).toLowerCase()}
@@ -119,7 +128,9 @@ export default function OrgAccount() {
               <FormField label="Logo URL" hint="Optional">
                 <Input
                   value={edit.logoUrl}
-                  onChange={(e) => setEdit({ ...edit, logoUrl: e.target.value })}
+                  onChange={(e) =>
+                    setEdit({ ...edit, logoUrl: e.target.value })
+                  }
                   placeholder="https://acme.com/logo.png"
                   type="url"
                 />
@@ -167,12 +178,16 @@ export default function OrgAccount() {
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Available seats</span>
-            <span className="font-semibold text-success">{org.seatCount - org.usedSeats}</span>
+            <span className="font-semibold text-success">
+              {org.seatCount - org.usedSeats}
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${Math.min(100, (org.usedSeats / org.seatCount) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (org.usedSeats / org.seatCount) * 100)}%`,
+              }}
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -192,10 +207,12 @@ export default function OrgAccount() {
             <span className="font-semibold">{(courses ?? []).length}</span>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            To add or remove courses from your organization, go to the Courses tab. Contact support to request new specialized course content.
+            To add or remove courses from your organization, go to the Courses
+            tab. Contact support to request new specialized course content.
           </p>
         </CardContent>
       </Card>
+      <ChangePasswordCard />
     </div>
   );
 }

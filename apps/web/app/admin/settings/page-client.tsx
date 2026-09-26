@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { CreditCard, Building2, Users2, Bell, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { FormSkeleton, PageHeaderSkeleton } from '@/components/shared/loading-skeletons';
+import { ChangePasswordCard } from '@/components/shared/change-password-card';
 
 /** Admin notification toggles. Keys are persisted in `settings.notifications`. */
 const NOTIFICATION_TOGGLES: { key: string; label: string }[] = [
@@ -188,6 +189,8 @@ export default function AdminSettings() {
           </p>
         </CardContent>
       </Card>
+
+      <ChangePasswordCard />
 
       {/* Notifications */}
       <Card>
