@@ -5,9 +5,9 @@ import { serverApiCachedOptional } from "@/lib/api/server";
 import { InstructorHero } from "./_components/instructor-hero";
 import { InstructorCourses } from "./_components/instructor-courses";
 
-// Same on-demand ISR shape as the course detail page — profiles change
-// infrequently (bio/social edits, approval), not per-request.
-export const revalidate = 60;
+// Instructor profiles include user-controlled avatars. Read them fresh so
+// an upload is visible immediately in the admin/public profile view.
+export const revalidate = 0;
 
 async function fetchInstructor(id: string) {
   return serverApiCachedOptional<InstructorPublicProfileDto>(`/instructors/${id}`, revalidate);

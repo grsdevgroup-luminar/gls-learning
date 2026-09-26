@@ -35,7 +35,12 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { CommandPalette } from "@/components/shared/command-palette";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -95,7 +100,12 @@ export function PortalShell({
 }: {
   items: NavItem[];
   badge: string;
-  user: { name: string; email: string; initials: string; avatar?: string | null };
+  user: {
+    name: string;
+    email: string;
+    initials: string;
+    avatar?: string | null;
+  };
   showBackToSite?: boolean;
   children: React.ReactNode;
 }) {
@@ -113,8 +123,13 @@ export function PortalShell({
     router.refresh();
   }
 
+  const isCourseBuilderRoute =
+    /^\/(admin|instructor)\/courses(?:\/new|\/[^/]+\/edit)?$/.test(pathname);
+
   const isActive = (it: NavItem) =>
-    it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/");
+    it.exact
+      ? pathname === it.href
+      : pathname === it.href || pathname.startsWith(it.href + "/");
 
   const Nav = (
     <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
@@ -143,7 +158,9 @@ export function PortalShell({
             <Icon
               className={cn(
                 "size-4 transition-colors",
-                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                active
+                  ? "text-primary"
+                  : "text-muted-foreground group-hover:text-foreground",
               )}
             />
             {it.label}
@@ -158,7 +175,7 @@ export function PortalShell({
       <div className="flex h-16 shrink-0 items-center gap-1 border-b border-sidebar-border pl-4 pr-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Logo className="shrink-0" iconOnly />
-          <span className="min-w-0 truncate rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {badge}
           </span>
         </div>
@@ -186,11 +203,15 @@ export function PortalShell({
           >
             <Avatar className="size-8 ring-1 ring-border">
               {user.avatar && <AvatarImage src={user.avatar} alt="" />}
-              <AvatarFallback className="brand-gradient text-xs text-white">{user.initials}</AvatarFallback>
+              <AvatarFallback className="brand-gradient text-xs text-white">
+                {user.initials}
+              </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{user.name}</div>
-              <div className="truncate text-xs text-muted-foreground">{user.email}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {user.email}
+              </div>
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-56">
@@ -204,20 +225,26 @@ export function PortalShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div
+      className={cn(
+        "flex min-h-screen bg-background",
+        isCourseBuilderRoute &&
+          "lg:h-screen lg:max-h-screen lg:overflow-hidden",
+      )}
+    >
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-sidebar-border bg-sidebar md:block">
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r border-sidebar-border bg-sidebar md:block">
         {SidebarInner}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-0">
         {/* Mobile top bar */}
         <header className="flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" />}>
               <Menu className="h-5 w-5" />
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 bg-sidebar p-0">
+            <SheetContent side="left" className="w-80 bg-sidebar p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               {SidebarInner}
             </SheetContent>
@@ -229,7 +256,14 @@ export function PortalShell({
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main
+          className={cn(
+            "relative min-h-0 flex-1",
+            isCourseBuilderRoute && "h-screen max-h-screen overflow-hidden",
+          )}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

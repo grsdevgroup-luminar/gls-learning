@@ -13,7 +13,11 @@ import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatBytes } from "@/lib/format";
 import { VideoUpload } from "@/components/shared/video-upload";
-import { QuizEditor, emptyQuiz, type BuilderQuiz } from "@/components/shared/quiz-editor";
+import {
+  QuizEditor,
+  emptyQuiz,
+  type BuilderQuiz,
+} from "@/components/shared/quiz-editor";
 import { CourseArt, isImageThumbnail } from "@/components/shared/course-art";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { CategoryPicker } from "@/components/shared/category-picker";
@@ -26,25 +30,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Rocket, BookOpen, ImagePlus, Loader2, FileText, Upload, Link2, ExternalLink, ChevronDown, Lock,
+  ArrowLeft,
+  Plus,
+  GripVertical,
+  Trash2,
+  Eye,
+  Save,
+  Rocket,
+  BookOpen,
+  ImagePlus,
+  Loader2,
+  FileText,
+  Upload,
+  Link2,
+  ExternalLink,
+  ChevronDown,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FormSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
+import {
+  FormSkeleton,
+  PageHeaderSkeleton,
+} from "@/components/shared/loading-skeletons";
 
 const MAX_THUMBNAIL_DIM = 800;
 const THUMBNAIL_JPEG_QUALITY = 0.82;
 const MAX_SUBTITLE_LENGTH = 240;
 const MAX_TITLE_LENGTH = 100;
 
-
-function readImageFile(file: File, maxDim = MAX_THUMBNAIL_DIM, quality = THUMBNAIL_JPEG_QUALITY): Promise<string> {
+function readImageFile(
+  file: File,
+  maxDim = MAX_THUMBNAIL_DIM,
+  quality = THUMBNAIL_JPEG_QUALITY,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Could not read file"));
     reader.onload = () => {
       const img = new window.Image(); // explicit window.Image avoids any ambiguity
       img.onerror = () => reject(new Error("That file isn't a valid image"));
@@ -73,7 +103,7 @@ function readImageFile(file: File, maxDim = MAX_THUMBNAIL_DIM, quality = THUMBNA
 type BuilderLessonType = "video" | "quiz" | "article";
 
 interface BLesson {
-  id: string;           // server id, or local temp id for new lessons
+  id: string; // server id, or local temp id for new lessons
   isNew: boolean;
   title: string;
   preview: boolean;
@@ -93,9 +123,14 @@ interface BLesson {
   durationSec: number;
   type: BuilderLessonType;
   quiz?: BuilderQuiz;
-  quizDirty?: boolean;  // quiz content changed since load
+  quizDirty?: boolean; // quiz content changed since load
 }
-interface BSection { id: string; isNew: boolean; title: string; lessons: BLesson[] }
+interface BSection {
+  id: string;
+  isNew: boolean;
+  title: string;
+  lessons: BLesson[];
+}
 
 const lessonTypes: { value: BuilderLessonType; label: string }[] = [
   { value: "video", label: "Video" },
@@ -104,9 +139,9 @@ const lessonTypes: { value: BuilderLessonType; label: string }[] = [
 ];
 
 const LEVEL_TO_API = {
-  "Beginner": "BEGINNER",
-  "Intermediate": "INTERMEDIATE",
-  "Advanced": "ADVANCED",
+  Beginner: "BEGINNER",
+  Intermediate: "INTERMEDIATE",
+  Advanced: "ADVANCED",
   "All Levels": "ALL_LEVELS",
 } as const;
 const LEVEL_FROM_API: Record<string, keyof typeof LEVEL_TO_API> = {
@@ -115,7 +150,11 @@ const LEVEL_FROM_API: Record<string, keyof typeof LEVEL_TO_API> = {
   ADVANCED: "Advanced",
   ALL_LEVELS: "All Levels",
 };
-const TYPE_TO_API = { video: "VIDEO", quiz: "QUIZ", article: "ARTICLE" } as const;
+const TYPE_TO_API = {
+  video: "VIDEO",
+  quiz: "QUIZ",
+  article: "ARTICLE",
+} as const;
 const TYPE_FROM_API: Record<string, BuilderLessonType> = {
   VIDEO: "video",
   QUIZ: "quiz",
@@ -133,15 +172,32 @@ const ARTICLE_WORDS_PER_MINUTE = 200;
 const ARTICLE_MIN_DURATION_SEC = 30;
 function articleDurationSec(content: string): number {
   const words = content.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(ARTICLE_MIN_DURATION_SEC, Math.round((words / ARTICLE_WORDS_PER_MINUTE) * 60));
+  return Math.max(
+    ARTICLE_MIN_DURATION_SEC,
+    Math.round((words / ARTICLE_WORDS_PER_MINUTE) * 60),
+  );
 }
-function quizDurationSec(quiz: Pick<BuilderQuiz, "questions" | "minutesPerQuestion">): number {
+function quizDurationSec(
+  quiz: Pick<BuilderQuiz, "questions" | "minutesPerQuestion">,
+): number {
   return quiz.questions.length * quiz.minutesPerQuestion * 60;
 }
 
 const thumbSeeds = [
-  "course", "react", "ml", "design", "aws", "growth", "python", "system", "typescript",
-  "speaking", "social", "finance", "mindfulness", "language",
+  "course",
+  "react",
+  "ml",
+  "design",
+  "aws",
+  "growth",
+  "python",
+  "system",
+  "typescript",
+  "speaking",
+  "social",
+  "finance",
+  "mindfulness",
+  "language",
 ];
 
 function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
@@ -183,7 +239,8 @@ export function CourseBuilder({
 }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const backHref = mode === "instructor" ? "/instructor/courses" : "/admin/courses";
+  const backHref =
+    mode === "instructor" ? "/instructor/courses" : "/admin/courses";
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ["authoring", "course", courseId],
@@ -201,7 +258,7 @@ export function CourseBuilder({
   const [customIsoStandard, setCustomIsoStandard] = useState("");
   const [level, setLevel] = useState<keyof typeof LEVEL_TO_API>("Beginner");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("0.00");
+  const [price, setPrice] = useState("");
   const [thumbnail, setThumbnail] = useState("course");
   const [thumbDrag, setThumbDrag] = useState(false);
   const [thumbError, setThumbError] = useState("");
@@ -213,9 +270,14 @@ export function CourseBuilder({
   const [published, setPublished] = useState(false);
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<
+    "draft" | "publish" | "review" | null
+  >(null);
   const [dragSection, setDragSection] = useState<number | null>(null);
   // Collapsed-by-id, UI-only — not persisted. Sections start expanded.
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    new Set(),
+  );
   function toggleSectionCollapsed(id: string) {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
@@ -225,10 +287,19 @@ export function CourseBuilder({
     });
   }
   const [sections, setSections] = useState<BSection[]>([
-    { id: nid("s"), isNew: true, title: "Section 1: Introduction", lessons: [] },
+    {
+      id: nid("s"),
+      isNew: true,
+      title: "Section 1: Introduction",
+      lessons: [],
+    },
   ]);
   // Snapshot of server ids at load time, to compute deletions on save.
-  const loadedIds = useRef<{ courseId: string | null; sections: Set<string>; lessons: Set<string> }>({
+  const loadedIds = useRef<{
+    courseId: string | null;
+    sections: Set<string>;
+    lessons: Set<string>;
+  }>({
     courseId: null,
     sections: new Set(),
     lessons: new Set(),
@@ -243,12 +314,14 @@ export function CourseBuilder({
     setSubtitle(detail.subtitle);
     setCategory(detail.category);
     const savedIsoStandard = detail.isoStandard ?? "";
-    const isPresetIsoStandard = (ISO_STANDARD_OPTIONS as readonly string[]).includes(savedIsoStandard);
-    setIsoStandard(isPresetIsoStandard || !savedIsoStandard ? savedIsoStandard : "OTHER");
+    const isPresetIsoStandard = (
+      ISO_STANDARD_OPTIONS as readonly string[]
+    ).includes(savedIsoStandard);
+    setIsoStandard(
+      isPresetIsoStandard || !savedIsoStandard ? savedIsoStandard : "OTHER",
+    );
     setCustomIsoStandard(
-      savedIsoStandard && !isPresetIsoStandard
-        ? savedIsoStandard
-        : "",
+      savedIsoStandard && !isPresetIsoStandard ? savedIsoStandard : "",
     );
     setLevel(LEVEL_FROM_API[detail.level] ?? "Beginner");
     setDescription(detail.description);
@@ -289,14 +362,24 @@ export function CourseBuilder({
                           // to edit going forward.
                           minutesPerQuestion:
                             qz.questions.length > 0
-                              ? Math.max(1, Math.round(l.durationSec / qz.questions.length / 60))
+                              ? Math.max(
+                                  1,
+                                  Math.round(
+                                    l.durationSec / qz.questions.length / 60,
+                                  ),
+                                )
                               : 1,
                           questions: qz.questions.map((q) => ({
                             id: q.id,
                             prompt: q.prompt,
                             explanation: q.explanation ?? undefined,
-                            options: q.options?.map((o) => ({ id: o.id, text: o.text })) ?? [],
-                            correctOptionId: q.options?.find((o) => o.isCorrect)?.id ?? "",
+                            options:
+                              q.options?.map((o) => ({
+                                id: o.id,
+                                text: o.text,
+                              })) ?? [],
+                            correctOptionId:
+                              q.options?.find((o) => o.isCorrect)?.id ?? "",
                           })),
                         },
                       }
@@ -325,7 +408,15 @@ export function CourseBuilder({
   }
 
   function addSection() {
-    setSections((s) => [...s, { id: nid("s"), isNew: true, title: `Section ${s.length + 1}`, lessons: [] }]);
+    setSections((s) => [
+      ...s,
+      {
+        id: nid("s"),
+        isNew: true,
+        title: `Section ${s.length + 1}`,
+        lessons: [],
+      },
+    ]);
   }
   function patchSection(id: string, p: Partial<BSection>) {
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -334,19 +425,77 @@ export function CourseBuilder({
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: [...x.lessons, { id: nid("l"), isNew: true, title: "New lesson", preview: false, hasVideo: false, cfVideoUid: null, uploadId: null, replacingVideo: false, videoLabel: null, articleContent: "", resources: [], pendingResourceFiles: [], pptxName: null, hasServerPptx: false, pptxDurationSec: 0, pendingPptxFile: null, removePptx: false, durationSec: 0, type: "video" as const }] } : x)));
+    setSections((s) =>
+      s.map((x) =>
+        x.id === sid
+          ? {
+              ...x,
+              lessons: [
+                ...x.lessons,
+                {
+                  id: nid("l"),
+                  isNew: true,
+                  title: "New lesson",
+                  preview: false,
+                  hasVideo: false,
+                  cfVideoUid: null,
+                  uploadId: null,
+                  replacingVideo: false,
+                  videoLabel: null,
+                  articleContent: "",
+                  resources: [],
+                  pendingResourceFiles: [],
+                  pptxName: null,
+                  hasServerPptx: false,
+                  pptxDurationSec: 0,
+                  pendingPptxFile: null,
+                  removePptx: false,
+                  durationSec: 0,
+                  type: "video" as const,
+                },
+              ],
+            }
+          : x,
+      ),
+    );
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.map((l) => (l.id === lid ? { ...l, ...p } : l)) } : x)));
+    setSections((s) =>
+      s.map((x) =>
+        x.id === sid
+          ? {
+              ...x,
+              lessons: x.lessons.map((l) =>
+                l.id === lid ? { ...l, ...p } : l,
+              ),
+            }
+          : x,
+      ),
+    );
   }
   function setLessonType(sid: string, lid: string, type: BuilderLessonType) {
     const quiz = type === "quiz" ? emptyQuiz() : undefined;
     const durationSec =
-      type === "quiz" ? quizDurationSec(quiz!) : type === "article" ? articleDurationSec("") : 0;
-    patchLesson(sid, lid, { type, quiz, quizDirty: type === "quiz", durationSec });
+      type === "quiz"
+        ? quizDurationSec(quiz!)
+        : type === "article"
+          ? articleDurationSec("")
+          : 0;
+    patchLesson(sid, lid, {
+      type,
+      quiz,
+      quizDirty: type === "quiz",
+      durationSec,
+    });
   }
   function removeLesson(sid: string, lid: string) {
-    setSections((s) => s.map((x) => (x.id === sid ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) } : x)));
+    setSections((s) =>
+      s.map((x) =>
+        x.id === sid
+          ? { ...x, lessons: x.lessons.filter((l) => l.id !== lid) }
+          : x,
+      ),
+    );
   }
 
   async function handleThumbnailFile(file: File | undefined) {
@@ -359,7 +508,9 @@ export function CourseBuilder({
       setThumbError("");
       setThumbnail(await readImageFile(file));
     } catch (err) {
-      setThumbError(err instanceof Error ? err.message : "Couldn't process that image");
+      setThumbError(
+        err instanceof Error ? err.message : "Couldn't process that image",
+      );
     }
   }
 
@@ -378,16 +529,21 @@ export function CourseBuilder({
         .flatMap((section) => section.lessons)
         .filter((lesson) => {
           const hasResource =
-            lesson.resources.some((resource) => resource.name.trim() && resource.url.trim()) ||
-            lesson.pendingResourceFiles.length > 0;
-          if (lesson.type === "video") return !lesson.cfVideoUid && !lesson.hasVideo;
+            lesson.resources.some(
+              (resource) => resource.name.trim() && resource.url.trim(),
+            ) || lesson.pendingResourceFiles.length > 0;
+          if (lesson.type === "video")
+            return !lesson.cfVideoUid && !lesson.hasVideo;
           if (lesson.type === "quiz") {
             return !lesson.quiz?.questions.some(
               (question) =>
                 question.prompt.trim() &&
-                question.options.filter((option) => option.text.trim()).length >= 2 &&
+                question.options.filter((option) => option.text.trim())
+                  .length >= 2 &&
                 question.options.some(
-                  (option) => option.text.trim() && option.id === question.correctOptionId,
+                  (option) =>
+                    option.text.trim() &&
+                    option.id === question.correctOptionId,
                 ),
             );
           }
@@ -408,8 +564,15 @@ export function CourseBuilder({
       toast.error("Category is required.");
       return;
     }
-    if (!isoStandard.trim() || (isoStandard === "OTHER" && !customIsoStandard.trim())) {
-      toast.error(isoStandard === "OTHER" ? "Custom ISO Standard is required." : "ISO Standard is required.");
+    if (
+      !isoStandard.trim() ||
+      (isoStandard === "OTHER" && !customIsoStandard.trim())
+    ) {
+      toast.error(
+        isoStandard === "OTHER"
+          ? "Custom ISO Standard is required."
+          : "ISO Standard is required.",
+      );
       return;
     }
     if (!description.trim()) {
@@ -429,7 +592,9 @@ export function CourseBuilder({
       return;
     }
     if (descriptionTooLong) {
-      toast.error(`Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`);
+      toast.error(
+        `Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`,
+      );
       return;
     }
     const priceCents = Math.round(Number(price) * 100);
@@ -438,19 +603,25 @@ export function CourseBuilder({
       return;
     }
     setSaving(true);
+    setSavingAction(action);
     try {
       const fields = {
         title: title.trim(),
         subtitle,
         description,
         category: categoryValue,
-        isoStandard: isoStandard === "OTHER" ? customIsoStandard.trim() : isoStandard,
+        isoStandard:
+          isoStandard === "OTHER" ? customIsoStandard.trim() : isoStandard,
         level: LEVEL_TO_API[level],
         thumbnail,
         basePriceCents: priceCents,
       };
       const targetStatus =
-        action === "publish" ? "PUBLISHED" : action === "review" ? "REVIEW" : "DRAFT";
+        action === "publish"
+          ? "PUBLISHED"
+          : action === "review"
+            ? "REVIEW"
+            : "DRAFT";
 
       // Validate before any existing-course writes. The status endpoint still
       // validates when it commits, but this prevents partial saves when an
@@ -465,7 +636,9 @@ export function CourseBuilder({
 
       // Deletions first (anything loaded from the server but no longer present).
       const keptSections = new Set(sections?.map((s) => s.id) ?? []);
-      const keptLessons = new Set(sections?.flatMap((s) => s.lessons?.map((l) => l.id) ?? []) ?? []);
+      const keptLessons = new Set(
+        sections?.flatMap((s) => s.lessons?.map((l) => l.id) ?? []) ?? [],
+      );
       for (const sid of loadedIds.current.sections) {
         if (!keptSections.has(sid)) await authoringApi.deleteSection(sid);
       }
@@ -486,7 +659,10 @@ export function CourseBuilder({
           const before = new Set(
             (await authoringApi.course(id)).sections?.map((x) => x.id) ?? [],
           );
-          const after = await authoringApi.addSection(id, { title: s.title, order: si });
+          const after = await authoringApi.addSection(id, {
+            title: s.title,
+            order: si,
+          });
           sectionServerId =
             after.sections?.find((x) => !before.has(x.id))?.id ?? s.id;
         } else {
@@ -503,9 +679,12 @@ export function CourseBuilder({
             // Only sent when a fresh upload just happened — omitting it leaves
             // an already-attached video untouched (see authoring.service.ts).
             ...(l.cfVideoUid ? { cfVideoUid: l.cfVideoUid } : {}),
-            ...(l.type === "article" ? { articleContent: l.articleContent } : {}),
+            ...(l.type === "article"
+              ? { articleContent: l.articleContent }
+              : {}),
             // Only complete rows are sent; the API rejects a resource without a URL.
-            resources: l.resources?.filter((r) => r.name.trim() && r.url.trim()) ?? [],
+            resources:
+              l.resources?.filter((r) => r.name.trim() && r.url.trim()) ?? [],
           };
           let lessonServerId = l.id;
           if (isTemp(l.id)) {
@@ -514,7 +693,10 @@ export function CourseBuilder({
                 .flatMap((x) => x.lessons)
                 .map((x) => x.id),
             );
-            const after = await authoringApi.addLesson(sectionServerId, lessonBody);
+            const after = await authoringApi.addLesson(
+              sectionServerId,
+              lessonBody,
+            );
             lessonServerId =
               after.sections
                 .flatMap((x) => x.lessons)
@@ -527,15 +709,29 @@ export function CourseBuilder({
           // A remove flag can be set for a brand-new lesson that never had a
           // server attachment. Only delete when the loaded server state proves
           // that an asset existed; the API is idempotent as a race-safe fallback.
-          if (l.removePptx && !l.pendingPptxFile && l.hasServerPptx && !isTemp(lessonServerId)) await authoringApi.deleteLessonPptx(lessonServerId);
-          if (l.pendingPptxFile && !isTemp(lessonServerId)) await authoringApi.uploadLessonPptx(lessonServerId, l.pendingPptxFile, l.pptxDurationSec);
+          if (
+            l.removePptx &&
+            !l.pendingPptxFile &&
+            l.hasServerPptx &&
+            !isTemp(lessonServerId)
+          )
+            await authoringApi.deleteLessonPptx(lessonServerId);
+          if (l.pendingPptxFile && !isTemp(lessonServerId))
+            await authoringApi.uploadLessonPptx(
+              lessonServerId,
+              l.pendingPptxFile,
+              l.pptxDurationSec,
+            );
           for (const file of l.pendingResourceFiles) {
             await authoringApi.uploadLessonResource(lessonServerId, file);
           }
 
           // Sync quiz content for quiz lessons (replace-all strategy).
           if (l.type === "quiz" && l.quiz && (l.quizDirty || isTemp(l.id))) {
-            const quiz = await authoringApi.upsertQuiz(lessonServerId, l.quiz.passScore);
+            const quiz = await authoringApi.upsertQuiz(
+              lessonServerId,
+              l.quiz.passScore,
+            );
             for (const q of quiz.questions) {
               await authoringApi.deleteQuizQuestion(q.id);
             }
@@ -579,8 +775,8 @@ export function CourseBuilder({
         action === "publish"
           ? "Course published! 🚀"
           : action === "review"
-          ? "Submitted for review 📩"
-          : "Draft saved";
+            ? "Submitted for review 📩"
+            : "Draft saved";
       toast.success(msg, {
         description:
           action === "review"
@@ -594,12 +790,14 @@ export function CourseBuilder({
       const friendlyMessage =
         lowerMessage.includes("subtitle") && message.includes("240")
           ? "Subtitle cannot exceed 240 characters"
-          : lowerMessage.includes("description") && message.includes(String(MAX_COURSE_DESCRIPTION_LENGTH))
+          : lowerMessage.includes("description") &&
+              message.includes(String(MAX_COURSE_DESCRIPTION_LENGTH))
             ? `Description cannot exceed ${MAX_COURSE_DESCRIPTION_LENGTH} characters`
             : message;
       toast.error(friendlyMessage);
     } finally {
       setSaving(false);
+      setSavingAction(null);
     }
   }
 
@@ -608,42 +806,80 @@ export function CourseBuilder({
       <div className="space-y-6 p-6 md:p-8">
         <PageHeaderSkeleton action />
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="rounded-xl border p-6"><FormSkeleton fields={5} /></div>
-          <div className="space-y-6"><div className="h-44 animate-pulse rounded-xl bg-muted" /><div className="h-52 animate-pulse rounded-xl bg-muted" /></div>
+          <div className="rounded-xl border p-6">
+            <FormSkeleton fields={5} />
+          </div>
+          <div className="space-y-6">
+            <div className="h-44 animate-pulse rounded-xl bg-muted" />
+            <div className="h-52 animate-pulse rounded-xl bg-muted" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex w-full flex-col lg:h-screen lg:overflow-hidden">
-      
+    <div className="flex min-h-screen w-full flex-col lg:absolute lg:inset-0 lg:h-full lg:max-h-full lg:min-h-0 lg:overflow-hidden">
       {/* HEADER: Shrinks to fit, sticky on mobile, static on desktop */}
       <div className="shrink-0 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-4 border-b bg-background px-6 py-4 shadow-sm md:px-8 lg:static">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label="Back">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push(backHref)}
+            aria-label="Back"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{courseId ? "Edit course" : "Create a course"}</h1>
-            <p className="text-sm text-muted-foreground">{totalLessons} lessons · {sections.length} sections</p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {courseId ? "Edit course" : "Create a course"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {totalLessons} lessons · {sections.length} sections
+            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">
           {mode === "instructor" ? (
             <>
-              <Button type="button" variant="outline" onClick={() => save("draft")} disabled={saving}>
-                <Save className="mr-2 h-4 w-4" /> Save draft
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => save("draft")}
+                disabled={saving}
+              >
+                {savingAction === "draft" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}{" "}
+                Save draft
               </Button>
-              <Button type="button" onClick={() => save("review")} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />} 
+              <Button
+                type="button"
+                onClick={() => save("review")}
+                disabled={saving}
+              >
+                {savingAction === "review" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Rocket className="mr-2 h-4 w-4" />
+                )}
                 Submit for review
               </Button>
             </>
           ) : (
-            <Button onClick={() => save(published ? "publish" : "draft")} disabled={saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+            <Button
+              onClick={() => save(published ? "publish" : "draft")}
+              disabled={saving}
+            >
+              {savingAction === (published ? "publish" : "draft") ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               Save
             </Button>
           )}
@@ -651,22 +887,29 @@ export function CourseBuilder({
       </div>
 
       {/* CONTENT WRAPPER: Takes up remaining height */}
-      <div className="flex-1 p-6 md:p-8 lg:overflow-hidden">
-        
+      <div className="min-h-0 flex-1 p-6 md:p-8 lg:overflow-hidden">
         {/* GRID: Extends to full height on desktop */}
-        <div className="grid gap-6 lg:h-full lg:grid-cols-[1fr_320px]">
-          
+        <div className="grid min-h-0 gap-6 lg:h-full lg:grid-cols-[1fr_320px]">
           {/* LEFT COLUMN: Independently scrollable */}
-          <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">
-            
+          <div className="min-h-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">
             {/* Details */}
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" /> Course details</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BookOpen className="h-4 w-4 text-primary" /> Course details
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
                     <Label htmlFor="course-title">Title</Label>
-                    <span className={titleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                    <span
+                      className={
+                        titleTooLong
+                          ? "text-xs font-medium text-destructive"
+                          : "text-xs text-muted-foreground"
+                      }
+                    >
                       {title.length}/{MAX_TITLE_LENGTH}
                     </span>
                   </div>
@@ -676,10 +919,16 @@ export function CourseBuilder({
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="One-line value proposition"
                     aria-invalid={titleTooLong}
-                    aria-describedby={titleTooLong ? "course-title-error" : undefined}
+                    aria-describedby={
+                      titleTooLong ? "course-title-error" : undefined
+                    }
                   />
                   {titleTooLong && (
-                    <p id="course-title-error" className="text-xs font-medium text-destructive" role="alert">
+                    <p
+                      id="course-title-error"
+                      className="text-xs font-medium text-destructive"
+                      role="alert"
+                    >
                       Title cannot exceed {MAX_TITLE_LENGTH} characters
                     </p>
                   )}
@@ -687,7 +936,13 @@ export function CourseBuilder({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
                     <Label htmlFor="course-subtitle">Subtitle</Label>
-                    <span className={subtitleTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                    <span
+                      className={
+                        subtitleTooLong
+                          ? "text-xs font-medium text-destructive"
+                          : "text-xs text-muted-foreground"
+                      }
+                    >
                       {subtitle.length}/{MAX_SUBTITLE_LENGTH}
                     </span>
                   </div>
@@ -697,10 +952,16 @@ export function CourseBuilder({
                     onChange={(e) => setSubtitle(e.target.value)}
                     placeholder="One-line value proposition"
                     aria-invalid={subtitleTooLong}
-                    aria-describedby={subtitleTooLong ? "course-subtitle-error" : undefined}
+                    aria-describedby={
+                      subtitleTooLong ? "course-subtitle-error" : undefined
+                    }
                   />
                   {subtitleTooLong && (
-                    <p id="course-subtitle-error" className="text-xs font-medium text-destructive" role="alert">
+                    <p
+                      id="course-subtitle-error"
+                      className="text-xs font-medium text-destructive"
+                      role="alert"
+                    >
                       Subtitle cannot exceed 240 characters
                     </p>
                   )}
@@ -708,14 +969,33 @@ export function CourseBuilder({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>Category</Label>
-                    <CategoryPicker value={categoryValue} onChange={setCategory} canManage={mode === "admin"} />
+                    <CategoryPicker
+                      value={categoryValue}
+                      onChange={setCategory}
+                      canManage={mode === "admin"}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Level</Label>
-                    <Select value={level} onValueChange={(v) => v && setLevel(v as keyof typeof LEVEL_TO_API)}>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <Select
+                      value={level}
+                      onValueChange={(v) =>
+                        v && setLevel(v as keyof typeof LEVEL_TO_API)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        {(Object.keys(LEVEL_TO_API) as (keyof typeof LEVEL_TO_API)[]).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        {(
+                          Object.keys(
+                            LEVEL_TO_API,
+                          ) as (keyof typeof LEVEL_TO_API)[]
+                        ).map((l) => (
+                          <SelectItem key={l} value={l}>
+                            {l}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -735,7 +1015,9 @@ export function CourseBuilder({
                     </SelectTrigger>
                     <SelectContent>
                       {ISO_STANDARD_OPTIONS.map((standard) => (
-                        <SelectItem key={standard} value={standard}>{standard}</SelectItem>
+                        <SelectItem key={standard} value={standard}>
+                          {standard}
+                        </SelectItem>
                       ))}
                       <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
@@ -743,7 +1025,9 @@ export function CourseBuilder({
                   {isoStandard === "OTHER" && (
                     <Input
                       value={customIsoStandard}
-                      onChange={(event) => setCustomIsoStandard(event.target.value)}
+                      onChange={(event) =>
+                        setCustomIsoStandard(event.target.value)
+                      }
                       placeholder="Enter ISO standard"
                       maxLength={200}
                     />
@@ -752,7 +1036,13 @@ export function CourseBuilder({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
                     <Label htmlFor="course-description">Description</Label>
-                    <span className={descriptionTooLong ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+                    <span
+                      className={
+                        descriptionTooLong
+                          ? "text-xs font-medium text-destructive"
+                          : "text-xs text-muted-foreground"
+                      }
+                    >
                       {description.length}/{MAX_COURSE_DESCRIPTION_LENGTH}
                     </span>
                   </div>
@@ -763,11 +1053,20 @@ export function CourseBuilder({
                     placeholder="What will students learn?"
                     className="min-h-28"
                     aria-invalid={descriptionTooLong}
-                    aria-describedby={descriptionTooLong ? "course-description-error" : undefined}
+                    aria-describedby={
+                      descriptionTooLong
+                        ? "course-description-error"
+                        : undefined
+                    }
                   />
                   {descriptionTooLong && (
-                    <p id="course-description-error" className="text-xs font-medium text-destructive" role="alert">
-                      Description cannot exceed {MAX_COURSE_DESCRIPTION_LENGTH} characters
+                    <p
+                      id="course-description-error"
+                      className="text-xs font-medium text-destructive"
+                      role="alert"
+                    >
+                      Description cannot exceed {MAX_COURSE_DESCRIPTION_LENGTH}{" "}
+                      characters
                     </p>
                   )}
                 </div>
@@ -778,7 +1077,9 @@ export function CourseBuilder({
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base">Curriculum</CardTitle>
-                <Button size="sm" variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4"/> Add section</Button>
+                <Button size="sm" variant="outline" onClick={addSection}>
+                  <Plus className="mr-2 h-4 w-4" /> Add section
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {sections?.map((s, si) => (
@@ -805,11 +1106,21 @@ export function CourseBuilder({
                       </span>
                       <Input
                         value={s.title}
-                        onChange={(e) => patchSection(s.id, { title: e.target.value })}
+                        onChange={(e) =>
+                          patchSection(s.id, { title: e.target.value })
+                        }
                         className="h-8 min-w-0 flex-1 font-medium"
                       />
                       <ConfirmDialog
-                        trigger={<Button size="icon-sm" variant="ghost" aria-label="Remove section"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>}
+                        trigger={
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label="Remove section"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        }
                         title="Remove this section?"
                         description="All of its lessons will be removed too."
                         confirmLabel="Remove"
@@ -817,157 +1128,348 @@ export function CourseBuilder({
                       />
                     </div>
 
-                  {!collapsedSections.has(s.id) && (
-                  <div className="mt-3 space-y-3 pl-6">
-                    {s.lessons.map((l) => (
-                      <div key={l.id} className="rounded-lg border bg-card p-3">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={l.title}
-                            onChange={(e) => patchLesson(s.id, l.id, { title: e.target.value })}
-                            className="h-8 min-w-0 flex-1"
-                            placeholder="Lesson title"
-                          />
-                          <Select value={l.type} onValueChange={(v) => v && setLessonType(s.id, l.id, v as BuilderLessonType)}>
-                            <SelectTrigger className="h-8 w-28 shrink-0"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {lessonTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                            <Eye className="h-3.5 w-3.5" /> Preview
-                            <Switch size="sm" checked={l.preview} onCheckedChange={() => patchLesson(s.id, l.id, { preview: !l.preview })} />
-                          </label>
-                          <ConfirmDialog
-                            trigger={<Button size="icon-sm" variant="ghost" aria-label="Remove lesson"><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>}
-                            title="Remove this lesson?"
-                            description="This can't be undone."
-                            confirmLabel="Remove"
-                            onConfirm={() => removeLesson(s.id, l.id)}
-                          />
-                        </div>
-                        <div className="mt-2">
-                          {l.type === "quiz" ? (
-                            <QuizEditor
-                              quiz={l.quiz ?? emptyQuiz()}
-                              onChange={(quiz) =>
-                                patchLesson(s.id, l.id, { quiz, quizDirty: true, durationSec: quizDurationSec(quiz) })
-                              }
-                            />
-                          ) : l.type === "video" ? (
-                            <VideoUpload
-                              compact
-                              courseId={courseId}
-                              lessonId={l.id}
-                              initiallyUploaded={l.hasVideo && !l.replacingVideo}
-                              initialUploadId={l.uploadId}
-                              replacingVideo={l.replacingVideo}
-                              committedVideo={
-                                l.cfVideoUid
-                                  ? {
-                                      uid: l.cfVideoUid,
-                                      uploadId: l.uploadId,
-                                      label: l.videoLabel ?? undefined,
-                                    }
-                                  : null
-                              }
-                              onReplaceRequested={() =>
-                                patchLesson(s.id, l.id, { replacingVideo: true })
-                              }
-                              onReplaceCancelled={() =>
-                                patchLesson(s.id, l.id, { replacingVideo: false })
-                              }
-                              onUploaded={({ uploadId, uid, filename, durationSec }) =>
-                                patchLesson(s.id, l.id, {
-                                  cfVideoUid: uid,
-                                  uploadId,
-                                  hasVideo: true,
-                                  replacingVideo: false,
-                                  videoLabel: filename,
-                                  ...(durationSec ? { durationSec } : {}),
-                                })
-                              }
-                            />
-                          ) : (
-                            <Textarea
-                              value={l.articleContent}
-                              onChange={(e) =>
-                                patchLesson(s.id, l.id, {
-                                  articleContent: e.target.value,
-                                  durationSec: articleDurationSec(e.target.value),
-                                })
-                              }
-                              placeholder="Write the article content students will read for this lesson…"
-                              className="min-h-32 text-sm"
-                            />
-                          )}
-                        </div>
-                        {l.type === "video" && (
-                          <div className="mt-4 rounded-lg border border-dashed p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div><Label className="text-sm">Featured PowerPoint slides (Optional)</Label><p className="text-xs text-muted-foreground">Attach one .pptx to show in Slides mode. Add other files under Downloadable resources.</p></div>
-                              <input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (!file.name.toLowerCase().endsWith(".pptx") || file.type !== "application/vnd.openxmlformats-officedocument.presentationml.presentation") { toast.error("Only .pptx PowerPoint files are supported."); e.currentTarget.value = ""; return; } patchLesson(s.id, l.id, { pendingPptxFile: file, pptxName: file.name, removePptx: false }); }} />
+                    {!collapsedSections.has(s.id) && (
+                      <div className="mt-3 space-y-3 pl-6">
+                        {s.lessons.map((l) => (
+                          <div
+                            key={l.id}
+                            className="rounded-lg border bg-card p-3"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={l.title}
+                                onChange={(e) =>
+                                  patchLesson(s.id, l.id, {
+                                    title: e.target.value,
+                                  })
+                                }
+                                className="h-8 min-w-0 flex-1"
+                                placeholder="Lesson title"
+                              />
+                              <Select
+                                value={l.type}
+                                onValueChange={(v) =>
+                                  v &&
+                                  setLessonType(
+                                    s.id,
+                                    l.id,
+                                    v as BuilderLessonType,
+                                  )
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-28 shrink-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {lessonTypes.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>
+                                      {t.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                                <Eye className="h-3.5 w-3.5" /> Preview
+                                <Switch
+                                  size="sm"
+                                  checked={l.preview}
+                                  onCheckedChange={() =>
+                                    patchLesson(s.id, l.id, {
+                                      preview: !l.preview,
+                                    })
+                                  }
+                                />
+                              </label>
+                              <ConfirmDialog
+                                trigger={
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    aria-label="Remove lesson"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                }
+                                title="Remove this lesson?"
+                                description="This can't be undone."
+                                confirmLabel="Remove"
+                                onConfirm={() => removeLesson(s.id, l.id)}
+                              />
                             </div>
-                            {l.pptxName && <div className="mt-2 flex items-center gap-2 text-xs"><FileText className="h-4 w-4 text-primary" /><span className="flex-1 truncate">Current: {l.pptxName}</span><Button type="button" size="sm" variant="ghost" onClick={() => patchLesson(s.id, l.id, { pendingPptxFile: null, pptxName: null, removePptx: true })}>Remove</Button></div>}
-                            {(l.pendingPptxFile || l.pptxName) && <div className="mt-2 flex items-center gap-2"><Label htmlFor={`pptx-duration-${l.id}`} className="text-xs">Learning time (minutes)</Label><Input id={`pptx-duration-${l.id}`} type="number" min="0" max="1440" value={Math.round(l.pptxDurationSec / 60)} onChange={(e) => patchLesson(s.id, l.id, { pptxDurationSec: Math.max(0, Number(e.target.value) || 0) * 60 })} className="h-8 w-24" /></div>}
-                          </div>
-                        )}
+                            <div className="mt-2">
+                              {l.type === "quiz" ? (
+                                <QuizEditor
+                                  quiz={l.quiz ?? emptyQuiz()}
+                                  onChange={(quiz) =>
+                                    patchLesson(s.id, l.id, {
+                                      quiz,
+                                      quizDirty: true,
+                                      durationSec: quizDurationSec(quiz),
+                                    })
+                                  }
+                                />
+                              ) : l.type === "video" ? (
+                                <VideoUpload
+                                  compact
+                                  courseId={courseId}
+                                  lessonId={l.id}
+                                  initiallyUploaded={
+                                    l.hasVideo && !l.replacingVideo
+                                  }
+                                  initialUploadId={l.uploadId}
+                                  replacingVideo={l.replacingVideo}
+                                  committedVideo={
+                                    l.cfVideoUid
+                                      ? {
+                                          uid: l.cfVideoUid,
+                                          uploadId: l.uploadId,
+                                          label: l.videoLabel ?? undefined,
+                                        }
+                                      : null
+                                  }
+                                  onReplaceRequested={() =>
+                                    patchLesson(s.id, l.id, {
+                                      replacingVideo: true,
+                                    })
+                                  }
+                                  onReplaceCancelled={() =>
+                                    patchLesson(s.id, l.id, {
+                                      replacingVideo: false,
+                                    })
+                                  }
+                                  onUploaded={({
+                                    uploadId,
+                                    uid,
+                                    filename,
+                                    durationSec,
+                                  }) =>
+                                    patchLesson(s.id, l.id, {
+                                      cfVideoUid: uid,
+                                      uploadId,
+                                      hasVideo: true,
+                                      replacingVideo: false,
+                                      videoLabel: filename,
+                                      ...(durationSec ? { durationSec } : {}),
+                                    })
+                                  }
+                                />
+                              ) : (
+                                <Textarea
+                                  value={l.articleContent}
+                                  onChange={(e) =>
+                                    patchLesson(s.id, l.id, {
+                                      articleContent: e.target.value,
+                                      durationSec: articleDurationSec(
+                                        e.target.value,
+                                      ),
+                                    })
+                                  }
+                                  placeholder="Write the article content students will read for this lesson…"
+                                  className="min-h-32 text-sm"
+                                />
+                              )}
+                            </div>
+                            {l.type === "video" && (
+                              <div className="mt-4 rounded-lg border border-dashed p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <Label className="text-sm">
+                                      Featured PowerPoint slides (Optional)
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                      Attach one .pptx to show in Slides mode.
+                                      Add other files under Downloadable
+                                      resources.
+                                    </p>
+                                  </div>
+                                  <label
+                                    htmlFor={`pptx-upload-${l.id}`}
+                                    className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                                  >
+                                    <Upload className="h-4 w-4" />
+                                    Choose PowerPoint
+                                  </label>
 
-                        <LessonResources
-                          lessonId={l.id}
-                          isNew={isTemp(l.id)}
-                          resources={l.resources}
-                          onChange={(resources) => patchLesson(s.id, l.id, { resources })}
-                          pendingFiles={l.pendingResourceFiles}
-                          onPendingUpload={(file) =>
-                            patchLesson(s.id, l.id, {
-                              pendingResourceFiles: [...l.pendingResourceFiles, file],
-                            })
-                          }
-                        />
+                                  <input
+                                    id={`pptx-upload-${l.id}`}
+                                    className="sr-only"
+                                    type="file"
+                                    accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      if (
+                                        !file.name
+                                          .toLowerCase()
+                                          .endsWith(".pptx") ||
+                                        file.type !==
+                                          "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                      ) {
+                                        toast.error(
+                                          "Only .pptx PowerPoint files are supported.",
+                                        );
+                                        e.currentTarget.value = "";
+                                        return;
+                                      }
+                                      patchLesson(s.id, l.id, {
+                                        pendingPptxFile: file,
+                                        pptxName: file.name,
+                                        removePptx: false,
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                {l.pptxName && (
+                                  <div className="mt-2 flex items-center gap-2 text-xs">
+                                    <FileText className="h-4 w-4 text-primary" />
+                                    <span className="flex-1 truncate">
+                                      Current: {l.pptxName}
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        patchLesson(s.id, l.id, {
+                                          pendingPptxFile: null,
+                                          pptxName: null,
+                                          removePptx: true,
+                                        })
+                                      }
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                )}
+                                {(l.pendingPptxFile || l.pptxName) && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Label
+                                      htmlFor={`pptx-duration-${l.id}`}
+                                      className="text-xs"
+                                    >
+                                      Learning time (minutes)
+                                    </Label>
+                                    <Input
+                                      id={`pptx-duration-${l.id}`}
+                                      type="number"
+                                      min="0"
+                                      max="1440"
+                                      value={Math.round(l.pptxDurationSec / 60)}
+                                      onChange={(e) =>
+                                        patchLesson(s.id, l.id, {
+                                          pptxDurationSec:
+                                            Math.max(
+                                              0,
+                                              Number(e.target.value) || 0,
+                                            ) * 60,
+                                        })
+                                      }
+                                      className="h-8 w-24"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <LessonResources
+                              lessonId={l.id}
+                              isNew={isTemp(l.id)}
+                              resources={l.resources}
+                              onChange={(resources) =>
+                                patchLesson(s.id, l.id, { resources })
+                              }
+                              pendingFiles={l.pendingResourceFiles}
+                              onPendingUpload={(file) =>
+                                patchLesson(s.id, l.id, {
+                                  pendingResourceFiles: [
+                                    ...l.pendingResourceFiles,
+                                    file,
+                                  ],
+                                })
+                              }
+                              onRemovePendingUpload={(index) =>
+                                patchLesson(s.id, l.id, {
+                                  pendingResourceFiles:
+                                    l.pendingResourceFiles.filter(
+                                      (_, i) => i !== index,
+                                    ),
+                                })
+                              }
+                            />
+                          </div>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground"
+                          onClick={() => addLesson(s.id)}
+                        >
+                          <Plus /> Add lesson
+                        </Button>
                       </div>
-                    ))}
-                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => addLesson(s.id)}><Plus /> Add lesson</Button>
+                    )}
                   </div>
-                  )}
-                </div>
-              ))}
-              {sections.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">No sections yet. Add your first section to get started.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                ))}
+                {sections.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No sections yet. Add your first section to get started.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* RIGHT COLUMN: Independently scrollable */}
-          <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">
+          <div className="min-h-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4 lg:pb-8">
             {mode === "instructor" ? (
               <Card>
-                <CardHeader><CardTitle className="text-base">Review status</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-base">Review status</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium">Current</div>
                     <CourseStatusBadge status={detail?.status ?? "DRAFT"} />
                   </div>
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Save a draft any time. When you&apos;re ready, <span className="font-medium text-foreground">Submit for review</span> — our team approves new courses before they go live to keep quality high.
+                    Save a draft any time. When you&apos;re ready,{" "}
+                    <span className="font-medium text-foreground">
+                      Submit for review
+                    </span>{" "}
+                    — our team approves new courses before they go live to keep
+                    quality high.
                   </p>
                 </CardContent>
               </Card>
             ) : (
               <Card>
-                <CardHeader><CardTitle className="text-base">Publish</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-base">Publish</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-medium">Status</div>
-                      <div className="text-xs text-muted-foreground">{published ? "Visible to students" : "Hidden — draft"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {published ? "Visible to students" : "Hidden — draft"}
+                      </div>
                     </div>
-                    <Badge variant="outline" className={published ? "text-success" : "text-muted-foreground"}>{published ? "Published" : "Draft"}</Badge>
+                    <Badge
+                      variant="outline"
+                      className={
+                        published ? "text-success" : "text-muted-foreground"
+                      }
+                    >
+                      {published ? "Published" : "Draft"}
+                    </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="pub">Publish course</Label>
-                    <Switch id="pub" checked={published} onCheckedChange={setPublished} />
+                    <Switch
+                      id="pub"
+                      checked={published}
+                      onCheckedChange={setPublished}
+                    />
                   </div>
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between">
@@ -978,7 +1480,9 @@ export function CourseBuilder({
                       <Switch
                         id="priv"
                         checked={visibility === "PRIVATE"}
-                        onCheckedChange={(checked) => setVisibility(checked ? "PRIVATE" : "PUBLIC")}
+                        onCheckedChange={(checked) =>
+                          setVisibility(checked ? "PRIVATE" : "PUBLIC")
+                        }
                         disabled={!published}
                       />
                     </div>
@@ -993,28 +1497,43 @@ export function CourseBuilder({
             )}
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Pricing</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Pricing</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2">
                 <Label>Base price (USD)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    $
+                  </span>
                   <Input
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
+                    placeholder="Enter base price"
                     className="pl-7"
                     inputMode="decimal"
                     min="0.01"
                     step="0.01"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Regional & per-country pricing is applied automatically from your Pricing rules.</p>
+                <p className="text-xs text-muted-foreground">
+                  Regional & per-country pricing is applied automatically from
+                  your Pricing rules.
+                </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Course thumbnail</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Course thumbnail</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-3">
-                <CourseArt seed={thumbnail} title={title || "Course title"} category={categoryValue} className="h-32 rounded-lg" />
+                <CourseArt
+                  seed={thumbnail}
+                  title={title || "Course title"}
+                  category={categoryValue}
+                  className="h-32 rounded-lg"
+                />
 
                 <input
                   ref={thumbInputRef}
@@ -1029,7 +1548,10 @@ export function CourseBuilder({
                 <button
                   type="button"
                   onClick={() => thumbInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); setThumbDrag(true); }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setThumbDrag(true);
+                  }}
                   onDragLeave={() => setThumbDrag(false)}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -1038,14 +1560,22 @@ export function CourseBuilder({
                   }}
                   className={cn(
                     "flex w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-4 text-center transition-colors",
-                    thumbDrag ? "border-primary bg-primary/5" : "hover:border-primary/50 hover:bg-muted/40",
+                    thumbDrag
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50 hover:bg-muted/40",
                   )}
                 >
                   <ImagePlus className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-medium">Drag & drop an image, or click to upload</span>
-                  <span className="text-[11px] text-muted-foreground">PNG or JPG · recommended 1280×720</span>
+                  <span className="text-xs font-medium">
+                    Drag & drop an image, or click to upload
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    PNG or JPG · recommended 1280×720
+                  </span>
                 </button>
-                {thumbError && <p className="text-xs text-destructive">{thumbError}</p>}
+                {thumbError && (
+                  <p className="text-xs text-destructive">{thumbError}</p>
+                )}
                 {isImageThumbnail(thumbnail) && (
                   <ConfirmDialog
                     trigger={
@@ -1066,11 +1596,23 @@ export function CourseBuilder({
                 )}
 
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">Or pick a color theme</p>
+                  <p className="text-xs text-muted-foreground">
+                    Or pick a color theme
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {thumbSeeds.map((t) => (
-                      <button key={t} type="button" onClick={() => setThumbnail(t)} className={`h-7 w-7 rounded-md border-2 ${thumbnail === t ? "border-primary" : "border-transparent"}`}>
-                        <CourseArt seed={t} title="" className="h-full w-full rounded" iconSize={12} />
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setThumbnail(t)}
+                        className={`h-7 w-7 rounded-md border-2 ${thumbnail === t ? "border-primary" : "border-transparent"}`}
+                      >
+                        <CourseArt
+                          seed={t}
+                          title=""
+                          className="h-full w-full rounded"
+                          iconSize={12}
+                        />
                       </button>
                     ))}
                   </div>
@@ -1087,10 +1629,22 @@ export function CourseBuilder({
 // Kept in sync with apps/api/src/modules/storage/storage.constants.ts. Client
 // pre-check is a UX nicety — the API enforces the same list on upload.
 const RESOURCE_ACCEPT_EXTENSIONS = [
-  ".pdf", ".zip",
-  ".png", ".jpg", ".jpeg", ".gif", ".webp",
-  ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx",
-  ".txt", ".csv", ".mp3",
+  ".pdf",
+  ".zip",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".doc",
+  ".docx",
+  ".ppt",
+  ".pptx",
+  ".xls",
+  ".xlsx",
+  ".txt",
+  ".csv",
+  ".mp3",
 ] as const;
 const RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
 const RESOURCE_LIMIT = 20;
@@ -1109,6 +1663,7 @@ function LessonResources({
   onChange,
   pendingFiles,
   onPendingUpload,
+  onRemovePendingUpload,
 }: {
   lessonId: string;
   isNew: boolean;
@@ -1116,11 +1671,14 @@ function LessonResources({
   onChange: (next: LessonResourceDto[]) => void;
   pendingFiles: File[];
   onPendingUpload: (file: File) => void;
+  onRemovePendingUpload: (index: number) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const patch = (i: number, fields: Partial<LessonResourceDto>) =>
-    onChange(resources?.map((r, x) => (x === i ? { ...r, ...fields } : r)) ?? []);
+    onChange(
+      resources?.map((r, x) => (x === i ? { ...r, ...fields } : r)) ?? [],
+    );
 
   async function handleUpload(file: File | undefined) {
     if (!file) return;
@@ -1133,13 +1691,19 @@ function LessonResources({
       return;
     }
     const ext = ("." + (file.name.split(".").pop() ?? "")).toLowerCase();
-    if (!RESOURCE_ACCEPT_EXTENSIONS.includes(ext as (typeof RESOURCE_ACCEPT_EXTENSIONS)[number])) {
+    if (
+      !RESOURCE_ACCEPT_EXTENSIONS.includes(
+        ext as (typeof RESOURCE_ACCEPT_EXTENSIONS)[number],
+      )
+    ) {
       toast.error(`Unsupported file type: ${ext || "unknown"}`);
       return;
     }
     if (isNew) {
       onPendingUpload(file);
-      toast.success(`${file.name} queued — save the lesson to finish uploading.`);
+      toast.success(
+        `${file.name} queued — save the lesson to finish uploading.`,
+      );
       if (fileInput.current) fileInput.current.value = "";
       return;
     }
@@ -1169,7 +1733,8 @@ function LessonResources({
     onChange(resources?.filter((_, x) => x !== i) ?? []);
   }
 
-  const canUpload = !uploading && resources.length + pendingFiles.length < RESOURCE_LIMIT;
+  const canUpload =
+    !uploading && resources.length + pendingFiles.length < RESOURCE_LIMIT;
 
   return (
     <div className="mt-3 space-y-2 border-t pt-3">
@@ -1180,18 +1745,33 @@ function LessonResources({
         </span>
       </div>
 
-      {pendingFiles.map((file) => (
-        <div key={`pending-${file.name}-${file.lastModified}`} className="flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground">
+      {pendingFiles.map((file, i) => (
+        <div
+          key={`pending-${file.name}-${file.lastModified}`}
+          className="flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground"
+        >
           <Upload className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{file.name}</span>
           <span className="ml-auto shrink-0">Pending save</span>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Remove pending resource"
+            onClick={() => onRemovePendingUpload(i)}
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </Button>
         </div>
       ))}
 
       {resources?.map((r, i) =>
         r.storageKey ? (
           // Uploaded file — filename + size are frozen at upload time.
-          <div key={i} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+          <div
+            key={i}
+            className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5"
+          >
             <Upload className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <a
               href={r.url}
@@ -1203,14 +1783,27 @@ function LessonResources({
               {r.name}
             </a>
             {r.sizeLabel && (
-              <span className="shrink-0 text-xs text-muted-foreground">{r.sizeLabel}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {r.sizeLabel}
+              </span>
             )}
-            <a href={r.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" aria-label="Open resource">
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Open resource"
+            >
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
             <ConfirmDialog
               trigger={
-                <Button size="icon-sm" variant="ghost" aria-label="Remove resource">
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Remove resource"
+                >
                   <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </Button>
               }
@@ -1238,7 +1831,12 @@ function LessonResources({
             />
             <ConfirmDialog
               trigger={
-                <Button size="icon-sm" variant="ghost" aria-label="Remove resource">
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Remove resource"
+                >
                   <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </Button>
               }
@@ -1260,24 +1858,32 @@ function LessonResources({
           onChange={(e) => handleUpload(e.target.files?.[0])}
         />
         <Button
+          type="button"
           size="sm"
           variant="outline"
           className="h-7"
           onClick={() => fileInput.current?.click()}
           disabled={!canUpload}
-          title={isNew ? "The file will upload when the lesson is saved" : undefined}
+          title={
+            isNew ? "The file will upload when the lesson is saved" : undefined
+          }
         >
-          {uploading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+          {uploading ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+          )}
           Upload file
         </Button>
         <Button
+          type="button"
           size="sm"
           variant="ghost"
           className="h-7 text-muted-foreground"
           onClick={() => onChange([...resources, { name: "", url: "" }])}
           disabled={resources.length + pendingFiles.length >= RESOURCE_LIMIT}
         >
-          <Plus className="mr-1.5 h-4 w-4"/> Add link
+          <Plus className="mr-1.5 h-4 w-4" /> Add link
         </Button>
         {isNew && (
           <span className="text-[11px] text-muted-foreground">

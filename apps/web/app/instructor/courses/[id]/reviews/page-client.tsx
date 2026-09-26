@@ -39,7 +39,7 @@ export default function InstructorCourseReviews() {
 
   return (
     <ApprovalGate>
-      <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-10">
+      <div className="space-y-6 p-6 md:p-8">
         <div>
           <Button variant="ghost" size="sm" render={<Link href={`/instructor/courses/${id}/edit`} />}>
             <ArrowLeft /> Back to course

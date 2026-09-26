@@ -99,32 +99,36 @@ function ResetPasswordForm() {
       <form onSubmit={(e) => void submit(e)}>
         <Stagger className="space-y-3" gap={0.06}>
           <FormField label="New password" htmlFor="password">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="At least 8 characters"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pr-10"
-            />
-            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-9 text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pr-10"
+              />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+            </div>
           </FormField>
           <PasswordRequirements value={password} />
           <FormField label="Confirm password" htmlFor="confirm">
-            <Input
-              id="confirm"
-              type={showConfirm ? "text" : "password"}
-              placeholder="Repeat your new password"
-              autoComplete="new-password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="pr-10"
-            />
-            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-9 text-muted-foreground hover:text-foreground" aria-label={showConfirm ? "Hide confirmation password" : "Show confirmation password"} aria-pressed={showConfirm} onClick={() => setShowConfirm((current) => !current)}>{showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+            <div className="relative">
+              <Input
+                id="confirm"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Repeat your new password"
+                autoComplete="new-password"
+                required
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="pr-10"
+              />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showConfirm ? "Hide confirmation password" : "Show confirmation password"} aria-pressed={showConfirm} onClick={() => setShowConfirm((current) => !current)}>{showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+            </div>
           </FormField>
         </Stagger>
 

@@ -18,7 +18,7 @@ export default function PartnerMembers() {
   if (partner.status !== "APPROVED") return <PartnerStatusState status={partner.status} />;
 
   return (
-    <div className="flex h-screen flex-col space-y-6 p-6 md:p-8">
+    <div className="flex min-h-0 flex-1 flex-col space-y-6 p-6 md:p-8">
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">Members</h1>
         <p className="text-muted-foreground">Everyone who&apos;s joined through a campaign purchase or a direct invite.</p>
