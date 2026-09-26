@@ -1,11 +1,13 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { orgApi } from "@/lib/api/endpoints";
 import { CourseArt } from "@/components/shared/course-art";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Lock, Globe } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Lock, Globe, Eye } from "lucide-react";
 
 /**
  * Read-only: which courses a company gets is a platform decision (see
@@ -49,23 +51,28 @@ export default function OrgCourses() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assigned.map((c) => (
             <Card key={c.id}>
-              <CardContent className="flex gap-3 p-4">
-                <CourseArt seed={c.thumbnail} title={c.title} className="h-14 w-14 shrink-0 rounded-lg" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{c.title}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{c.category}</div>
-                  {c.visibility === "PRIVATE" ? (
-                    <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">
-                      <Lock className="h-3 w-3" />
-                      <span>Private · members only</span>
-                    </div>
-                  ) : (
-                    <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Globe className="h-3 w-3" />
-                      <span>Public · open catalog</span>
-                    </div>
-                  )}
+              <CardContent className="flex flex-col gap-3 p-4">
+                <div className="flex gap-3">
+                  <CourseArt seed={c.thumbnail} title={c.title} className="h-14 w-14 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{c.title}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{c.category}</div>
+                    {c.visibility === "PRIVATE" ? (
+                      <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">
+                        <Lock className="h-3 w-3" />
+                        <span>Private · members only</span>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Globe className="h-3 w-3" />
+                        <span>Public · open catalog</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                <Button variant="outline" size="sm" className="w-full" render={<Link href={`/courses/${c.slug}`} />}>
+                  <Eye className="h-4 w-4" /> View course
+                </Button>
               </CardContent>
             </Card>
           ))}
