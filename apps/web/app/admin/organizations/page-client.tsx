@@ -30,6 +30,21 @@ const statusColors: Record<string, string> = {
   SUSPENDED: "text-destructive",
 };
 
+const SEAT_COUNT_MAX = 10000;
+
+/** Matches CreateOrganizationSchema: a whole number from 1 to 10,000.
+ *  0 used to fall through `parseInt(...) || 10` and silently become 10. */
+function seatCountError(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return "Enter a seat count.";
+  const n = Number(value);
+  if (!Number.isInteger(n)) return "Seat count must be a whole number.";
+  if (n === 0) return "Seats cannot be 0.";
+  if (n < 1) return "Seat count must be at least 1.";
+  if (n > SEAT_COUNT_MAX) return "Seat count cannot exceed 10,000.";
+  return null;
+}
+
 export default function AdminOrganizations() {
   const qc = useQueryClient();
   const [qInput, setQInput] = useState("");
@@ -55,6 +70,8 @@ export default function AdminOrganizations() {
       toast.error(getApiErrorMessage(error));
     },
   });
+
+  const seatsError = seatCountError(form.seatCount);
 
   const filtered = orgs?.filter(
     (o) => !q || `${o.name} ${o.domain ?? ""} ${o.adminEmail}`.toLowerCase().includes(q.toLowerCase()),
@@ -107,9 +124,16 @@ export default function AdminOrganizations() {
                     id={f.id}
                     type={f.type ?? "text"}
                     placeholder={f.placeholder}
+                    min={f.id === "seatCount" ? 1 : undefined}
+                    max={f.id === "seatCount" ? SEAT_COUNT_MAX : undefined}
+                    aria-invalid={f.id === "seatCount" && !!seatsError}
+                    aria-describedby={f.id === "seatCount" && seatsError ? "seatCount-error" : undefined}
                     value={form[f.id as keyof typeof form]}
                     onChange={(e) => setForm((p) => ({ ...p, [f.id]: e.target.value }))}
                   />
+                  {f.id === "seatCount" && seatsError && (
+                    <p id="seatCount-error" className="text-xs text-destructive">{seatsError}</p>
+                  )}
                 </div>
               ))}
               <p className="text-xs text-muted-foreground">
@@ -118,13 +142,17 @@ export default function AdminOrganizations() {
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
                 <Button
-                  disabled={!form.name.trim() || !form.adminEmail.trim() || createMutation.isPending}
-                  onClick={() => createMutation.mutate({
-                    name: form.name.trim(),
-                    domain: form.domain.trim() || undefined,
-                    adminEmail: form.adminEmail.trim(),
-                    seatCount: parseInt(form.seatCount) || 10,
-                  })}
+                  disabled={!form.name.trim() || !form.adminEmail.trim() || !!seatsError || createMutation.isPending}
+                  onClick={() => {
+                    const seatCount = Number(form.seatCount);
+                    if (seatCountError(form.seatCount) || !Number.isInteger(seatCount)) return;
+                    createMutation.mutate({
+                      name: form.name.trim(),
+                      domain: form.domain.trim() || undefined,
+                      adminEmail: form.adminEmail.trim(),
+                      seatCount,
+                    });
+                  }}
                 >
                   {createMutation.isPending ? "Creating…" : "Create"}
                 </Button>
