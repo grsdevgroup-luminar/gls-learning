@@ -162,6 +162,11 @@ export class DeliveryPartnerController {
     return this.partners.claimInvitation(user, token);
   }
 
+  @Post("delivery-partner/decline/:token")
+  decline(@Param("token") token: string) {
+    return this.partners.declineInvitation(token);
+  }
+
   // ── admin ──
   @Roles("ADMIN")
   @Get("admin/delivery-partner-applications")

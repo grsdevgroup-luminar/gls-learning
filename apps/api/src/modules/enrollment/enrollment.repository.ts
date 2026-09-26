@@ -80,6 +80,7 @@ export class EnrollmentRepository {
     return this.prisma.course.findUnique({
       where: { id: courseId },
       select: {
+        instructorId: true,
         basePriceCents: true,
         status: true,
         visibility: true,
@@ -297,7 +298,7 @@ export class EnrollmentRepository {
   findCourseNumber(courseId: string) {
     return this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { courseNumber: true },
+      select: { courseNumber: true, instructorId: true },
     });
   }
 

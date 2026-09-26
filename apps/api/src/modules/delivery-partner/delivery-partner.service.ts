@@ -443,7 +443,8 @@ export class DeliveryPartnerService {
    *  The token is an unguessable secret, so returning the invited email is safe. */
   async invitationInfo(token: string): Promise<PartnerInvitationInfoDto> {
     const invite = await this.repo.findInvitationByToken(token);
-    const valid = !!invite && !invite.claimedAt && invite.expiresAt > new Date();
+    const valid =
+      !!invite && !invite.claimedAt && !invite.declinedAt && invite.expiresAt > new Date();
     return {
       valid,
       email: invite?.email ?? null,
@@ -454,13 +455,23 @@ export class DeliveryPartnerService {
 
   /** A logged-in user claims an invitation, becoming a member of that one
    *  course assignment + consuming a seat. Access itself is resolved at read
-   *  time (see findMemberCoursesForUser) — no separate grant flag. */
+   *  time (see findMemberCoursesForUser) — no separate grant flag.
+   *
+   *  Requires the currently logged-in account's email to match the invited
+   *  address — same rule as OrganizationsService.claimInvitation, and for the
+   *  same reason: otherwise a different logged-in user on the same browser
+   *  could take a seat meant for someone else. */
   async claimInvitation(user: RequestUser, token: string): Promise<DeliveryPartnerCourseAssignmentDto> {
     const invite = await this.repo.findInvitationByTokenPlain(token);
-    if (!invite || invite.claimedAt || invite.expiresAt < new Date()) {
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date()) {
       throw new BadRequestException("Invalid or expired invitation");
     }
     const dbUser = await this.repo.findUserByIdOrThrow(user.id);
+    if (dbUser.email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw new ForbiddenException(
+        `This invitation was sent to ${invite.email} — log in with that account to accept it.`,
+      );
+    }
 
     const assignment = await this.repo.runTransaction(async (tx) => {
       const current = await this.repo.findCourseAssignmentById(invite.courseAssignmentId, tx);
@@ -471,10 +482,55 @@ export class DeliveryPartnerService {
       await this.repo.upsertMember(invite.courseAssignmentId, user.id, dbUser.email, dbUser.name, tx);
       await this.repo.incrementUsedSeats(invite.courseAssignmentId, tx);
       await this.repo.markInvitationClaimed(token, tx);
+
+      const partner = await this.repo.findPartnerById(current.partnerId, tx);
+      if (partner) {
+        await this.notifications.notify(
+          {
+            userId: partner.userId,
+            event: "DELIVERY_PARTNER_MEMBER_JOINED",
+            title: "New member joined",
+            body: `${dbUser.name} joined ${current.course.title} through your invite.`,
+            href: "/delivery-partner/courses",
+            skipEmail: true,
+          },
+          tx,
+        );
+      }
       return current;
     });
 
     return this.toAssignmentDto(assignment);
+  }
+
+  /** The invited person turning down an invite — mirrors
+   *  OrganizationsService.declineInvitation: no seat is consumed, so this
+   *  doesn't need the email-match check claim does; it just stops the token
+   *  from being claimable and lets the partner know not to expect this
+   *  member. */
+  async declineInvitation(token: string): Promise<{ ok: true }> {
+    const invite = await this.repo.findInvitationByTokenPlain(token);
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date()) {
+      throw new BadRequestException("Invalid or expired invitation");
+    }
+    const assignment = await this.repo.findCourseAssignmentById(invite.courseAssignmentId);
+    if (!assignment) throw new NotFoundException("Course assignment not found");
+    await this.repo.markInvitationDeclined(token);
+
+    const partner = await this.repo.findPartnerById(assignment.partnerId);
+    if (partner) {
+      void this.notifications
+        .notify({
+          userId: partner.userId,
+          event: "DELIVERY_PARTNER_INVITE_DECLINED",
+          title: "Invitation declined",
+          body: `${invite.email} declined the invitation to join ${assignment.course.title}.`,
+          href: "/delivery-partner/courses",
+        })
+        .catch(() => undefined);
+    }
+
+    return { ok: true };
   }
 
   /** Every course the current user has access to via a delivery partner —

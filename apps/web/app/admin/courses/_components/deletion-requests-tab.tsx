@@ -1,19 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { adminApi, type CourseDeletionRequestDto } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { relativeDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Check, X } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ReasonConfirmDialog } from "@/components/shared/reason-confirm-dialog";
+import { Check, X, Users } from "lucide-react";
 import { toast } from "sonner";
 
 export function DeletionRequestsTab({ onMutated }: { onMutated: () => void }) {
-  const [rejecting, setRejecting] = useState<CourseDeletionRequestDto | null>(null);
-  const [note, setNote] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "course-deletion-requests"],
     queryFn: () => adminApi.courseDeletionRequests({ status: "PENDING", page: 1, pageSize: 50 }),
@@ -31,8 +29,6 @@ export function DeletionRequestsTab({ onMutated }: { onMutated: () => void }) {
       adminApi.rejectCourseDeletionRequest(id, note),
     onSuccess: () => {
       onMutated();
-      setRejecting(null);
-      setNote("");
       toast.success("Deletion request rejected");
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -55,29 +51,52 @@ export function DeletionRequestsTab({ onMutated }: { onMutated: () => void }) {
                   Requested by {request.instructorName} · {relativeDate(request.requestedAt)}
                 </div>
                 <div className="mt-1.5 text-sm">{request.reason}</div>
+                {request.enrollmentCount > 0 && (
+                  <div className="mt-1.5 flex items-center gap-1 text-xs text-warning">
+                    <Users className="h-3 w-3" />
+                    {request.enrollmentCount} student{request.enrollmentCount === 1 ? "" : "s"} enrolled — deleting will remove their access
+                  </div>
+                )}
               </div>
               <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">Pending review</Badge>
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => approve.mutate(request.id)} disabled={approve.isPending || reject.isPending}>
-                  <Check /> Approve &amp; delete
-                </Button>
-                <Button size="sm" variant="outline" className="text-destructive" onClick={() => setRejecting(request)} disabled={approve.isPending || reject.isPending}>
-                  <X /> Reject
-                </Button>
+                <ConfirmDialog
+                  trigger={
+                    <Button size="sm" disabled={approve.isPending || reject.isPending}>
+                      <Check /> Approve &amp; delete
+                    </Button>
+                  }
+                  title={`Delete "${request.courseTitle}"?`}
+                  description={
+                    request.enrollmentCount > 0
+                      ? `This can't be completed — ${request.enrollmentCount} student${request.enrollmentCount === 1 ? " is" : "s are"} currently enrolled. Unpublish the course instead of deleting it if you want to stop new enrollments.`
+                      : "This permanently deletes the course. This cannot be undone."
+                  }
+                  confirmLabel="Delete"
+                  pending={approve.isPending}
+                  onConfirm={async () => {
+                    await approve.mutateAsync(request.id);
+                  }}
+                />
+                <ReasonConfirmDialog
+                  trigger={
+                    <Button size="sm" variant="outline" className="text-destructive" disabled={approve.isPending || reject.isPending}>
+                      <X /> Reject
+                    </Button>
+                  }
+                  title={`Reject deletion of "${request.courseTitle}"?`}
+                  description="The instructor will see this reason."
+                  reasonLabel="Reason for rejecting"
+                  reasonPlaceholder="Explain the decision to the instructor"
+                  confirmLabel="Confirm rejection"
+                  pending={reject.isPending}
+                  onConfirm={async (note) => {
+                    await reject.mutateAsync({ id: request.id, note });
+                  }}
+                />
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {rejecting && (
-        <div className="border-t p-4 md:px-6">
-          <div className="mb-2 text-sm font-medium">Reason for rejecting deletion of &quot;{rejecting.courseTitle}&quot;</div>
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Explain the decision to the instructor" className="mb-3 max-w-xl" />
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setRejecting(null); setNote(""); }}>Cancel</Button>
-            <Button variant="outline" className="text-destructive" disabled={!note.trim() || reject.isPending} onClick={() => reject.mutate({ id: rejecting.id, note: note.trim() })}>Confirm rejection</Button>
-          </div>
         </div>
       )}
     </div>

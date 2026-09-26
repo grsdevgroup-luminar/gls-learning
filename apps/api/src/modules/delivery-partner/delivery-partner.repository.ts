@@ -313,8 +313,8 @@ export class DeliveryPartnerRepository {
 
   // ── course assignment (admin-only; see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3) ──
 
-  findPartnerById(partnerId: string) {
-    return this.prisma.deliveryPartner.findUnique({ where: { id: partnerId } });
+  findPartnerById(partnerId: string, tx?: Db) {
+    return this.db(tx).deliveryPartner.findUnique({ where: { id: partnerId } });
   }
 
   /** Precondition check for assignment — mirrors OrganizationsRepository's
@@ -414,9 +414,21 @@ export class DeliveryPartnerRepository {
     });
   }
 
+  markInvitationDeclined(token: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerInvitation.update({
+      where: { token },
+      data: { declinedAt: new Date() },
+    });
+  }
+
   findActiveInvitationsForAssignment(courseAssignmentId: string) {
     return this.prisma.deliveryPartnerInvitation.findMany({
-      where: { courseAssignmentId, claimedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        courseAssignmentId,
+        claimedAt: null,
+        declinedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: "desc" },
     });
   }
@@ -428,6 +440,7 @@ export class DeliveryPartnerRepository {
     return this.prisma.deliveryPartnerInvitation.findMany({
       where: {
         claimedAt: null,
+        declinedAt: null,
         expiresAt: { gt: new Date() },
         courseAssignment: { partnerId },
       },

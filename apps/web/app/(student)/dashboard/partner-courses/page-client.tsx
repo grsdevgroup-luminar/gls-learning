@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, partnerApi } from "@/lib/api/endpoints";
+import { useSession } from "@/lib/api/session";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { CourseGridSkeleton, PageHeaderSkeleton } from "@/components/shared/load
 export default function PartnerCoursesPage() {
   const qc = useQueryClient();
   const router = useRouter();
+  const { user } = useSession();
 
   const { data: granted, isLoading } = useQuery({
     queryKey: ["me", "delivery-partner", "granted-courses"],
@@ -92,6 +94,7 @@ export default function PartnerCoursesPage() {
               {courses.map((g) => {
                 const c = g.course;
                 const enrolled = enrolledIds.has(c.id);
+                const ownCourse = !!user?.id && c.instructor.id === user.id;
                 return (
                   <Card key={g.courseAssignmentId}>
                     <CardContent className="flex flex-col gap-3 p-4">
@@ -114,6 +117,10 @@ export default function PartnerCoursesPage() {
                       {enrolled ? (
                         <Button variant="outline" size="sm" className="w-full" render={<Link href={`/learn/${c.slug}`} />}>
                           <Play className="h-4 w-4" /> Continue
+                        </Button>
+                      ) : ownCourse ? (
+                        <Button variant="outline" size="sm" className="w-full" disabled>
+                          You manage this course
                         </Button>
                       ) : (
                         <Button

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi, authoringApi, type InstructorCourseDto } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -46,8 +47,17 @@ const statusStyle: Record<ApiStatus, string> = {
   REVIEW: "text-warning",
 };
 
+const VALID_TABS = ["all", "deletion-requests"] as const;
+type CoursesTab = (typeof VALID_TABS)[number];
+
 export default function AdminCourses() {
   const qc = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: CoursesTab = VALID_TABS.includes(tabParam as CoursesTab)
+    ? (tabParam as CoursesTab)
+    : "all";
   const [qInput, setQInput] = useState("");
   const q = useDebouncedSearch(qInput);
   const [status, setStatus] = useState<"all" | ApiStatus>("all");
@@ -123,7 +133,16 @@ export default function AdminCourses() {
         <Button render={<Link href="/admin/courses/new" />}><Plus /> New course</Button>
       </div>
 
-      <Tabs defaultValue="all" className="flex min-h-0 flex-1 flex-col gap-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (value === "all") params.delete("tab");
+          else params.set("tab", value);
+          router.replace(params.size ? `?${params.toString()}` : "?", { scroll: false });
+        }}
+        className="flex min-h-0 flex-1 flex-col gap-4"
+      >
       <TabsList className="shrink-0">
         <TabsTrigger value="all">All courses</TabsTrigger>
         <TabsTrigger value="deletion-requests">Deletion requests</TabsTrigger>

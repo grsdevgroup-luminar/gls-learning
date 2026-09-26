@@ -23,6 +23,7 @@ import {
   NotificationsService,
   type NotifyInput,
 } from "../notifications/notifications.service";
+import { AdminService } from "../admin/admin.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import {
   OrganizationsRepository,
@@ -57,6 +58,7 @@ export class OrganizationsService {
     private readonly repo: OrganizationsRepository,
     private readonly email: EmailService,
     private readonly notifications: NotificationsService,
+    private readonly admin: AdminService,
   ) {}
 
   private toDto(o: OrgRow): OrganizationDto {
@@ -274,7 +276,7 @@ export class OrganizationsService {
   async invitationInfo(token: string) {
     const invite = await this.repo.findInvitationByToken(token);
     const valid =
-      !!invite && !invite.claimedAt && invite.expiresAt > new Date();
+      !!invite && !invite.claimedAt && !invite.declinedAt && invite.expiresAt > new Date();
     return {
       valid,
       email: invite?.email ?? null,
@@ -284,13 +286,32 @@ export class OrganizationsService {
     };
   }
 
-  /** A logged-in user claims an invitation, becoming an org member + consuming a seat. */
+  /** A logged-in user claims an invitation, becoming an org member + consuming a seat.
+   *
+   *  Two checks guard this beyond validity/expiry:
+   *  - The invite is only good for the account it was actually sent to —
+   *    otherwise a different logged-in user sharing the browser/link could
+   *    take someone else's seat. Compared case-insensitively since email
+   *    lookups elsewhere in this module are normalized to lowercase.
+   *  - Instructors don't join organizations as a learner-level member —
+   *    instructor and learner roles are kept separate (see the certificate/
+   *    enrollment ownership checks in EnrollmentService for the same rule
+   *    applied the other direction). */
   async claimInvitation(user: RequestUser, token: string): Promise<OrganizationDto> {
     const invite = await this.repo.findInvitationByTokenPlain(token);
-    if (!invite || invite.claimedAt || invite.expiresAt < new Date())
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date())
       throw new BadRequestException("Invalid or expired invitation");
 
     const dbUser = await this.repo.findUserByIdOrThrow(user.id);
+
+    if (dbUser.email.toLowerCase() !== invite.email.toLowerCase())
+      throw new ForbiddenException(
+        `This invitation was sent to ${invite.email} — log in with that account to accept it.`,
+      );
+    if (dbUser.role === "INSTRUCTOR")
+      throw new ForbiddenException(
+        "Instructor accounts can't join organizations as a member",
+      );
 
     // Built inside the transaction, sent after it commits — see
     // NotificationsService's notify()/notifyEmailAfterCommit() split.
@@ -368,6 +389,50 @@ export class OrganizationsService {
     }
 
     return this.toDto(await this.getRow(invite.orgId));
+  }
+
+  /** The invited person turning down an invite — no seat is consumed, so
+   *  unlike claim this doesn't need the email-match/role checks; it just
+   *  needs to stop the token from being claimable and let the org's admins
+   *  know not to expect that member. */
+  async declineInvitation(token: string): Promise<{ ok: true }> {
+    const invite = await this.repo.findInvitationByTokenPlain(token);
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date())
+      throw new BadRequestException("Invalid or expired invitation");
+
+    const org = await this.repo.findOrgByIdOrThrow(invite.orgId);
+    await this.repo.markInvitationDeclined(token);
+
+    const admins = (await this.repo.findOrgAdminUserIds(invite.orgId)).map(
+      (m) => m.userId!,
+    );
+    for (const adminId of admins) {
+      void this.notifications
+        .notify({
+          userId: adminId,
+          event: "ORG_INVITE_DECLINED",
+          title: "Invitation declined",
+          body: `${invite.email} declined the invitation to join ${org.name}.`,
+          href: `/org/${org.slug}/members`,
+        })
+        .catch(() => undefined);
+    }
+
+    return { ok: true };
+  }
+
+  /** An org admin viewing one of their members' learning profile — same rich
+   *  DTO the platform admin sees at GET /admin/students/:id/profile, reused
+   *  rather than re-aggregated, just gated by org-admin + membership instead
+   *  of platform-admin. `studentProfile` itself is scoped to role STUDENT, so
+   *  this naturally 404s for e.g. the org's own ADMIN member — which is fine,
+   *  the ask was to see *students* the org is responsible for. */
+  async memberProfile(user: RequestUser, idOrSlug: string, memberId: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
+    const member = await this.repo.findMember(memberId, orgId);
+    if (!member) throw new NotFoundException("Member not found");
+    if (!member.userId) throw new NotFoundException("This member has no account yet");
+    return this.admin.studentProfile(member.userId);
   }
 
   async removeMember(

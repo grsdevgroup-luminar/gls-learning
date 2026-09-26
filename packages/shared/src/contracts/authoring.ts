@@ -102,6 +102,10 @@ export interface CourseDeletionRequestDto {
   reviewedAt: string | null;
   reviewedBy: string | null;
   reviewNote: string | null;
+  /** Students currently enrolled in the course this request targets — 0 once
+   *  the course itself is gone (courseId null). Surfaced so an admin sees the
+   *  blast radius before approving, not just after a failed delete attempt. */
+  enrollmentCount: number;
 }
 
 export const sectionSchema = z.object({

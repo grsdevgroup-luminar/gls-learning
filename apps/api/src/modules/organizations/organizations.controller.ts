@@ -53,6 +53,11 @@ export class OrganizationsController {
     return this.orgs.claimInvitation(user, token);
   }
 
+  @Post("organizations/decline/:token")
+  decline(@Param("token") token: string) {
+    return this.orgs.declineInvitation(token);
+  }
+
   @Get("organizations/:id")
   get(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.orgs.get(user, id);
@@ -75,6 +80,15 @@ export class OrganizationsController {
     @ZodBody(InviteOrgMemberSchema) body: InviteOrgMemberInput,
   ) {
     return this.orgs.invite(user, id, body);
+  }
+
+  @Get("organizations/:id/members/:memberId/profile")
+  memberProfile(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @Param("memberId") memberId: string,
+  ) {
+    return this.orgs.memberProfile(user, id, memberId);
   }
 
   @Delete("organizations/:id/members/:memberId")

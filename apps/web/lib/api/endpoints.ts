@@ -482,6 +482,8 @@ export const api = {
     apiFetch<PartnerInvitationInfoDto>(`/delivery-partner/invitations/${token}`),
   claimPartnerInvitation: (token: string) =>
     apiFetch<DeliveryPartnerCourseAssignmentDto>(`/delivery-partner/claim/${token}`, { method: "POST" }),
+  declinePartnerInvitation: (token: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partner/decline/${token}`, { method: "POST" }),
 
   // admin — delivery partners
   adminDeliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
@@ -640,6 +642,8 @@ export const orgApi = {
       method: "DELETE",
       body: { reason },
     }),
+  memberProfile: (orgId: string, memberId: string) =>
+    apiFetch<AdminStudentProfileDto>(`/organizations/${orgId}/members/${memberId}/profile`),
   invitationInfo: (token: string) =>
     apiFetch<{
       valid: boolean;
@@ -650,6 +654,8 @@ export const orgApi = {
     }>(`/organizations/invitations/${token}`),
   claim: (token: string) =>
     apiFetch<OrganizationDto>(`/organizations/claim/${token}`, { method: "POST" }),
+  decline: (token: string) =>
+    apiFetch<{ ok: true }>(`/organizations/decline/${token}`, { method: "POST" }),
   courses: (orgId: string) =>
     apiFetch<CourseSummaryDto[]>(`/organizations/${orgId}/courses`),
   assignCourse: (orgId: string, courseId: string) =>
@@ -679,6 +685,7 @@ export const partnerApi = {
   removeMember: (memberId: string) => api.removePartnerMember(memberId),
   invitationInfo: (token: string) => api.partnerInvitationInfo(token),
   claim: (token: string) => api.claimPartnerInvitation(token),
+  decline: (token: string) => api.declinePartnerInvitation(token),
   grantedCourses: () => api.myPartnerGrantedCourses(),
   allMembers: () => api.myDeliveryPartnerMembers(),
   allInvitations: () => api.myDeliveryPartnerInvitations(),

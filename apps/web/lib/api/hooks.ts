@@ -208,6 +208,9 @@ export const useNotifications = (
     queryKey: qk.notifications(params),
     queryFn: () => api.myNotifications(params),
     enabled: enabled && isAuthenticated,
+    // Matches useUnreadNotificationCount's poll cadence so the bell badge and
+    // the panel list can't visibly disagree (badge fresh, list stale).
+    refetchInterval: 25_000,
     placeholderData: (prev) => prev,
   });
 };

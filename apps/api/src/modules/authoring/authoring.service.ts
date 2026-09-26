@@ -378,19 +378,22 @@ export class AuthoringService {
   // instructor can only ever request it — the course itself is only removed
   // once an admin approves. `remove()` above (admin's own direct delete)
   // stays the one place that actually calls repo.deleteCourse.
-  private toDeletionRequestDto(row: {
-    id: string;
-    courseId: string | null;
-    courseTitle: string;
-    instructorId: string;
-    instructor: { name: string };
-    reason: string;
-    status: "PENDING" | "APPROVED" | "REJECTED";
-    requestedAt: Date;
-    reviewedAt: Date | null;
-    reviewedBy: string | null;
-    reviewNote: string | null;
-  }): CourseDeletionRequestDto {
+  private toDeletionRequestDto(
+    row: {
+      id: string;
+      courseId: string | null;
+      courseTitle: string;
+      instructorId: string;
+      instructor: { name: string };
+      reason: string;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      requestedAt: Date;
+      reviewedAt: Date | null;
+      reviewedBy: string | null;
+      reviewNote: string | null;
+    },
+    enrollmentCount = 0,
+  ): CourseDeletionRequestDto {
     return {
       id: row.id,
       courseId: row.courseId,
@@ -403,7 +406,35 @@ export class AuthoringService {
       reviewedAt: row.reviewedAt?.toISOString() ?? null,
       reviewedBy: row.reviewedBy,
       reviewNote: row.reviewNote,
+      enrollmentCount,
     };
+  }
+
+  /** Shared gate for both requesting and approving a deletion — the same
+   *  two conditions have to hold either way, so a request that passes this
+   *  is guaranteed to still pass it at approval time (short of a genuine
+   *  race, which the transaction in approveDeletionRequest still catches).
+   *
+   *  Two independent reasons a course can't be deleted, checked separately
+   *  because they call for different messages:
+   *  - Anyone still IN_PROGRESS or ABANDONED would lose access mid-course
+   *    with no way back (see toDeletionRequestDto's enrollmentCount note on
+   *    Certificate.enrollment for what a COMPLETED student still loses).
+   *  - Any real order (paid or free-with-checkout) leaves an OrderItem row
+   *    that has to survive for revenue reporting/receipts — that FK has no
+   *    onDelete override (defaults to Restrict), so this holds regardless
+   *    of whether every one of those students finished. */
+  private async assertCourseDeletable(courseId: string, courseTitle: string): Promise<void> {
+    const unfinished = await this.repo.countUnfinishedEnrollments(courseId);
+    if (unfinished > 0)
+      throw new BadRequestException(
+        `Can't request deletion yet — ${unfinished} student${unfinished === 1 ? " hasn't" : "s haven't"} finished "${courseTitle}". Wait until everyone enrolled has completed it (or been unenrolled) before requesting deletion.`,
+      );
+    const orders = await this.repo.countOrders(courseId);
+    if (orders > 0)
+      throw new BadRequestException(
+        `"${courseTitle}" has been purchased ${orders} time${orders === 1 ? "" : "s"} — its order records have to be kept, so it can't be deleted even though every student has finished. Unpublish it instead (set it to Draft) if you want to stop new enrollments.`,
+      );
   }
 
   async requestDeletion(
@@ -416,6 +447,7 @@ export class AuthoringService {
       throw new BadRequestException("Admins delete courses directly — see DELETE /courses/:id");
     const pending = await this.repo.findPendingDeletionRequest(id);
     if (pending) throw new BadRequestException("A deletion request for this course is already pending");
+    await this.assertCourseDeletable(id, course.title);
     const created = await this.repo.createDeletionRequest({
       courseId: id,
       courseTitle: course.title,
@@ -427,13 +459,24 @@ export class AuthoringService {
         event: "COURSE_DELETION_REQUESTED",
         title: "Course deletion requested",
         body: `An instructor requested deletion of "${course.title}" — reason: ${reason}`,
-        href: "/admin/course-deletion-requests",
+        href: "/admin/courses?tab=deletion-requests",
       })
       .catch(() => undefined);
     // Re-fetch with the instructor include — createDeletionRequest's plain
     // .create() doesn't carry it, and the DTO mapper needs instructor.name.
     const request = await this.repo.findDeletionRequestById(created.id);
-    return this.toDeletionRequestDto(request!);
+    const enrollmentCount = await this.repo.countEnrollments(id);
+    return this.toDeletionRequestDto(request!, enrollmentCount);
+  }
+
+  /** Batches the enrollment-count lookup across a page of requests rather
+   *  than one query per row. */
+  private async toDeletionRequestDtos(
+    rows: Parameters<typeof this.toDeletionRequestDto>[0][],
+  ): Promise<CourseDeletionRequestDto[]> {
+    const courseIds = rows.flatMap((r) => (r.courseId ? [r.courseId] : []));
+    const counts = await this.repo.countEnrollmentsByCourseIds(courseIds);
+    return rows.map((r) => this.toDeletionRequestDto(r, r.courseId ? (counts.get(r.courseId) ?? 0) : 0));
   }
 
   async myDeletionRequests(user: RequestUser): Promise<CourseDeletionRequestDto[]> {
@@ -442,7 +485,7 @@ export class AuthoringService {
       1,
       50,
     );
-    return rows.map((r) => this.toDeletionRequestDto(r));
+    return this.toDeletionRequestDtos(rows);
   }
 
   async listDeletionRequests(
@@ -466,7 +509,7 @@ export class AuthoringService {
       query.pageSize,
     );
     return {
-      items: rows.map((r) => this.toDeletionRequestDto(r)),
+      items: await this.toDeletionRequestDtos(rows),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -484,11 +527,17 @@ export class AuthoringService {
       throw new BadRequestException("This request has already been reviewed");
     if (!request.courseId)
       throw new BadRequestException("The course no longer exists — reject this request instead");
+    // Re-checked here, not just trusted from request time: an enrollment or
+    // order can appear in the gap between the instructor's request and the
+    // admin's approval. Same two conditions as requestDeletion, so a request
+    // that was valid to create is (short of that race) still valid to
+    // approve — see assertCourseDeletable.
+    await this.assertCourseDeletable(request.courseId, request.courseTitle);
     const videoLessons = await this.repo.findCfVideoUidsByCourse(request.courseId);
-    // One transaction: if deleteCourse fails (e.g. the course still has real
-    // orders — see the FK-restrict note on OrderItem.course in schema.prisma),
-    // the request must stay PENDING, not get marked APPROVED for a deletion
-    // that never actually happened.
+    // One transaction: if deleteCourse still fails for some other reason
+    // (e.g. a real order placed after the check above, a rare race), the
+    // request must stay PENDING, not get marked APPROVED for a deletion that
+    // never actually happened.
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await this.repo.updateDeletionRequest(
         id,

@@ -159,6 +159,13 @@ export class OrganizationsRepository {
     });
   }
 
+  markInvitationDeclined(token: string, tx?: Db) {
+    return this.db(tx).orgInvitation.update({
+      where: { token },
+      data: { declinedAt: new Date() },
+    });
+  }
+
   updateUserRole(
     userId: string,
     role: Prisma.UserUpdateInput["role"],
@@ -226,7 +233,7 @@ export class OrganizationsRepository {
 
   findActiveInvitations(orgId: string) {
     return this.prisma.orgInvitation.findMany({
-      where: { orgId, claimedAt: null, expiresAt: { gt: new Date() } },
+      where: { orgId, claimedAt: null, declinedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: "desc" },
     });
   }
@@ -283,7 +290,7 @@ export class OrganizationsRepository {
    *  nightly job from re-notifying the same expiry forever. */
   findRecentlyExpiredUnclaimedInvitations(since: Date, now: Date) {
     return this.prisma.orgInvitation.findMany({
-      where: { claimedAt: null, expiresAt: { gte: since, lt: now } },
+      where: { claimedAt: null, declinedAt: null, expiresAt: { gte: since, lt: now } },
       include: { org: { select: { id: true, slug: true, name: true } } },
     });
   }

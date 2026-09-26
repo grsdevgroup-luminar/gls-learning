@@ -4,6 +4,7 @@ import type { RequestUser } from "../../../common/decorators/decorators";
 import type { PrismaService } from "../../../prisma/prisma.service";
 import type { EmailService } from "../../email/email.service";
 import type { NotificationsService } from "../../notifications/notifications.service";
+import type { AdminService } from "../../admin/admin.service";
 import { OrganizationsService } from "../organizations.service";
 import type { OrganizationsRepository, OrgRow } from "../organizations.repository";
 
@@ -63,8 +64,9 @@ function makeService(repoOverrides: Partial<OrganizationsRepository> = {}) {
   } as unknown as EmailService;
 
   const notifications = {} as NotificationsService;
+  const admin = {} as AdminService;
 
-  const service = new OrganizationsService(prisma, repo, email, notifications);
+  const service = new OrganizationsService(prisma, repo, email, notifications, admin);
   return { service, repo, email };
 }
 

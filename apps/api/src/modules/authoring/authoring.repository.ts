@@ -179,6 +179,45 @@ export class AuthoringRepository {
   }
 
   // ── course deletion requests (instructor-initiated, admin-approved) ─────
+  countEnrollments(courseId: string) {
+    return this.prisma.enrollment.count({ where: { courseId } });
+  }
+
+  /** Enrollments that haven't finished the course — the actual gate on
+   *  requesting/approving deletion. A COMPLETED enrollment doesn't block:
+   *  the student got what they enrolled for and won't lose progress they
+   *  haven't already banked, only (per the note on Certificate.enrollment
+   *  in schema.prisma) their certificate and ongoing review access. */
+  countUnfinishedEnrollments(courseId: string) {
+    return this.prisma.enrollment.count({
+      where: { courseId, status: { not: "COMPLETED" } },
+    });
+  }
+
+  /** A real purchase, regardless of whether that student finished — those
+   *  OrderItem rows are financial records (receipts, revenue reporting) that
+   *  have to survive even a course that's otherwise safe to delete.
+   *  OrderItem.course has no onDelete override (defaults to Restrict for a
+   *  required relation), so this is checked up front for the same reason
+   *  countUnfinishedEnrollments is: a clear message instead of a raw
+   *  Postgres FK-restrict error. */
+  countOrders(courseId: string) {
+    return this.prisma.orderItem.count({ where: { courseId } });
+  }
+
+  /** Batched version of countEnrollments for a page of requests — one query
+   *  instead of one per row. Courses with zero enrollments are simply absent
+   *  from the result, not returned as an explicit 0. */
+  async countEnrollmentsByCourseIds(courseIds: string[]): Promise<Map<string, number>> {
+    if (courseIds.length === 0) return new Map();
+    const groups = await this.prisma.enrollment.groupBy({
+      by: ["courseId"],
+      where: { courseId: { in: courseIds } },
+      _count: { id: true },
+    });
+    return new Map(groups.map((g) => [g.courseId, g._count.id]));
+  }
+
   findPendingDeletionRequest(courseId: string) {
     return this.prisma.courseDeletionRequest.findFirst({
       where: { courseId, status: "PENDING" },

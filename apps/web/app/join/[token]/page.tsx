@@ -13,7 +13,7 @@ export default function JoinPage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
   const qc = useQueryClient();
-  const { isAuthenticated, isLoading: sessionLoading } = useSession();
+  const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
 
   const { data: invite, isLoading } = useQuery({
     queryKey: ["invite", token],
@@ -33,18 +33,29 @@ export default function JoinPage() {
     onError: (err) => toast.error("Could not join", { description: getApiErrorMessage(err) }),
   });
 
+  const decline = useMutation({
+    mutationFn: () => orgApi.decline(token),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["invite", token] });
+      toast.success("Invitation declined");
+      router.push("/");
+    },
+    onError: (err) => toast.error("Could not decline", { description: getApiErrorMessage(err) }),
+  });
+
   return (
     <InviteClaimShell
       next={`/join/${token}`}
       isLoading={isLoading}
       sessionLoading={sessionLoading}
       isAuthenticated={isAuthenticated}
+      sessionEmail={user?.email ?? null}
       valid={!!invite?.valid}
       email={invite?.email ?? null}
       claimPending={claim.isPending}
       claimSuccess={claim.isSuccess}
       onAccept={() => claim.mutate()}
-      onDecline={() => router.push("/")}
+      onDecline={() => decline.mutate()}
       icon={Building2}
       heroTitle={`You're invited to ${invite?.orgName ?? "an organization"}`}
       heroDescription={`Join as ${invite?.role === "ADMIN" ? "an admin" : "a member"} to access your company's courses.`}

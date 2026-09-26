@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, orgApi } from "@/lib/api/endpoints";
+import { useSession } from "@/lib/api/session";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseArt } from "@/components/shared/course-art";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { CourseGridSkeleton, PageHeaderSkeleton } from "@/components/shared/load
 export default function TeamCoursesPage() {
   const qc = useQueryClient();
   const router = useRouter();
+  const { user } = useSession();
 
   const { data: orgs, isLoading } = useQuery({
     queryKey: ["me", "orgs"],
@@ -70,6 +72,7 @@ export default function TeamCoursesPage() {
           key={org.id}
           org={org}
           enrolledIds={enrolledIds}
+          ownUserId={user?.id}
           onEnroll={(id) => enroll.mutate(id)}
           enrolling={enroll.isPending ? enroll.variables : undefined}
         />
@@ -81,11 +84,13 @@ export default function TeamCoursesPage() {
 function OrgCourseList({
   org,
   enrolledIds,
+  ownUserId,
   onEnroll,
   enrolling,
 }: {
   org: OrganizationDto;
   enrolledIds: Set<string>;
+  ownUserId?: string;
   onEnroll: (courseId: string) => void;
   enrolling?: string;
 }) {
@@ -120,6 +125,7 @@ function OrgCourseList({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {courses?.map((c) => {
             const enrolled = enrolledIds.has(c.id);
+            const ownCourse = !!ownUserId && c.instructor.id === ownUserId;
             return (
               <Card key={c.id}>
                 <CardContent className="flex flex-col gap-3 p-4">
@@ -142,6 +148,10 @@ function OrgCourseList({
                   {enrolled ? (
                     <Button variant="outline" size="sm" className="w-full" render={<Link href={`/learn/${c.slug}`} />}>
                       <Play className="h-4 w-4" /> Continue
+                    </Button>
+                  ) : ownCourse ? (
+                    <Button variant="outline" size="sm" className="w-full" disabled>
+                      You manage this course
                     </Button>
                   ) : (
                     <Button

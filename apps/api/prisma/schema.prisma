@@ -238,6 +238,9 @@ enum NotificationEvent {
   COURSE_DELETION_REQUESTED
   COURSE_DELETION_REQUEST_APPROVED
   COURSE_DELETION_REQUEST_REJECTED
+  ORG_INVITE_DECLINED
+  DELIVERY_PARTNER_INVITE_DECLINED
+  DELIVERY_PARTNER_MEMBER_JOINED
 }
 
 // ─── Identity & roles ─────────────────────────────────────────────────────────
@@ -695,6 +698,10 @@ model QuizAttempt {
 model Certificate {
   id           String     @id @default(cuid())
   enrollmentId String     @unique
+  /// Cascades with the enrollment (and transitively the course): a course
+  /// deletion still destroys every certificate issued for it, even ones
+  /// already earned. AuthoringService only gates deletion on *unfinished*
+  /// enrollments, not this — see countUnfinishedEnrollments.
   enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   serial       String     @unique
   learnerName  String
@@ -1177,6 +1184,7 @@ model DeliveryPartnerInvitation {
   token              String                          @unique
   expiresAt          DateTime
   claimedAt          DateTime?
+  declinedAt         DateTime?
   createdAt          DateTime                        @default(now())
 
   @@index([courseAssignmentId])
@@ -1234,6 +1242,7 @@ model OrgInvitation {
   token     String        @unique
   expiresAt DateTime
   claimedAt DateTime?
+  declinedAt DateTime?
   createdAt DateTime      @default(now())
 
   @@index([orgId])

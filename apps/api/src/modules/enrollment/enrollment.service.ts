@@ -311,6 +311,13 @@ export class EnrollmentService {
     const course = await this.repo.findCourseAccess(courseId, userId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
+    // The instructor who owns/manages a course can't self-enroll in it —
+    // completing your own course would let you certify yourself, which is
+    // a data-integrity problem regardless of how the enrollment was reached
+    // (direct purchase page, an org/partner grant, ...). See also the
+    // matching guard in manageCertificate below.
+    if (course.instructorId === userId)
+      throw new ForbiddenException("You can't enroll in a course you manage");
 
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
     if (needsGrant) {
@@ -510,6 +517,11 @@ export class EnrollmentService {
     const user = await this.repo.findUserName(userId);
     const course = await this.repo.findCourseNumber(courseId);
     if (!user || !course) return null;
+    // Defense in depth: enrollFree already blocks a course's own instructor
+    // from enrolling, so this path shouldn't be reachable for them — but a
+    // certificate is a permanent, user-facing artifact, so it's worth a
+    // second guard here rather than trusting that invariant alone.
+    if (course.instructorId === userId) return null;
 
     const notifyInput: NotifyInput = {
       userId,
