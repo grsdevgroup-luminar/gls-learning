@@ -31,6 +31,7 @@ export class CategoriesService {
         courseCount: await this.repo.countCourses(row.name),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
+        requestedBy: row.proposedBy ? { name: row.proposedBy.name, email: row.proposedBy.email } : null,
       })),
     );
   }
@@ -136,6 +137,7 @@ export class CategoriesService {
     status: "ACTIVE" | "PENDING" | "REJECTED";
     createdAt: Date;
     updatedAt: Date;
+    proposedBy?: { name: string; email: string } | null;
   }): Promise<CategoryDto> {
     return {
       id: row.id,
@@ -144,6 +146,7 @@ export class CategoriesService {
       courseCount: await this.repo.countCourses(row.name),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
+      requestedBy: row.proposedBy ? { name: row.proposedBy.name, email: row.proposedBy.email } : null,
     };
   }
 }
