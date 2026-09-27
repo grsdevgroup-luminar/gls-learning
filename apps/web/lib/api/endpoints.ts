@@ -77,8 +77,6 @@ import type {
   UpdatePartnerCampaignInput,
   PayoutBalanceDto,
   PayoutDto,
-  PayoutAccountDto,
-  PayoutAccountInput,
   PayoutBreakdownDto,
   PayoutStripeStatusDto,
   StripeOnboardLinkDto,
@@ -539,9 +537,6 @@ export const api = {
   // payouts (instructor + delivery partner share one ledger)
   payoutBalance: () => apiFetch<PayoutBalanceDto>("/me/payouts/balance"),
   myPayouts: () => apiFetch<PayoutDto[]>("/me/payouts"),
-  payoutAccount: () => apiFetch<PayoutAccountDto | null>("/me/payout-account"),
-  setPayoutAccount: (body: PayoutAccountInput) =>
-    apiFetch<PayoutAccountDto>("/me/payout-account", { method: "POST", body }),
   requestPayout: (amountCents?: number) =>
     apiFetch<PayoutDto>("/me/payouts", {
       method: "POST",
@@ -560,6 +555,7 @@ export const api = {
     apiFetch<PayoutStripeStatusDto>("/me/payout-account/stripe/status"),
   adminPayouts: (params: {
     status?: string;
+    payeeType?: string;
     q?: string;
     from?: string;
     to?: string;

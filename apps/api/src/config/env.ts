@@ -41,6 +41,9 @@ const rawEnvSchema = z.object({
   // the hosted link expires mid-flow. Both required when payouts are enabled.
   STRIPE_CONNECT_RETURN_URL: z.string().url().optional(),
   STRIPE_CONNECT_REFRESH_URL: z.string().url().optional(),
+  // Same, for delivery partners. Default to FRONTEND_URL + /delivery-partner/earnings.
+  STRIPE_CONNECT_PARTNER_RETURN_URL: z.string().url().optional(),
+  STRIPE_CONNECT_PARTNER_REFRESH_URL: z.string().url().optional(),
   // Instructor payout fee model. Platform commission expressed in basis points
   // (500 = 5%). Minimum net (post-fee) below which a request is rejected.
   PAYOUT_PLATFORM_FEE_BPS: z.coerce

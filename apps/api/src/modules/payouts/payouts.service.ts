@@ -20,6 +20,7 @@ import {
   type StripeOnboardLinkDto,
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
+import type { Db } from "../../common/types";
 import type { Env } from "../../config/env";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
@@ -60,6 +61,30 @@ export function computeBalance(input: {
   };
 }
 
+/** Pure FIFO allocation of a partner's cumulative paid-out total against their
+ *  commissions, oldest first. Returns the ids of still-CONFIRMED referrals that
+ *  are now fully covered and should flip to PAID. A referral only partly
+ *  covered stays CONFIRMED until a later payout finishes it — status is
+ *  display-only; balances come from the partner's aggregate counters. */
+export function referralIdsCoveredByPayouts(
+  referrals: {
+    id: string;
+    status: string;
+    commissionCents: number;
+    reversedCents: number;
+  }[],
+  paidOutTotalCents: number,
+): string[] {
+  const ids: string[] = [];
+  let covered = 0;
+  for (const r of referrals) {
+    covered += Math.max(0, r.commissionCents - r.reversedCents);
+    if (covered > paidOutTotalCents) break;
+    if (r.status === "CONFIRMED") ids.push(r.id);
+  }
+  return ids;
+}
+
 @Injectable()
 export class PayoutsService {
   constructor(
@@ -75,16 +100,50 @@ export class PayoutsService {
    *  request payouts. */
   private async payeeContext(
     userId: string,
-  ): Promise<{ payeeType: PayeeType; lifetimeEarnedCents: number }> {
+  ): Promise<{ payeeType: PayeeType; lifetimeEarnedCents: number; active: boolean }> {
     const [instructor, partner] = await this.repo.findPayeeContext(userId);
     if (partner)
-      return { payeeType: "DELIVERY_PARTNER", lifetimeEarnedCents: partner.totalEarningsCents };
+      return {
+        payeeType: "DELIVERY_PARTNER",
+        lifetimeEarnedCents: partner.totalEarningsCents,
+        active: partner.status === "APPROVED",
+      };
     if (instructor)
       return {
         payeeType: "INSTRUCTOR",
         lifetimeEarnedCents: instructor.earningsCents,
+        active: true,
       };
     throw new ForbiddenException("Only instructors and delivery partners have payouts");
+  }
+
+  /** Like `payeeContext`, but for money-moving actions (Stripe onboarding,
+   *  requesting a payout): a pending, rejected or suspended delivery partner
+   *  can still see their balance and history, but can't withdraw. */
+  private async activePayeeContext(userId: string) {
+    const ctx = await this.payeeContext(userId);
+    if (!ctx.active)
+      throw new ForbiddenException("Your delivery partner account is not active");
+    return ctx;
+  }
+
+  /** Moves a delivery partner's display counters (pending → paid) and flips
+   *  the commissions this payout covers to PAID. Runs on every path that
+   *  takes a payout to PAID — Stripe approve and manual mark-paid — so the
+   *  partner ledger and the payout ledger never disagree. Settles on the
+   *  gross `amountCents`: that's what left the partner's balance. */
+  private async settlePayee(payout: Payout, tx: Db) {
+    if (payout.payeeType !== "DELIVERY_PARTNER") return;
+    const partner = await this.repo.findDeliveryPartnerIdByUser(payout.payeeUserId, tx);
+    if (!partner) return;
+    const settled = await this.repo.applyPartnerPayoutSettlement(
+      partner.id,
+      payout.amountCents,
+      tx,
+    );
+    const referrals = await this.repo.findPayableReferrals(partner.id, tx);
+    const ids = referralIdsCoveredByPayouts(referrals, settled.paidEarningsCents);
+    if (ids.length > 0) await this.repo.markReferralsPaid(ids, tx);
   }
 
   private feeConfig() {
@@ -107,10 +166,11 @@ export class PayoutsService {
     input: PayoutAccountInput,
   ): Promise<PayoutAccountDto> {
     await this.payeeContext(user.id); // reject non-payees before storing anything
-    // A STRIPE account can only be set by the onboarding flow, which writes
-    // the validated `acct_xxx` id itself. Rejecting arbitrary strings here
-    // prevents a payee from spoofing another connected account.
-    if (input.method === "STRIPE" && !STRIPE_CONNECTED_ACCOUNT_RE.test(input.details))
+    // Payouts are Stripe-only. A STRIPE account can only be set by the
+    // onboarding flow, which writes the validated `acct_xxx` id itself.
+    // Rejecting arbitrary strings here prevents a payee from spoofing
+    // another connected account.
+    if (input.method !== "STRIPE" || !STRIPE_CONNECTED_ACCOUNT_RE.test(input.details))
       throw new BadRequestException(
         "Use POST /me/payout-account/stripe/onboard-link to connect Stripe",
       );
@@ -124,7 +184,7 @@ export class PayoutsService {
    *  use to collect KYC + bank details. Safe to call repeatedly — reuses the
    *  existing account and just mints a fresh link. */
   async createStripeOnboardLink(user: RequestUser): Promise<StripeOnboardLinkDto> {
-    await this.payeeContext(user.id);
+    const { payeeType } = await this.activePayeeContext(user.id);
     const existing = await this.repo.findPayoutAccount(user.id);
     const existingAccountId =
       existing && existing.method === "STRIPE" ? existing.details : null;
@@ -144,7 +204,7 @@ export class PayoutsService {
       });
     }
 
-    return this.stripe.createOnboardingLink(accountId);
+    return this.stripe.createOnboardingLink(accountId, payeeType);
   }
 
   async getStripeStatus(user: RequestUser): Promise<PayoutStripeStatusDto> {
@@ -200,9 +260,10 @@ export class PayoutsService {
     user: RequestUser,
     body: RequestPayoutInput = {},
   ): Promise<PayoutDto> {
+    await this.activePayeeContext(user.id);
     const account = await this.repo.findPayoutAccount(user.id);
-    if (!account)
-      throw new BadRequestException("Add a payout account before requesting");
+    if (!account || account.method !== "STRIPE")
+      throw new BadRequestException("Connect your Stripe account before requesting");
 
     const balance = await this.myBalance(user);
     if (balance.hasOpenRequest)
@@ -218,14 +279,12 @@ export class PayoutsService {
         `Minimum payout is $${(MIN_PAYOUT_CENTS / 100).toFixed(0)}`,
       );
 
-    // Stripe-only extras: connected account must be ready to receive payouts.
-    if (account.method === "STRIPE") {
-      const status = await this.stripe.getAccountStatus(account.details);
-      if (!status.payoutsEnabled)
-        throw new BadRequestException(
-          "Finish Stripe onboarding before requesting a payout",
-        );
-    }
+    // Connected account must be ready to receive payouts.
+    const status = await this.stripe.getAccountStatus(account.details);
+    if (!status.payoutsEnabled)
+      throw new BadRequestException(
+        "Finish Stripe onboarding before requesting a payout",
+      );
 
     const breakdown = calculatePayoutBreakdown(requestedCents, this.feeConfig());
     if (!breakdown.meetsMinimum)
@@ -303,6 +362,7 @@ export class PayoutsService {
           },
           tx,
         );
+        await this.settlePayee(payout, tx);
         await this.notifications.notify(notifyInput, tx);
         return paid;
       });
@@ -328,8 +388,8 @@ export class PayoutsService {
     return this.toDto(updated, updated.payee);
   }
 
-  /** Confirms the transfer has been sent. Keeps the delivery-partner display counters
-   *  (pending/paid) in sync so both the partner UI and this ledger agree. */
+  /** Confirms the transfer has been sent — used to close out legacy
+   *  PAYPAL/BANK payouts that were approved before payouts went Stripe-only. */
   async markPaid(admin: RequestUser, id: string): Promise<PayoutDto> {
     const payout = await this.repo.findPayoutById(id);
     if (!payout) throw new NotFoundException("Payout not found");
@@ -345,17 +405,7 @@ export class PayoutsService {
     };
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (payout.payeeType === "DELIVERY_PARTNER") {
-        const partner = await this.repo.findDeliveryPartnerIdByUser(payout.payeeUserId, tx);
-        if (partner) {
-          await this.repo.applyPartnerPayoutSettlement(
-            partner.id,
-            payout.amountCents,
-            tx,
-          );
-          await this.repo.markPartnerReferralsPaid(partner.id, tx);
-        }
-      }
+      await this.settlePayee(payout, tx);
       const paid = await this.repo.updatePayoutWithPayee(
         id,
         { status: "PAID", processedAt: new Date(), processedBy: admin.id },
