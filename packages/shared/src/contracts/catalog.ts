@@ -164,6 +164,8 @@ export interface CourseSummaryDto {
 }
 
 export interface CourseDetailDto extends CourseSummaryDto {
+  /** True only when the authenticated caller can enroll through an assigned organization. */
+  canEnrollForOrganization?: boolean;
   description: string;
   whatYouLearn: string[];
   requirements: string[];

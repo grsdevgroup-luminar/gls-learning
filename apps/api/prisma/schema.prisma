@@ -266,6 +266,7 @@ model User {
   instructorProfile          InstructorProfile?
 
   nameChangeRequests      InstructorNameChangeRequest[]
+  expertiseChangeRequests InstructorExpertiseChangeRequest[]
   refreshTokens              RefreshToken[]
   passwordResetTokens        PasswordResetToken[]
   enrollments                Enrollment[]
@@ -371,6 +372,21 @@ model InstructorNameChangeRequest {
   @@index([userId, status])
 }
 
+model InstructorExpertiseChangeRequest {
+  id                 String                 @id @default(cuid())
+  userId             String
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentExpertise   String?
+  requestedExpertise String
+  status             NameChangeRequestStatus @default(PENDING)
+  requestedAt        DateTime               @default(now())
+  reviewedAt         DateTime?
+  reviewedBy         String?
+  note               String?
+
+  @@index([status])
+  @@index([userId, status])
+}
 /// An instructor's request to delete a course they own — course deletion can
 /// affect enrolled students and revenue, so an instructor can only ever
 /// request it; the course is only actually deleted once an admin approves.

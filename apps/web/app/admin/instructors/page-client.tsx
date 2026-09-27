@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle2, XCircle } from "lucide-react";
 import { ApplicationsTab } from "./_components/applications-tab";
 import { RosterTab } from "./_components/roster-tab";
+import { NameChangeRequestsTab } from "./_components/name-change-requests-tab";
+import { ExpertiseChangeRequestsTab } from "./_components/expertise-change-requests-tab";
 
 export default function AdminInstructors() {
   const qc = useQueryClient();
@@ -16,6 +18,17 @@ export default function AdminInstructors() {
     queryKey: ["admin", "instructor-application-stats"],
     queryFn: () => adminApi.instructorApplicationStats(),
   });
+  const { data: profileReviewNameChanges } = useQuery({
+    queryKey: ["admin", "instructor-name-change-requests"],
+    queryFn: () => adminApi.instructorNameChangeRequests({ status: "PENDING", page: 1, pageSize: 50 }),
+  });
+  const { data: profileReviewExpertiseChanges } = useQuery({
+    queryKey: ["admin", "instructor-expertise-change-requests"],
+    queryFn: () => adminApi.instructorExpertiseChangeRequests({ status: "PENDING", page: 1, pageSize: 50 }),
+  });
+  const profileReviewCount =
+    (profileReviewNameChanges?.total ?? 0) +
+    (profileReviewExpertiseChanges?.total ?? 0);
 
   return (
     <div className="flex h-screen flex-col space-y-6 p-6 md:p-8">
@@ -44,6 +57,17 @@ export default function AdminInstructors() {
             )}
           </TabsTrigger>
           <TabsTrigger value="roster">Active instructors</TabsTrigger>
+          <TabsTrigger value="profile-review">
+            Profile review
+            {!!profileReviewCount && (
+              <Badge
+                variant="outline"
+                className="ml-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] text-warning border-warning/30 bg-warning/10"
+              >
+                {profileReviewCount}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -84,6 +108,38 @@ export default function AdminInstructors() {
             }}
           />
         </TabsContent>
+        <TabsContent
+          value="profile-review"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto pt-4"
+        >
+          <div className="rounded-xl border bg-card p-4 md:p-6">
+            <div className="mb-3">
+              <h2 className="text-base font-semibold">Profile review</h2>
+              <p className="text-sm text-muted-foreground">
+                Review instructor name and primary expertise changes. Each request is reviewed independently.
+              </p>
+            </div>
+            <div className="space-y-6">
+              <section>
+                <h3 className="mb-2 text-sm font-medium">Name changes</h3>
+                <NameChangeRequestsTab onMutated={() => {
+                  qc.invalidateQueries({ queryKey: ["admin", "instructor-name-change-requests"] });
+                  qc.invalidateQueries({ queryKey: ["admin", "instructor-roster"] });
+                }} />
+              </section>
+              <section>
+                <h3 className="mb-2 text-sm font-medium">Primary expertise changes</h3>
+                <ExpertiseChangeRequestsTab onMutated={() => {
+                  qc.invalidateQueries({ queryKey: ["admin", "instructor-expertise-change-requests"] });
+                  qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+                  qc.invalidateQueries({ queryKey: ["admin", "instructor-roster"] });
+                }} />
+              </section>
+            </div>
+          </div>
+        </TabsContent>
+
+
 
         <TabsContent
           value="roster"
