@@ -36,17 +36,19 @@ const statusCls: Record<string, string> = {
 };
 
 /**
- * Instructor-only payout panel wired to Stripe Connect Express.
+ * Payout panel wired to Stripe Connect Express. Role-agnostic: the API derives
+ * whether the caller is an instructor or a delivery partner, so both portals
+ * reuse this.
  *
  * Flow:
- *   1. Instructor clicks "Connect with Stripe" → server mints an `acct_xxx`
+ *   1. Payee clicks "Connect with Stripe" → server mints an `acct_xxx`
  *      (if new) + hosted onboarding link → we redirect to Stripe.
- *   2. Stripe redirects back to `/instructor/earnings?stripe=onboarded`.
- *      We refetch status; when `payoutsEnabled` is true the "Withdraw" button
- *      becomes usable.
+ *   2. Stripe redirects back to the payee's earnings page with
+ *      `?stripe=onboarded`. We refetch status; when `payoutsEnabled` is true
+ *      the "Withdraw" button becomes usable.
  *   3. "Withdraw" opens a modal with a live fee quote and confirms the payout.
  */
-export function InstructorPayoutPanel() {
+export function StripePayoutPanel() {
   const qc = useQueryClient();
 
   const { data: balance } = useQuery({

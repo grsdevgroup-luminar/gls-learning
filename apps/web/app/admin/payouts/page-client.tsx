@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api/endpoints";
-import type { PayoutDto, PayoutStatus } from "@skillstream/shared";
+import type { PayeeType, PayoutDto, PayoutStatus } from "@skillstream/shared";
 import { formatUsd, relativeDate, initials } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,7 @@ export default function AdminPayouts() {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<PayoutStatus | "ALL">("ALL");
+  const [payeeType, setPayeeType] = useState<PayeeType | "ALL">("ALL");
   const [preset, setPreset] = useState<Preset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -118,11 +119,12 @@ export default function AdminPayouts() {
   const params = useMemo(
     () => ({
       status: status === "ALL" ? undefined : status,
+      payeeType: payeeType === "ALL" ? undefined : payeeType,
       q: q || undefined,
       from: range.from,
       to: range.to,
     }),
-    [status, q, range.from, range.to],
+    [status, payeeType, q, range.from, range.to],
   );
 
   const { data: payouts, isLoading } = useQuery({
@@ -174,12 +176,13 @@ export default function AdminPayouts() {
   ];
 
   const hasActiveFilters =
-    !!q || status !== "ALL" || preset !== "all";
+    !!q || status !== "ALL" || payeeType !== "ALL" || preset !== "all";
 
   const clearAll = () => {
     setQInput("");
     setQ("");
     setStatus("ALL");
+    setPayeeType("ALL");
     setPreset("all");
     setCustomFrom("");
     setCustomTo("");
@@ -233,6 +236,19 @@ export default function AdminPayouts() {
                 <SelectItem value="APPROVED">Approved</SelectItem>
                 <SelectItem value="PAID">Paid</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={payeeType}
+              onValueChange={(v) => setPayeeType(v as PayeeType | "ALL")}
+            >
+              <SelectTrigger className="w-full sm:w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All payees</SelectItem>
+                <SelectItem value="INSTRUCTOR">Instructors</SelectItem>
+                <SelectItem value="DELIVERY_PARTNER">Delivery partners</SelectItem>
               </SelectContent>
             </Select>
             {hasActiveFilters && (

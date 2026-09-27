@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMyDeliveryPartner, useMyPartnerReferrals } from "@/lib/api/delivery-partner-hooks";
 import { PartnerMissingState, PartnerPageLoading, PartnerStatusState } from "../_components/partner-page-state";
-import { PayoutPanel } from "@/components/shared/payout-panel";
+import { StripePayoutPanel } from "@/components/shared/stripe-payout-panel";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,6 @@ export default function PartnerEarnings() {
   const [pendingPageSize, setPendingPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
 
   const all = referrals ?? [];
-  const confirmed = all?.filter((r) => r.status === "CONFIRMED") ?? [];
   const paid = all?.filter((r) => r.status === "PAID") ?? [];
   const pending = all?.filter((r) => r.status === "PENDING") ?? [];
   const reversed = all?.filter((r) => r.reversedCents > 0) ?? [];
@@ -72,15 +71,15 @@ export default function PartnerEarnings() {
     },
     {
       icon: Clock,
-      label: "Pending",
-      value: formatUsd(partner.pendingEarningsCents / 100),
-      sub: "Awaiting order confirmation",
+      label: "Pending confirmation",
+      value: formatUsd(pending.reduce((s, r) => s + r.commissionCents, 0) / 100),
+      sub: "Orders not yet paid",
       cls: "text-warning",
     },
     {
       icon: CheckCircle2,
-      label: "Confirmed",
-      value: formatUsd(confirmed.reduce((s, r) => s + (r.commissionCents - r.reversedCents), 0) / 100),
+      label: "Confirmed, unpaid",
+      value: formatUsd(partner.pendingEarningsCents / 100),
       sub: "Locked in, awaiting payout",
       cls: "text-primary",
     },
@@ -116,7 +115,7 @@ export default function PartnerEarnings() {
         ))}
       </div>
 
-      <PayoutPanel />
+      <StripePayoutPanel />
 
       <Card>
         <CardHeader>
