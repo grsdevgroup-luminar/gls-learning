@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { instructorApi } from "@/lib/api/endpoints";
 import { ApprovalGate } from "../_components/approval-gate";
-import { InstructorPayoutPanel } from "@/components/instructor/instructor-payout-panel";
+import { StripePayoutPanel } from "@/components/shared/stripe-payout-panel";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Meter } from "@/components/shared/meter";
@@ -39,7 +39,7 @@ export default function InstructorEarnings() {
           <Stat icon={Star} label="Avg. rating" value={profile?.ratingAvg ? profile.ratingAvg.toFixed(2) : "—"} tint="var(--tint-amber)" />
         </StatStrip>
 
-        <InstructorPayoutPanel />
+        <StripePayoutPanel />
 
         <Card>
           <CardHeader><CardTitle className="text-base">Earnings by course</CardTitle></CardHeader>

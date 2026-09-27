@@ -5,12 +5,14 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { PayeeType } from "@prisma/client";
 import Stripe from "stripe";
 import type { PayoutStripeStatusDto, StripeOnboardLinkDto } from "@skillstream/shared";
 import type { Env } from "../../config/env";
 
 /**
- * Stripe Connect Express integration for instructor payouts.
+ * Stripe Connect Express integration for instructor and delivery-partner
+ * payouts.
  *
  * Responsibilities:
  *  - Provision `acct_xxx` connected accounts on demand and hand back hosted
@@ -69,10 +71,12 @@ export class StripePayoutService {
   /** Issues a fresh hosted onboarding link. Links are single-use and expire
    *  in a few minutes — always mint a new one when the instructor clicks
    *  "Connect with Stripe" or "Complete verification". */
-  async createOnboardingLink(accountId: string): Promise<StripeOnboardLinkDto> {
+  async createOnboardingLink(
+    accountId: string,
+    payeeType: PayeeType,
+  ): Promise<StripeOnboardLinkDto> {
     const stripe = this.requireClient();
-    const returnUrl = this.config.get("STRIPE_CONNECT_RETURN_URL", { infer: true });
-    const refreshUrl = this.config.get("STRIPE_CONNECT_REFRESH_URL", { infer: true });
+    const { returnUrl, refreshUrl } = this.onboardingUrls(payeeType);
     if (!returnUrl || !refreshUrl)
       throw new ServiceUnavailableException("Stripe Connect URLs not configured");
 
@@ -85,6 +89,27 @@ export class StripePayoutService {
     return {
       url: link.url,
       expiresAt: new Date(link.expires_at * 1000).toISOString(),
+    };
+  }
+
+  /** Where Stripe's hosted onboarding sends the payee back to — each payee
+   *  type returns to its own portal's earnings page. Partner URLs default to
+   *  `FRONTEND_URL/delivery-partner/earnings` when not set explicitly. */
+  private onboardingUrls(payeeType: PayeeType) {
+    if (payeeType === "DELIVERY_PARTNER") {
+      const base = `${this.config.get("FRONTEND_URL", { infer: true }).replace(/\/$/, "")}/delivery-partner/earnings`;
+      return {
+        returnUrl:
+          this.config.get("STRIPE_CONNECT_PARTNER_RETURN_URL", { infer: true }) ??
+          `${base}?stripe=onboarded`,
+        refreshUrl:
+          this.config.get("STRIPE_CONNECT_PARTNER_REFRESH_URL", { infer: true }) ??
+          `${base}?stripe=refresh`,
+      };
+    }
+    return {
+      returnUrl: this.config.get("STRIPE_CONNECT_RETURN_URL", { infer: true }),
+      refreshUrl: this.config.get("STRIPE_CONNECT_REFRESH_URL", { infer: true }),
     };
   }
 
