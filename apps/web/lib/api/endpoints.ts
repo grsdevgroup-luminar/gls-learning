@@ -185,6 +185,7 @@ export const api = {
   // catalog
   courses: (params: Record<string, string | string[] | number | undefined> = {}) =>
     apiFetch<Paginated<CourseSummaryDto>>(`/courses${qs(params)}`),
+  bestsellers: () => apiFetch<CourseSummaryDto[]>("/courses/bestsellers"),
   course: (slug: string) => apiFetch<CourseDetailDto>(`/courses/${slug}`),
   learningCourse: (courseId: string) =>
     apiFetch<CourseDetailDto>(`/me/courses/${courseId}/learning`),
