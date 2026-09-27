@@ -45,6 +45,67 @@ export class InstructorRepository {
     });
   }
 
+  findPendingExpertiseChangeRequest(userId: string, tx?: Db) {
+    return this.db(tx).instructorExpertiseChangeRequest.findFirst({
+      where: { userId, status: "PENDING" },
+      orderBy: { requestedAt: "desc" },
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  findLastRejectedExpertiseChangeRequest(userId: string) {
+    return this.prisma.instructorExpertiseChangeRequest.findFirst({
+      where: { userId, status: "REJECTED" },
+      orderBy: { reviewedAt: "desc" },
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  createExpertiseChangeRequest(
+    data: Prisma.InstructorExpertiseChangeRequestUncheckedCreateInput,
+    tx?: Db,
+  ) {
+    return this.db(tx).instructorExpertiseChangeRequest.create({
+      data,
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  findExpertiseChangeRequestById(id: string) {
+    return this.prisma.instructorExpertiseChangeRequest.findUnique({
+      where: { id },
+      include: { user: { select: { email: true } } },
+    });
+  }
+
+  findExpertiseChangeRequestsPage(
+    where: Prisma.InstructorExpertiseChangeRequestWhereInput,
+    page: number,
+    pageSize: number,
+  ) {
+    return this.prisma.$transaction([
+      this.prisma.instructorExpertiseChangeRequest.findMany({
+        where,
+        include: { user: { select: { email: true } } },
+        orderBy: { requestedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.instructorExpertiseChangeRequest.count({ where }),
+    ]);
+  }
+
+  updateExpertiseChangeRequest(
+    id: string,
+    data: Prisma.InstructorExpertiseChangeRequestUpdateInput,
+    tx?: Db,
+  ) {
+    return this.db(tx).instructorExpertiseChangeRequest.update({
+      where: { id },
+      data,
+      include: { user: { select: { email: true } } },
+    });
+  }
   findLastRejectedNameChangeRequest(userId: string) {
     return this.prisma.instructorNameChangeRequest.findFirst({
       where: { userId, status: "REJECTED" },

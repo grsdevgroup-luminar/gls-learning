@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { adminApi, type InstructorNameChangeRequestDto } from "@/lib/api/endpoints";
@@ -8,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, X } from "lucide-react";
+import { Check, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { initials } from "@/lib/format";
 import { shortDate } from "./application-status";
@@ -57,6 +59,13 @@ export function NameChangeRequestsTab({ onMutated }: { onMutated: () => void }) 
               </div>
               <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">Pending review</Badge>
               <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={"/instructors/" + request.userId} target="_blank" />}
+                >
+                  <Eye /> View profile
+                </Button>
                 <Button size="sm" onClick={() => approve.mutate(request.id)} disabled={approve.isPending || reject.isPending}>
                   <Check /> Approve
                 </Button>

@@ -79,6 +79,16 @@ export type RequestInstructorNameChangeInput = z.infer<
   typeof requestInstructorNameChangeSchema
 >;
 
+export const expertiseChangeRequestQuerySchema = searchQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+export type ExpertiseChangeRequestQuery = z.infer<typeof expertiseChangeRequestQuerySchema>;
+export const requestInstructorExpertiseChangeSchema = z.object({
+  requestedExpertise: z.string().trim().min(1, "Expertise is required").max(80),
+});
+export type RequestInstructorExpertiseChangeInput = z.infer<
+  typeof requestInstructorExpertiseChangeSchema
+>;
 export const nameChangeRequestQuerySchema = searchQuerySchema.extend({
   status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
 });
@@ -89,6 +99,18 @@ export interface InstructorNameChangeRequestDto {
   userId: string;
   currentName: string;
   requestedName: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  note: string | null;
+  email: string;
+}
+export interface InstructorExpertiseChangeRequestDto {
+  id: string;
+  userId: string;
+  currentExpertise: string | null;
+  requestedExpertise: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   requestedAt: string;
   reviewedAt: string | null;
@@ -161,6 +183,7 @@ export interface InstructorProfileDto {
   otherUrl?: string | null;
   joinedAt?: string;
   pendingNameChange?: InstructorNameChangeRequestDto | null;
+  pendingExpertiseChange?: InstructorExpertiseChangeRequestDto | null;
   /** Most recently rejected name-change request, so its reason can still be
    *  shown after the request drops out of the PENDING-only query above. */
   lastRejectedNameChange?: InstructorNameChangeRequestDto | null;

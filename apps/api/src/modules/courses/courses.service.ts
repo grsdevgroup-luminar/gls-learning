@@ -159,7 +159,13 @@ export class CoursesService {
         : false;
       if (!isOrgMember && !isPartnerMember) throw new NotFoundException("Course not found");
     }
-    const detail = toCourseDetail(row);
+    const canEnrollForOrganization = user
+      ? await this.enrollment.isOrgMemberOfAny(
+          row.orgAssignments.map((assignment) => assignment.orgId),
+          user.id,
+        )
+      : false;
+    const detail = toCourseDetail(row, { canEnrollForOrganization });
     // Preview lessons expose resources publicly (see mapper); their uploaded
     // files need fresh signed URLs just like the enrolled learning path.
     return signCourseResourceUrls(detail, this.storage);

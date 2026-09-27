@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { InstructorNameChangeRequestDto } from "@/lib/api/endpoints";
+import type { InstructorNameChangeRequestDto, InstructorExpertiseChangeRequestDto } from "@/lib/api/endpoints";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -20,6 +20,7 @@ export function DetailsCard({
   profileEmail,
   requestedName,
   pendingNameChange,
+  pendingExpertiseChange,
   lastRejectedNameChange,
   onRequestedNameChange,
   onRequestNameChange,
@@ -27,8 +28,11 @@ export function DetailsCard({
   title,
   onTitleChange,
   titleError,
+  profileExpertise,
   expertiseValue,
   onExpertiseChange,
+  onRequestExpertiseChange,
+  requestingExpertiseChange,
   categories,
   bio,
   onBioChange,
@@ -37,6 +41,7 @@ export function DetailsCard({
   profileEmail: string;
   requestedName: string;
   pendingNameChange?: InstructorNameChangeRequestDto | null;
+  pendingExpertiseChange?: InstructorExpertiseChangeRequestDto | null;
   lastRejectedNameChange?: InstructorNameChangeRequestDto | null;
   onRequestedNameChange: (value: string) => void;
   onRequestNameChange: () => void;
@@ -44,8 +49,11 @@ export function DetailsCard({
   title: string;
   onTitleChange: (value: string) => void;
   titleError?: string;
+  profileExpertise: string;
   expertiseValue: string;
   onExpertiseChange: (value: string) => void;
+  onRequestExpertiseChange: () => void;
+  requestingExpertiseChange: boolean;
   categories: string[];
   bio: string;
   onBioChange: (value: string) => void;
@@ -110,14 +118,30 @@ export function DetailsCard({
                   {title.length} / {HEADLINE_MAX_LENGTH} characters
                 </div>
               </FormField>
-              <FormField label="Primary expertise">
-                <Select value={expertiseValue} onValueChange={(v) => v && onExpertiseChange(v)}>
+              <FormField label="Primary expertise" hint={pendingExpertiseChange ? "Profile review pending" : "Expertise changes require admin approval"}>
+                <Select value={expertiseValue} onValueChange={(v) => v && onExpertiseChange(v)} disabled={!!pendingExpertiseChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </FormField>
+                {pendingExpertiseChange && (
+                  <p className="mt-1 text-xs text-warning">
+                    Requested: {pendingExpertiseChange.requestedExpertise}. Your current expertise remains unchanged until approval.
+                  </p>
+                )}
+                {!pendingExpertiseChange && expertiseValue !== profileExpertise && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    disabled={!expertiseValue || requestingExpertiseChange}
+                    onClick={onRequestExpertiseChange}
+                  >
+                    {requestingExpertiseChange ? "Submitting..." : "Request expertise change"}
+                  </Button>
+                )}              </FormField>
             </div>
             <FormField label="About">
               <Textarea

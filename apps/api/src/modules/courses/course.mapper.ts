@@ -104,6 +104,7 @@ export function toCourseDetail(
     includeArticleContent?: boolean;
     includeLessonResources?: boolean;
     accessibleLessonIds?: ReadonlySet<string>;
+    canEnrollForOrganization?: boolean;
   },
 ): CourseDetailDto {
   let durationSec = 0;
@@ -174,6 +175,9 @@ export function toCourseDetail(
     durationSec,
     lessonCount,
     instructor: mapInstructor(row.instructor, true),
+    ...(opts?.canEnrollForOrganization === true
+      ? { canEnrollForOrganization: true }
+      : {}),
     description: row.description,
     whatYouLearn: row.whatYouLearn,
     requirements: row.requirements,

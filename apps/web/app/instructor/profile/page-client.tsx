@@ -104,6 +104,16 @@ export default function InstructorProfile() {
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
+  const expertiseChangeMutation = useMutation({
+    mutationFn: () => instructorApi.requestInstructorExpertiseChange(expertiseValue.trim()),
+    onSuccess: () => {
+      toast.success("Expertise-change request submitted", {
+        description: "An admin must approve it before your profile changes.",
+      });
+      void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
   const saveMutation = useMutation({
     mutationFn: (input: UpdateInstructorProfileInput) => api.updateInstructorProfile(input),
     onSuccess: () => {
@@ -224,6 +234,7 @@ export default function InstructorProfile() {
           profileEmail={profile.email}
           requestedName={requestedName}
           pendingNameChange={profile.pendingNameChange}
+          pendingExpertiseChange={profile.pendingExpertiseChange}
           lastRejectedNameChange={profile.lastRejectedNameChange}
           onRequestedNameChange={setRequestedName}
           onRequestNameChange={() => nameChangeMutation.mutate()}
@@ -231,8 +242,11 @@ export default function InstructorProfile() {
           title={title}
           onTitleChange={(v) => { setTitle(v); clearError("title"); }}
           titleError={fieldErrors.title}
+          profileExpertise={profile.expertise ?? ""}
           expertiseValue={expertiseValue}
           onExpertiseChange={setExpertise}
+          onRequestExpertiseChange={() => expertiseChangeMutation.mutate()}
+          requestingExpertiseChange={expertiseChangeMutation.isPending}
           categories={categories}
           bio={bio}
           onBioChange={setBio}

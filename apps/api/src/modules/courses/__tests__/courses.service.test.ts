@@ -47,6 +47,7 @@ function makeService(repoOverrides: Partial<CoursesRepository> = {}) {
   } as unknown as CoursesRepository;
   const enrollment = {
     isOrgMemberOfAny: vi.fn().mockResolvedValue(false),
+    isPartnerMemberOfCourse: vi.fn().mockResolvedValue(false),
   } as unknown as EnrollmentService;
   const categoriesRepo = {} as CategoriesService;
   const storage = {} as StorageDriver;
@@ -94,6 +95,22 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     });
     vi.mocked(enrollment.isOrgMemberOfAny).mockResolvedValue(false);
     await expect(service.bySlug("intro-to-x", stranger)).rejects.toThrow(NotFoundException);
+  });
+
+  it("marks a PUBLIC assigned course as organization-enrollable for a member", async () => {
+    const { service, enrollment } = makeService({
+      findBySlug: vi.fn().mockResolvedValue(
+        makeCourseRow({
+          basePriceCents: 2200,
+          orgAssignments: [{ orgId: "org_1" }],
+        }),
+      ),
+    });
+    vi.mocked(enrollment.isOrgMemberOfAny).mockResolvedValue(true);
+
+    await expect(service.bySlug("intro-to-x", member)).resolves.toMatchObject({
+      canEnrollForOrganization: true,
+    });
   });
 
   it("returns a PRIVATE course assigned to multiple orgs to a member of any one of them", async () => {
