@@ -75,7 +75,7 @@ async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
 
 export default async function HomePage() {
   // Server-fetched so the landing page ships real, indexable content.
-  const [coursePage, instructors, categories, testimonials] = await Promise.all([
+  const [coursePage, bestsellers, instructors, categories, testimonials] = await Promise.all([
     safe(serverApi<Paginated<CourseSummaryDto>>(`/courses?pageSize=${MAX_PAGE_SIZE}`), {
       items: [],
       page: 1,
@@ -83,13 +83,13 @@ export default async function HomePage() {
       total: 0,
       totalPages: 0,
     }),
+    safe(serverApi<CourseSummaryDto[]>("/courses/bestsellers"), []),
     safe(serverApi<InstructorRosterDto[]>("/instructors"), []),
     safe(serverApi<string[]>("/categories"), []),
     safe(serverApi<ReviewDto[]>("/reviews/featured"), []),
   ]);
 
   const publishedCourses = coursePage.items;
-  const bestsellers = publishedCourses?.filter((c) => c.bestseller)?.slice(0, 4) ?? [];
   const popular = publishedCourses?.slice(0, 8) ?? [];
   // Course counts per category — feeds the neutral hero showcase and lets it
   // rank categories by volume without promoting any single course.
@@ -204,11 +204,13 @@ export default async function HomePage() {
       </section>
 
       {/* ── Bestsellers ────────────────────────────────────────── */}
-      <SectionGrid
-        title="Bestselling courses"
-        sub="Loved by hundreds of thousands of learners"
-        courses={bestsellers}
-      />
+      {bestsellers.length > 0 && (
+        <SectionGrid
+          title="Bestselling courses"
+          sub="Loved by learners recently"
+          courses={bestsellers}
+        />
+      )}
 
       <PersonalizedRecommendations />
 

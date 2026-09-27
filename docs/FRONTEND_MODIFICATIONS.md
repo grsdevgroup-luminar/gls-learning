@@ -1496,3 +1496,7 @@ avIcons` registry for supported Lucide icons.
 - apps/web/components/shared/course-preferences-modal.tsx — Separates draft selections from saved preferences and provides the Student Panel save flow.
 - packages/shared/src/contracts/interests.ts — Changes category validation from exactly three to at most three.
 - apps/api/src/modules/users/__tests__/learning-preferences.test.ts — Covers fewer-than-three and cleared preference states.
+
+## Dynamic bestselling courses
+
+The storefront `Bestselling courses` section now uses `GET /courses/bestsellers` instead of the static `Course.bestseller` flag. The API ranks public, published courses using enrollments from the last 90 days, only includes courses with at least 10 reviews and a 4.3+ rating, and returns the top four by recent enrollment volume. The section is hidden when no course meets the criteria. The existing bestseller badge is still shown on the returned cards.

@@ -649,6 +649,7 @@ model Enrollment {
 
   @@unique([userId, courseId])
   @@index([courseId])
+  @@index([enrolledAt, courseId])
 }
 
 model LessonProgress {

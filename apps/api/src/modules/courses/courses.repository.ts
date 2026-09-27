@@ -70,6 +70,33 @@ export class CoursesRepository {
     });
   }
 
+  findRecentBestsellerEnrollmentCounts(since: Date) {
+    return this.prisma.enrollment.groupBy({
+      by: ["courseId"],
+      where: {
+        enrolledAt: { gte: since },
+        status: { in: ["IN_PROGRESS", "COMPLETED"] },
+        course: {
+          status: "PUBLISHED",
+          visibility: "PUBLIC",
+          ratingAvg: { gte: 4.3 },
+          reviewCount: { gte: 10 },
+        },
+      },
+      _count: { _all: true },
+    });
+  }
+
+  findPublicCourseSummariesByIds(ids: string[]) {
+    return this.prisma.course.findMany({
+      where: {
+        id: { in: ids },
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+      },
+      include: COURSE_SUMMARY_INCLUDE,
+    });
+  }
   findBySlug(slug: string) {
     return this.prisma.course.findUnique({
       where: { slug },
