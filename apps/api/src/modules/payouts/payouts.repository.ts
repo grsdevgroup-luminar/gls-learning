@@ -67,7 +67,7 @@ export class PayoutsRepository {
   }
 
   findAll(filters: AdminPayoutQuery = {}) {
-    const { status, q, from, to } = filters;
+    const { status, payeeType, q, from, to } = filters;
     const requestedAt =
       from || to
         ? {
@@ -86,6 +86,7 @@ export class PayoutsRepository {
       : undefined;
     const where: Prisma.PayoutWhereInput = {
       ...(status && { status }),
+      ...(payeeType && { payeeType }),
       ...(requestedAt && { requestedAt }),
       ...(search && search),
     };
@@ -125,9 +126,19 @@ export class PayoutsRepository {
     });
   }
 
-  markPartnerReferralsPaid(partnerId: string, tx?: Db) {
+  /** Referrals that have ever counted toward a payout, oldest first — the
+   *  order payouts are allocated against (see `referralIdsCoveredByPayouts`). */
+  findPayableReferrals(partnerId: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerReferral.findMany({
+      where: { partnerId, status: { in: ["CONFIRMED", "PAID"] } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true, status: true, commissionCents: true, reversedCents: true },
+    });
+  }
+
+  markReferralsPaid(ids: string[], tx?: Db) {
     return this.db(tx).deliveryPartnerReferral.updateMany({
-      where: { partnerId, status: "CONFIRMED" },
+      where: { id: { in: ids }, status: "CONFIRMED" },
       data: { status: "PAID" },
     });
   }

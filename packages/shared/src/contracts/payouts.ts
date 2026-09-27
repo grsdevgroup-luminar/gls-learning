@@ -59,10 +59,12 @@ export const RejectPayoutSchema = z.object({
 });
 export type RejectPayoutInput = z.infer<typeof RejectPayoutSchema>;
 
-/** Admin list filters for `GET /admin/payouts`. `q` matches payee name/email
+/** Admin list filters for `GET /admin/payouts`. `payeeType` narrows to
+ *  instructors or delivery partners. `q` matches payee name/email
  *  and destination (case-insensitive). `from`/`to` bound `requestedAt`. */
 export const AdminPayoutQuerySchema = z.object({
   status: z.nativeEnum(PayoutStatus).optional(),
+  payeeType: z.nativeEnum(PayeeType).optional(),
   q: z.string().trim().max(200).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
