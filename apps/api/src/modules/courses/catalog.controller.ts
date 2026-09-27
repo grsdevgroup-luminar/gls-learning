@@ -32,6 +32,11 @@ export class CatalogController {
   }
 
   @Public()
+  @Get("courses/bestsellers")
+  bestsellers() {
+    return this.courses.bestsellers();
+  }
+  @Public()
   @Get("courses/:slug")
   bySlug(@Param("slug") slug: string, @CurrentUser() user?: RequestUser) {
     return this.courses.bySlug(slug, user);

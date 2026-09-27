@@ -140,6 +140,23 @@ export class CoursesService {
     return rows.map(toCourseSummary);
   }
 
+  async bestsellers(limit = 4): Promise<CourseSummaryDto[]> {
+    const since = new Date();
+    since.setDate(since.getDate() - 90);
+
+    const enrollmentCounts = await this.repo.findRecentBestsellerEnrollmentCounts(since);
+    const rankedIds = enrollmentCounts
+      .sort((a, b) => b._count._all - a._count._all)
+      .slice(0, limit)
+      .map((row) => row.courseId);
+    if (rankedIds.length === 0) return [];
+
+    const rows = await this.repo.findPublicCourseSummariesByIds(rankedIds);
+    const rank = new Map(rankedIds.map((id, index) => [id, index]));
+    return rows
+      .sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
+      .map((row) => ({ ...toCourseSummary(row), bestseller: true }));
+  }
   async bySlug(slug: string, user?: RequestUser): Promise<CourseDetailDto> {
     const rows = await Promise.all(
       slugCandidates(slug).map((candidate) => this.repo.findBySlug(candidate)),
