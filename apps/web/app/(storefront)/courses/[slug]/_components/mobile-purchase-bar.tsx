@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlayCircle, ShoppingCart, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/lib/api/session";
+import { useEnrollFree } from "@/lib/api/hooks";
 import { CoursePurchaseCard } from "./course-purchase-card";
 
 /** Mobile-only fixed bottom bar: price + primary actions, with a "More"
@@ -22,9 +23,11 @@ export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
   const { role } = useSession();
   const isInstructor = role === "INSTRUCTOR";
   const router = useRouter();
+  const enroll = useEnrollFree();
   const [open, setOpen] = useState(false);
   const enrolled = isEnrolled(course.id);
   const inCartNow = inCart(course.id);
+  const canEnrollForOrganization = course.canEnrollForOrganization === true;
 
   function add() {
     if (inCartNow) {
@@ -45,6 +48,13 @@ export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
       description: "Ready to checkout? Review your cart.",
     });
     router.push("/cart#coupon");
+  }
+
+  function enrollForOrganization() {
+    enroll.mutate(course.id, {
+      onSuccess: () => toast.success("Enrolled successfully", { description: course.title }),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to enroll in this course"),
+    });
   }
 
   return (
@@ -75,6 +85,14 @@ export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
                 render={<Link href={`/learn/${course.slug}`} />}
               >
                 <PlayCircle /> Go to course
+              </Button>
+            ) : canEnrollForOrganization ? (
+              <Button
+                size="sm"
+                onClick={enrollForOrganization}
+                disabled={enroll.isPending}
+              >
+                {enroll.isPending ? "Enrolling…" : "Enroll"}
               </Button>
             ) : (
               <>

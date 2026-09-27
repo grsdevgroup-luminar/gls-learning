@@ -11,7 +11,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Handshake, Play, Plus, Lock, Globe, PauseCircle } from "lucide-react";
 import { toast } from "sonner";
-import { CourseGridSkeleton, PageHeaderSkeleton } from "@/components/shared/loading-skeletons";
+import {
+  CourseGridSkeleton,
+  PageHeaderSkeleton,
+} from "@/components/shared/loading-skeletons";
 
 /**
  * Deliberately a separate page from /dashboard/team, not a merged section —
@@ -39,14 +42,22 @@ export default function PartnerCoursesPage() {
     mutationFn: (courseId: string) => api.enrollFree(courseId),
     onSuccess: (enrollment) => {
       void qc.invalidateQueries({ queryKey: ["enrollments"] });
-      toast.success("Enrolled!", { description: "The course is now in your dashboard." });
+      toast.success("Enrolled!", {
+        description: "The course is now in your dashboard.",
+      });
       router.push(`/learn/${enrollment.course.slug}`);
     },
-    onError: (err) => toast.error("Could not enroll", { description: getApiErrorMessage(err) }),
+    onError: (err) =>
+      toast.error("Could not enroll", { description: getApiErrorMessage(err) }),
   });
 
   if (isLoading) {
-    return <div className="space-y-8 p-6 md:p-8"><PageHeaderSkeleton /><CourseGridSkeleton count={3} /></div>;
+    return (
+      <div className="space-y-8 p-6 md:p-8">
+        <PageHeaderSkeleton />
+        <CourseGridSkeleton count={3} />
+      </div>
+    );
   }
 
   if (!granted || granted.length === 0) {
@@ -55,7 +66,8 @@ export default function PartnerCoursesPage() {
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-16 text-center">
           <Handshake className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            No partner-granted courses yet. When a delivery partner invites you to a course, it appears here.
+            No partner-granted courses yet. When a delivery partner invites you
+            to a course, it appears here.
           </p>
         </div>
       </div>
@@ -74,7 +86,9 @@ export default function PartnerCoursesPage() {
     <div className="space-y-8 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Partner courses</h1>
-        <p className="text-muted-foreground">Courses a delivery partner has given you access to — free to enroll.</p>
+        <p className="text-muted-foreground">
+          Courses a delivery partner has given you access to — free to enroll.
+        </p>
       </div>
 
       {[...byPartner.entries()].map(([partnerName, courses]) => (
@@ -87,7 +101,8 @@ export default function PartnerCoursesPage() {
           {courses[0]?.partnerSuspended ? (
             <div className="flex items-center gap-2 rounded-lg border border-dashed border-warning/50 bg-warning/5 p-4 text-sm text-muted-foreground">
               <PauseCircle className="h-4 w-4 shrink-0 text-warning" />
-              This partner's account is currently suspended — access may be paused.
+              This partner's account is currently suspended — access may be
+              paused.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -99,10 +114,19 @@ export default function PartnerCoursesPage() {
                   <Card key={g.courseAssignmentId}>
                     <CardContent className="flex flex-col gap-3 p-4">
                       <div className="flex gap-3">
-                        <CourseArt seed={c.thumbnail} title={c.title} className="h-14 w-14 shrink-0 rounded-lg" />
+                        <CourseArt
+                          seed={c.thumbnail}
+                          title={c.title}
+                          className="h-14 w-14 shrink-0 rounded-lg"
+                          iconSize={28}
+                        />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">{c.title}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">{c.category} · {c.level}</div>
+                          <div className="truncate text-sm font-medium">
+                            {c.title}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {c.category} · {c.level}
+                          </div>
                           {c.visibility === "PRIVATE" ? (
                             <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">
                               <Lock className="h-3 w-3" /> Private · included
@@ -115,7 +139,12 @@ export default function PartnerCoursesPage() {
                         </div>
                       </div>
                       {enrolled ? (
-                        <Button variant="outline" size="sm" className="w-full" render={<Link href={`/learn/${c.slug}`} />}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          render={<Link href={`/learn/${c.slug}`} />}
+                        >
                           <Play className="h-4 w-4" /> Continue
                         </Button>
                       ) : ownCourse ? (
@@ -127,9 +156,14 @@ export default function PartnerCoursesPage() {
                           size="sm"
                           className="w-full"
                           onClick={() => enroll.mutate(c.id)}
-                          disabled={enroll.isPending && enroll.variables === c.id}
+                          disabled={
+                            enroll.isPending && enroll.variables === c.id
+                          }
                         >
-                          <Plus className="h-4 w-4" /> {enroll.isPending && enroll.variables === c.id ? "Enrolling…" : "Enroll"}
+                          <Plus className="h-4 w-4" />{" "}
+                          {enroll.isPending && enroll.variables === c.id
+                            ? "Enrolling…"
+                            : "Enroll"}
                         </Button>
                       )}
                     </CardContent>

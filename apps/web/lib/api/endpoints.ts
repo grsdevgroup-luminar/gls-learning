@@ -33,6 +33,7 @@ import type {
   EnrollmentDto,
   InstructorApplicationDto,
   InstructorNameChangeRequestDto,
+  InstructorExpertiseChangeRequestDto,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -121,6 +122,7 @@ export type {
   EnrollmentDto,
   InstructorApplicationDto,
   InstructorNameChangeRequestDto,
+  InstructorExpertiseChangeRequestDto,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -329,6 +331,12 @@ export const api = {
     apiFetch<InstructorNameChangeRequestDto>(`/admin/instructor-name-change-requests/${id}/approve`, { method: "POST" }),
   rejectInstructorNameChange: (id: string, note: string) =>
     apiFetch<InstructorNameChangeRequestDto>(`/admin/instructor-name-change-requests/${id}/reject`, { method: "POST", body: { note } }),
+  instructorExpertiseChangeRequests: (params: Record<string, string | number | undefined> = {}) =>
+    apiFetch<Paginated<InstructorExpertiseChangeRequestDto>>(`/admin/instructor-expertise-change-requests${qs(params)}`),
+  approveInstructorExpertiseChange: (id: string) =>
+    apiFetch<InstructorExpertiseChangeRequestDto>(`/admin/instructor-expertise-change-requests/` + id + `/approve`, { method: "POST" }),
+  rejectInstructorExpertiseChange: (id: string, note: string) =>
+    apiFetch<InstructorExpertiseChangeRequestDto>(`/admin/instructor-expertise-change-requests/` + id + `/reject`, { method: "POST", body: { note } }),
   // certificates
   myCertificates: () => apiFetch<CertificateDto[]>("/me/certificates"),
   // lesson notes (private per learner; enrollment required to write)
@@ -588,6 +596,11 @@ export const api = {
   ) => apiFetch<Paginated<ReviewDto>>(`/me/courses/${courseId}/reviews${qs(params)}`),
   requestInstructorNameChange: (requestedName: string) =>
     apiFetch<InstructorNameChangeRequestDto>("/me/instructor/name-change-requests", { method: "POST", body: { requestedName } }),
+  requestInstructorExpertiseChange: (requestedExpertise: string) =>
+    apiFetch<InstructorExpertiseChangeRequestDto>("/me/instructor/expertise-change-requests", {
+      method: "POST",
+      body: { requestedExpertise },
+    }),
   updateInstructorProfile: (body: UpdateInstructorProfileInput) =>
     apiFetch<InstructorProfileDto>("/me/instructor", { method: "PATCH", body }),
 };
@@ -921,6 +934,10 @@ export const adminApi = {
   instructorNameChangeRequests: (params: Record<string, string | number | undefined> = {}) => api.instructorNameChangeRequests(params),
   approveInstructorNameChange: api.approveInstructorNameChange,
   rejectInstructorNameChange: api.rejectInstructorNameChange,
+  instructorExpertiseChangeRequests: (params: Record<string, string | number | undefined> = {}) =>
+    api.instructorExpertiseChangeRequests(params),
+  approveInstructorExpertiseChange: api.approveInstructorExpertiseChange,
+  rejectInstructorExpertiseChange: api.rejectInstructorExpertiseChange,
   deliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
     api.adminDeliveryPartnerApplications(params),
   deliveryPartnerApplicationStats: () => api.adminDeliveryPartnerApplicationStats(),
@@ -958,6 +975,7 @@ export const adminApi = {
 export const instructorApi = {
   profile: () => api.instructorProfile(),
   requestInstructorNameChange: api.requestInstructorNameChange,
+  requestInstructorExpertiseChange: api.requestInstructorExpertiseChange,
   courses: () => api.instructorCourses(),
   courseReviews: (
     courseId: string,

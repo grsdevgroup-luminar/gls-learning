@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, X, Mail, Globe2, Calendar, FileText, Download, Percent } from "lucide-react";
+import { Check, X, Mail, Globe2, Calendar, FileText, Download, Eye, Percent } from "lucide-react";
 import { initials } from "@/lib/format";
 import { flagFor, nameFor } from "@skillstream/shared";
 import type { DeliveryPartnerApplicationDto } from "@/lib/api/endpoints";
@@ -98,18 +98,31 @@ export function ApplicationDetailDialog({
                 <div className="text-xs text-muted-foreground">Documents</div>
                 <div className="mt-1.5 space-y-1.5">
                   {a.documents.map((d) => (
-                    <a
+                    <div
                       key={d.key}
-                      href={d.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm hover:bg-muted"
+                      className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm"
                     >
                       <FileText className="size-4 shrink-0 text-primary" />
                       <span className="min-w-0 flex-1 truncate">{d.title}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{d.sizeLabel}</span>
-                      <Download className="size-3.5 shrink-0 text-muted-foreground" />
-                    </a>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1.5 px-2"
+                        render={<a href={d.url} target="_blank" rel="noreferrer" />}
+                      >
+                        <Eye className="size-3.5" /> Preview
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0"
+                        aria-label={"Download " + d.title}
+                        render={<a href={d.url} target="_blank" rel="noreferrer" download={d.title} />}
+                      >
+                        <Download className="size-3.5" />
+                      </Button>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -22,6 +22,7 @@ import { courseArticleCount, courseResourceCount } from "@/lib/course-stats";
 import { formatDurationSec } from "@/lib/format";
 import { toast } from "sonner";
 import { useSession } from "@/lib/api/session";
+import { useEnrollFree } from "@/lib/api/hooks";
 
 /** Self-contained cart/enrollment island — everything it needs (enrolled,
  *  cart membership, add/buy) comes from client-only store state, so it
@@ -31,8 +32,10 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
   const { role } = useSession();
   const isInstructor = role === "INSTRUCTOR";
   const router = useRouter();
+  const enroll = useEnrollFree();
   const enrolled = isEnrolled(course.id);
   const inCartNow = inCart(course.id);
+  const canEnrollForOrganization = course.canEnrollForOrganization === true;
 
   function add() {
     if (inCartNow) {
@@ -53,6 +56,13 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
       description: "Ready to checkout? Review your cart.",
     });
     router.push("/cart#coupon");
+  }
+
+  function enrollForOrganization() {
+    enroll.mutate(course.id, {
+      onSuccess: () => toast.success("Enrolled successfully", { description: course.title }),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to enroll in this course"),
+    });
   }
 
   const articleCount = courseArticleCount(course);
@@ -113,6 +123,15 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
             render={<Link href={`/learn/${course.slug}`} />}
           >
             <PlayCircle /> Go to course
+          </Button>
+        ) : canEnrollForOrganization ? (
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={enrollForOrganization}
+            disabled={enroll.isPending}
+          >
+            {enroll.isPending ? "Enrolling…" : "Enroll"}
           </Button>
         ) : isInstructor ? null : (
           <div className="space-y-2">

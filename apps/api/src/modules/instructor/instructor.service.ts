@@ -12,8 +12,11 @@ import type {
   ApplyInstructorInput,
   InstructorApplicationDto,
   InstructorNameChangeRequestDto,
+  InstructorExpertiseChangeRequestDto,
   NameChangeRequestQuery,
+  ExpertiseChangeRequestQuery,
   RequestInstructorNameChangeInput,
+  RequestInstructorExpertiseChangeInput,
   InstructorApplicationStatsDto,
   InstructorCvUploadDto,
   InstructorProfileDto,
@@ -308,6 +311,7 @@ export class InstructorService {
       const lastRejectedNameChange = pendingNameChange
         ? null
         : await this.repo.findLastRejectedNameChangeRequest(u.id);
+      const pendingExpertiseChange = await this.repo.findPendingExpertiseChangeRequest(u.id);
       return {
         userId: u.id,
         name: u.name,
@@ -334,6 +338,9 @@ export class InstructorService {
           : null,
         lastRejectedNameChange: lastRejectedNameChange
           ? toNameChangeDto(lastRejectedNameChange)
+          : null,
+        pendingExpertiseChange: pendingExpertiseChange
+          ? toExpertiseChangeDto(pendingExpertiseChange)
           : null,
       };
     }
@@ -419,6 +426,38 @@ export class InstructorService {
     });
     return toNameChangeDto(request);
   }
+  async requestExpertiseChange(
+    user: RequestUser,
+    input: RequestInstructorExpertiseChangeInput,
+  ): Promise<InstructorExpertiseChangeRequestDto> {
+    const current = await this.repo.findUserWithProfile(user.id);
+    if (
+      !current?.instructorProfile ||
+      current.instructorProfile.status !== "APPROVED"
+    ) {
+      throw new ForbiddenException(
+        "Only approved instructors can request an expertise change",
+      );
+    }
+    const requestedExpertise = input.requestedExpertise.trim();
+    if (requestedExpertise === (current.instructorProfile.expertise ?? "")) {
+      throw new BadRequestException(
+        "The requested expertise is the same as your current expertise",
+      );
+    }
+    const pending = await this.repo.findPendingExpertiseChangeRequest(user.id);
+    if (pending)
+      throw new BadRequestException(
+        "You already have a pending expertise-change request",
+      );
+
+    const request = await this.repo.createExpertiseChangeRequest({
+      userId: user.id,
+      currentExpertise: current.instructorProfile.expertise,
+      requestedExpertise,
+    });
+    return toExpertiseChangeDto(request);
+  }
   async updateProfile(
     user: RequestUser,
     input: UpdateInstructorProfileInput,
@@ -444,16 +483,41 @@ export class InstructorService {
     // edits made before approval aren't silently dropped.
     const current = await this.repo.findUserWithProfile(user.id);
     if (current?.instructorProfile) {
+      const requestedExpertise = input.expertise?.trim();
+      const expertiseChanged =
+        requestedExpertise !== undefined &&
+        requestedExpertise !== (current.instructorProfile.expertise ?? "");
+
       await this.prisma.$transaction(async (tx) => {
+        if (expertiseChanged) {
+          const pending = await this.repo.findPendingExpertiseChangeRequest(
+            user.id,
+            tx,
+          );
+          if (pending) {
+            throw new BadRequestException(
+              "You already have a pending expertise-change request",
+            );
+          }
+          await this.repo.createExpertiseChangeRequest(
+            {
+              userId: user.id,
+              currentExpertise: current.instructorProfile!.expertise,
+              requestedExpertise: requestedExpertise!,
+            },
+            tx,
+          );
+        }
+
         const profileData = {
           title: input.title,
           bio: input.bio,
-          expertise: input.expertise,
           ...linkFields,
         };
         await this.repo.updateInstructorProfile(user.id, profileData, tx);
 
         // Keep the Admin application view synchronized with the live profile.
+        // Expertise is intentionally excluded until an admin approves it.
         const application = await this.repo.findLatestApplicationByUserWithDb(
           user.id,
           tx,
@@ -464,7 +528,6 @@ export class InstructorService {
             {
               headline: input.title,
               bio: input.bio,
-              expertise: input.expertise,
               ...linkFields,
             },
             tx,
@@ -487,6 +550,107 @@ export class InstructorService {
     return profile;
   }
 
+  async listExpertiseChangeRequests(
+    query: ExpertiseChangeRequestQuery,
+  ): Promise<Paginated<InstructorExpertiseChangeRequestDto>> {
+    const where: Prisma.InstructorExpertiseChangeRequestWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { currentExpertise: { contains: query.q, mode: "insensitive" } },
+              { requestedExpertise: { contains: query.q, mode: "insensitive" } },
+              { user: { name: { contains: query.q, mode: "insensitive" } } },
+              { user: { email: { contains: query.q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await this.repo.findExpertiseChangeRequestsPage(
+      where,
+      query.page,
+      query.pageSize,
+    );
+    return {
+      items: rows.map(toExpertiseChangeDto),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
+  }
+
+  async approveExpertiseChange(
+    admin: RequestUser,
+    id: string,
+  ): Promise<InstructorExpertiseChangeRequestDto> {
+    const request = await this.repo.findExpertiseChangeRequestById(id);
+    if (!request) throw new NotFoundException("Expertise-change request not found");
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This request has already been reviewed");
+
+    const current = await this.repo.findUserWithProfile(request.userId);
+    if (
+      !current?.instructorProfile ||
+      current.instructorProfile.expertise !== request.currentExpertise
+    ) {
+      throw new BadRequestException(
+        "The instructor expertise changed before this request was reviewed",
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await this.repo.updateExpertiseChangeRequest(
+        id,
+        { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id },
+        tx,
+      );
+      await this.repo.updateInstructorProfile(
+        request.userId,
+        { expertise: request.requestedExpertise },
+        tx,
+      );
+      const application = await this.repo.findLatestApplicationByUserWithDb(
+        request.userId,
+        tx,
+      );
+      if (application?.status === "APPROVED") {
+        await this.repo.updateApplication(
+          application.id,
+          { expertise: request.requestedExpertise },
+          tx,
+        );
+      }
+      return toExpertiseChangeDto(updated);
+    });
+  }
+
+  async rejectExpertiseChange(
+    admin: RequestUser,
+    id: string,
+    note: string,
+  ): Promise<InstructorExpertiseChangeRequestDto> {
+    const request = await this.repo.findExpertiseChangeRequestById(id);
+    if (!request) throw new NotFoundException("Expertise-change request not found");
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This request has already been reviewed");
+    const current = await this.repo.findUserWithProfile(request.userId);
+    if (
+      !current?.instructorProfile ||
+      current.instructorProfile.expertise !== request.currentExpertise
+    ) {
+      throw new BadRequestException(
+        "The instructor expertise changed before this request was reviewed",
+      );
+    }
+    const updated = await this.repo.updateExpertiseChangeRequest(id, {
+      status: "REJECTED",
+      reviewedAt: new Date(),
+      reviewedBy: admin.id,
+      note,
+    });
+    return toExpertiseChangeDto(updated);
+  }
   async listNameChangeRequests(
     query: NameChangeRequestQuery,
   ): Promise<Paginated<InstructorNameChangeRequestDto>> {
@@ -858,6 +1022,24 @@ function humanSize(bytes: number): string {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIdx]}`;
 }
 
+function toExpertiseChangeDto(
+  request: Prisma.InstructorExpertiseChangeRequestGetPayload<{
+    include: { user: { select: { email: true } } };
+  }>,
+): InstructorExpertiseChangeRequestDto {
+  return {
+    id: request.id,
+    userId: request.userId,
+    currentExpertise: request.currentExpertise,
+    requestedExpertise: request.requestedExpertise,
+    status: request.status,
+    requestedAt: request.requestedAt.toISOString(),
+    reviewedAt: request.reviewedAt?.toISOString() ?? null,
+    reviewedBy: request.reviewedBy,
+    note: request.note,
+    email: request.user.email,
+  };
+}
 function toNameChangeDto(
   request: Prisma.InstructorNameChangeRequestGetPayload<{
     include: { user: { select: { email: true } } };

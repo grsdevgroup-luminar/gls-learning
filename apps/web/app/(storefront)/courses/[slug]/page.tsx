@@ -1,34 +1,21 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { CourseDetailDto, Paginated, ReviewDto } from "@skillstream/shared";
-import { serverApiCached, serverApiCachedOptional } from "@/lib/api/server";
+import type {
+  CourseDetailDto,
+  Paginated,
+  ReviewDto,
+} from "@skillstream/shared";
+import { serverApiOptional, serverApiCached } from "@/lib/api/server";
 import { CourseDetail } from "./_components/course-detail";
 
-// Course pages are public and change infrequently (price/curriculum edits,
-// not per-request) — on-demand ISR: generated on first visit, cached, and
-// silently regenerated in the background at most once a minute.
-//
-// Known limitation (verified against a production build, not just dev):
-// because this segment has no generateStaticParams (dynamicParams defaults
-// to true — deliberate, so newly-published courses resolve without a full
-// rebuild), notFound() here renders not-found.tsx with a `noindex` meta tag
-// but an HTTP 200 status rather than a true 404 — a documented Next.js App
-// Router gap for on-demand dynamic segments. The noindex tag still keeps the
-// page out of search results; only the status code itself is affected. Fully
-// fixing the status would require generateStaticParams + dynamicParams=false,
-// which trades this away for "new courses need a rebuild to resolve" — the
-// tradeoff was deliberately not taken here.
+// Course details are fetched per request so authenticated organization members can
+// open private courses assigned to their organization. Public review data is
+// still cached independently below.
 export const revalidate = 60;
 
 async function fetchCourse(slug: string) {
-  return serverApiCachedOptional<CourseDetailDto>(
-    `/courses/${slug}`,
-    revalidate,
-    {},
-    ["course-pages"],
-  );
+  return serverApiOptional<CourseDetailDto>("/courses/" + slug);
 }
-
 export async function generateMetadata({
   params,
 }: {
@@ -59,11 +46,11 @@ export default async function CoursePage({
   if (!dto) notFound();
 
   const reviewPage = await serverApiCached<Paginated<ReviewDto>>(
-  `/courses/${dto.id}/reviews`,
-  revalidate,
-  {},
-  ["course-reviews"],
-);
+    `/courses/${dto.id}/reviews`,
+    revalidate,
+    {},
+    ["course-reviews"],
+  );
 
   const reviews = reviewPage?.items ?? [];
 

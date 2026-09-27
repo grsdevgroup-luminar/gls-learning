@@ -207,7 +207,7 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                   ) : (
                     assigned.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
-                        <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
+                        <CourseArt seed={c.thumbnail} title={c.title} iconSize={24} className="h-8 w-8 shrink-0 rounded-md" />
                         <div className="min-w-0 flex-1 truncate text-sm" title={c.title}>{c.title}</div>
                         <CourseVisibilityIcon visibility={c.visibility} />
                         <Button
@@ -281,7 +281,7 @@ export function ManageOrgCoursesDialog({ orgId, orgName }: { orgId: string; orgN
                   ) : (
                     available.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
-                        <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
+                        <CourseArt seed={c.thumbnail} title={c.title} iconSize={24} className="h-8 w-8 shrink-0 rounded-md" />
                         <div className="min-w-0 flex-1" title={`${c.title} — ${c.category} · ${c.level}`}>
                           <div className="truncate text-sm">{c.title}</div>
                           <div className="truncate text-xs text-muted-foreground">{c.category} · {c.level}</div>

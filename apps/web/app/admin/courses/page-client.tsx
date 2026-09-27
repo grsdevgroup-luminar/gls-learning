@@ -166,6 +166,7 @@ export default function AdminCourses() {
               variant={status === s ? "default" : "outline"}
               onClick={() => {
                 setStatus(s);
+                if (s === "all") setVisibility("all");
                 setPage(1);
               }}
               className="capitalize"
@@ -175,7 +176,7 @@ export default function AdminCourses() {
           ))}
         </div>
         <div className="flex gap-1">
-          {(["all", "PUBLIC", "PRIVATE"] as const).map((v) => (
+          {(["PUBLIC", "PRIVATE"] as const).map((v) => (
             <Button
               key={v}
               size="sm"

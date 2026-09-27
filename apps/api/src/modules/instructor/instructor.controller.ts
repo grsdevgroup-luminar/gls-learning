@@ -17,7 +17,9 @@ import {
   adminInstructorApplicationQuerySchema,
   adminInstructorQuerySchema,
   nameChangeRequestQuerySchema,
+  expertiseChangeRequestQuerySchema,
   requestInstructorNameChangeSchema,
+  requestInstructorExpertiseChangeSchema,
   applyInstructorSchema,
   rejectApplicationSchema,
   reviewApplicationSchema,
@@ -25,7 +27,9 @@ import {
   type AdminInstructorApplicationQuery,
   type AdminInstructorQuery,
   type NameChangeRequestQuery,
+  type ExpertiseChangeRequestQuery,
   type RequestInstructorNameChangeInput,
+  type RequestInstructorExpertiseChangeInput,
   type ApplyInstructorInput,
   type RejectApplicationInput,
   type ReviewApplicationInput,
@@ -110,6 +114,40 @@ export class InstructorController {
     body: RequestInstructorNameChangeInput,
   ) {
     return this.instructor.requestNameChange(user, body);
+  }
+  @Post("me/instructor/expertise-change-requests")
+  requestExpertiseChange(
+    @CurrentUser() user: RequestUser,
+    @ZodBody(requestInstructorExpertiseChangeSchema)
+    body: RequestInstructorExpertiseChangeInput,
+  ) {
+    return this.instructor.requestExpertiseChange(user, body);
+  }
+  @Roles("ADMIN")
+  @Get("admin/instructor-expertise-change-requests")
+  listExpertiseChangeRequests(
+    @ZodQuery(expertiseChangeRequestQuerySchema) query: ExpertiseChangeRequestQuery,
+  ) {
+    return this.instructor.listExpertiseChangeRequests(query);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/instructor-expertise-change-requests/:id/approve")
+  approveExpertiseChange(
+    @CurrentUser() admin: RequestUser,
+    @Param("id") id: string,
+  ) {
+    return this.instructor.approveExpertiseChange(admin, id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/instructor-expertise-change-requests/:id/reject")
+  rejectExpertiseChange(
+    @CurrentUser() admin: RequestUser,
+    @Param("id") id: string,
+    @ZodBody(rejectApplicationSchema) body: RejectApplicationInput,
+  ) {
+    return this.instructor.rejectExpertiseChange(admin, id, body.note);
   }
   // ── admin ──
   @Roles("ADMIN")
