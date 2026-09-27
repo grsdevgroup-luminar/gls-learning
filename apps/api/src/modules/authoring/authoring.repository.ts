@@ -360,7 +360,7 @@ export class AuthoringRepository {
     return this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { pptxStorageKey: true, pptxName: true, pptxSizeLabel: true } });
   }
 
-  updateLessonPptx(lessonId: string, data: { pptxStorageKey: string | null; pptxName: string | null; pptxSizeLabel: string | null; pptxDurationSec?: number }) {
+  updateLessonPptx(lessonId: string, data: { pptxStorageKey: string | null; pptxName: string | null; pptxSizeLabel: string | null }) {
     return this.prisma.lesson.update({ where: { id: lessonId }, data });
   }
 

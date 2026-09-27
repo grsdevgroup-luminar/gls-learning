@@ -91,9 +91,8 @@ export class LessonPptxController {
   @Post()
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: Number(process.env.STORAGE_MAX_BYTES) || 10 * 1024 * 1024 } }))
-  upload(@CurrentUser() user: RequestUser, @Param("lessonId") lessonId: string, @UploadedFile(PptxFilePipe) file: ValidatedResourceFile, @Body("durationSec") durationSec?: string) {
-    const seconds = Math.max(0, Math.min(86400, Number(durationSec ?? 0) || 0));
-    return this.resources.uploadPptx(user, lessonId, file, seconds);
+  upload(@CurrentUser() user: RequestUser, @Param("lessonId") lessonId: string, @UploadedFile(PptxFilePipe) file: ValidatedResourceFile) {
+    return this.resources.uploadPptx(user, lessonId, file);
   }
   @Delete()
   remove(@CurrentUser() user: RequestUser, @Param("lessonId") lessonId: string) {

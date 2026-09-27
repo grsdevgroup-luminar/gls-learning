@@ -11,7 +11,7 @@ import type {
 // Prisma payload shapes (with the relations the mappers require).
 const summaryInclude = {
   instructor: { include: { instructorProfile: true } },
-  sections: { include: { lessons: { select: { type: true, durationSec: true, pptxDurationSec: true } } } },
+  sections: { include: { lessons: { select: { type: true, durationSec: true } } } },
 } satisfies Prisma.CourseInclude;
 
 export type CourseSummaryRow = Prisma.CourseGetPayload<{
@@ -67,7 +67,7 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
   let lessonCount = 0;
   for (const s of row.sections) {
     for (const l of s.lessons) {
-      durationSec += l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0);
+      durationSec += l.durationSec;
       lessonCount += 1;
     }
   }
@@ -114,7 +114,7 @@ export function toCourseDetail(
     title: s.title,
     order: s.order,
     lessons: s.lessons.map((l) => {
-      durationSec += l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0);
+      durationSec += l.durationSec;
       lessonCount += 1;
       // Preview lessons are the course's marketing surface — their resources
       // (slides, starter code) must be downloadable by anyone browsing the
@@ -132,7 +132,7 @@ export function toCourseDetail(
       return {
         id: l.id,
         title: l.title,
-        durationSec: l.durationSec + (l.type === "VIDEO" ? (l.pptxDurationSec ?? 0) : 0),
+        durationSec: l.durationSec,
         type: l.type,
         preview: l.preview,
         order: l.order,
@@ -140,7 +140,7 @@ export function toCourseDetail(
         hasVideo: l.cfVideoUid !== null,
         resources: exposeResources ? lessonResources : [],
         pptx: l.type === "VIDEO" && exposeResources && l.pptxStorageKey && l.pptxName
-          ? ({ name: l.pptxName, url: "", sizeLabel: l.pptxSizeLabel ?? undefined, durationSec: l.pptxDurationSec, storageKey: l.pptxStorageKey } satisfies LessonPptxDto)
+          ? ({ name: l.pptxName, url: "", sizeLabel: l.pptxSizeLabel ?? undefined, durationSec: 0, storageKey: l.pptxStorageKey } satisfies LessonPptxDto)
           : l.type === "VIDEO" && exposeResources && pptxResource
             ? ({ name: pptxResource.name, url: pptxResource.url, sizeLabel: pptxResource.sizeLabel, durationSec: 0, storageKey: pptxResource.storageKey } satisfies LessonPptxDto)
             : null,

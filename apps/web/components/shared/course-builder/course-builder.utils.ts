@@ -81,7 +81,6 @@ export function sectionsFromDetail(detail: CourseDetailDto): BSection[] {
       pendingResourceFiles: [],
       pptxName: lesson.pptx?.name ?? null,
       hasServerPptx: !!lesson.pptx,
-      pptxDurationSec: lesson.pptx?.durationSec ?? 0,
       pendingPptxFile: null,
       removePptx: false,
       durationSec: lesson.durationSec,

@@ -296,37 +296,47 @@ export class InstructorRepository {
     });
   }
 
-  /** Live per-instructor rollup. `InstructorProfile.studentCount` is
-   *  incremented on enrollment but `ratingAvg` is never written, so the
-   *  earnings page needs a real-time aggregate over the instructor's
-   *  published courses. Weighted by `reviewCount` so a course with 100
-   *  reviews outweighs one with 2. */
-  async computeInstructorStats(instructorId: string) {
-    const courses = await this.prisma.course.findMany({
-      where: { instructorId, status: "PUBLISHED" },
-      select: {
-        studentCount: true,
-        ratingAvg: true,
-        reviewCount: true,
-        ratingWeightedCount: true,
-      },
-    });
-    let students = 0;
+  /** Live instructor rollup. Public profiles can request only courses visible in
+   * the public catalog; authenticated instructor views include all published
+   * courses. Learners are distinct across courses and exclude abandoned enrollments. */
+  async computeInstructorStats(instructorId: string, publicOnly = false) {
+    const courseWhere = {
+      instructorId,
+      status: "PUBLISHED" as const,
+      ...(publicOnly ? { visibility: "PUBLIC" as const } : {}),
+    };
+    const [courses, learners] = await Promise.all([
+      this.prisma.course.findMany({
+        where: courseWhere,
+        select: {
+          ratingAvg: true,
+          reviewCount: true,
+          ratingWeightedCount: true,
+        },
+      }),
+      this.prisma.enrollment.findMany({
+        where: {
+          status: { in: ["IN_PROGRESS", "COMPLETED"] },
+          course: courseWhere,
+        },
+        select: { userId: true },
+        distinct: ["userId"],
+      }),
+    ]);
     let ratingSum = 0;
     let reviewSum = 0;
     for (const c of courses) {
-      students += c.studentCount;
       const weight =
         c.ratingWeightedCount > 0 ? c.ratingWeightedCount : c.reviewCount;
       ratingSum += c.ratingAvg * weight;
       reviewSum += weight;
     }
     return {
-      studentCount: students,
+      courseCount: courses.length,
+      studentCount: learners.length,
       ratingAvg: reviewSum > 0 ? ratingSum / reviewSum : 0,
     };
   }
-
   upsertInstructorProfile(
     userId: string,
     update: Prisma.InstructorProfileUpdateInput,

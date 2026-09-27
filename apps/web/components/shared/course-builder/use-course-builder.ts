@@ -226,7 +226,6 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
                   pendingResourceFiles: [],
                   pptxName: null,
                   hasServerPptx: false,
-                  pptxDurationSec: 0,
                   pendingPptxFile: null,
                   removePptx: false,
                   durationSec: 0,
@@ -499,7 +498,6 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
             await authoringApi.uploadLessonPptx(
               lessonServerId,
               l.pendingPptxFile,
-              l.pptxDurationSec,
             );
           for (const file of l.pendingResourceFiles) {
             await authoringApi.uploadLessonResource(lessonServerId, file);
@@ -548,6 +546,8 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
 
       void qc.invalidateQueries({ queryKey: ["authoring", "course", id] });
       void qc.invalidateQueries({ queryKey: ["instructor", "courses"] });
+      void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+      void qc.invalidateQueries({ queryKey: ["instructor-profile"] });
       void qc.invalidateQueries({ queryKey: ["admin"] });
 
       const msg =
