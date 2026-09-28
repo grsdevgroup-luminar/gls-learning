@@ -160,6 +160,7 @@ export interface CourseSummaryDto {
   studentCount: number;
   durationSec: number;
   lessonCount: number;
+  updatedAt: string;
   instructor: InstructorSummaryDto;
 }
 

@@ -21,7 +21,6 @@ export interface BLesson {
   pendingResourceFiles: File[];
   pptxName: string | null;
   hasServerPptx: boolean;
-  pptxDurationSec: number;
   pendingPptxFile: File | null;
   removePptx: boolean;
   durationSec: number;

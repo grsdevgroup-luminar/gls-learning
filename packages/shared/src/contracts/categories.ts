@@ -34,4 +34,5 @@ export interface CategoryDto {
   courseCount: number;
   createdAt: string;
   updatedAt: string;
+  requestedBy?: { name: string; email: string } | null;
 }

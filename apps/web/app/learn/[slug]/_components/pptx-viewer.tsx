@@ -3,26 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { init } from "pptx-preview";
 import { Button } from "@/components/ui/button";
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Circle, Loader2 } from "lucide-react";
-import { api } from "@/lib/api/endpoints";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
 
 export function PptxViewer({
-  courseId,
-  lessonId,
   url,
 }: {
-  courseId: string;
-  lessonId: string;
   url: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const renderer = useRef<ReturnType<typeof init> | null>(null);
   const currentSlideRef = useRef(1);
   const [loading, setLoading] = useState(true);
-  const [completed, setCompleted] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
   const [slideCount, setSlideCount] = useState(0);
 
@@ -38,7 +31,6 @@ export function PptxViewer({
     currentSlideRef.current = 1;
     setCurrentSlide(1);
     setSlideCount(0);
-    api.pptxCompletion(courseId, lessonId).then((r) => { if (!cancelled) setCompleted(r.completed); }).catch(() => undefined);
 
     const renderAtCurrentSize = async () => {
       if (cancelled || !host.current || !slideData || rendering) return;
@@ -96,7 +88,7 @@ export function PptxViewer({
       renderer.current?.destroy();
       renderer.current = null;
     };
-  }, [courseId, lessonId, url]);
+  }, [url]);
 
   function goPrevious() {
     const viewer = renderer.current;
@@ -116,17 +108,6 @@ export function PptxViewer({
     setCurrentSlide(nextSlide);
   }
 
-  async function markCompleted() {
-    setSaving(true);
-    try {
-      const result = await api.setPptxCompletion(courseId, lessonId, !completed);
-      setCompleted(result.completed);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save slide completion.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -146,18 +127,6 @@ export function PptxViewer({
             Next <ChevronRight />
           </Button>
         </div>
-      </div>
-      <div className="border-t bg-secondary/20 p-4 sm:px-5">
-        <button type="button" onClick={markCompleted} disabled={loading || saving} className={cn("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors", completed ? "border-success/30 bg-success/5" : "border-border bg-card hover:bg-muted/60")}>
-          <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-md border", completed ? "border-success bg-success text-success-foreground" : "border-muted-foreground/40")}>
-            {completed ? <Check className="size-3.5" /> : <Circle className="size-3.5 text-transparent" />}
-          </span>
-          <span className="flex-1">
-            <span className="block text-sm font-medium">I have completed this presentation</span>
-            <span className="block text-xs text-muted-foreground">Your slide completion is saved to your learning progress.</span>
-          </span>
-          {completed && <CheckCircle2 className="size-5 text-success" />}
-        </button>
       </div>
     </div>
   );

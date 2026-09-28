@@ -9,6 +9,7 @@ import {
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
   courseDeletionRequestQuerySchema,
+  courseRevisionRequestQuerySchema,
   courseStatusSchema,
   createCourseSchema,
   createQuizQuestionSchema,
@@ -23,6 +24,7 @@ import {
   updateQuizQuestionSchema,
   updateQuizSchema,
   type CourseDeletionRequestQuery,
+  type CourseRevisionRequestQuery,
   type CourseStatusInput,
   type CreateCourseInput,
   type CreateQuizInput,
@@ -94,6 +96,39 @@ export class AuthoringController {
     return this.authoring.setStatus(user, id, body);
   }
 
+  @Post("courses/:id/revision")
+  ensureCourseRevision(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.authoring.ensureCourseRevision(user, id);
+  }
+
+  @Post("courses/:id/revision/submit")
+  submitCourseRevision(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.authoring.submitCourseRevision(user, id);
+  }
+
+  @Roles("ADMIN")
+  @Get("admin/course-revision-requests")
+  listCourseRevisionRequests(
+    @ZodQuery(courseRevisionRequestQuerySchema) query: CourseRevisionRequestQuery,
+  ) {
+    return this.authoring.listCourseRevisionRequests(query);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/course-revision-requests/:id/approve")
+  approveCourseRevision(@CurrentUser() admin: RequestUser, @Param("id") id: string) {
+    return this.authoring.approveCourseRevision(admin, id);
+  }
+
+  @Roles("ADMIN")
+  @Post("admin/course-revision-requests/:id/reject")
+  rejectCourseRevision(
+    @CurrentUser() admin: RequestUser,
+    @Param("id") id: string,
+    @ZodBody(rejectApplicationSchema) body: RejectApplicationInput,
+  ) {
+    return this.authoring.rejectCourseRevision(admin, id, body.note);
+  }
   @Post("courses/:id/status/validate")
   validateStatus(
     @CurrentUser() user: RequestUser,

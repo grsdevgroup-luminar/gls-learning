@@ -15,9 +15,6 @@ export function CurriculumEditor({ courseId, sections, dragSection, collapsedSec
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base">Curriculum</CardTitle>
-                <Button size="sm" variant="outline" onClick={addSection}>
-                  <Plus className="mr-2 h-4 w-4" /> Add section
-                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {sections?.map((s, si) => (
@@ -44,6 +41,9 @@ export function CurriculumEditor({ courseId, sections, dragSection, collapsedSec
                     No sections yet. Add your first section to get started.
                   </p>
                 )}
+                <Button type="button" variant="outline" className="w-full" onClick={addSection}>
+                  <Plus className="mr-2 h-4 w-4" /> Add section
+                </Button>
               </CardContent>
             </Card>
   );

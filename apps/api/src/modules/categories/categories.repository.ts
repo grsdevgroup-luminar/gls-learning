@@ -17,11 +17,15 @@ export class CategoriesRepository {
   findByName(name: string) {
     return this.prisma.category.findFirst({
       where: { name: { equals: name, mode: "insensitive" } },
+      include: { proposedBy: { select: { name: true, email: true } } },
     });
   }
 
   findAll() {
-    return this.prisma.category.findMany({ orderBy: [{ status: "asc" }, { name: "asc" }] });
+    return this.prisma.category.findMany({
+      orderBy: [{ status: "asc" }, { name: "asc" }],
+      include: { proposedBy: { select: { name: true, email: true } } },
+    });
   }
 
   countCourses(name: string) {
