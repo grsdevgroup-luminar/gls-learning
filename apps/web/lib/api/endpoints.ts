@@ -10,6 +10,8 @@ import type {
   AdminPricingDto,
   AdminStudentDto,
   AdminStudentProfileDto,
+  AdminStudentMembershipsDto,
+  AdminStudentActivityEntryDto,
   AutomationRuleDto,
   CommentDto,
   CouponDto,
@@ -106,6 +108,8 @@ export type {
   AdminOverviewDto,
   AdminStudentDto,
   AdminStudentProfileDto,
+  AdminStudentMembershipsDto,
+  AdminStudentActivityEntryDto,
   PlatformSettingsDto,
   AutomationRuleDto,
   CommentDto,
@@ -365,6 +369,19 @@ export const api = {
     apiFetch<AdminStudentStatsDto>("/admin/students/stats"),
   adminStudentProfile: (id: string) =>
     apiFetch<AdminStudentProfileDto>(`/admin/students/${id}/profile`),
+  adminStudentMemberships: (id: string) =>
+    apiFetch<AdminStudentMembershipsDto>(`/admin/students/${id}/memberships`),
+  adminStudentActivity: (id: string) =>
+    apiFetch<AdminStudentActivityEntryDto[]>(`/admin/students/${id}/activity`),
+  adminRestoreOrgMembership: (id: string, orgId: string) =>
+    apiFetch<{ ok: true }>(`/admin/students/${id}/org-memberships/${orgId}/restore`, {
+      method: "POST",
+    }),
+  adminRestorePartnerMembership: (id: string, courseAssignmentId: string) =>
+    apiFetch<{ ok: true }>(
+      `/admin/students/${id}/partner-courses/${courseAssignmentId}/restore`,
+      { method: "POST" },
+    ),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/admin/orders${qs(params)}`),
   adminOrderStats: () =>
@@ -483,8 +500,11 @@ export const api = {
     apiFetch<DeliveryPartnerMemberDto[]>(`/delivery-partner/courses/${courseAssignmentId}/members`),
   revokePartnerInvitation: (inviteId: string) =>
     apiFetch<{ ok: true }>(`/delivery-partner/invitations/${inviteId}`, { method: "DELETE" }),
-  removePartnerMember: (memberId: string) =>
-    apiFetch<{ ok: true }>(`/delivery-partner/members/${memberId}`, { method: "DELETE" }),
+  removePartnerMember: (memberId: string, reason?: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partner/members/${memberId}`, {
+      method: "DELETE",
+      body: { reason },
+    }),
   partnerInvitationInfo: (token: string) =>
     apiFetch<PartnerInvitationInfoDto>(`/delivery-partner/invitations/${token}`),
   claimPartnerInvitation: (token: string) =>
@@ -902,6 +922,12 @@ export const adminApi = {
     api.adminStudents(params),
   studentStats: () => api.adminStudentStats(),
   studentProfile: (id: string) => api.adminStudentProfile(id),
+  studentMemberships: (id: string) => api.adminStudentMemberships(id),
+  studentActivity: (id: string) => api.adminStudentActivity(id),
+  restoreOrgMembership: (id: string, orgId: string) =>
+    api.adminRestoreOrgMembership(id, orgId),
+  restorePartnerMembership: (id: string, courseAssignmentId: string) =>
+    api.adminRestorePartnerMembership(id, courseAssignmentId),
   orders: (params: Record<string, string | number | undefined> = {}) =>
     api.adminOrders(params),
   orderStats: () => api.adminOrderStats(),

@@ -79,6 +79,34 @@ export class AdminController {
     return this.admin.studentProfile(id);
   }
 
+  @Get("students/:id/memberships")
+  studentMemberships(@Param("id") id: string) {
+    return this.admin.studentMemberships(id);
+  }
+
+  @Get("students/:id/activity")
+  studentActivity(@Param("id") id: string) {
+    return this.admin.studentActivity(id);
+  }
+
+  @Post("students/:id/org-memberships/:orgId/restore")
+  restoreOrgMembership(
+    @Param("id") id: string,
+    @Param("orgId") orgId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.restoreOrgMembership(id, orgId, user.id);
+  }
+
+  @Post("students/:id/partner-courses/:courseAssignmentId/restore")
+  restorePartnerMembership(
+    @Param("id") id: string,
+    @Param("courseAssignmentId") courseAssignmentId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.admin.restorePartnerMembership(id, courseAssignmentId, user.id);
+  }
+
   @Get("courses")
   courses(@ZodQuery(adminCourseQuerySchema) query: AdminCourseQuery) {
     return this.admin.courses(query);

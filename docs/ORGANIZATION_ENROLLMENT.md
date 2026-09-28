@@ -138,7 +138,11 @@ the repo) has the original design discussion and research notes if deeper
 - **Org member**: sees a **"Team courses"** section in their normal student
   dashboard (`/dashboard/team`) listing the courses their company has made
   available, and can enroll for free. Once enrolled, it's the exact same
-  course player everyone else uses.
+  course player everyone else uses. The **sidebar nav entry itself is
+  conditional**: it only shows when the member belongs to at least one
+  unlocked org with `assignedCourseCount > 0` — a member of an org with zero
+  assigned courses (or none at all) never sees "Team courses" in the sidebar,
+  rather than clicking into an empty-state page (`(student)/layout.tsx`).
 
 ### Journey E — Making a course Public or Private
 A course's `visibility` is a platform-admin-only toggle in the course editor
@@ -183,7 +187,7 @@ TalentLMS, Microsoft 365 seat suspension) treats this.
 
 | Role | Where | Can do |
 |---|---|---|
-| Platform `ADMIN` | `/admin/organizations` | Create orgs, edit seats/status/suspension mode, assign/unassign courses (the **only** role that can), always bypasses an org's suspension lock |
+| Platform `ADMIN` | `/admin/organizations`, `/admin/students` | Create orgs, edit seats/status/suspension mode, assign/unassign courses (the **only** role that can), always bypasses an org's suspension lock; restore a member an org removed (§10) |
 | `ORG_ADMIN` (an `OrgMember` with `role: ADMIN`) | `/org/<slug>/*` | Manage their own org's branding, members, and invitations; **view** (not change) assigned courses — blocked entirely while the org's access is locked |
 | Ordinary member (`OrgMember` with `role: MEMBER`) | `/dashboard/team` | Browse and enroll in the org's assigned courses — blocked from *new* enrollments the moment an org is suspended; blocked from *existing* course content once the lock takes effect |
 
@@ -461,3 +465,28 @@ environment on 2026-09-05/06):
   row — an admin assigning the same course to a second org has no in-dialog
   hint that it's already shared elsewhere (harmless; assignment is additive
   and idempotent-safe either way). A nice-to-have, not required for this pass.
+
+## 10. Addendum: admin oversight, restore, and audit for removed members
+
+`OrgMember` removal (§2's "remove members" action) used to be a hard
+`DELETE` — no record, no way for a platform admin to see it happened, no way
+to undo it. That changed: `OrgMember` is now soft-deleted (`removedAt`/
+`removedBy`/`removedReason` columns, a partial unique index so a removed
+email can be re-invited without colliding with its own history), a platform
+admin can restore the most recently removed membership for a student via
+`POST /admin/students/:id/org-memberships/:orgId/restore` (always succeeds,
+even over the org's seat cap — an admin override can't be blocked by the
+same org's own settings), and every removal/restore is now recorded in an
+audit trail visible on the student's admin detail view (`/admin/students` →
+a row → "Memberships"/"Activity" tabs). `Organization.totalInvitesSent` is a
+new lifetime counter (invites ever sent, never decremented) shown alongside
+`usedSeats` so a removed member doesn't make an org's invite history look
+smaller than it really is.
+
+This was driven by the delivery-partner side of the same problem (a partner
+unilaterally revoking a paying student, with no recourse) and built
+identically for both `OrgMember` and `DeliveryPartnerMember` in one pass —
+the full writeup, including the schema/migration details and the lesson-
+access-control gap it also closed, is in
+[`DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md`](./DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md)
+§14, not duplicated here.

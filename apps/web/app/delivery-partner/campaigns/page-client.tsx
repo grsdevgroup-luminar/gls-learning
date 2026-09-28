@@ -15,6 +15,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Megaphone, Copy, Percent, CheckCircle2, Clock3, Ban } from "lucide-react";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import {
@@ -26,6 +27,32 @@ import {
 import { toast } from "sonner";
 
 type CampaignStatus = DeliveryPartnerCampaignDto["status"];
+
+/** Which courses a campaign discounts — GLOBAL applies to the whole catalog,
+ *  SPECIFIC only to the courses the admin picked when setting it up. Shown
+ *  inline (not just a count) so the partner can tell at a glance what
+ *  they're actually promoting. */
+function CampaignCoursesCell({ campaign: c }: { campaign: DeliveryPartnerCampaignDto }) {
+  if (c.scope !== "SPECIFIC") {
+    return <Badge variant="secondary" className="text-xs font-normal">All courses</Badge>;
+  }
+  if (c.courses.length === 0) {
+    return <span className="text-xs text-muted-foreground">No courses selected</span>;
+  }
+  const shown = c.courses.slice(0, 2).map((co) => co.title);
+  const extra = c.courses.length - shown.length;
+  const label = extra > 0 ? `${shown.join(", ")} +${extra} more` : shown.join(", ");
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="block max-w-[220px] cursor-default truncate text-xs" />}>
+        {label}
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-left leading-relaxed" side="top">
+        {c.courses.map((co) => co.title).join(", ")}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 const statusStyle: Record<CampaignStatus, { label: string; className: string }> = {
   active: { label: "Active", className: "text-success" },
@@ -128,6 +155,7 @@ export default function PartnerCampaigns() {
             <TableRow className={stickyHeaderRowClass}>
               <TableHead className={stickyHeaderCellClass}>Code</TableHead>
               <TableHead className={stickyHeaderCellClass}>Discount</TableHead>
+              <TableHead className={stickyHeaderCellClass}>Courses</TableHead>
               <TableHead className={stickyHeaderCellClass}>Usage</TableHead>
               <TableHead className={stickyHeaderCellClass}>Dates</TableHead>
               <TableHead className={stickyHeaderCellClass}>Status</TableHead>
@@ -136,13 +164,13 @@ export default function PartnerCampaigns() {
           <TableBody>
             {all.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                   No campaigns yet — ask an admin to set one up for you.
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                   No campaigns match this search/filter.
                 </TableCell>
               </TableRow>
@@ -166,6 +194,9 @@ export default function PartnerCampaigns() {
                     <div className="flex items-center gap-1 text-sm font-semibold">
                       <Percent className="h-3.5 w-3.5 text-primary" /> {c.discountPercent}%
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <CampaignCoursesCell campaign={c} />
                   </TableCell>
                   <TableCell>
                     {c.usageLimit > 0 ? (

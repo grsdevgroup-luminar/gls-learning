@@ -210,7 +210,12 @@ export default function AdminOrganizations() {
                       <div className="text-xs text-muted-foreground">{o.adminEmail}</div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{o.domain ?? "—"}</TableCell>
-                    <TableCell className="text-sm">{o.usedSeats} / {o.seatCount}</TableCell>
+                    <TableCell className="text-sm">
+                      {o.usedSeats} / {o.seatCount}
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        ({o.totalInvitesSent} invited)
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm">{o.assignedCourseCount}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={statusColors[o.status] ?? ""}>

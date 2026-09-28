@@ -21,7 +21,7 @@ export function UnlimitedNumberInput({
   onChange,
   unlimitedValue = "0",
   defaultLimitedValue = "10",
-  min = 0,
+  min = 1,
   max = 1000,
   className,
   inputClassName,
@@ -71,7 +71,15 @@ export function UnlimitedNumberInput({
         disabled={disabled || isUnlimited}
         aria-label={ariaLabel}
         className={inputClassName}
-        onChange={(e) => onChange(e.target.value)}
+        // 0 is reserved for "unlimited" and only reachable via the ∞ button
+        // below — typing it here directly would silently mean the same
+        // thing without the explicit toggle, so it's clamped up to the
+        // minimum instead.
+        onChange={(e) => {
+          const raw = e.target.value;
+          const n = Number(raw);
+          onChange(raw !== "" && !Number.isNaN(n) && n < min ? String(min) : raw);
+        }}
       />
       <Tooltip>
         <TooltipTrigger

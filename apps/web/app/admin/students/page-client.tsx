@@ -16,7 +16,7 @@ import { Search, Users, UserCheck, AlertTriangle, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { flagFor, formatCountry } from "@/lib/countries";
-import { StudentProfileDialog } from "@/components/shared/student-profile-dialog";
+import { AdminStudentDetailDialog } from "@/components/shared/admin-student-detail-dialog";
 import {
   AdminPagination,
   AdminRowsPerPage,
@@ -56,11 +56,6 @@ export default function AdminStudents() {
   const { data: statsData } = useQuery({
     queryKey: ["admin", "students", "stats"],
     queryFn: adminApi.studentStats,
-  });
-  const { data: selectedStudent, isLoading: isProfileLoading, error: profileError } = useQuery({
-    queryKey: ["admin", "student-profile", selectedStudentId],
-    queryFn: () => adminApi.studentProfile(selectedStudentId!),
-    enabled: Boolean(selectedStudentId),
   });
 
   const suspendMutation = useMutation({
@@ -198,11 +193,9 @@ export default function AdminStudents() {
         </div>
       )}
 
-      <StudentProfileDialog
-        student={selectedStudent}
+      <AdminStudentDetailDialog
+        studentId={selectedStudentId}
         open={Boolean(selectedStudentId)}
-        loading={isProfileLoading}
-        error={profileError}
         onOpenChange={(open) => {
           if (!open) setSelectedStudentId(null);
         }}

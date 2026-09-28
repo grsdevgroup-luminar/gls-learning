@@ -51,7 +51,9 @@ export function StudentProfileDialog({
   );
 }
 
-function ProfileDetails({ student }: { student: AdminStudentProfileDto }) {
+/** Exported so AdminStudentDetailDialog can reuse it as its "Overview" tab
+ *  content without duplicating this markup. */
+export function ProfileDetails({ student }: { student: AdminStudentProfileDto }) {
   const badge = statusBadge[student.status as StatusKey] ?? { label: student.status, cls: "" };
   const interests = [...student.interests.categories, ...student.interests.keywords];
   return (
@@ -127,7 +129,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return <div><span className="text-xs text-muted-foreground">{label}</span><p className="mt-0.5 text-sm">{value}</p></div>;
 }
 
-function ProfileSkeleton() {
+export function ProfileSkeleton() {
   return <div className="space-y-4 py-2">{["h-20", "h-24", "h-32", "h-44"].map((height) => <div key={height} className={`animate-pulse rounded-lg bg-muted ${height}`} />)}</div>;
 }
 

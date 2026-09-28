@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DeliveryPartnerStatus, ReferralStatus } from "../enums";
+import { DeliveryPartnerCampaignScope, DeliveryPartnerStatus, ReferralStatus } from "../enums";
 import { searchQuerySchema } from "./common.js";
 import { countryCodeSchema, emailSchema, passwordSchema } from "./auth.js";
 import type { CourseSummaryDto } from "./catalog.js";
@@ -186,7 +186,13 @@ export interface DeliveryPartnerCourseAssignmentDto {
   partnerId: string;
   course: CourseSummaryDto;
   memberCap: number;
+  /** Lifetime count of accepted invitations — never decreases, even once a
+   *  member is later removed. See DeliveryPartnerCourseAssignment.usedSeats. */
   usedSeats: number;
+  /** Lifetime invites sent against this assignment — never decreases either,
+   *  but counts every invite sent (not just accepted ones), unlike usedSeats.
+   *  See DeliveryPartnerCourseAssignment.totalInvitesSent. */
+  totalInvitesSent: number;
   createdAt: string;
 }
 
@@ -194,6 +200,15 @@ export const InvitePartnerMemberSchema = z.object({
   email: emailSchema,
 });
 export type InvitePartnerMemberInput = z.infer<typeof InvitePartnerMemberSchema>;
+
+/** Unlike RemoveOrgMemberSchema, a reason is optional here — captured when
+ *  the partner provides one, but removal isn't blocked without it. Added for
+ *  admin-visibility parity (see AdminStudentMembershipsDto), not to force a
+ *  workflow change on the partner side. */
+export const RemovePartnerMemberSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+export type RemovePartnerMemberInput = z.infer<typeof RemovePartnerMemberSchema>;
 
 export interface DeliveryPartnerMemberDto {
   id: string;
@@ -225,8 +240,7 @@ export interface PartnerInvitationInfoDto {
 }
 
 /** One course a member has access to via a delivery partner — powers the
- *  member-facing granted-courses page (deliberately not /dashboard/team,
- *  see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3). */
+ *  "From your delivery partners" section on the student's main dashboard. */
 export interface PartnerGrantedCourseDto {
   courseAssignmentId: string;
   partnerName: string;
@@ -239,10 +253,15 @@ export interface PartnerGrantedCourseDto {
 }
 
 // ─── Campaigns (admin-created, discount + commission at checkout) ──────────
-// Applicable to all courses (global, no course scope — unlike Coupon). At
-// most one active campaign with an overlapping date range per partner,
-// enforced in the service layer. The sole delivery-partner commission
-// attribution mechanism — see docs/FEATURE_FLOWS.md §5.2.
+// GLOBAL (default) applies to every course; SPECIFIC scopes the campaign to
+// `courseIds` — independent of the course-assignment feature (which courses
+// a partner may distribute to invited members). At most one active campaign
+// with an overlapping date range per partner, enforced in the service layer.
+// The sole delivery-partner commission attribution mechanism — see
+// docs/FEATURE_FLOWS.md §5.2.
+
+const campaignScopeRefinement = (v: { scope?: DeliveryPartnerCampaignScope; courseIds?: string[] }) =>
+  v.scope !== "SPECIFIC" || (v.courseIds && v.courseIds.length > 0);
 
 export const CreatePartnerCampaignSchema = z
   .object({
@@ -252,10 +271,17 @@ export const CreatePartnerCampaignSchema = z
     /** 0 (or omitted) = unlimited. Counts paid orders only — see
      *  DeliveryPartnerCampaign.usageLimit in schema.prisma. */
     usageLimit: z.number().int().min(0).max(1_000_000).default(0),
+    scope: z.nativeEnum(DeliveryPartnerCampaignScope).default("GLOBAL"),
+    /** Required + non-empty when scope is SPECIFIC; ignored otherwise. */
+    courseIds: z.array(z.string().min(1)).optional(),
   })
   .refine((v) => v.endDate > v.startDate, {
     message: "End date must be after the start date",
     path: ["endDate"],
+  })
+  .refine(campaignScopeRefinement, {
+    message: "Select at least one course for a course-specific campaign",
+    path: ["courseIds"],
   });
 export type CreatePartnerCampaignInput = z.infer<typeof CreatePartnerCampaignSchema>;
 
@@ -266,11 +292,20 @@ export const UpdatePartnerCampaignSchema = z
     endDate: z.coerce.date().optional(),
     usageLimit: z.number().int().min(0).max(1_000_000).optional(),
     active: z.boolean().optional(),
+    scope: z.nativeEnum(DeliveryPartnerCampaignScope).optional(),
+    courseIds: z.array(z.string().min(1)).optional(),
   })
   .refine((v) => !v.startDate || !v.endDate || v.endDate > v.startDate, {
     message: "End date must be after the start date",
     path: ["endDate"],
-  });
+  })
+  .refine(
+    (v) => v.scope === undefined || campaignScopeRefinement(v),
+    {
+      message: "Select at least one course for a course-specific campaign",
+      path: ["courseIds"],
+    },
+  );
 export type UpdatePartnerCampaignInput = z.infer<typeof UpdatePartnerCampaignSchema>;
 
 export interface DeliveryPartnerCampaignDto {
@@ -284,5 +319,9 @@ export interface DeliveryPartnerCampaignDto {
   usageLimit: number;
   usageCount: number;
   status: "disabled" | "scheduled" | "expired" | "limit-reached" | "active";
+  scope: DeliveryPartnerCampaignScope;
+  courseIds: string[];
+  /** Titles for `courseIds`, so the admin UI doesn't need a second round-trip. */
+  courses: { id: string; title: string }[];
   createdAt: string;
 }

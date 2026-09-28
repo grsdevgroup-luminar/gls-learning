@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AutomationRule, Coupon, PlatformSettings, Prisma } from "@prisma/client";
 import type {
   AdminAnalyticsDto,
@@ -7,7 +7,9 @@ import type {
   AdminOrderQuery,
   AdminOrderStatsDto,
   AdminOverviewDto,
+  AdminStudentActivityEntryDto,
   AdminStudentDto,
+  AdminStudentMembershipsDto,
   AdminStudentProfileDto,
   AdminStudentStatsDto,
   AutomationRuleDto,
@@ -28,6 +30,8 @@ import type { Db } from "../../common/types";
 import { toCourseSummary } from "../courses/course.mapper";
 import { CreditsService } from "../credits/credits.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { OrganizationsService } from "../organizations/organizations.service";
+import { DeliveryPartnerService } from "../delivery-partner/delivery-partner.service";
 import { AdminRepository } from "./admin.repository";
 
 /** Settings are a single pinned row (see the PlatformSettings model). */
@@ -58,6 +62,9 @@ export class AdminService {
     private readonly repo: AdminRepository,
     private readonly credits: CreditsService,
     private readonly notifications: NotificationsService,
+    @Inject(forwardRef(() => OrganizationsService))
+    private readonly organizations: OrganizationsService,
+    private readonly deliveryPartners: DeliveryPartnerService,
   ) {}
 
   async overview(): Promise<AdminOverviewDto> {
@@ -303,6 +310,49 @@ export class AdminService {
   async studentStats(): Promise<AdminStudentStatsDto> {
     const [total, active] = await this.repo.studentStatsCounts();
     return { total, active, atRisk: total - active };
+  }
+
+  /** Every org and delivery-partner-course membership this student has ever
+   *  held, current or past — the platform-wide view a delivery partner/org's
+   *  own admin console doesn't have. Powers the "Memberships" tab so an
+   *  admin can see (and restore, below) a membership an org/partner removed. */
+  async studentMemberships(userId: string): Promise<AdminStudentMembershipsDto> {
+    const [organizations, deliveryPartnerCourses] = await Promise.all([
+      this.organizations.adminMembershipHistory(userId),
+      this.deliveryPartners.adminMembershipHistory(userId),
+    ]);
+    return { organizations, deliveryPartnerCourses };
+  }
+
+  /** Restores a student's org membership after an org removed them —
+   *  always succeeds, even over the org's seat cap (confirmed product
+   *  decision: an admin override must not be blocked by the same org's own
+   *  seat settings). */
+  restoreOrgMembership(userId: string, orgId: string, adminUserId: string) {
+    return this.organizations.adminRestoreMember(userId, orgId, adminUserId);
+  }
+
+  /** Mirrors restoreOrgMembership for a delivery-partner course membership. */
+  restorePartnerMembership(userId: string, courseAssignmentId: string, adminUserId: string) {
+    return this.deliveryPartners.adminRestoreMember(userId, courseAssignmentId, adminUserId);
+  }
+
+  /** Audited events that happened to this student — invite created/revoked,
+   *  member removed/restored — newest first. Powers the "Activity" tab. */
+  async studentActivity(userId: string): Promise<AdminStudentActivityEntryDto[]> {
+    const rows = await this.repo.findStudentActivity(userId);
+    const actorIds = [...new Set(rows.map((r) => r.actorUserId).filter((id): id is string => !!id))];
+    const actors = actorIds.length ? await this.repo.findUsersByIds(actorIds) : [];
+    const actorById = new Map(actors.map((a) => [a.id, a.name]));
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      actor: r.actorUserId
+        ? { id: r.actorUserId, name: actorById.get(r.actorUserId) ?? "Unknown" }
+        : null,
+      metadata: (r.metadata ?? {}) as Record<string, unknown>,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   /** `visibility`/`category`/`unassignedToOrgId`/`unassignedToPartnerId`

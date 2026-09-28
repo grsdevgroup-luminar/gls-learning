@@ -5,23 +5,17 @@ export const addCartItemSchema = z.object({
 });
 export type AddCartItemInput = z.infer<typeof addCartItemSchema>;
 
-export const setCartCouponSchema = z.object({
-  couponCode: z.string().trim().nullable(),
+/** One discount/referral code field — the server resolves whether it's a
+ *  Coupon or a DeliveryPartnerCampaign code (see CodeResolverService) and
+ *  stores it in the matching (mutually exclusive) cart column. */
+export const setCartCodeSchema = z.object({
+  code: z.string().trim().nullable(),
 });
-export type SetCartCouponInput = z.infer<typeof setCartCouponSchema>;
-
-/** Mutually exclusive with the coupon — setting a campaign code is expected
- *  to accompany clearing couponCode client-side (and vice versa); the server
- *  re-validates this at quote time regardless (see CheckoutService.quote). */
-export const setCartCampaignSchema = z.object({
-  campaignCode: z.string().trim().nullable(),
-});
-export type SetCartCampaignInput = z.infer<typeof setCartCampaignSchema>;
+export type SetCartCodeInput = z.infer<typeof setCartCodeSchema>;
 
 export const mergeCartSchema = z.object({
   courseIds: z.array(z.string().min(1)).default([]),
-  couponCode: z.string().trim().nullable().optional(),
-  campaignCode: z.string().trim().nullable().optional(),
+  code: z.string().trim().nullable().optional(),
 });
 export type MergeCartInput = z.infer<typeof mergeCartSchema>;
 
@@ -32,7 +26,9 @@ export interface CartItemDto {
 
 export interface CartDto {
   items: CartItemDto[];
-  couponCode: string | null;
-  campaignCode: string | null;
+  /** Whichever of the cart's (mutually exclusive) coupon/campaign columns is
+   *  set — the frontend no longer needs to know which type it resolved to
+   *  until it re-quotes (see QuoteDto.appliedCode). */
+  code: string | null;
   updatedAt: string;
 }

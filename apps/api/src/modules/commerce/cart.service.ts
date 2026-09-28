@@ -3,12 +3,14 @@ import type { CartDto, MergeCartInput } from "@skillstream/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Db } from "../../common/types";
 import { CartRepository, type CartRow } from "./cart.repository";
+import { CodeResolverService } from "./code-resolver.service";
 
 @Injectable()
 export class CartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly repo: CartRepository,
+    private readonly codeResolver: CodeResolverService,
   ) {}
 
   private toDto(row: CartRow): CartDto {
@@ -17,8 +19,7 @@ export class CartService {
         courseId: i.courseId,
         addedAt: i.createdAt.toISOString(),
       })),
-      couponCode: row.couponCode,
-      campaignCode: row.campaignCode,
+      code: row.couponCode ?? row.campaignCode,
       updatedAt: row.updatedAt.toISOString(),
     };
   }
@@ -66,44 +67,39 @@ export class CartService {
     return this.toDto((await this.repo.findByUserId(userId))!);
   }
 
-  /** Mutually exclusive with the campaign code — applying a coupon clears
-   *  whatever campaign code was set, enforced here so the two can never both
-   *  be present regardless of what the client sends. */
-  async setCoupon(
-    userId: string,
-    couponCode: string | null,
-  ): Promise<CartDto> {
+  /** One code field — resolves whether it's a Coupon or a
+   *  DeliveryPartnerCampaign code (see CodeResolverService) and writes it to
+   *  the matching cart column, clearing the other so the two stay mutually
+   *  exclusive regardless of what the client sends. An unresolved code is
+   *  stored as a coupon code anyway, so it still round-trips through the
+   *  existing "coupon not found" error at quote time instead of needing a
+   *  third state here. */
+  async setCode(userId: string, code: string | null): Promise<CartDto> {
     const cart = await this.ensure(userId);
-    const normalized = couponCode?.trim().toUpperCase() || null;
+    const normalized = code?.trim().toUpperCase() || null;
     await this.prisma.$transaction(async (tx) => {
-      await this.repo.setCoupon(cart.id, normalized, tx);
-      if (normalized) await this.repo.setCampaign(cart.id, null, tx);
-    });
-    return this.toDto((await this.repo.findByUserId(userId))!);
-  }
-
-  /** Mirrors setCoupon — mutually exclusive with it. */
-  async setCampaign(
-    userId: string,
-    campaignCode: string | null,
-  ): Promise<CartDto> {
-    const cart = await this.ensure(userId);
-    const normalized = campaignCode?.trim().toUpperCase() || null;
-    await this.prisma.$transaction(async (tx) => {
-      await this.repo.setCampaign(cart.id, normalized, tx);
-      if (normalized) await this.repo.setCoupon(cart.id, null, tx);
+      if (!normalized) {
+        await this.repo.setCoupon(cart.id, null, tx);
+        await this.repo.setCampaign(cart.id, null, tx);
+        return;
+      }
+      const type = await this.codeResolver.resolveType(normalized, tx);
+      if (type === "campaign") {
+        await this.repo.setCampaign(cart.id, normalized, tx);
+        await this.repo.setCoupon(cart.id, null, tx);
+      } else {
+        await this.repo.setCoupon(cart.id, normalized, tx);
+        await this.repo.setCampaign(cart.id, null, tx);
+      }
     });
     return this.toDto((await this.repo.findByUserId(userId))!);
   }
 
   /**
    * Merges a guest cart (from localStorage) into the user's DB cart on login.
-   * Union of course IDs; the server-side coupon/campaign wins unless empty,
-   * in which case the guest-provided one is adopted. Idempotent — safe to
-   * call twice. A guest could in principle have set both client-side (e.g.
-   * two browser tabs) — coupon wins arbitrarily but deterministically if so,
-   * same "first field wins" tie-break as the rest of this mutual-exclusivity
-   * logic.
+   * Union of course IDs; the server-side code wins unless empty, in which
+   * case the guest-provided one is adopted (type resolved the same way
+   * setCode does). Idempotent — safe to call twice.
    */
   async merge(userId: string, input: MergeCartInput): Promise<CartDto> {
     await this.prisma.$transaction(async (tx) => {
@@ -112,12 +108,11 @@ export class CartService {
         await this.repo.addItem(cart.id, courseId, tx);
       }
       const hasItems = cart.items.length > 0 || input.courseIds.length > 0;
-      if (!cart.couponCode && !cart.campaignCode && hasItems) {
-        if (input.couponCode) {
-          await this.repo.setCoupon(cart.id, input.couponCode.trim().toUpperCase() || null, tx);
-        } else if (input.campaignCode) {
-          await this.repo.setCampaign(cart.id, input.campaignCode.trim().toUpperCase() || null, tx);
-        }
+      const guestCode = input.code?.trim().toUpperCase() || null;
+      if (!cart.couponCode && !cart.campaignCode && hasItems && guestCode) {
+        const type = await this.codeResolver.resolveType(guestCode, tx);
+        if (type === "campaign") await this.repo.setCampaign(cart.id, guestCode, tx);
+        else await this.repo.setCoupon(cart.id, guestCode, tx);
       }
     });
     return this.toDto((await this.repo.findByUserId(userId))!);

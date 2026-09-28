@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { AdminRepository } from "../admin.repository";
 import type { CreditsService } from "../../credits/credits.service";
 import type { NotificationsService } from "../../notifications/notifications.service";
+import type { OrganizationsService } from "../../organizations/organizations.service";
+import type { DeliveryPartnerService } from "../../delivery-partner/delivery-partner.service";
 import { AdminService } from "../admin.service";
 
 const orderId = "order_1";
@@ -57,7 +59,9 @@ function makeService(repoOverrides: Partial<AdminRepository>) {
     notify: vi.fn().mockResolvedValue(undefined),
     notifyEmailAfterCommit: vi.fn().mockResolvedValue(undefined),
   } as unknown as NotificationsService;
-  return new AdminService(repo, credits, notifications);
+  const organizations = {} as OrganizationsService;
+  const deliveryPartners = {} as DeliveryPartnerService;
+  return new AdminService(repo, credits, notifications, organizations, deliveryPartners);
 }
 
 describe("AdminService refund → delivery-partner commission reversal", () => {

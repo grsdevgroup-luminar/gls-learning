@@ -5,6 +5,8 @@
 // All money in integer cents.
 // ---------------------------------------------------------------------------
 
+import type { DeliveryPartnerCampaignScope } from "./enums.js";
+
 export interface PartnerCampaignLike {
   code: string;
   partnerName: string;
@@ -18,6 +20,10 @@ export interface PartnerCampaignLike {
    *  partner's campaign stops working immediately, same as their other
    *  self-service actions (DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §11.2). */
   partnerApproved: boolean;
+  scope: DeliveryPartnerCampaignScope;
+  /** Course ids this campaign applies to — only meaningful when scope is
+   *  SPECIFIC; empty/ignored when GLOBAL. */
+  courseIds: string[];
 }
 
 export type PartnerCampaignStatus =
@@ -56,12 +62,17 @@ export interface PartnerCampaignResult {
   campaign?: PartnerCampaignLike;
 }
 
-/** Validate a campaign code against a cart subtotal (cents). Unlike Coupon,
- *  a campaign is always GLOBAL (applicable to all courses) — no course-scope
- *  check needed. `now` is injected so the API (real clock) and tests (fixed
- *  clock) agree. */
+/** Validate a campaign code against the cart's course ids. `now` is injected
+ *  so the API (real clock) and tests (fixed clock) agree.
+ *
+ *  Unlike Coupon's course scope (all-or-nothing — a mismatched course rejects
+ *  the whole code), a SPECIFIC campaign with only a *partial* overlap still
+ *  validates: the code applies, just only to the eligible lines. The caller
+ *  computes eligibility (see eligibleCampaignCourseIds) and only rejects
+ *  outright when there's no overlap at all. */
 export function validatePartnerCampaign(
   campaign: PartnerCampaignLike | undefined | null,
+  cartCourseIds: string[] = [],
   now: Date = new Date(),
 ): PartnerCampaignResult {
   if (!campaign) return { ok: false, message: "That referral code isn't valid." };
@@ -74,6 +85,11 @@ export function validatePartnerCampaign(
     return { ok: false, message: "This referral code isn't active yet." };
   if (status === "limit-reached")
     return { ok: false, message: "This referral code has reached its usage limit." };
+  if (
+    campaign.scope === "SPECIFIC" &&
+    !cartCourseIds.some((id) => campaign.courseIds.includes(id))
+  )
+    return { ok: false, message: "This referral code doesn't apply to any course in your cart." };
   return {
     ok: true,
     message: `${campaign.discountPercent}% off, courtesy of ${campaign.partnerName}`,
@@ -81,15 +97,28 @@ export function validatePartnerCampaign(
   };
 }
 
-/** Discount amount in cents, never exceeding the subtotal (percent is
- *  bounded 0-100 at input validation, so this is a formality, not a clamp
- *  that ever actually triggers). */
+/** The cart course ids this campaign's discount actually covers — every
+ *  course id when GLOBAL, the intersecting subset when SPECIFIC. */
+export function eligibleCampaignCourseIds(
+  campaign: PartnerCampaignLike,
+  cartCourseIds: string[],
+): string[] {
+  return campaign.scope === "SPECIFIC"
+    ? cartCourseIds.filter((id) => campaign.courseIds.includes(id))
+    : cartCourseIds;
+}
+
+/** Discount amount in cents, never exceeding the eligible subtotal (percent
+ *  is bounded 0-100 at input validation, so this is a formality, not a clamp
+ *  that ever actually triggers). Pass only the eligible lines' subtotal —
+ *  GLOBAL means every line is eligible, SPECIFIC means only the overlapping
+ *  ones (see eligibleCampaignCourseIds). */
 export function partnerCampaignDiscountCents(
   campaign: PartnerCampaignLike,
-  subtotalCents: number,
+  eligibleSubtotalCents: number,
 ): number {
   return Math.min(
-    subtotalCents,
-    Math.round(subtotalCents * (campaign.discountPercent / 100)),
+    eligibleSubtotalCents,
+    Math.round(eligibleSubtotalCents * (campaign.discountPercent / 100)),
   );
 }

@@ -1,19 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import {
   useCoursePreferences,
   useMyEnrollments,
+  useMyGrantedCourses,
   useRecommendedCourses,
 } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
 import { CoursePreferencesModal } from "@/components/shared/course-preferences-modal";
+import { PartnerInviteModal } from "@/components/shared/partner-invite-modal";
 import { CourseArt } from "@/components/shared/course-art";
 import { Meter } from "@/components/shared/meter";
 import { CircularProgress } from "@/components/shared/circular-progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
@@ -25,19 +33,40 @@ import {
   ChevronRight,
   TrendingUp,
   SlidersHorizontal,
+  Lock,
+  Globe,
+  Plus,
+  Play,
+  PauseCircle,
 } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export default function DashboardClient() {
+  const qc = useQueryClient();
+  const router = useRouter();
   const { user, isLoading: sessionLoading } = useSession();
   const { data: enrollments, isLoading: enrollLoading } = useMyEnrollments();
   const { data: recommendedCourses, isLoading: coursesLoading } =
     useRecommendedCourses(4);
   const { data: preferences, isLoading: preferencesLoading } =
     useCoursePreferences();
+  const { data: granted } = useMyGrantedCourses();
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const isLoading = sessionLoading || enrollLoading;
+
+  const enrollGranted = useMutation({
+    mutationFn: (courseId: string) => api.enrollFree(courseId),
+    onSuccess: (enrollment) => {
+      void qc.invalidateQueries({ queryKey: ["enrollments"] });
+      toast.success("Enrolled!", {
+        description: "The course is now in your dashboard.",
+      });
+      router.push(`/learn/${enrollment.course.slug}`);
+    },
+    onError: (err) =>
+      toast.error("Could not enroll", { description: getApiErrorMessage(err) }),
+  });
 
   if (isLoading) {
     return (
@@ -79,6 +108,11 @@ export default function DashboardClient() {
   const timeLearnedSec = enrolled.reduce((sum, e) => sum + e.timeLearnedSec, 0);
   const watchTimeSec = enrolled.reduce((sum, e) => sum + e.watchTimeSec, 0);
   const recommended = recommendedCourses ?? [];
+  const enrolledIds = new Set(enrolled.map((e) => e.courseId));
+  // Students see these as plain available courses — where the access grant
+  // came from (a delivery partner's invite) is a back-office detail, not
+  // something surfaced in the student-facing UI.
+  const grantedCourses = granted ?? [];
   const savedCategories = preferences?.categories ?? [];
   const stats = [
     {
@@ -275,6 +309,88 @@ export default function DashboardClient() {
           </Button>
         </section>
       )}
+
+      {grantedCourses.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Available courses
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {grantedCourses.map((g) => {
+              const c = g.course;
+              const isEnrolled = enrolledIds.has(c.id);
+              const ownCourse = !!user?.id && c.instructor.id === user.id;
+              return (
+                <Card key={g.courseAssignmentId}>
+                  <CardContent className="flex flex-col gap-3 p-4">
+                    <div className="flex gap-3">
+                      <CourseArt
+                        seed={c.thumbnail}
+                        title={c.title}
+                        className="h-14 w-14 shrink-0 rounded-lg"
+                        iconSize={28}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          {c.title}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {c.category} · {c.level}
+                        </div>
+                        {c.visibility === "PRIVATE" ? (
+                          <div className="mt-1.5 flex items-center gap-1 text-xs text-primary">
+                            <Lock className="h-3 w-3" /> Private · included
+                          </div>
+                        ) : (
+                          <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Globe className="h-3 w-3" /> Public · included
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {g.partnerSuspended ? (
+                      <Button variant="outline" size="sm" className="w-full" disabled>
+                        <PauseCircle className="h-4 w-4" /> Temporarily unavailable
+                      </Button>
+                    ) : isEnrolled ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        render={<Link href={`/learn/${c.slug}`} />}
+                      >
+                        <Play className="h-4 w-4" /> Continue
+                      </Button>
+                    ) : ownCourse ? (
+                      <Button variant="outline" size="sm" className="w-full" disabled>
+                        You manage this course
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => enrollGranted.mutate(c.id)}
+                        disabled={
+                          enrollGranted.isPending &&
+                          enrollGranted.variables === c.id
+                        }
+                      >
+                        <Plus className="h-4 w-4" />{" "}
+                        {enrollGranted.isPending &&
+                        enrollGranted.variables === c.id
+                          ? "Enrolling…"
+                          : "Enroll"}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <PartnerInviteModal />
 
       <section className="flex flex-col gap-4 rounded-xl border border-border bg-secondary/50 p-4 sm:flex-row sm:items-center sm:p-5">
         <div className="flex items-start gap-4 sm:flex-1">

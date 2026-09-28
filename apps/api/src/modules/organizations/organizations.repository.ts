@@ -5,7 +5,10 @@ import { COURSE_SUMMARY_INCLUDE } from "../courses/course.mapper";
 import type { Db } from "../../common/types";
 
 export const ORG_INCLUDE = {
-  members: { orderBy: { joinedAt: "asc" } },
+  // Active roster only — a soft-removed member (see OrgMember.removedAt) is
+  // no longer part of the org's day-to-day view; their history is admin-only,
+  // via findMembershipHistory below.
+  members: { where: { removedAt: null }, orderBy: { joinedAt: "asc" } },
   _count: { select: { courseAssignments: true } },
 } satisfies Prisma.OrganizationInclude;
 
@@ -31,7 +34,7 @@ export class OrganizationsRepository {
 
   findAdminMembership(orgId: string, userId: string) {
     return this.prisma.orgMember.findFirst({
-      where: { orgId, userId, role: "ADMIN" },
+      where: { orgId, userId, role: "ADMIN", removedAt: null },
     });
   }
 
@@ -43,6 +46,13 @@ export class OrganizationsRepository {
 
   findUserByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+  }
+
+  findUsersByIds(ids: string[]) {
+    return this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
   }
 
   createOrganization(data: Prisma.OrganizationCreateInput) {
@@ -97,8 +107,17 @@ export class OrganizationsRepository {
     });
   }
 
-  createInvitation(data: Prisma.OrgInvitationUncheckedCreateInput) {
-    return this.prisma.orgInvitation.create({ data });
+  createInvitation(data: Prisma.OrgInvitationUncheckedCreateInput, tx?: Db) {
+    return this.db(tx).orgInvitation.create({ data });
+  }
+
+  /** Lifetime counter — incremented alongside createInvitation, in the same
+   *  transaction, and never decremented anywhere. */
+  incrementTotalInvitesSent(orgId: string, tx?: Db) {
+    return this.db(tx).organization.update({
+      where: { id: orgId },
+      data: { totalInvitesSent: { increment: 1 } },
+    });
   }
 
   findInvitationByToken(token: string) {
@@ -124,7 +143,14 @@ export class OrganizationsRepository {
     });
   }
 
-  upsertOrgMember(
+  /** Not a Prisma `upsert` — the unique key on (orgId, email) is now a
+   *  *partial* index (active rows only, see the migration), which Prisma's
+   *  generated compound-unique input can't target. Idempotent for a
+   *  still-active membership (re-claiming updates it in place); if the only
+   *  match is a soft-removed historical row, a genuinely new membership row
+   *  is created rather than reviving the old one — reviving a specific past
+   *  removal is what the admin-only restore flow is for. */
+  async upsertOrgMember(
     orgId: string,
     userId: string,
     email: string,
@@ -132,17 +158,14 @@ export class OrganizationsRepository {
     role: Prisma.OrgMemberCreateInput["role"],
     tx?: Db,
   ) {
-    return this.db(tx).orgMember.upsert({
-      where: { orgId_email: { orgId, email } },
-      update: { userId, role },
-      create: {
-        orgId,
-        userId,
-        name,
-        email,
-        role,
-      },
+    const db = this.db(tx);
+    const active = await db.orgMember.findFirst({
+      where: { orgId, email, removedAt: null },
     });
+    if (active) {
+      return db.orgMember.update({ where: { id: active.id }, data: { userId, role } });
+    }
+    return db.orgMember.create({ data: { orgId, userId, name, email, role } });
   }
 
   incrementUsedSeats(orgId: string, tx?: Db) {
@@ -179,18 +202,50 @@ export class OrganizationsRepository {
 
   findMember(memberId: string, orgId: string) {
     return this.prisma.orgMember.findFirst({
-      where: { id: memberId, orgId },
+      where: { id: memberId, orgId, removedAt: null },
     });
   }
 
   countAdmins(orgId: string) {
     return this.prisma.orgMember.count({
-      where: { orgId, role: "ADMIN" },
+      where: { orgId, role: "ADMIN", removedAt: null },
     });
   }
 
-  deleteMember(memberId: string) {
-    return this.prisma.orgMember.delete({ where: { id: memberId } });
+  /** Soft delete — the row is kept (with removedAt/removedBy/removedReason
+   *  set) so a platform admin can see and restore it later. See OrgMember's
+   *  doc comment in schema.prisma. */
+  softRemoveMember(memberId: string, removedBy: string, removedReason: string | null) {
+    return this.prisma.orgMember.update({
+      where: { id: memberId },
+      data: { removedAt: new Date(), removedBy, removedReason },
+    });
+  }
+
+  /** Every membership row (active + soft-removed) this student has ever had
+   *  in any org — admin-only view, see AdminService.studentMemberships. */
+  findMembershipHistory(userId: string) {
+    return this.prisma.orgMember.findMany({
+      where: { userId },
+      include: { org: { select: { id: true, name: true } } },
+      orderBy: { joinedAt: "desc" },
+    });
+  }
+
+  findMostRecentRemovedMembership(userId: string, orgId: string) {
+    return this.prisma.orgMember.findFirst({
+      where: { userId, orgId, removedAt: { not: null } },
+      orderBy: { removedAt: "desc" },
+    });
+  }
+
+  /** Un-deletes the same row (preserves the original joinedAt) rather than
+   *  creating a new one — see softRemoveMember's doc comment. */
+  restoreMember(memberId: string, tx?: Db) {
+    return this.db(tx).orgMember.update({
+      where: { id: memberId },
+      data: { removedAt: null, removedBy: null, removedReason: null },
+    });
   }
 
   decrementUsedSeats(orgId: string) {
@@ -250,7 +305,7 @@ export class OrganizationsRepository {
 
   findOrgMembership(orgId: string, userId: string) {
     return this.prisma.orgMember.findFirst({
-      where: { orgId, userId },
+      where: { orgId, userId, removedAt: null },
     });
   }
 
@@ -264,7 +319,7 @@ export class OrganizationsRepository {
 
   findUserMemberships(userId: string) {
     return this.prisma.orgMember.findMany({
-      where: { userId },
+      where: { userId, removedAt: null },
       select: { orgId: true },
     });
   }
@@ -280,7 +335,7 @@ export class OrganizationsRepository {
    *  one ADMIN member, and a still-pending admin invite has no `userId` yet. */
   findOrgAdminUserIds(orgId: string, tx?: Db) {
     return this.db(tx).orgMember.findMany({
-      where: { orgId, role: "ADMIN", userId: { not: null } },
+      where: { orgId, role: "ADMIN", userId: { not: null }, removedAt: null },
       select: { userId: true },
     });
   }

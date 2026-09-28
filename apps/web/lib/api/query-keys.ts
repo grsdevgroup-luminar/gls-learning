@@ -16,6 +16,7 @@ export const qk = {
   courses: (params?: QueryParams) => ["courses", cleanParams(params)] as const,
   course: (slug: string) => ["course", slug] as const,
   enrollments: ["enrollments"] as const,
+  grantedCourses: ["me", "delivery-partner", "granted-courses"] as const,
   activity: (period: string) => ["enrollments", "activity", period] as const,
   progress: (courseId: string) => ["progress", courseId] as const,
   quiz: (lessonId: string) => ["quiz", lessonId] as const,

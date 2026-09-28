@@ -30,6 +30,18 @@ export type DeliveryPartnerRow = Prisma.DeliveryPartnerGetPayload<{
   select: typeof partnerSelect;
 }>;
 
+const CAMPAIGN_COURSES_INCLUDE = {
+  campaignCourses: { include: { course: { select: { id: true, title: true } } } },
+} satisfies Prisma.DeliveryPartnerCampaignInclude;
+
+export type CampaignRow = Prisma.DeliveryPartnerCampaignGetPayload<{
+  include: typeof CAMPAIGN_COURSES_INCLUDE;
+}>;
+
+export type CampaignWithPartnerRow = Prisma.DeliveryPartnerCampaignGetPayload<{
+  include: { partner: { include: { user: { select: { name: true } } } } } & typeof CAMPAIGN_COURSES_INCLUDE;
+}>;
+
 @Injectable()
 export class DeliveryPartnerRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -272,39 +284,73 @@ export class DeliveryPartnerRepository {
   findCampaignsForPartner(partnerId: string) {
     return this.prisma.deliveryPartnerCampaign.findMany({
       where: { partnerId },
+      include: CAMPAIGN_COURSES_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
   }
 
   findCampaignById(id: string) {
-    return this.prisma.deliveryPartnerCampaign.findUnique({ where: { id } });
+    return this.prisma.deliveryPartnerCampaign.findUnique({
+      where: { id },
+      include: CAMPAIGN_COURSES_INCLUDE,
+    });
   }
 
   /** Checkout-time lookup — includes the partner so the caller can check
    *  approval status and read the partner's name/commissionPercent in one
-   *  round trip. */
+   *  round trip, plus the SPECIFIC-scope course ids for eligibility checks. */
   findCampaignByCode(code: string) {
     return this.prisma.deliveryPartnerCampaign.findUnique({
       where: { code },
-      include: { partner: { include: { user: { select: { name: true } } } } },
+      include: {
+        partner: { include: { user: { select: { name: true } } } },
+        ...CAMPAIGN_COURSES_INCLUDE,
+      },
     });
   }
 
   createCampaign(
     partnerId: string,
     code: string,
-    data: { discountPercent: number; startDate: Date; endDate: Date; usageLimit: number },
+    data: {
+      discountPercent: number;
+      startDate: Date;
+      endDate: Date;
+      usageLimit: number;
+      scope: Prisma.DeliveryPartnerCampaignCreateInput["scope"];
+      courseIds: string[];
+    },
   ) {
+    const { courseIds, ...rest } = data;
     return this.prisma.deliveryPartnerCampaign.create({
-      data: { partnerId, code, ...data },
+      data: {
+        partnerId,
+        code,
+        ...rest,
+        campaignCourses: { create: courseIds.map((courseId) => ({ courseId })) },
+      },
+      include: CAMPAIGN_COURSES_INCLUDE,
     });
   }
 
+  /** `courseIds`, when present, replaces the full SPECIFIC-scope set —
+   *  callers pass it whenever the caller sent courseIds at all (including an
+   *  empty array when flipping back to GLOBAL). */
   updateCampaign(
     id: string,
     data: Prisma.DeliveryPartnerCampaignUpdateInput,
+    courseIds?: string[],
   ) {
-    return this.prisma.deliveryPartnerCampaign.update({ where: { id }, data });
+    return this.prisma.deliveryPartnerCampaign.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(courseIds !== undefined
+          ? { campaignCourses: { deleteMany: {}, create: courseIds.map((courseId) => ({ courseId })) } }
+          : {}),
+      },
+      include: CAMPAIGN_COURSES_INCLUDE,
+    });
   }
 
   deleteCampaign(id: string) {
@@ -324,6 +370,14 @@ export class DeliveryPartnerRepository {
     return this.prisma.course.findUnique({
       where: { id: courseId },
       select: { status: true },
+    });
+  }
+
+  /** Validates a SPECIFIC-scope campaign's course selection — every id must
+   *  exist and be PUBLISHED, independent of partner course-assignment. */
+  countPublishedCourses(courseIds: string[]) {
+    return this.prisma.course.count({
+      where: { id: { in: courseIds }, status: "PUBLISHED" },
     });
   }
 
@@ -367,6 +421,7 @@ export class DeliveryPartnerRepository {
     });
   }
 
+  /// One-way — usedSeats never decrements (see DeliveryPartnerService.removeMember).
   incrementUsedSeats(assignmentId: string, tx?: Db) {
     return this.db(tx).deliveryPartnerCourseAssignment.update({
       where: { id: assignmentId },
@@ -374,17 +429,19 @@ export class DeliveryPartnerRepository {
     });
   }
 
-  decrementUsedSeats(assignmentId: string) {
-    return this.prisma.deliveryPartnerCourseAssignment.update({
-      where: { id: assignmentId },
-      data: { usedSeats: { decrement: 1 } },
-    });
-  }
-
   // ── members + invitations (partner-authenticated; per course assignment) ──
 
-  createInvitation(data: Prisma.DeliveryPartnerInvitationUncheckedCreateInput) {
-    return this.prisma.deliveryPartnerInvitation.create({ data });
+  createInvitation(data: Prisma.DeliveryPartnerInvitationUncheckedCreateInput, tx?: Db) {
+    return this.db(tx).deliveryPartnerInvitation.create({ data });
+  }
+
+  /** Lifetime counter — incremented alongside createInvitation, in the same
+   *  transaction, and never decremented anywhere. */
+  incrementTotalInvitesSent(assignmentId: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerCourseAssignment.update({
+      where: { id: assignmentId },
+      data: { totalInvitesSent: { increment: 1 } },
+    });
   }
 
   /** Public claim-page lookup — includes just enough to render the preview
@@ -457,23 +514,29 @@ export class DeliveryPartnerRepository {
     return this.prisma.deliveryPartnerInvitation.delete({ where: { id: inviteId } });
   }
 
-  upsertMember(
+  /** Not a Prisma `upsert` — see OrganizationsRepository.upsertOrgMember's
+   *  identical note: the unique key is now a partial index (active rows
+   *  only), which Prisma's generated compound-unique input can't target. */
+  async upsertMember(
     courseAssignmentId: string,
     userId: string,
     email: string,
     name: string,
     tx?: Db,
   ) {
-    return this.db(tx).deliveryPartnerMember.upsert({
-      where: { courseAssignmentId_email: { courseAssignmentId, email } },
-      update: { userId },
-      create: { courseAssignmentId, userId, email, name },
+    const db = this.db(tx);
+    const active = await db.deliveryPartnerMember.findFirst({
+      where: { courseAssignmentId, email, removedAt: null },
     });
+    if (active) {
+      return db.deliveryPartnerMember.update({ where: { id: active.id }, data: { userId } });
+    }
+    return db.deliveryPartnerMember.create({ data: { courseAssignmentId, userId, email, name } });
   }
 
   findMembersForAssignment(courseAssignmentId: string) {
     return this.prisma.deliveryPartnerMember.findMany({
-      where: { courseAssignmentId },
+      where: { courseAssignmentId, removedAt: null },
       orderBy: { joinedAt: "desc" },
     });
   }
@@ -483,26 +546,35 @@ export class DeliveryPartnerRepository {
    *  list instead of the per-course dialog. */
   findMembersForPartner(partnerId: string) {
     return this.prisma.deliveryPartnerMember.findMany({
-      where: { courseAssignment: { partnerId } },
+      where: { courseAssignment: { partnerId }, removedAt: null },
       orderBy: { joinedAt: "desc" },
       include: { courseAssignment: { include: { course: { select: { title: true } } } } },
     });
   }
 
   findMember(memberId: string) {
-    return this.prisma.deliveryPartnerMember.findUnique({ where: { id: memberId } });
+    return this.prisma.deliveryPartnerMember.findFirst({
+      where: { id: memberId, removedAt: null },
+    });
   }
 
-  deleteMember(memberId: string) {
-    return this.prisma.deliveryPartnerMember.delete({ where: { id: memberId } });
+  /** Soft delete — the row is kept (with removedAt/removedBy/removedReason
+   *  set) so a platform admin can see and restore it later. See
+   *  DeliveryPartnerMember's doc comment in schema.prisma. */
+  softRemoveMember(memberId: string, removedBy: string, removedReason: string | null) {
+    return this.prisma.deliveryPartnerMember.update({
+      where: { id: memberId },
+      data: { removedAt: new Date(), removedBy, removedReason },
+    });
   }
 
-  /** Every course a user has access to via a delivery partner — resolved at
-   *  read time from membership, same style as OrgMember/CourseOrgAssignment;
-   *  no separate access-grant flag to keep in sync. */
+  /** Every course a user has active access to via a delivery partner —
+   *  resolved at read time from membership, same style as
+   *  OrgMember/CourseOrgAssignment; no separate access-grant flag to keep in
+   *  sync. */
   findMemberCoursesForUser(userId: string) {
     return this.prisma.deliveryPartnerMember.findMany({
-      where: { userId },
+      where: { userId, removedAt: null },
       include: {
         courseAssignment: {
           include: {
@@ -513,5 +585,49 @@ export class DeliveryPartnerRepository {
       },
       orderBy: { joinedAt: "desc" },
     });
+  }
+
+  /** Every membership row (active + soft-removed) this student has ever had
+   *  against any of the partner's course assignments — admin-only view. */
+  findMembershipHistoryForUser(userId: string) {
+    return this.prisma.deliveryPartnerMember.findMany({
+      where: { userId },
+      include: {
+        courseAssignment: {
+          include: {
+            course: { select: { title: true } },
+            partner: { include: { user: { select: { name: true } } } },
+          },
+        },
+      },
+      orderBy: { joinedAt: "desc" },
+    });
+  }
+
+  findMostRecentRemovedMembership(userId: string, courseAssignmentId: string) {
+    return this.prisma.deliveryPartnerMember.findFirst({
+      where: { userId, courseAssignmentId, removedAt: { not: null } },
+      orderBy: { removedAt: "desc" },
+    });
+  }
+
+  /** Un-deletes the same row (preserves the original joinedAt) rather than
+   *  creating a new one — see softRemoveMember's doc comment. */
+  restoreMember(memberId: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerMember.update({
+      where: { id: memberId },
+      data: { removedAt: null, removedBy: null, removedReason: null },
+    });
+  }
+
+  findUsersByIds(ids: string[]) {
+    return this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+  }
+
+  findUserByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email }, select: { id: true } });
   }
 }

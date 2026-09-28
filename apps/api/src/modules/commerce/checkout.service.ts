@@ -21,6 +21,7 @@ import { OrdersRepository, type OrderRow } from "./orders.repository";
 import { PaymentsService } from "../payment/payments.service";
 import { DeliveryPartnerService } from "../delivery-partner/delivery-partner.service";
 import { CreditsService } from "../credits/credits.service";
+import { CodeResolverService } from "./code-resolver.service";
 
 /** Only `[A-Za-z0-9_-]{1,128}` allowed. Anything else is a client bug or an
  *  attempt to abuse the unique index with pathological inputs. */
@@ -40,6 +41,7 @@ export class CheckoutService {
     private readonly users: UsersService,
     private readonly geoIp: GeoIpService,
     private readonly credits: CreditsService,
+    private readonly codeResolver: CodeResolverService,
   ) {}
 
   private async buildLines(
@@ -58,50 +60,48 @@ export class CheckoutService {
   }
 
   async quote(input: CheckoutQuoteInput, userId?: string): Promise<QuoteDto> {
-    // Mutually exclusive by design (only one discount code applies at a
-    // time) — the storefront UI makes this state unreachable, but a client
-    // bug shouldn't silently mis-price an order, so it's rejected here too.
     if (userId) await this.assertCanPurchase(userId, input.courseIds);
-
-    if (input.couponCode && input.campaignCode) {
-      throw new BadRequestException(
-        "Only one code — a coupon or a partner referral code — can be applied at a time",
-      );
-    }
 
     const { lines, region } = await this.buildLines(
       input.courseIds,
       input.regionCode,
     );
     const subtotalCents = lines.reduce((s, l) => s + l.priceCents, 0);
+    const lineInputs = lines.map((l) => ({ courseId: l.courseId, priceCents: l.priceCents }));
 
     let discountCents = 0;
-    let coupon: QuoteDto["coupon"] = null;
-    if (input.couponCode) {
-      const ev = await this.coupons.evaluate(
-        input.couponCode,
-        lines.map((l) => ({ courseId: l.courseId, priceCents: l.priceCents })),
-      );
-      discountCents = ev.discountCents;
-      coupon = {
-        code: input.couponCode.trim().toUpperCase(),
-        valid: ev.result.ok,
-        message: ev.result.message,
-        discountCents: ev.discountCents,
-      };
-    }
-
-    let campaign: QuoteDto["campaign"] = null;
-    if (input.campaignCode) {
-      const ev = await this.deliveryPartners.evaluateCampaign(input.campaignCode, subtotalCents);
-      discountCents = ev.discountCents;
-      campaign = {
-        code: input.campaignCode.trim().toUpperCase(),
-        valid: ev.result.ok,
-        message: ev.result.message,
-        discountCents: ev.discountCents,
-        partnerName: ev.result.campaign?.partnerName ?? null,
-      };
+    let appliedCode: QuoteDto["appliedCode"] = null;
+    const code = input.code?.trim().toUpperCase();
+    if (code) {
+      // Resolved once here so CheckoutService and CartService never disagree
+      // about a code's type — see CodeResolverService's doc comment.
+      const type = await this.codeResolver.resolveType(code);
+      if (type === "campaign") {
+        const ev = await this.deliveryPartners.evaluateCampaign(code, lineInputs);
+        discountCents = ev.discountCents;
+        appliedCode = {
+          type: "CAMPAIGN",
+          code,
+          valid: ev.result.ok,
+          message: ev.result.message,
+          discountCents: ev.discountCents,
+          partnerName: ev.result.campaign?.partnerName ?? null,
+          scope: (ev.result.campaign?.scope ?? "GLOBAL") as "GLOBAL" | "SPECIFIC",
+          eligibleCourseIds: ev.eligibleCourseIds,
+        };
+      } else {
+        // Unresolved codes fall through here too, so an invalid code still
+        // surfaces the existing "that code isn't valid" coupon message.
+        const ev = await this.coupons.evaluate(code, lineInputs);
+        discountCents = ev.discountCents;
+        appliedCode = {
+          type: "COUPON",
+          code,
+          valid: ev.result.ok,
+          message: ev.result.message,
+          discountCents: ev.discountCents,
+        };
+      }
     }
 
     const currency = "USD";
@@ -128,8 +128,7 @@ export class CheckoutService {
       totalCents,
       currency,
       regionCode: region.code,
-      coupon,
-      campaign,
+      appliedCode,
     };
   }
 
@@ -267,7 +266,10 @@ export class CheckoutService {
       userId,
       country: region.country,
       gateway: input.gateway,
-      couponCode: quote.coupon?.valid ? quote.coupon.code : null,
+      couponCode:
+        quote.appliedCode?.valid && quote.appliedCode.type === "COUPON"
+          ? quote.appliedCode.code
+          : null,
       subtotalCents: quote.subtotalCents,
       discountCents: quote.discountCents,
       creditAppliedCents: quote.creditAppliedCents,
@@ -291,7 +293,9 @@ export class CheckoutService {
     // mechanism. A no-op otherwise.
     await this.deliveryPartners.createPendingReferral(
       order.id,
-      quote.campaign?.valid ? quote.campaign.code : null,
+      quote.appliedCode?.valid && quote.appliedCode.type === "CAMPAIGN"
+        ? quote.appliedCode.code
+        : null,
     );
 
     // Free orders (100%-off coupon or $0 courses) fulfil immediately.
@@ -328,15 +332,13 @@ export class CheckoutService {
     if (storedCourseIds !== requestedCourseIds)
       throw new ConflictException("Idempotency-Key reused with different courses");
 
-    const storedCoupon = order.couponCode ?? "";
-    const requestedCoupon = input.couponCode?.trim().toUpperCase() ?? "";
-    if (storedCoupon !== requestedCoupon)
-      throw new ConflictException("Idempotency-Key reused with a different coupon");
-
-    const storedCampaign = order.campaignCode ?? "";
-    const requestedCampaign = input.campaignCode?.trim().toUpperCase() ?? "";
-    if (storedCampaign !== requestedCampaign)
-      throw new ConflictException("Idempotency-Key reused with a different referral code");
+    // order.couponCode/campaignCode are mutually exclusive, so comparing
+    // against whichever one is set covers both — one field replayed against
+    // whichever type it resolves to now.
+    const storedCode = order.couponCode ?? order.campaignCode ?? "";
+    const requestedCode = input.code?.trim().toUpperCase() ?? "";
+    if (storedCode !== requestedCode)
+      throw new ConflictException("Idempotency-Key reused with a different code");
   }
 
   /** For a replay, prefer the cached gateway URL so we don't open a second

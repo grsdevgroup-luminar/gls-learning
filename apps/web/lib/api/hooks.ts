@@ -20,7 +20,7 @@ import type {
   PreviewEmailTemplateInput,
   UpdateLearningPreferencesInput,
 } from "@skillstream/shared";
-import { api } from "./endpoints";
+import { api, partnerApi } from "./endpoints";
 import { cleanParams, qk } from "./query-keys";
 import { useSession } from "./session";
 
@@ -114,6 +114,11 @@ export function useSaveCoursePreferences() {
 // ── enrollment / progress ─────────────────────────────────────────────────
 export const useMyEnrollments = () =>
   useQuery({ queryKey: qk.enrollments, queryFn: api.myEnrollments });
+
+/** Courses a delivery partner has granted the current user access to —
+ *  rendered as its own section on the main dashboard (see DashboardClient). */
+export const useMyGrantedCourses = () =>
+  useQuery({ queryKey: qk.grantedCourses, queryFn: partnerApi.grantedCourses });
 
 export const useActivity = (period: "daily" | "weekly" | "monthly") =>
   useQuery({ queryKey: qk.activity(period), queryFn: () => api.myActivity(period) });

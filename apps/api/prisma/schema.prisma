@@ -240,7 +240,10 @@ enum NotificationEvent {
   COURSE_DELETION_REQUEST_REJECTED
   ORG_INVITE_DECLINED
   DELIVERY_PARTNER_INVITE_DECLINED
+  DELIVERY_PARTNER_INVITE_RECEIVED
   DELIVERY_PARTNER_MEMBER_JOINED
+  ORG_MEMBER_RESTORED
+  DELIVERY_PARTNER_MEMBER_RESTORED
 }
 
 // ─── Identity & roles ─────────────────────────────────────────────────────────
@@ -502,6 +505,7 @@ model Course {
   uploads                    Upload[]
   orgAssignments             CourseOrgAssignment[]
   deliveryPartnerAssignments DeliveryPartnerCourseAssignment[]
+  campaignCourses            DeliveryPartnerCampaignCourse[]
   deletionRequests           CourseDeletionRequest[]
 
   @@unique([instructorId, title])
@@ -1037,10 +1041,16 @@ model AuditLog {
   action      String
   entity      String
   entityId    String?
+  /// The user this action happened *to*, when that's different from who
+  /// performed it (e.g. a student removed from an org/partner) — the generic
+  /// interceptor can't populate this (it only sees route params), so it's
+  /// only ever set by explicit AuditService.record() calls.
+  affectedUserId String?
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
 
   @@index([entity, entityId])
+  @@index([affectedUserId])
 }
 
 model WebhookEvent {
@@ -1117,10 +1127,19 @@ model DeliveryPartnerReferral {
   @@index([partnerId])
 }
 
+/// GLOBAL (default) applies to every course, same as before. SPECIFIC scopes
+/// the campaign to the courses listed in DeliveryPartnerCampaignCourse —
+/// independent of DeliveryPartnerCourseAssignment (which courses a partner may
+/// distribute to invited members); a campaign may discount any published
+/// course regardless of assignment.
+enum DeliveryPartnerCampaignScope {
+  GLOBAL
+  SPECIFIC
+}
+
 /// An admin-created, time-boxed discount campaign for one approved delivery
-/// partner, applicable to all courses (global, unlike course-scoped Coupon).
-/// The generated `code` is entered manually at checkout — the only way a
-/// delivery partner attributes and discounts an order (see
+/// partner. The generated `code` is entered manually at checkout — the only
+/// way a delivery partner attributes and discounts an order (see
 /// DeliveryPartnerService.resolveCampaign). Discount + commission (on the
 /// discounted total, via DeliveryPartnerReferral) both resolve through this
 /// row. A partner may hold any number of campaigns at once, including
@@ -1140,6 +1159,8 @@ model DeliveryPartnerCampaign {
   /// checkout-session creation, so an abandoned cart never consumes a seat.
   usageLimit      Int             @default(0)
   usageCount      Int             @default(0)
+  scope           DeliveryPartnerCampaignScope    @default(GLOBAL)
+  campaignCourses DeliveryPartnerCampaignCourse[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -1148,12 +1169,30 @@ model DeliveryPartnerCampaign {
   @@index([partnerId])
 }
 
+/// Many-to-many scope for a SPECIFIC-scope campaign. Ignored (and kept empty)
+/// while the owning campaign's scope is GLOBAL.
+model DeliveryPartnerCampaignCourse {
+  id         String                  @id @default(cuid())
+  campaignId String
+  campaign   DeliveryPartnerCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt  DateTime                @default(now())
+
+  @@unique([campaignId, courseId])
+  @@index([campaignId])
+  @@index([courseId])
+}
+
 /// A course a delivery partner has been approved to redistribute, admin-only
 /// to create (mirrors CourseOrgAssignment/Organization — see
 /// DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3). Access is per-course: inviting a
 /// member to one assignment does not grant access to the partner's other
-/// assigned courses. usedSeats mirrors Organization.usedSeats, just scoped to
-/// this one course-assignment rather than the whole partner.
+/// assigned courses. Unlike Organization.usedSeats, this never decrements —
+/// once a member claims a seat it stays spent even if the partner later
+/// removes them, so a partner can't cycle members through a capped course to
+/// invite more people than the cap allows (see DeliveryPartnerService.
+/// removeMember).
 model DeliveryPartnerCourseAssignment {
   id        String          @id @default(cuid())
   courseId  String
@@ -1162,7 +1201,16 @@ model DeliveryPartnerCourseAssignment {
   partner   DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   /// 0 = unlimited — same convention as DeliveryPartnerCampaign.usageLimit.
   memberCap Int             @default(0)
+  /// Lifetime count of accepted invitations — only ever increases (see
+  /// DeliveryPartnerService.removeMember/adminRestoreMember).
   usedSeats Int             @default(0)
+  /// Lifetime count of invitations ever created against this assignment —
+  /// incremented only at invite-creation time, never decremented (not on
+  /// revoke, decline, or member removal). Distinct from usedSeats (which only
+  /// counts accepted invitations): this counts every invite sent, so "how
+  /// many people has this partner ever invited" survives a partner
+  /// unilaterally removing someone.
+  totalInvitesSent Int      @default(0)
   createdAt DateTime        @default(now())
 
   members     DeliveryPartnerMember[]
@@ -1178,6 +1226,12 @@ model DeliveryPartnerCourseAssignment {
 /// them again for a different course. Flat membership, no role tiers: a
 /// delivery partner is one person, unlike an org which can have multiple
 /// admins.
+///
+/// Soft-deleted on removal (removedAt set, row kept) rather than hard-deleted
+/// — so a platform admin can see a member a partner removed and restore them
+/// (see AdminService/DeliveryPartnerService restore endpoints). A row with
+/// removedAt set no longer counts as active membership anywhere access is
+/// checked (EnrollmentRepository queries filter it out explicitly).
 model DeliveryPartnerMember {
   id                 String                          @id @default(cuid())
   courseAssignmentId String
@@ -1187,8 +1241,11 @@ model DeliveryPartnerMember {
   name               String
   email              String
   joinedAt           DateTime                        @default(now())
+  removedAt          DateTime?
+  removedBy          String?
+  removedReason      String?
 
-  @@unique([courseAssignmentId, email])
+  @@index([courseAssignmentId, email])
   @@index([courseAssignmentId])
   @@index([userId])
 }
@@ -1224,6 +1281,11 @@ model Organization {
   /// Billable member seats in use — OrgMember rows with role MEMBER only.
   /// The provisioned org admin (OrgMember.role ADMIN) does not count.
   usedSeats      Int                @default(0)
+  /// Lifetime count of invitations ever created for this org — incremented
+  /// only at invite-creation time, never decremented. See the identical field
+  /// on DeliveryPartnerCourseAssignment for why this exists separately from
+  /// usedSeats.
+  totalInvitesSent Int              @default(0)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -1234,18 +1296,23 @@ model Organization {
   @@index([status])
 }
 
+/// Soft-deleted on removal (removedAt set, row kept) rather than hard-deleted
+/// — see the identical note on DeliveryPartnerMember for why.
 model OrgMember {
-  id       String        @id @default(cuid())
-  orgId    String
-  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  userId   String?
-  user     User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  name     String
-  email    String
-  role     OrgMemberRole @default(MEMBER)
-  joinedAt DateTime      @default(now())
+  id            String        @id @default(cuid())
+  orgId         String
+  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name          String
+  email         String
+  role          OrgMemberRole @default(MEMBER)
+  joinedAt      DateTime      @default(now())
+  removedAt     DateTime?
+  removedBy     String?
+  removedReason String?
 
-  @@unique([orgId, email])
+  @@index([orgId, email])
   @@index([orgId])
   @@index([userId])
 }

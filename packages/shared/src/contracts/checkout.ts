@@ -3,13 +3,10 @@ import type { OrderStatus, PaymentGateway } from "../enums.js";
 
 export const checkoutQuoteSchema = z.object({
   courseIds: z.array(z.string().min(1)).min(1),
-  couponCode: z.string().trim().optional(),
-  /** A delivery-partner campaign code, entered manually at checkout — an
-   *  explicit discount code, mutually exclusive with couponCode: sending both
-   *  is a client bug, rejected by CheckoutService.quote rather than silently
-   *  preferring one. Also the sole delivery-partner commission attribution
-   *  mechanism — there is no separate referral-link path. */
-  campaignCode: z.string().trim().optional(),
+  /** One discount/referral code field — the backend resolves whether it's a
+   *  Coupon or a DeliveryPartnerCampaign code (see CodeResolverService); the
+   *  storefront no longer asks the buyer to pick a type. */
+  code: z.string().trim().optional(),
   regionCode: z.string().optional(),
   /** When true, deduct available store credit from the total after coupon.
    *  See REFUND_TO_CREDIT_PLAN.md. */
@@ -30,6 +27,7 @@ export interface QuoteLineDto {
 }
 
 export interface QuoteCouponDto {
+  type: "COUPON";
   code: string;
   valid: boolean;
   message: string;
@@ -37,12 +35,18 @@ export interface QuoteCouponDto {
 }
 
 export interface QuoteCampaignDto {
+  type: "CAMPAIGN";
   code: string;
   valid: boolean;
   message: string;
   discountCents: number;
   /** Shown alongside the discount so the buyer knows whose code they used. */
   partnerName: string | null;
+  scope: "GLOBAL" | "SPECIFIC";
+  /** Course ids the discount actually applies to — all cart course ids when
+   *  GLOBAL, the intersecting subset when SPECIFIC. Used by the cart/checkout
+   *  UI to flag lines the code doesn't cover. */
+  eligibleCourseIds: string[];
 }
 
 export interface QuoteDto {
@@ -58,9 +62,9 @@ export interface QuoteDto {
   totalCents: number;
   currency: string;
   regionCode: string;
-  coupon: QuoteCouponDto | null;
-  /** Mutually exclusive with `coupon` — at most one of the two is non-null. */
-  campaign: QuoteCampaignDto | null;
+  /** The resolved code, tagged with its type so the UI can pick the right
+   *  success copy without knowing in advance which kind was entered. */
+  appliedCode: QuoteCouponDto | QuoteCampaignDto | null;
 }
 
 export interface CheckoutSessionDto {

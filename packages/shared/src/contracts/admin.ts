@@ -129,6 +129,39 @@ export interface AdminStudentProfileDto {
   }[];
 }
 
+/** A single org or delivery-partner membership a student has ever held,
+ *  current or past — powers the admin "Memberships" tab so a platform admin
+ *  can see (and restore) a membership an org/partner removed. */
+export interface AdminMembershipEntryDto {
+  /** orgId (organization membership) or courseAssignmentId (delivery-partner
+   *  membership) — whichever `kind` this row is. */
+  id: string;
+  kind: "ORGANIZATION" | "DELIVERY_PARTNER_COURSE";
+  orgName?: string;
+  role?: string;
+  partnerName?: string;
+  courseTitle?: string;
+  joinedAt: string;
+  removedAt: string | null;
+  removedBy: { id: string; name: string } | null;
+  removedReason: string | null;
+}
+
+export interface AdminStudentMembershipsDto {
+  organizations: AdminMembershipEntryDto[];
+  deliveryPartnerCourses: AdminMembershipEntryDto[];
+}
+
+/** One audited event affecting this student — invite created/revoked, member
+ *  removed/restored — newest first. Powers the admin "Activity" tab. */
+export interface AdminStudentActivityEntryDto {
+  id: string;
+  action: string;
+  actor: { id: string; name: string } | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
 export const upsertCouponSchema = z.object({
   code: z.string().min(2).max(40).toUpperCase(),
   type: z.enum(["PERCENT", "FIXED", "FREE"]),

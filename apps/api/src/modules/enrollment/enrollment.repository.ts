@@ -90,7 +90,7 @@ export class EnrollmentRepository {
               select: {
                 id: true,
                 status: true,
-                members: { where: { userId }, select: { id: true } },
+                members: { where: { userId, removedAt: null }, select: { id: true } },
               },
             },
           },
@@ -101,7 +101,7 @@ export class EnrollmentRepository {
         deliveryPartnerAssignments: {
           select: {
             partner: { select: { status: true } },
-            members: { where: { userId }, select: { id: true } },
+            members: { where: { userId, removedAt: null }, select: { id: true } },
           },
         },
       },
@@ -193,7 +193,18 @@ export class EnrollmentRepository {
    *  the org-suspension fields (scoped to this user's memberships among the
    *  course's assigned orgs — see `findCourseAccess`) so `assertLessonAccessible`
    *  can gate org-PRIVATE playback across multiple assigned orgs without a
-   *  second query. */
+   *  second query.
+   *
+   *  `members` is scoped to this one userId but, unlike `findCourseAccess`,
+   *  deliberately NOT filtered by `removedAt` — it carries both an active row
+   *  (removedAt: null) and any past soft-removed one(s), so the caller can
+   *  tell "this user was never granted access through this org/assignment"
+   *  (no rows at all — access predates the relationship, don't block) apart
+   *  from "this user's grant here was revoked" (a removedAt-set row exists —
+   *  block unless some other active path still grants access). Filtering
+   *  this to active-only would make a revoked member and a never-granted one
+   *  look identical, silently reopening the access-control gap this query is
+   *  specifically built to close. */
   findLessonAccessContext(lessonId: string, userId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
@@ -213,7 +224,10 @@ export class EnrollmentRepository {
                         id: true,
                         status: true,
                         accessLocksAt: true,
-                        members: { where: { userId }, select: { id: true } },
+                        members: {
+                          where: { userId },
+                          select: { id: true, removedAt: true },
+                        },
                       },
                     },
                   },
@@ -221,7 +235,10 @@ export class EnrollmentRepository {
                 deliveryPartnerAssignments: {
                   select: {
                     partner: { select: { status: true } },
-                    members: { where: { userId }, select: { id: true } },
+                    members: {
+                      where: { userId },
+                      select: { id: true, removedAt: true },
+                    },
                   },
                 },
                 sections: {
