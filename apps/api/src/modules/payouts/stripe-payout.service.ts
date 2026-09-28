@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -162,6 +163,16 @@ export class StripePayoutService {
     const stripe = this.requireClient();
 
     try {
+      // Checked up front rather than left to transfers.create: Stripe stores a
+      // failed result against the idempotency key, so a transfer rejected for
+      // insufficient funds would keep failing on retry even after the platform
+      // balance is topped up.
+      const balance = await stripe.balance.retrieve();
+      const availableCents =
+        balance.available.find((b) => b.currency === "usd")?.amount ?? 0;
+      if (availableCents < input.netCents)
+        throw insufficientBalance(input.netCents, availableCents);
+
       const transfer = await stripe.transfers.create(
         {
           amount: input.netCents,
@@ -180,7 +191,43 @@ export class StripePayoutService {
       this.logger.error(
         `Stripe transfer failed for payout ${input.payoutId}: ${(err as Error).message}`,
       );
-      throw err;
+      throw toHttpException(err, input.netCents);
     }
   }
+}
+
+const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+function insufficientBalance(neededCents: number, availableCents?: number): HttpException {
+  const available =
+    availableCents === undefined ? "" : ` (${usd(availableCents)} available)`;
+  return new BadRequestException(
+    `Insufficient funds in the platform Stripe balance to send ${usd(neededCents)}${available}. Add funds to Stripe, then approve again.`,
+  );
+}
+
+/** Restates a Stripe failure as an HTTP error the admin can act on. Left as-is,
+ *  the global filter hides anything that isn't an HttpException behind a
+ *  generic 500. The payout stays REQUESTED either way, so approve can be
+ *  retried once the cause is fixed. */
+function toHttpException(err: unknown, netCents: number): unknown {
+  if (err instanceof HttpException || !(err instanceof Stripe.errors.StripeError))
+    return err;
+  if (err.code === "balance_insufficient") return insufficientBalance(netCents);
+  if (
+    err instanceof Stripe.errors.StripeConnectionError ||
+    err instanceof Stripe.errors.StripeAPIError ||
+    err instanceof Stripe.errors.StripeRateLimitError
+  )
+    return new ServiceUnavailableException(
+      "Stripe is not responding right now. Try approving again shortly.",
+    );
+  if (
+    err instanceof Stripe.errors.StripeAuthenticationError ||
+    err instanceof Stripe.errors.StripePermissionError
+  )
+    return new ServiceUnavailableException(
+      "Stripe rejected the platform API key. Check the Stripe configuration.",
+    );
+  return new BadRequestException(`Stripe rejected the transfer: ${err.message}`);
 }
