@@ -30,10 +30,16 @@ export function CourseBuilder({
   courseId,
   mode = "admin",
   revisionMode = false,
+  revisionApprovalRequestId,
+  onApproveRevision,
+  approvingRevision = false,
 }: {
   courseId?: string;
   mode?: "admin" | "instructor";
   revisionMode?: boolean;
+  revisionApprovalRequestId?: string;
+  onApproveRevision?: () => void;
+  approvingRevision?: boolean;
 }) {
   const {
     detail, isLoading, title, setTitle, subtitle, setSubtitle, setCategory,
@@ -74,6 +80,9 @@ export function CourseBuilder({
         published={published}
         onBack={onBack}
         onSave={save}
+        approvalMode={!!revisionApprovalRequestId}
+        onApprove={onApproveRevision}
+        approving={approvingRevision}
       />
 
       {/* CONTENT WRAPPER: Takes up remaining height */}

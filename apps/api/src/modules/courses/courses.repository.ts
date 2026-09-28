@@ -27,12 +27,35 @@ export class CoursesRepository {
 
   /** Find public course ids using a separator-insensitive title/category match.
    * This makes searches such as `react18mastery` match "React 18 Mastery". */
-  findIdsByCompactSearch(keyword: string) {
+  findIdsByCompactSearch(keyword: string, userId?: string) {
     return this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
       SELECT "id"
       FROM "Course"
       WHERE "status" = 'PUBLISHED'
-        AND "visibility" = 'PUBLIC'
+                AND (
+          "visibility" = 'PUBLIC'
+          OR (
+            ${userId ?? ""} <> ''
+            AND (
+              EXISTS (
+                SELECT 1 FROM "CourseOrgAssignment" coa
+                JOIN "OrgMember" om ON om."orgId" = coa."orgId"
+                WHERE coa."courseId" = "Course"."id"
+                  AND om."userId" = ${userId ?? ""}
+                  AND om."removedAt" IS NULL
+              )
+              OR EXISTS (
+                SELECT 1 FROM "DeliveryPartnerCourseAssignment" dca
+                JOIN "DeliveryPartnerMember" dpm ON dpm."courseAssignmentId" = dca."id"
+                JOIN "DeliveryPartner" dp ON dp."id" = dca."partnerId"
+                WHERE dca."courseId" = "Course"."id"
+                  AND dpm."userId" = ${userId ?? ""}
+                  AND dpm."removedAt" IS NULL
+                  AND dp."status" = 'APPROVED'
+              )
+            )
+          )
+        )
         AND regexp_replace(
           lower(concat_ws(' ', "title", "category")),
           '[^[:alnum:]]', '', 'g'

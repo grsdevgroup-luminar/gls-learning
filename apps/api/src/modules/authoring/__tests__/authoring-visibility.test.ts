@@ -7,6 +7,7 @@ import type { NotificationsService } from "../../notifications/notifications.ser
 import type { StorageDriver } from "../../storage/storage.driver";
 import { AuthoringService } from "../authoring.service";
 import type { AuthoringRepository } from "../authoring.repository";
+import type { PrismaService } from "../../../prisma/prisma.service";
 
 const admin: RequestUser = { id: "admin_1", email: "a@x.com", role: "ADMIN", mustChangePassword: false };
 const instructor: RequestUser = {
@@ -77,7 +78,7 @@ function makeService(repoOverrides: Partial<AuthoringRepository> = {}) {
     notifyAdmins: vi.fn().mockResolvedValue(undefined),
   } as unknown as NotificationsService;
 
-  const service = new AuthoringService(repo, storage, categories, media, notifications);
+  const service = new AuthoringService(repo, {} as PrismaService, storage, categories, media, notifications);
   return { service, repo, categories, notifications };
 }
 

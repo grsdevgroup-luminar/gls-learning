@@ -219,6 +219,11 @@ export class EnrollmentService {
     return !!(await this.repo.findAnyPartnerMembershipForCourse(courseId, userId));
   }
 
+  /** Existing learners retain course-page access after the course is made private.
+   * This recognizes an existing enrollment only; it does not grant enrollment. */
+  async hasActiveEnrollment(userId: string, courseId: string): Promise<boolean> {
+    return !!(await this.repo.findActiveByUserAndCourse(userId, courseId));
+  }
   /** Completed ids for an enrolled learner, used to build the gated learner
    * course view without exposing attachment URLs for locked lessons. */
   async completedLessonIds(userId: string, courseId: string): Promise<string[]> {

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -39,7 +40,17 @@ export class LessonResourceService {
     if (user.role !== "ADMIN" && course.instructorId !== user.id) {
       throw new ForbiddenException("Not your lesson");
     }
-    return lesson;
+    if (user.role !== "ADMIN" && course.status === "PUBLISHED" && !course.revisionOfId) {
+      throw new ConflictException(
+        "Published courses must be edited as a revision and submitted for review",
+      );
+    }
+    if (user.role !== "ADMIN" && course.revisionOfId && course.status === "REVIEW") {
+      throw new ConflictException(
+        "This revision is pending admin review and can no longer be edited",
+      );
+    }
+    return { lesson, course };
   }
 
   async upload(
@@ -94,7 +105,7 @@ export class LessonResourceService {
   }
 
   async uploadPptx(user: RequestUser, lessonId: string, file: ValidatedResourceFile) {
-    const lesson = await this.assertLessonAccess(lessonId, user);
+    const { lesson, course } = await this.assertLessonAccess(lessonId, user);
     if (lesson.type !== "VIDEO") throw new BadRequestException("PowerPoint slides can only be attached to video lessons");
     const prior = await this.repo.findLessonPptx(lessonId);
     const key = `${PPTX_KEY_PREFIX}/${lessonId}/${ulid()}.pptx`;
@@ -104,12 +115,12 @@ export class LessonResourceService {
     } catch (err) {
       await this.storage.delete(stored.key).catch(() => undefined); throw err;
     }
-    if (prior?.pptxStorageKey) await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
+    if (prior?.pptxStorageKey && !course.revisionOfId) await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
     return { name: file.originalName, sizeLabel: humanSize(file.size), durationSec: 0 };
   }
 
   async removePptx(user: RequestUser, lessonId: string) {
-    const lesson = await this.assertLessonAccess(lessonId, user);
+    const { lesson, course } = await this.assertLessonAccess(lessonId, user);
     if (lesson.type !== "VIDEO") throw new BadRequestException("PowerPoint slides can only be attached to video lessons");
     const prior = await this.repo.findLessonPptx(lessonId);
     // DELETE is intentionally idempotent: the client may be clearing a draft
@@ -117,7 +128,7 @@ export class LessonResourceService {
     // successful removal. Access and lesson-type checks above still apply.
     if (!prior?.pptxStorageKey) return { ok: true };
     await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: null, pptxName: null, pptxSizeLabel: null });
-    await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
+    if (!course.revisionOfId) await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
     return { ok: true };
   }
 
@@ -126,7 +137,7 @@ export class LessonResourceService {
     lessonId: string,
     storageKey: string,
   ): Promise<{ ok: true }> {
-    await this.assertLessonAccess(lessonId, user);
+    const { course } = await this.assertLessonAccess(lessonId, user);
     const { removed } = await this.repo.removeLessonResourceByStorageKey(
       lessonId,
       storageKey,
@@ -134,7 +145,7 @@ export class LessonResourceService {
     if (!removed) throw new NotFoundException("Resource not found");
     // DB row is gone; the object is best-effort. Log and continue on failure
     // so a stale bucket object never blocks the instructor's UI.
-    await this.storage.delete(storageKey).catch((err) => {
+    if (!course.revisionOfId) await this.storage.delete(storageKey).catch((err) => {
       this.logger.warn(
         `Storage delete failed for ${storageKey}: ${(err as Error).message}`,
       );

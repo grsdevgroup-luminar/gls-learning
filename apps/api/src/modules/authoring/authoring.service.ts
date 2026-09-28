@@ -84,6 +84,30 @@ export class AuthoringService {
     return course;
   }
 
+
+  /** Published instructor-owned courses are writable only through an isolated
+   * revision. Pending revisions are frozen so admins review the submitted snapshot. */
+  private async assertCourseWritable(courseId: string, user: RequestUser) {
+    const course = await this.assertCourseAccess(courseId, user);
+    if (user.role === "ADMIN") return course;
+    if (course.status === "PUBLISHED" && !course.revisionOfId) {
+      throw new ConflictException(
+        "Published courses must be edited as a revision and submitted for review",
+      );
+    }
+    if (course.revisionOfId) {
+      const pending = await this.prisma.courseRevisionRequest.findFirst({
+        where: { revisionCourseId: courseId, status: "PENDING" },
+        select: { id: true },
+      });
+      if (pending) {
+        throw new ConflictException(
+          "This revision is pending admin review and can no longer be edited",
+        );
+      }
+    }
+    return course;
+  }
   // ── admin-edit notifications ──────────────────────────────────────────
   /** An admin acting on a course they don't own — the case this whole
    *  section exists to notify the instructor about. */
@@ -292,7 +316,7 @@ export class AuthoringService {
 
   async ensureCourseRevision(user: RequestUser, courseId: string) {
     const course = await this.assertCourseAccess(courseId, user);
-    if (user.role === "ADMIN" || course.status !== "PUBLISHED" || (await this.repo.countOrgAssignments(courseId)) === 0) {
+    if (user.role === "ADMIN" || course.status !== "PUBLISHED") {
       return { courseId, isRevision: false as const, request: null };
     }
     const pending = await this.prisma.courseRevisionRequest.findFirst({
@@ -310,14 +334,59 @@ export class AuthoringService {
   }
 
   async submitCourseRevision(user: RequestUser, revisionCourseId: string) {
-    const revision = await this.prisma.course.findUnique({ where: { id: revisionCourseId }, select: { id: true, revisionOfId: true, instructorId: true, status: true } });
-    if (!revision?.revisionOfId) throw new BadRequestException("This course is not an editable revision");
-    if (user.role !== "ADMIN" && revision.instructorId !== user.id) throw new ForbiddenException("Not your course revision");
-    const existing = await this.prisma.courseRevisionRequest.findFirst({ where: { revisionCourseId, status: "PENDING" } });
+    const revision = await this.prisma.course.findUnique({
+      where: { id: revisionCourseId },
+      select: {
+        id: true,
+        revisionOfId: true,
+        instructorId: true,
+        status: true,
+        category: true,
+        instructor: { select: { name: true } },
+        revisionOf: { select: { title: true } },
+      },
+    });
+    if (!revision?.revisionOfId || !revision.revisionOf)
+      throw new BadRequestException("This course is not an editable revision");
+    const liveCourseId = revision.revisionOfId;
+    const liveCourseTitle = revision.revisionOf.title;
+    if (user.role !== "ADMIN" && revision.instructorId !== user.id)
+      throw new ForbiddenException("Not your course revision");
+    const existing = await this.prisma.courseRevisionRequest.findFirst({
+      where: { revisionCourseId, status: "PENDING" },
+    });
     if (existing) return this.detail(revisionCourseId);
-    await this.validateStatusChange(user, { category: (await this.prisma.course.findUniqueOrThrow({ where: { id: revisionCourseId }, select: { category: true, status: true } })).category, status: revision.status }, revisionCourseId, "REVIEW");
-    await this.repo.setCourseStatusWithInstructorBump(revisionCourseId, "REVIEW", undefined, false, undefined);
-    await this.prisma.courseRevisionRequest.create({ data: { courseId: revision.revisionOfId, revisionCourseId, instructorId: revision.instructorId } });
+
+    await this.validateStatusChange(
+      user,
+      { category: revision.category, status: revision.status },
+      revisionCourseId,
+      "REVIEW",
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.course.update({
+        where: { id: revisionCourseId },
+        data: { status: "REVIEW" },
+      });
+      await tx.courseRevisionRequest.create({
+        data: {
+          courseId: liveCourseId,
+          revisionCourseId,
+          instructorId: revision.instructorId,
+        },
+      });
+      await this.notifications.notifyAdmins(
+        {
+          event: "COURSE_REVISION_REQUESTED",
+          title: "Course changes need review",
+          body: revision.instructor.name + " submitted changes to course " + liveCourseTitle + " for review.",
+          href: "/admin/courses?tab=revision-requests",
+          skipEmail: true,
+        },
+        tx,
+      );
+    });
     return this.detail(revisionCourseId);
   }
 
@@ -326,7 +395,6 @@ export class AuthoringService {
   }): CourseRevisionRequestDto {
     return { id: row.id, courseId: row.courseId, revisionCourseId: row.revisionCourseId, courseTitle: row.course.title, instructorId: row.instructorId, instructorName: row.instructor.name, status: row.status, requestedAt: row.requestedAt.toISOString(), reviewedAt: row.reviewedAt?.toISOString() ?? null, reviewedBy: row.reviewedBy, reviewNote: row.reviewNote };
   }
-
   async listCourseRevisionRequests(query: { status?: "PENDING" | "APPROVED" | "REJECTED" }) {
     const rows = await this.prisma.courseRevisionRequest.findMany({
       where: query.status ? { status: query.status } : undefined,
@@ -341,51 +409,220 @@ export class AuthoringService {
       where: { id: requestId },
       include: {
         course: true,
-        revisionCourse: { include: { sections: { where: { archivedAt: null },
-          orderBy: { order: "asc" }, include: { lessons: { where: { archivedAt: null },
-              orderBy: { order: "asc" }, include: { quiz: { include: { questions: { include: { options: true } } } } } } } } } },
+        revisionCourse: {
+          include: {
+            sections: {
+              where: { archivedAt: null },
+              orderBy: { order: "asc" },
+              include: {
+                lessons: {
+                  where: { archivedAt: null },
+                  orderBy: { order: "asc" },
+                  include: {
+                    quiz: {
+                      include: {
+                        questions: {
+                          include: { options: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (!request) throw new NotFoundException("Revision request not found");
-    if (request.status !== "PENDING") throw new BadRequestException("This revision request has already been reviewed");
-    await this.validateStatusChange(admin, { category: request.revisionCourse.category, status: request.revisionCourse.status }, request.revisionCourseId, "PUBLISHED");
-    // A revision may keep its source course title, but approval must still
-    // respect uniqueness against other live courses owned by the instructor.
-    await this.assertUniqueCourseTitle(request.course.instructorId, request.revisionCourse.title, request.courseId);
+    if (request.status !== "PENDING")
+      throw new BadRequestException("This revision request has already been reviewed");
+
+    await this.validateStatusChange(
+      admin,
+      {
+        category: request.revisionCourse.category,
+        status: request.revisionCourse.status,
+      },
+      request.revisionCourseId,
+      "PUBLISHED",
+    );
+    await this.assertUniqueCourseTitle(
+      request.course.instructorId,
+      request.revisionCourse.title,
+      request.courseId,
+    );
+
     await this.prisma.$transaction(async (tx) => {
-      await tx.course.update({ where: { id: request.courseId }, data: { title: request.revisionCourse.title, subtitle: request.revisionCourse.subtitle, description: request.revisionCourse.description, category: request.revisionCourse.category, isoStandard: request.revisionCourse.isoStandard, level: request.revisionCourse.level, thumbnail: request.revisionCourse.thumbnail, basePriceCents: request.revisionCourse.basePriceCents, originalPriceCents: request.revisionCourse.originalPriceCents, language: request.revisionCourse.language, whatYouLearn: request.revisionCourse.whatYouLearn, requirements: request.revisionCourse.requirements } });
+      await tx.course.update({
+        where: { id: request.courseId },
+        data: {
+          title: request.revisionCourse.title,
+          subtitle: request.revisionCourse.subtitle,
+          description: request.revisionCourse.description,
+          category: request.revisionCourse.category,
+          isoStandard: request.revisionCourse.isoStandard,
+          level: request.revisionCourse.level,
+          thumbnail: request.revisionCourse.thumbnail,
+          basePriceCents: request.revisionCourse.basePriceCents,
+          originalPriceCents: request.revisionCourse.originalPriceCents,
+          language: request.revisionCourse.language,
+          whatYouLearn: request.revisionCourse.whatYouLearn,
+          requirements: request.revisionCourse.requirements,
+        },
+      });
+
+      // Track the actual live IDs retained by this revision. Source IDs alone
+      // omit newly added sections/lessons, which previously caused those new
+      // records to be archived at the end of the approval transaction.
+      const retainedSectionIds = new Set<string>();
+      const retainedLessonIds = new Set<string>();
+
       for (const revisionSection of request.revisionCourse.sections) {
-        const liveSection = revisionSection.sourceSectionId ? await tx.section.findUnique({ where: { id: revisionSection.sourceSectionId } }) : null;
-        const targetSection = liveSection ? await tx.section.update({ where: { id: liveSection.id }, data: { title: revisionSection.title, order: revisionSection.order, archivedAt: null } }) : await tx.section.create({ data: { courseId: request.courseId, title: revisionSection.title, order: revisionSection.order } });
+        const liveSection = revisionSection.sourceSectionId
+          ? await tx.section.findFirst({
+              where: {
+                id: revisionSection.sourceSectionId,
+                courseId: request.courseId,
+              },
+            })
+          : null;
+        const targetSection = liveSection
+          ? await tx.section.update({
+              where: { id: liveSection.id },
+              data: {
+                title: revisionSection.title,
+                order: revisionSection.order,
+                archivedAt: null,
+              },
+            })
+          : await tx.section.create({
+              data: {
+                courseId: request.courseId,
+                title: revisionSection.title,
+                order: revisionSection.order,
+              },
+            });
+        retainedSectionIds.add(targetSection.id);
+
         for (const revisionLesson of revisionSection.lessons) {
-          const liveLesson = revisionLesson.sourceLessonId ? await tx.lesson.findUnique({ where: { id: revisionLesson.sourceLessonId } }) : null;
-          const lessonData = { title: revisionLesson.title, durationSec: revisionLesson.durationSec, type: revisionLesson.type, preview: revisionLesson.preview, order: revisionLesson.order, articleContent: revisionLesson.articleContent, resources: revisionLesson.resources as Prisma.InputJsonValue, cfVideoUid: revisionLesson.cfVideoUid, pptxStorageKey: revisionLesson.pptxStorageKey, pptxName: revisionLesson.pptxName, pptxSizeLabel: revisionLesson.pptxSizeLabel, pptxDurationSec: revisionLesson.pptxDurationSec, archivedAt: null };
-          const targetLesson = liveLesson ? await tx.lesson.update({ where: { id: liveLesson.id }, data: lessonData }) : await tx.lesson.create({ data: { ...lessonData, sectionId: targetSection.id } });
+          const liveLesson = revisionLesson.sourceLessonId
+            ? await tx.lesson.findFirst({
+                where: {
+                  id: revisionLesson.sourceLessonId,
+                  section: { courseId: request.courseId },
+                },
+              })
+            : null;
+          const lessonData = {
+            title: revisionLesson.title,
+            durationSec: revisionLesson.durationSec,
+            type: revisionLesson.type,
+            preview: revisionLesson.preview,
+            order: revisionLesson.order,
+            articleContent: revisionLesson.articleContent,
+            resources: revisionLesson.resources as Prisma.InputJsonValue,
+            cfVideoUid: revisionLesson.cfVideoUid,
+            pptxStorageKey: revisionLesson.pptxStorageKey,
+            pptxName: revisionLesson.pptxName,
+            pptxSizeLabel: revisionLesson.pptxSizeLabel,
+            pptxDurationSec: revisionLesson.pptxDurationSec,
+            archivedAt: null,
+          };
+          const targetLesson = liveLesson
+            ? await tx.lesson.update({
+                where: { id: liveLesson.id },
+                data: lessonData,
+              })
+            : await tx.lesson.create({
+                data: { ...lessonData, sectionId: targetSection.id },
+              });
+          retainedLessonIds.add(targetLesson.id);
+
           if (revisionLesson.quiz) {
-            const quiz = await tx.quiz.upsert({ where: { lessonId: targetLesson.id }, update: { passScore: revisionLesson.quiz.passScore }, create: { lessonId: targetLesson.id, passScore: revisionLesson.quiz.passScore } });
+            const quiz = await tx.quiz.upsert({
+              where: { lessonId: targetLesson.id },
+              update: { passScore: revisionLesson.quiz.passScore },
+              create: {
+                lessonId: targetLesson.id,
+                passScore: revisionLesson.quiz.passScore,
+              },
+            });
             await tx.quizQuestion.deleteMany({ where: { quizId: quiz.id } });
-            for (const q of revisionLesson.quiz.questions) await tx.quizQuestion.create({ data: { quizId: quiz.id, prompt: q.prompt, explanation: q.explanation, order: q.order, options: { create: q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect, order: o.order })) } } });
+            for (const question of revisionLesson.quiz.questions) {
+              await tx.quizQuestion.create({
+                data: {
+                  quizId: quiz.id,
+                  prompt: question.prompt,
+                  explanation: question.explanation,
+                  order: question.order,
+                  options: {
+                    create: question.options.map((option) => ({
+                      text: option.text,
+                      isCorrect: option.isCorrect,
+                      order: option.order,
+                    })),
+                  },
+                },
+              });
+            }
+          } else {
+            await tx.quiz.deleteMany({ where: { lessonId: targetLesson.id } });
           }
         }
       }
-      const revisionSectionSourceIds = new Set(request.revisionCourse.sections.flatMap((section) => section.sourceSectionId ? [section.sourceSectionId] : []));
-      const revisionLessonSourceIds = new Set(request.revisionCourse.sections.flatMap((section) => section.lessons.flatMap((lesson) => lesson.sourceLessonId ? [lesson.sourceLessonId] : [])));
-      const liveSections = await tx.section.findMany({ where: { courseId: request.courseId }, include: { lessons: { select: { id: true } } } });
+
+      const liveSections = await tx.section.findMany({
+        where: { courseId: request.courseId },
+        include: { lessons: { select: { id: true } } },
+      });
       for (const liveSection of liveSections) {
-        if (!revisionSectionSourceIds.has(liveSection.id)) {
-          await tx.section.update({ where: { id: liveSection.id }, data: { archivedAt: new Date() } });
-          await tx.lesson.updateMany({ where: { sectionId: liveSection.id, archivedAt: null }, data: { archivedAt: new Date() } });
+        if (!retainedSectionIds.has(liveSection.id)) {
+          await tx.section.update({
+            where: { id: liveSection.id },
+            data: { archivedAt: new Date() },
+          });
+          await tx.lesson.updateMany({
+            where: { sectionId: liveSection.id, archivedAt: null },
+            data: { archivedAt: new Date() },
+          });
           continue;
         }
-        const removedLessonIds = liveSection.lessons.map((lesson) => lesson.id).filter((id) => !revisionLessonSourceIds.has(id));
-        if (removedLessonIds.length) await tx.lesson.updateMany({ where: { id: { in: removedLessonIds }, archivedAt: null }, data: { archivedAt: new Date() } });
-      }      await tx.course.update({ where: { id: request.courseId }, data: { status: "PUBLISHED", publishedAt: request.course.publishedAt ?? new Date() } });
-      await tx.courseRevisionRequest.update({ where: { id: request.id }, data: { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id } });
+        const removedLessonIds = liveSection.lessons
+          .map((lesson) => lesson.id)
+          .filter((id) => !retainedLessonIds.has(id));
+        if (removedLessonIds.length > 0) {
+          await tx.lesson.updateMany({
+            where: { id: { in: removedLessonIds }, archivedAt: null },
+            data: { archivedAt: new Date() },
+          });
+        }
+      }
+
+      await tx.course.update({
+        where: { id: request.courseId },
+        data: {
+          status: "PUBLISHED",
+          publishedAt: request.course.publishedAt ?? new Date(),
+        },
+      });
+      await tx.courseRevisionRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "APPROVED",
+          reviewedAt: new Date(),
+          reviewedBy: admin.id,
+        },
+      });
     });
-    this.notifyInstructorOfAdminChange({ ...request.course, category: request.course.category } as CourseAccess, request.courseId, "approved the requested course changes");
+
+    this.notifyInstructorOfAdminChange(
+      { ...request.course, category: request.course.category } as CourseAccess,
+      request.courseId,
+      "approved the requested course changes",
+    );
     return { ok: true as const };
   }
-
   async rejectCourseRevision(admin: RequestUser, requestId: string, note?: string) {
     const request = await this.prisma.courseRevisionRequest.findUnique({ where: { id: requestId }, include: { course: true } });
     if (!request) throw new NotFoundException("Revision request not found");
@@ -437,7 +674,7 @@ export class AuthoringService {
   }
 
   async update(user: RequestUser, id: string, input: UpdateCourseInput) {
-    const course = await this.assertCourseAccess(id, user);
+    const course = await this.assertCourseWritable(id, user);
     if (input.visibility !== undefined) {
       // Which orgs a course is assigned to is a platform-admin distribution
       // decision (see OrganizationsService.assertPlatformAdmin) — visibility
@@ -475,7 +712,7 @@ export class AuthoringService {
   }
 
   async setStatus(user: RequestUser, id: string, input: CourseStatusInput) {
-    const course = await this.assertCourseAccess(id, user);
+    const course = await this.assertCourseWritable(id, user);
     await this.validateStatusChange(user, course, id, input.status);
     // Check prior state BEFORE update to detect first publish.
     const prior = await this.repo.findCoursePriorStatus(id);
@@ -495,7 +732,7 @@ export class AuthoringService {
 
   /** Validate without changing data so the builder can fail before saving fields. */
   async validateStatus(user: RequestUser, id: string, input: CourseStatusInput) {
-    const course = await this.assertCourseAccess(id, user);
+    const course = await this.assertCourseWritable(id, user);
     await this.validateStatusChange(user, course, id, input.status);
     return { ok: true as const };
   }
@@ -828,7 +1065,7 @@ export class AuthoringService {
 
   // ── sections ───────────────────────────────────────────────────────────
   async addSection(user: RequestUser, courseId: string, input: SectionInput) {
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     const count = await this.repo.countSections(courseId);
     await this.repo.createSection({
       courseId,
@@ -843,7 +1080,7 @@ export class AuthoringService {
 
   async updateSection(user: RequestUser, sectionId: string, input: SectionInput) {
     const courseId = await this.courseIdOfSection(sectionId);
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     const notifyAdminEdit = this.isAdminEditingOthersCourse(user, course);
     // The builder resends every section unconditionally on each Save — only
     // fetch the prior row (and only notify) when it's actually worth diffing.
@@ -860,7 +1097,7 @@ export class AuthoringService {
 
   async removeSection(user: RequestUser, sectionId: string) {
     const courseId = await this.courseIdOfSection(sectionId);
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     const videoLessons = await this.repo.findCfVideoUidsBySection(sectionId);
     await this.repo.deleteSection(sectionId);
     await this.releaseLessonVideoUids(videoLessons);
@@ -873,7 +1110,7 @@ export class AuthoringService {
   // ── lessons ────────────────────────────────────────────────────────────
   async addLesson(user: RequestUser, sectionId: string, input: LessonInput) {
     const courseId = await this.courseIdOfSection(sectionId);
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     if (input.cfVideoUid) {
       await this.media.assertAttachableUpload({
         uid: input.cfVideoUid,
@@ -904,7 +1141,7 @@ export class AuthoringService {
 
   async updateLesson(user: RequestUser, lessonId: string, input: LessonInput) {
     const courseId = await this.courseIdOfLesson(lessonId);
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     const notifyAdminEdit = this.isAdminEditingOthersCourse(user, course);
     // Same reasoning as updateSection: the builder resends every lesson
     // unconditionally on each Save, so only diff (and only notify) when it's
@@ -951,7 +1188,7 @@ export class AuthoringService {
         const replacing = !!input.cfVideoUid && input.cfVideoUid !== priorUid;
         const clearing = !input.cfVideoUid && !!priorUid;
         if ((replacing || clearing) && priorUid) {
-          await this.media.detachUploadFromLesson(priorUid, tx);
+          await this.media.detachUploadFromLesson(priorUid, tx, lessonId);
           released = priorUid;
         }
       }
@@ -994,7 +1231,7 @@ export class AuthoringService {
     // Post-commit: DB is authoritative, so a failed storage delete just leaks
     // an object — never blocks the API response.
     await Promise.all(
-      removedKeys.map((k) => this.storage.delete(k).catch(() => undefined)),
+      (course.revisionOfId ? [] : removedKeys).map((k) => this.storage.delete(k).catch(() => undefined)),
     );
 
     if (notifyAdminEdit && this.lessonChanged(priorLesson, input)) {
@@ -1005,7 +1242,7 @@ export class AuthoringService {
 
   async removeLesson(user: RequestUser, lessonId: string) {
     const courseId = await this.courseIdOfLesson(lessonId);
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     const priorVideo = await this.repo.findLessonCfVideoUid(lessonId);
     const priorUid = priorVideo?.cfVideoUid ?? null;
     // Collect uploaded resource keys BEFORE the row cascades away so we can
@@ -1021,7 +1258,7 @@ export class AuthoringService {
       await this.media.onCloudflareUidReleased(priorUid);
     }
     await Promise.all(
-      keys.map((k) => this.storage.delete(k).catch(() => undefined)),
+      (course.revisionOfId ? [] : keys).map((k) => this.storage.delete(k).catch(() => undefined)),
     );
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "removed a lesson");
@@ -1031,7 +1268,7 @@ export class AuthoringService {
 
   // ── reorder ────────────────────────────────────────────────────────────
   async reorderSections(user: RequestUser, courseId: string, ids: string[]) {
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     await this.repo.reorderSections(ids);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "reordered the curriculum");
@@ -1041,7 +1278,7 @@ export class AuthoringService {
 
   async reorderLessons(user: RequestUser, sectionId: string, ids: string[]) {
     const courseId = await this.courseIdOfSection(sectionId);
-    const course = await this.assertCourseAccess(courseId, user);
+    const course = await this.assertCourseWritable(courseId, user);
     await this.repo.reorderLessons(ids);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "reordered the curriculum");
@@ -1051,24 +1288,26 @@ export class AuthoringService {
 
   // ── quiz authoring ──────────────────────────────────────────────────────────
 
-  private async assertLessonAccess(lessonId: string, user: RequestUser) {
+  private async assertLessonAccess(lessonId: string, user: RequestUser, forWrite = false) {
     const lesson = await this.repo.findLessonCourseId(lessonId);
     if (!lesson) throw new NotFoundException("Lesson not found");
-    const course = await this.assertCourseAccess(lesson.section.courseId, user);
+    const course = forWrite
+      ? await this.assertCourseWritable(lesson.section.courseId, user)
+      : await this.assertCourseAccess(lesson.section.courseId, user);
     return { lesson, course, courseId: lesson.section.courseId };
   }
 
-  private async assertQuizAccess(quizId: string, user: RequestUser) {
+  private async assertQuizAccess(quizId: string, user: RequestUser, forWrite = false) {
     const quiz = await this.repo.findQuizLessonId(quizId);
     if (!quiz) throw new NotFoundException("Quiz not found");
-    const { course, courseId } = await this.assertLessonAccess(quiz.lessonId, user);
+    const { course, courseId } = await this.assertLessonAccess(quiz.lessonId, user, forWrite);
     return { quiz, course, courseId };
   }
 
-  private async assertQuestionAccess(questionId: string, user: RequestUser) {
+  private async assertQuestionAccess(questionId: string, user: RequestUser, forWrite = false) {
     const q = await this.repo.findQuestionQuizLessonId(questionId);
     if (!q) throw new NotFoundException("Question not found");
-    const { course, courseId } = await this.assertLessonAccess(q.quiz.lessonId, user);
+    const { course, courseId } = await this.assertLessonAccess(q.quiz.lessonId, user, forWrite);
     return { question: q, course, courseId };
   }
 
@@ -1084,7 +1323,7 @@ export class AuthoringService {
   }
 
   async createQuiz(user: RequestUser, lessonId: string, input: CreateQuizInput) {
-    const { course, courseId } = await this.assertLessonAccess(lessonId, user);
+    const { course, courseId } = await this.assertLessonAccess(lessonId, user, true);
     const quiz = await this.repo.upsertQuiz(lessonId, input.passScore);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "added a quiz");
@@ -1093,7 +1332,7 @@ export class AuthoringService {
   }
 
   async updateQuiz(user: RequestUser, quizId: string, input: UpdateQuizInput) {
-    const { course, courseId } = await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user, true);
     await this.repo.updateQuiz(quizId, input.passScore);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "updated a quiz");
@@ -1102,7 +1341,7 @@ export class AuthoringService {
   }
 
   async deleteQuiz(user: RequestUser, quizId: string) {
-    const { course, courseId } = await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user, true);
     await this.repo.deleteQuiz(quizId);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "deleted a quiz");
@@ -1111,7 +1350,7 @@ export class AuthoringService {
   }
 
   async addQuestion(user: RequestUser, quizId: string, input: CreateQuizQuestionInput) {
-    const { course, courseId } = await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user, true);
     const count = await this.repo.countQuestions(quizId);
     await this.repo.createQuestion({
       quiz: { connect: { id: quizId } },
@@ -1137,7 +1376,7 @@ export class AuthoringService {
     questionId: string,
     input: UpdateQuizQuestionInput,
   ) {
-    const { course, courseId } = await this.assertQuestionAccess(questionId, user);
+    const { course, courseId } = await this.assertQuestionAccess(questionId, user, true);
     const quizId = await this.repo
       .findQuestionQuizIdOrThrow(questionId)
       .then((r) => r.quizId);
@@ -1162,7 +1401,7 @@ export class AuthoringService {
   }
 
   async deleteQuestion(user: RequestUser, questionId: string) {
-    const { course, courseId } = await this.assertQuestionAccess(questionId, user);
+    const { course, courseId } = await this.assertQuestionAccess(questionId, user, true);
     const quizId = await this.repo
       .findQuestionQuizIdOrThrow(questionId)
       .then((r) => r.quizId);
@@ -1174,7 +1413,7 @@ export class AuthoringService {
   }
 
   async reorderQuestions(user: RequestUser, quizId: string, ids: string[]) {
-    const { course, courseId } = await this.assertQuizAccess(quizId, user);
+    const { course, courseId } = await this.assertQuizAccess(quizId, user, true);
     await this.repo.reorderQuestions(ids);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "reordered quiz questions");

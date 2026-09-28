@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export function RevisionRequestsTab() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "course-revision-requests"],
+    queryKey: ["admin", "course-revision-requests", "PENDING"],
     queryFn: () => authoringApi.courseRevisionRequests("PENDING"),
   });
   const approve = useMutation({
@@ -50,7 +50,7 @@ export function RevisionRequestsTab() {
               <p className="mt-1 text-xs text-muted-foreground">The live course remains unchanged until approval.</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" render={<Link href={`/admin/courses/${request.revisionCourseId}/edit`} />}>Review changes</Button>
+              <Button size="sm" variant="outline" render={<Link href={`/admin/courses/${request.revisionCourseId}/edit?revisionRequestId=${request.id}`} />}>Review changes</Button>
               <Button size="sm" onClick={() => approve.mutate(request.id)} disabled={approve.isPending}>Approve</Button>
               <Button size="sm" variant="destructive" onClick={() => reject.mutate({ id: request.id, note: window.prompt("Reason for rejection (optional)") ?? "" })} disabled={reject.isPending}>Reject</Button>
             </div>
