@@ -39,7 +39,7 @@ const perks = [
 ];
 
 export default function CheckoutPage() {
-  const { cart, cartLoading, region, regionCode, coupon, campaignCode, clearCart, mounted } = useStore();
+  const { cart, cartLoading, region, regionCode, code, clearCart, mounted } = useStore();
   const { user } = useSession();
   const router = useRouter();
   const [method, setMethod] = useState("stripe");
@@ -62,17 +62,15 @@ export default function CheckoutPage() {
     [cart, catalog],
   );
 
-  // Authoritative totals come from the server quote (PPP + coupon/campaign +
-  // credit recomputed there — availableCreditCents is also returned so we
-  // can render the toggle). couponCode/campaignCode are mutually exclusive
-  // by construction (useStore enforces it).
+  // Authoritative totals come from the server quote (PPP + code + credit
+  // recomputed there — availableCreditCents is also returned so we can
+  // render the toggle).
   const { data: quote } = useQuery({
-    queryKey: ["quote", cart.join(","), coupon ?? "", campaignCode ?? "", regionCode, applyCredit],
+    queryKey: ["quote", cart.join(","), code ?? "", regionCode, applyCredit],
     queryFn: () =>
       api.quote({
         courseIds: cart,
-        couponCode: coupon ?? undefined,
-        campaignCode: campaignCode ?? undefined,
+        code: code ?? undefined,
         regionCode,
         applyCredit,
       }),
@@ -104,7 +102,7 @@ export default function CheckoutPage() {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? `co_${crypto.randomUUID()}`
         : `co_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-    [cart.join(","), coupon, campaignCode, method, regionCode, applyCredit],
+    [cart.join(","), code, method, regionCode, applyCredit],
   );
 
   async function pay() {
@@ -122,8 +120,7 @@ export default function CheckoutPage() {
       const session = await api.checkoutSession(
         {
           courseIds: cart,
-          couponCode: coupon ?? undefined,
-          campaignCode: campaignCode ?? undefined,
+          code: code ?? undefined,
           regionCode,
           applyCredit,
           gateway:
@@ -312,15 +309,25 @@ export default function CheckoutPage() {
                   <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
                 </div>
                 <div className="space-y-3">
-                  {items?.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3">
-                      <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">{c.title}</div>
+                  {items?.map((c) => {
+                    const ineligible =
+                      quote?.appliedCode?.valid &&
+                      quote.appliedCode.type === "CAMPAIGN" &&
+                      quote.appliedCode.scope === "SPECIFIC" &&
+                      !quote.appliedCode.eligibleCourseIds.includes(c.id);
+                    return (
+                      <div key={c.id} className="flex items-center gap-3">
+                        <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{c.title}</div>
+                          {ineligible && (
+                            <div className="text-xs text-muted-foreground">Not eligible for this code</div>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold">{formatUsd(lineUsd(c.id))}</div>
                       </div>
-                      <div className="text-sm font-semibold">{formatUsd(lineUsd(c.id))}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <Separator />
                 {availableCreditCents > 0 && (
@@ -347,7 +354,7 @@ export default function CheckoutPage() {
                   {discount > 0 && (
                     <div className="flex justify-between text-success">
                       <span className="flex items-center gap-1">
-                        <Badge variant="secondary" className="text-success">{coupon ?? campaignCode}</Badge>
+                        <Badge variant="secondary" className="text-success">{code}</Badge>
                       </span>
                       <span>-{formatUsd(discount)}</span>
                     </div>

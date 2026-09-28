@@ -17,25 +17,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Tag, Handshake, ShoppingCart, ArrowRight, Check, Wallet } from "lucide-react";
+import { Trash2, Tag, ShoppingCart, ArrowRight, Check, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CartPage() {
-  const {
-    cart, removeFromCart, region, regionCode, coupon, setCoupon,
-    campaignCode, setCampaignCode, mounted,
-  } = useStore();
+  const { cart, removeFromCart, region, regionCode, code, setCode, mounted } =
+    useStore();
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const [code, setCode] = useState("");
+  const [codeInput, setCodeInput] = useState("");
   const [applying, setApplying] = useState(false);
   const [applyCredit, setApplyCredit] = useState(false);
-  // Only meaningful while neither code is applied yet — picks which field the
-  // input below acts on. Mutually exclusive with the coupon by design (see
-  // useStore's setCoupon/setCampaignCode), so once one is applied the toggle
-  // gives way to that code's applied-chip instead.
-  const [codeMode, setCodeMode] = useState<"coupon" | "campaign">("coupon");
 
   // Show the "Payment canceled" toast at most once per page load, and strip
   // `?canceled=` from the URL synchronously so a browser refresh doesn't
@@ -79,16 +72,14 @@ export default function CartPage() {
 
   const { data: featured } = useFeaturedCoupon();
 
-  // Server-authoritative pricing: regional adjustment + coupon/campaign +
-  // credit. couponCode and campaignCode are mutually exclusive by
-  // construction (useStore enforces it), so at most one is ever non-empty.
+  // Server-authoritative pricing: regional adjustment + code (coupon or
+  // campaign, the server tells them apart) + credit.
   const { data: quote } = useQuery({
-    queryKey: ["quote", cart.join(","), coupon ?? "", campaignCode ?? "", regionCode, applyCredit],
+    queryKey: ["quote", cart.join(","), code ?? "", regionCode, applyCredit],
     queryFn: () =>
       api.quote({
         courseIds: cart,
-        couponCode: coupon ?? undefined,
-        campaignCode: campaignCode ?? undefined,
+        code: code ?? undefined,
         regionCode,
         applyCredit,
       }),
@@ -115,40 +106,26 @@ export default function CartPage() {
     (sum, c) => sum + (c.originalPriceCents ?? c.basePriceCents) / 100,
     0,
   ) ?? 0;
-  const couponValid = !!quote?.coupon?.valid;
 
   async function apply() {
-    if (!code.trim() || cart.length === 0) return;
+    if (!codeInput.trim() || cart.length === 0) return;
     setApplying(true);
     try {
-      if (codeMode === "coupon") {
-        const res = await api.quote({
-          courseIds: cart,
-          couponCode: code.trim().toUpperCase(),
-          regionCode,
-          applyCredit,
+      const res = await api.quote({
+        courseIds: cart,
+        code: codeInput.trim().toUpperCase(),
+        regionCode,
+        applyCredit,
+      });
+      if (res.appliedCode?.valid) {
+        setCode(res.appliedCode.code);
+        setCodeInput("");
+        const label = res.appliedCode.type === "CAMPAIGN" ? "Referral code" : "Coupon";
+        toast.success(`${label} applied: ${res.appliedCode.code}`, {
+          description: res.appliedCode.message,
         });
-        if (res.coupon?.valid) {
-          setCoupon(res.coupon.code);
-          setCode("");
-          toast.success(`Coupon applied: ${res.coupon.code}`, { description: res.coupon.message });
-        } else {
-          toast.error(res.coupon?.message ?? "This coupon can't be applied");
-        }
       } else {
-        const res = await api.quote({
-          courseIds: cart,
-          campaignCode: code.trim().toUpperCase(),
-          regionCode,
-          applyCredit,
-        });
-        if (res.campaign?.valid) {
-          setCampaignCode(res.campaign.code);
-          setCode("");
-          toast.success(`Referral code applied: ${res.campaign.code}`, { description: res.campaign.message });
-        } else {
-          toast.error(res.campaign?.message ?? "This referral code can't be applied");
-        }
+        toast.error(res.appliedCode?.message ?? "This code can't be applied");
       }
     } catch (err) {
       toast.error(getApiErrorMessage(err));
@@ -184,6 +161,11 @@ export default function CartPage() {
           {items?.map((c) => {
             const price = lineUsd(c.id);
             const original = c.originalPriceCents ? c.originalPriceCents / 100 : undefined;
+            const ineligible =
+              quote?.appliedCode?.valid &&
+              quote.appliedCode.type === "CAMPAIGN" &&
+              quote.appliedCode.scope === "SPECIFIC" &&
+              !quote.appliedCode.eligibleCourseIds.includes(c.id);
             return (
               <Card key={c.id} className="p-0">
                 <CardContent className="flex gap-4 p-4">
@@ -197,6 +179,11 @@ export default function CartPage() {
                       <Stars rating={c.ratingAvg} size={12} showValue />
                       {c.bestseller && <BestsellerBadge />}
                     </div>
+                    {ineligible && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Not eligible for this code
+                      </p>
+                    )}
                     <button
                       onClick={() => { removeFromCart(c.id); toast("Removed from cart"); }}
                       className="mt-auto inline-flex w-fit items-center gap-1 text-xs text-destructive hover:underline"
@@ -232,74 +219,39 @@ export default function CartPage() {
               <Separator />
 
               <div id="coupon" className="scroll-mt-24 space-y-2">
-              {/* Coupon and referral code are mutually exclusive — at most
-                  one of {coupon, campaignCode} is ever set. */}
-              {coupon ? (
+              {code ? (
                 <div className="flex items-center justify-between rounded-md border border-success/30 bg-success/10 p-2.5 text-sm">
                   <span className="flex items-center gap-1.5 font-medium text-success">
-                    <Check className="h-4 w-4" /> {coupon}
+                    <Check className="h-4 w-4" /> {code}
                   </span>
-                  <button onClick={() => setCoupon(null)} className="text-xs text-muted-foreground hover:text-foreground">
-                    Remove
-                  </button>
-                </div>
-              ) : campaignCode ? (
-                <div className="flex items-center justify-between rounded-md border border-success/30 bg-success/10 p-2.5 text-sm">
-                  <span className="flex items-center gap-1.5 font-medium text-success">
-                    <Handshake className="h-4 w-4" /> {campaignCode}
-                  </span>
-                  <button onClick={() => setCampaignCode(null)} className="text-xs text-muted-foreground hover:text-foreground">
+                  <button onClick={() => setCode(null)} className="text-xs text-muted-foreground hover:text-foreground">
                     Remove
                   </button>
                 </div>
               ) : (
-                <>
-                  <div className="inline-flex rounded-md border border-border p-0.5 text-xs">
-                    <button
-                      onClick={() => { setCodeMode("coupon"); setCode(""); }}
-                      className={`rounded px-2.5 py-1 font-medium transition-colors ${
-                        codeMode === "coupon" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Coupon
-                    </button>
-                    <button
-                      onClick={() => { setCodeMode("campaign"); setCode(""); }}
-                      className={`rounded px-2.5 py-1 font-medium transition-colors ${
-                        codeMode === "campaign" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Partner code
-                    </button>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Tag className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={codeInput}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                      placeholder="Discount or referral code"
+                      className="pl-8 uppercase"
+                      onKeyDown={(e) => e.key === "Enter" && apply()}
+                    />
                   </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      {codeMode === "coupon" ? (
-                        <Tag className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      ) : (
-                        <Handshake className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      )}
-                      <Input
-                        value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        placeholder={codeMode === "coupon" ? "Coupon code" : "Referral code"}
-                        className="pl-8 uppercase"
-                        onKeyDown={(e) => e.key === "Enter" && apply()}
-                      />
-                    </div>
-                    <Button variant="outline" onClick={apply} disabled={applying}>
-                      {applying ? "Checking…" : "Apply"}
-                    </Button>
-                  </div>
-                </>
+                  <Button variant="outline" onClick={apply} disabled={applying}>
+                    {applying ? "Checking…" : "Apply"}
+                  </Button>
+                </div>
               )}
               {/* The suggestion is whatever the admin has featured right now —
                   it used to be two hardcoded codes that may not exist. */}
-              {featured && !coupon && !campaignCode && codeMode === "coupon" && (
+              {featured && !code && (
                 <p className="text-xs text-muted-foreground">
                   Try{" "}
                   <button
-                    onClick={() => setCode(featured.code)}
+                    onClick={() => setCodeInput(featured.code)}
                     className="font-mono font-medium text-primary"
                   >
                     {featured.code}

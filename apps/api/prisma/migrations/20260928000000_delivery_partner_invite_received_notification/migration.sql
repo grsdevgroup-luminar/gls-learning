@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "NotificationEvent" ADD VALUE 'DELIVERY_PARTNER_INVITE_RECEIVED';

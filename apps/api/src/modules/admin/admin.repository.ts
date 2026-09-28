@@ -278,6 +278,24 @@ export class AdminRepository {
     return this.prisma.user.findUnique({ where: { id: userId } });
   }
 
+  /** Audited events that happened *to* this student — invite created/
+   *  revoked, member removed/restored — newest first. See
+   *  AuditService.record's affectedUserId field. */
+  findStudentActivity(userId: string, limit = 50) {
+    return this.prisma.auditLog.findMany({
+      where: { affectedUserId: userId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  }
+
+  findUsersByIds(ids: string[]) {
+    return this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+  }
+
   updateStudentProfileStatus(
     userId: string,
     data: Prisma.StudentProfileUpdateManyMutationInput,

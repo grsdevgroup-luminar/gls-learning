@@ -19,7 +19,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { UserPlus, Trash2, Search, Users, MailPlus, X } from "lucide-react";
+import { StudentProfileDialog } from "@/components/shared/student-profile-dialog";
+import { UserPlus, Trash2, Search, Users, MailPlus, X, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 
@@ -30,6 +31,7 @@ export default function OrgMembers() {
   const q = useDebouncedSearch(qInput);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   const { data: org } = useQuery({
     queryKey: ["org", params.slug],
@@ -40,6 +42,15 @@ export default function OrgMembers() {
     queryKey: ["org", org?.id, "invitations"],
     queryFn: () => orgApi.invitations(org!.id),
     enabled: !!org?.id,
+  });
+  const {
+    data: selectedProfile,
+    isLoading: isProfileLoading,
+    error: profileError,
+  } = useQuery({
+    queryKey: ["org", org?.id, "member-profile", selectedMemberId],
+    queryFn: () => orgApi.memberProfile(org!.id, selectedMemberId!),
+    enabled: !!org?.id && !!selectedMemberId,
   });
 
   const refresh = () => {
@@ -202,29 +213,42 @@ export default function OrgMembers() {
                       {relativeDate(m.joinedAt)}
                     </TableCell>
                     <TableCell>
-                      {m.role !== "ADMIN" && (
-                        <ReasonConfirmDialog
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                              aria-label="Remove member"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          }
-                          title={`Remove ${m.name}?`}
-                          description="They will lose access to this organization's courses. They'll be notified with the reason below."
-                          reasonLabel="Reason for removal"
-                          reasonPlaceholder="e.g. No longer with the company"
-                          confirmLabel="Remove"
-                          pending={removeMutation.isPending}
-                          onConfirm={async (reason) => {
-                            await removeMutation.mutateAsync({ memberId: m.id, reason });
-                          }}
-                        />
-                      )}
+                      <div className="flex justify-end gap-1">
+                        {m.userId && m.role !== "ADMIN" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label="View profile"
+                            onClick={() => setSelectedMemberId(m.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {m.role !== "ADMIN" && (
+                          <ReasonConfirmDialog
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label="Remove member"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            }
+                            title={`Remove ${m.name}?`}
+                            description="They will lose access to this organization's courses. They'll be notified with the reason below."
+                            reasonLabel="Reason for removal"
+                            reasonPlaceholder="e.g. No longer with the company"
+                            confirmLabel="Remove"
+                            pending={removeMutation.isPending}
+                            onConfirm={async (reason) => {
+                              await removeMutation.mutateAsync({ memberId: m.id, reason });
+                            }}
+                          />
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -233,6 +257,16 @@ export default function OrgMembers() {
           </Table>
         </CardContent>
       </Card>
+
+      <StudentProfileDialog
+        student={selectedProfile}
+        open={!!selectedMemberId}
+        loading={isProfileLoading}
+        error={profileError}
+        onOpenChange={(open) => {
+          if (!open) setSelectedMemberId(null);
+        }}
+      />
     </div>
   );
 }

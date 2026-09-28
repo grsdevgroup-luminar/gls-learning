@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { EmailService } from "../../email/email.service";
 import type { NotificationsService } from "../../notifications/notifications.service";
 import type { StorageDriver } from "../../storage/storage.driver";
+import type { AuditService } from "../../../common/audit/audit.service";
 import { DeliveryPartnerService } from "../delivery-partner.service";
 import type { DeliveryPartnerRepository } from "../delivery-partner.repository";
+
+const cartLines = (priceCents: number) => [{ courseId: "course_1", priceCents }];
 
 const orderId = "order_1";
 const now = new Date("2026-06-15T00:00:00Z");
@@ -28,6 +31,8 @@ function campaignRow(overrides: Partial<Record<string, unknown>> = {}) {
     active: true,
     usageLimit: 0,
     usageCount: 0,
+    scope: "GLOBAL",
+    campaignCourses: [],
     partner: {
       ...partner("partner_campaign"),
       user: { name: "Acme Partners" },
@@ -48,7 +53,8 @@ function makeService(repoOverrides: Partial<DeliveryPartnerRepository>) {
   const notifications = {} as NotificationsService;
   const email = {} as EmailService;
   const storage = {} as StorageDriver;
-  return new DeliveryPartnerService(repo, notifications, email, storage);
+  const audit = { record: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+  return new DeliveryPartnerService(repo, notifications, email, audit, storage);
 }
 
 describe("DeliveryPartnerService campaign-code attribution", () => {
@@ -127,7 +133,7 @@ describe("DeliveryPartnerService.evaluateCampaign", () => {
     const findCampaignByCode = vi.fn().mockResolvedValue(campaignRow());
     const service = makeService({ findCampaignByCode });
 
-    const { result, discountCents } = await service.evaluateCampaign("cmp-abc123", 10_000);
+    const { result, discountCents } = await service.evaluateCampaign("cmp-abc123", cartLines(10_000));
 
     expect(findCampaignByCode).toHaveBeenCalledWith("CMP-ABC123");
     expect(result.ok).toBe(true);
@@ -139,7 +145,7 @@ describe("DeliveryPartnerService.evaluateCampaign", () => {
     const findCampaignByCode = vi.fn().mockResolvedValue(null);
     const service = makeService({ findCampaignByCode });
 
-    const { result, discountCents } = await service.evaluateCampaign("NOPE", 10_000);
+    const { result, discountCents } = await service.evaluateCampaign("NOPE", cartLines(10_000));
 
     expect(result.ok).toBe(false);
     expect(discountCents).toBe(0);
@@ -152,7 +158,7 @@ describe("DeliveryPartnerService.evaluateCampaign", () => {
     );
     const service = makeService({ findCampaignByCode });
 
-    const { result, discountCents } = await service.evaluateCampaign("CMP-ABC123", 10_000);
+    const { result, discountCents } = await service.evaluateCampaign("CMP-ABC123", cartLines(10_000));
 
     expect(result.ok).toBe(false);
     expect(discountCents).toBe(0);

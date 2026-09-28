@@ -162,8 +162,9 @@ export function ManageMembersDialog({
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-left leading-relaxed" side="bottom" align="start">
                 Invite people by email to give them free access to this course. They get an email with a
-                claim link and take up a seat once they accept — remove a member or revoke a pending
-                invitation any time to free up their seat.
+                claim link and permanently take up a seat once they accept — removing a member later
+                doesn&apos;t free that seat back up. Revoke a pending invitation any time before they
+                accept it.
               </TooltipContent>
             </Tooltip>
             <Badge variant="outline" className="ml-1">
@@ -196,7 +197,7 @@ export function ManageMembersDialog({
           </Button>
         </form>
         {seatsFull && (
-          <p className="shrink-0 text-xs text-warning">This course is full — remove a member or ask an admin to raise the cap.</p>
+          <p className="shrink-0 text-xs text-warning">This course is full — ask an admin to raise the cap.</p>
         )}
 
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -279,7 +280,7 @@ export function ManageMembersDialog({
                             </Button>
                           }
                           title={`Remove ${r.name || r.email}?`}
-                          description="They'll lose access to this course right away, freeing up their seat."
+                          description="They'll lose access to this course right away. Their seat stays used — it won't free up a spot for someone else."
                           confirmLabel="Remove"
                           pending={removeMutation.isPending}
                           onConfirm={() => removeMutation.mutate(r.id)}

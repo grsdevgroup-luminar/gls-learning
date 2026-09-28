@@ -227,6 +227,7 @@ export function ManagePartnerCoursesDialog({
                           <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                             <Users className="h-3 w-3 shrink-0" />
                             {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap} members` : `${a.usedSeats} members (unlimited)`}
+                            {" · "}{a.totalInvitesSent} invited
                           </div>
                         </div>
                         <UnlimitedNumberInput

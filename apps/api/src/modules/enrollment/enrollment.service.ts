@@ -248,34 +248,52 @@ export class EnrollmentService {
     // free, so its suspension status can't revoke it.
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
     if (needsGrant) {
-      // Every org this course is assigned to that the user is also a member
-      // of. Empty means the user's access predates the course/org
-      // relationship changing (e.g. unassigned since they enrolled) — no
-      // suspension to check, same as the old single-org "org is null" case.
-      // Otherwise, access continues as long as *any* one of those orgs isn't
-      // currently locked (grace period respected).
+      // Every org this course is assigned to that the user is *currently* an
+      // active member of (a soft-removed row doesn't count as membership —
+      // see findLessonAccessContext). Otherwise, access continues as long as
+      // *any* one of those orgs isn't currently locked (grace period
+      // respected).
       const memberOrgs = course.orgAssignments
         .map((a) => a.org)
-        .filter((org) => org.members.length > 0);
+        .filter((org) => org.members.some((m) => !m.removedAt));
       // Same idea for delivery-partner access, one level deeper (per
       // course-assignment, not per-partner) — no grace period, a partner is
       // simply APPROVED or not.
-      const memberPartnerAssignments = course.deliveryPartnerAssignments.filter(
-        (a) => a.members.length > 0,
+      const memberPartnerAssignments = course.deliveryPartnerAssignments.filter((a) =>
+        a.members.some((m) => !m.removedAt),
       );
       const orgLocked = memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org));
       const partnerLocked =
         memberPartnerAssignments.length > 0 &&
         memberPartnerAssignments.every((a) => a.partner.status !== "APPROVED");
-      // Only block if *every* path this user has to this course is locked —
-      // someone with both an active org seat and a suspended partner grant
-      // (or vice versa) should still get in through whichever path works.
-      const hasAnyPath = memberOrgs.length > 0 || memberPartnerAssignments.length > 0;
-      const allPathsLocked =
+      // Only block if *every* active path this user has to this course is
+      // locked — someone with both an active org seat and a suspended
+      // partner grant (or vice versa) should still get in through whichever
+      // path works.
+      const hasAnyActivePath = memberOrgs.length > 0 || memberPartnerAssignments.length > 0;
+      const allActivePathsLocked =
         (memberOrgs.length === 0 || orgLocked) &&
         (memberPartnerAssignments.length === 0 || partnerLocked);
-      if (hasAnyPath && allPathsLocked) {
+      if (hasAnyActivePath && allActivePathsLocked) {
         throw new ForbiddenException("Access to this course is currently suspended");
+      }
+      // No currently-active path — either this user was never granted access
+      // through any of the course's orgs/assignments (predates the
+      // relationship, e.g. unassigned since they enrolled — allow through,
+      // unchanged from the original behavior), or a grant they *did* have
+      // was explicitly revoked (an org/partner removed them) — that must
+      // block, even though nothing else in this function would otherwise
+      // catch it once the active-membership filter drops the row.
+      if (!hasAnyActivePath) {
+        const hadRevokedOrgMembership = course.orgAssignments.some((a) =>
+          a.org.members.some((m) => !!m.removedAt),
+        );
+        const hadRevokedPartnerMembership = course.deliveryPartnerAssignments.some((a) =>
+          a.members.some((m) => !!m.removedAt),
+        );
+        if (hadRevokedOrgMembership || hadRevokedPartnerMembership) {
+          throw new ForbiddenException("Access to this course was revoked");
+        }
       }
     }
 
@@ -311,6 +329,13 @@ export class EnrollmentService {
     const course = await this.repo.findCourseAccess(courseId, userId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
+    // The instructor who owns/manages a course can't self-enroll in it —
+    // completing your own course would let you certify yourself, which is
+    // a data-integrity problem regardless of how the enrollment was reached
+    // (direct purchase page, an org/partner grant, ...). See also the
+    // matching guard in manageCertificate below.
+    if (course.instructorId === userId)
+      throw new ForbiddenException("You can't enroll in a course you manage");
 
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
     if (needsGrant) {
@@ -490,6 +515,11 @@ export class EnrollmentService {
     const user = await this.repo.findUserName(userId);
     const course = await this.repo.findCourseNumber(courseId);
     if (!user || !course) return null;
+    // Defense in depth: enrollFree already blocks a course's own instructor
+    // from enrolling, so this path shouldn't be reachable for them — but a
+    // certificate is a permanent, user-facing artifact, so it's worth a
+    // second guard here rather than trusting that invariant alone.
+    if (course.instructorId === userId) return null;
 
     const notifyInput: NotifyInput = {
       userId,

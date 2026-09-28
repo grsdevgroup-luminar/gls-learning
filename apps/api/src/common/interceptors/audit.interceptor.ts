@@ -30,13 +30,18 @@ export class AuditInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap(() => {
         if (!shouldAudit) return;
+        // The last path param is the most specific one for a nested route
+        // (e.g. `:memberId` on `organizations/:id/members/:memberId`), not
+        // always `:id` — hardcoding `id` silently recorded the wrong
+        // entityId on every nested-resource route.
+        const paramValues = Object.values(req.params as Record<string, string>);
         void this.prisma.auditLog
           .create({
             data: {
               actorUserId: user.id,
               action: req.method,
               entity: req.route?.path ?? req.path,
-              entityId: (req.params as Record<string, string>)?.id ?? null,
+              entityId: paramValues[paramValues.length - 1] ?? null,
               metadata: {
                 path: req.originalUrl,
                 params: req.params,

@@ -188,7 +188,7 @@ export function DirectInvitesTab() {
         </Button>
       </form>
       {seatsFull && (
-        <p className="text-xs text-warning">This course is full — remove a member or ask an admin to raise the cap.</p>
+        <p className="text-xs text-warning">This course is full — ask an admin to raise the cap.</p>
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -292,7 +292,7 @@ export function DirectInvitesTab() {
                           </Button>
                         }
                         title={`Remove ${r.name || r.email}?`}
-                        description="They'll lose access to this course right away, freeing up their seat."
+                        description="They'll lose access to this course right away. Their seat stays used — it won't free up a spot for someone else."
                         confirmLabel="Remove"
                         pending={removeMutation.isPending}
                         onConfirm={() => removeMutation.mutate(r.id)}

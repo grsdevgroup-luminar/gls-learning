@@ -10,6 +10,8 @@ import type {
   AdminPricingDto,
   AdminStudentDto,
   AdminStudentProfileDto,
+  AdminStudentMembershipsDto,
+  AdminStudentActivityEntryDto,
   AutomationRuleDto,
   CommentDto,
   CouponDto,
@@ -107,6 +109,8 @@ export type {
   AdminOverviewDto,
   AdminStudentDto,
   AdminStudentProfileDto,
+  AdminStudentMembershipsDto,
+  AdminStudentActivityEntryDto,
   PlatformSettingsDto,
   AutomationRuleDto,
   CommentDto,
@@ -363,6 +367,19 @@ export const api = {
     apiFetch<AdminStudentStatsDto>("/admin/students/stats"),
   adminStudentProfile: (id: string) =>
     apiFetch<AdminStudentProfileDto>(`/admin/students/${id}/profile`),
+  adminStudentMemberships: (id: string) =>
+    apiFetch<AdminStudentMembershipsDto>(`/admin/students/${id}/memberships`),
+  adminStudentActivity: (id: string) =>
+    apiFetch<AdminStudentActivityEntryDto[]>(`/admin/students/${id}/activity`),
+  adminRestoreOrgMembership: (id: string, orgId: string) =>
+    apiFetch<{ ok: true }>(`/admin/students/${id}/org-memberships/${orgId}/restore`, {
+      method: "POST",
+    }),
+  adminRestorePartnerMembership: (id: string, courseAssignmentId: string) =>
+    apiFetch<{ ok: true }>(
+      `/admin/students/${id}/partner-courses/${courseAssignmentId}/restore`,
+      { method: "POST" },
+    ),
   adminOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/admin/orders${qs(params)}`),
   adminOrderStats: () =>
@@ -481,12 +498,17 @@ export const api = {
     apiFetch<DeliveryPartnerMemberDto[]>(`/delivery-partner/courses/${courseAssignmentId}/members`),
   revokePartnerInvitation: (inviteId: string) =>
     apiFetch<{ ok: true }>(`/delivery-partner/invitations/${inviteId}`, { method: "DELETE" }),
-  removePartnerMember: (memberId: string) =>
-    apiFetch<{ ok: true }>(`/delivery-partner/members/${memberId}`, { method: "DELETE" }),
+  removePartnerMember: (memberId: string, reason?: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partner/members/${memberId}`, {
+      method: "DELETE",
+      body: { reason },
+    }),
   partnerInvitationInfo: (token: string) =>
     apiFetch<PartnerInvitationInfoDto>(`/delivery-partner/invitations/${token}`),
   claimPartnerInvitation: (token: string) =>
     apiFetch<DeliveryPartnerCourseAssignmentDto>(`/delivery-partner/claim/${token}`, { method: "POST" }),
+  declinePartnerInvitation: (token: string) =>
+    apiFetch<{ ok: true }>(`/delivery-partner/decline/${token}`, { method: "POST" }),
 
   // admin — delivery partners
   adminDeliveryPartnerApplications: (params: Record<string, string | number | undefined> = {}) =>
@@ -648,6 +670,8 @@ export const orgApi = {
       method: "DELETE",
       body: { reason },
     }),
+  memberProfile: (orgId: string, memberId: string) =>
+    apiFetch<AdminStudentProfileDto>(`/organizations/${orgId}/members/${memberId}/profile`),
   invitationInfo: (token: string) =>
     apiFetch<{
       valid: boolean;
@@ -658,6 +682,8 @@ export const orgApi = {
     }>(`/organizations/invitations/${token}`),
   claim: (token: string) =>
     apiFetch<OrganizationDto>(`/organizations/claim/${token}`, { method: "POST" }),
+  decline: (token: string) =>
+    apiFetch<{ ok: true }>(`/organizations/decline/${token}`, { method: "POST" }),
   courses: (orgId: string) =>
     apiFetch<CourseSummaryDto[]>(`/organizations/${orgId}/courses`),
   assignCourse: (orgId: string, courseId: string) =>
@@ -687,6 +713,7 @@ export const partnerApi = {
   removeMember: (memberId: string) => api.removePartnerMember(memberId),
   invitationInfo: (token: string) => api.partnerInvitationInfo(token),
   claim: (token: string) => api.claimPartnerInvitation(token),
+  decline: (token: string) => api.declinePartnerInvitation(token),
   grantedCourses: () => api.myPartnerGrantedCourses(),
   allMembers: () => api.myDeliveryPartnerMembers(),
   allInvitations: () => api.myDeliveryPartnerInvitations(),
@@ -902,6 +929,12 @@ export const adminApi = {
     api.adminStudents(params),
   studentStats: () => api.adminStudentStats(),
   studentProfile: (id: string) => api.adminStudentProfile(id),
+  studentMemberships: (id: string) => api.adminStudentMemberships(id),
+  studentActivity: (id: string) => api.adminStudentActivity(id),
+  restoreOrgMembership: (id: string, orgId: string) =>
+    api.adminRestoreOrgMembership(id, orgId),
+  restorePartnerMembership: (id: string, courseAssignmentId: string) =>
+    api.adminRestorePartnerMembership(id, courseAssignmentId),
   orders: (params: Record<string, string | number | undefined> = {}) =>
     api.adminOrders(params),
   orderStats: () => api.adminOrderStats(),

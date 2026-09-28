@@ -5,11 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { DeliveryPartnerApplication, DeliveryPartnerCampaign, Prisma } from "@prisma/client";
+import { DeliveryPartnerApplication, Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { ulid } from "ulid";
 import {
   campaignStatus,
+  eligibleCampaignCourseIds,
   parsePartnerCustomFields,
   parsePartnerDocuments,
   partnerCampaignDiscountCents,
@@ -18,6 +19,7 @@ import {
 import type {
   AdminDeliveryPartnerApplicationQuery,
   AdminDeliveryPartnerQuery,
+  AdminMembershipEntryDto,
   AssignPartnerCourseInput,
   CreatePartnerCampaignInput,
   DeliveryPartnerApplicationDto,
@@ -43,6 +45,7 @@ import type {
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { toCourseSummary } from "../courses/course.mapper";
+import { AuditService } from "../../common/audit/audit.service";
 import { EmailService } from "../email/email.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import {
@@ -53,6 +56,7 @@ import {
 import type { StorageDriver } from "../storage/storage.driver";
 import {
   DeliveryPartnerRepository,
+  type CampaignRow,
   type CourseAssignmentRow,
   type DeliveryPartnerRow,
 } from "./delivery-partner.repository";
@@ -66,6 +70,7 @@ export class DeliveryPartnerService {
     private readonly repo: DeliveryPartnerRepository,
     private readonly notifications: NotificationsService,
     private readonly email: EmailService,
+    private readonly audit: AuditService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
@@ -114,7 +119,7 @@ export class DeliveryPartnerService {
     };
   }
 
-  private toCampaignDto(c: DeliveryPartnerCampaign): DeliveryPartnerCampaignDto {
+  private toCampaignDto(c: CampaignRow): DeliveryPartnerCampaignDto {
     return {
       id: c.id,
       partnerId: c.partnerId,
@@ -126,6 +131,9 @@ export class DeliveryPartnerService {
       usageLimit: c.usageLimit,
       usageCount: c.usageCount,
       status: campaignStatus(c),
+      scope: c.scope,
+      courseIds: c.campaignCourses.map((cc) => cc.courseId),
+      courses: c.campaignCourses.map((cc) => ({ id: cc.course.id, title: cc.course.title })),
       createdAt: c.createdAt.toISOString(),
     };
   }
@@ -137,6 +145,7 @@ export class DeliveryPartnerService {
       course: toCourseSummary(a.course),
       memberCap: a.memberCap,
       usedSeats: a.usedSeats,
+      totalInvitesSent: a.totalInvitesSent,
       createdAt: a.createdAt.toISOString(),
     };
   }
@@ -366,11 +375,18 @@ export class DeliveryPartnerService {
     }
     const email = input.email.toLowerCase();
     const token = randomUUID();
-    const invitation = await this.repo.createInvitation({
-      courseAssignmentId,
-      email,
-      token,
-      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+    const invitation = await this.repo.runTransaction(async (tx) => {
+      const created = await this.repo.createInvitation(
+        {
+          courseAssignmentId,
+          email,
+          token,
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+        },
+        tx,
+      );
+      await this.repo.incrementTotalInvitesSent(courseAssignmentId, tx);
+      return created;
     });
     // Deliver the join link. Non-blocking, same as OrganizationsService.invite
     // — the partner still gets the invitation (with token) back so the link
@@ -378,6 +394,32 @@ export class DeliveryPartnerService {
     this.email
       .sendPartnerMemberInvite(email, partner.user.name, assignment.course.title, token)
       .catch(() => {});
+    // If the invited email already belongs to a platform user, also surface
+    // the invite in their in-app notification feed, not just via email —
+    // mirrors OrganizationsService.invite's ORG_INVITE_RECEIVED. The href
+    // lands them straight on the dashboard overlay (PartnerInviteModal)
+    // rather than the standalone claim page — see join/partner/[token]/page.tsx.
+    const existingUser = await this.repo.findUserByEmail(email);
+    void this.audit.record({
+      actorUserId: user.id,
+      action: "DELIVERY_PARTNER_INVITE_CREATED",
+      entity: "DeliveryPartnerInvitation",
+      entityId: invitation.id,
+      affectedUserId: existingUser?.id ?? null,
+      metadata: { courseAssignmentId, email },
+    });
+    if (existingUser) {
+      void this.notifications
+        .notify({
+          userId: existingUser.id,
+          event: "DELIVERY_PARTNER_INVITE_RECEIVED",
+          title: "Course invitation",
+          body: `${partner.user.name} has given you free access to ${assignment.course.title}.`,
+          href: `/dashboard?partnerInvite=${token}`,
+          skipEmail: true,
+        })
+        .catch(() => undefined);
+    }
     return {
       id: invitation.id,
       courseAssignmentId: invitation.courseAssignmentId,
@@ -426,15 +468,107 @@ export class DeliveryPartnerService {
     if (!invite) throw new NotFoundException("Invitation not found");
     await this.assertOwnAssignment(user, invite.courseAssignmentId);
     await this.repo.deleteInvitation(inviteId);
+    void this.audit.record({
+      actorUserId: user.id,
+      action: "DELIVERY_PARTNER_INVITE_REVOKED",
+      entity: "DeliveryPartnerInvitation",
+      entityId: inviteId,
+      metadata: { courseAssignmentId: invite.courseAssignmentId, email: invite.email },
+    });
     return { ok: true };
   }
 
-  async removeMember(user: RequestUser, memberId: string): Promise<{ ok: true }> {
+  /** Deliberately does NOT free the removed member's seat — once accepted, a
+   *  seat is spent for good, so a partner can't cycle members through a
+   *  capped course to invite more people than the cap allows. `usedSeats`
+   *  only ever increases (see claimInvitation), same one-way convention as
+   *  totalInvitesSent. */
+  async removeMember(
+    user: RequestUser,
+    memberId: string,
+    reason?: string,
+  ): Promise<{ ok: true }> {
     const member = await this.repo.findMember(memberId);
     if (!member) throw new NotFoundException("Member not found");
     const { assignment } = await this.assertOwnAssignment(user, member.courseAssignmentId);
-    await this.repo.deleteMember(memberId);
-    await this.repo.decrementUsedSeats(assignment.id);
+    const trimmedReason = reason?.trim() || null;
+    await this.repo.softRemoveMember(memberId, user.id, trimmedReason);
+    void this.audit.record({
+      actorUserId: user.id,
+      action: "DELIVERY_PARTNER_MEMBER_REMOVED",
+      entity: "DeliveryPartnerMember",
+      entityId: memberId,
+      affectedUserId: member.userId,
+      metadata: { courseAssignmentId: assignment.id, reason: trimmedReason },
+    });
+    return { ok: true };
+  }
+
+  // ── admin (platform-admin only; see AdminService.studentMemberships) ────
+  /** Every partner-course membership — current + past — this student has
+   *  ever had, mapped to the shared admin DTO shape. */
+  async adminMembershipHistory(userId: string): Promise<AdminMembershipEntryDto[]> {
+    const rows = await this.repo.findMembershipHistoryForUser(userId);
+    const removedByIds = [...new Set(rows.map((r) => r.removedBy).filter((id): id is string => !!id))];
+    const actors = removedByIds.length ? await this.repo.findUsersByIds(removedByIds) : [];
+    const actorById = new Map(actors.map((a) => [a.id, a.name]));
+    return rows.map((r) => ({
+      id: r.courseAssignmentId,
+      kind: "DELIVERY_PARTNER_COURSE" as const,
+      partnerName: r.courseAssignment.partner.user.name,
+      courseTitle: r.courseAssignment.course.title,
+      joinedAt: r.joinedAt.toISOString(),
+      removedAt: r.removedAt?.toISOString() ?? null,
+      removedBy: r.removedBy
+        ? { id: r.removedBy, name: actorById.get(r.removedBy) ?? "Unknown" }
+        : null,
+      removedReason: r.removedReason,
+    }));
+  }
+
+  /** Restores the most recently removed membership for this student against
+   *  this course assignment. Doesn't touch usedSeats — removal never freed
+   *  the seat in the first place (see removeMember), so restoring doesn't
+   *  re-spend it. Always succeeds regardless of the assignment's memberCap —
+   *  mirrors OrganizationsService.adminRestoreMember; see its doc comment for
+   *  the reasoning. */
+  async adminRestoreMember(
+    studentUserId: string,
+    courseAssignmentId: string,
+    adminUserId: string,
+  ): Promise<{ ok: true }> {
+    const removed = await this.repo.findMostRecentRemovedMembership(studentUserId, courseAssignmentId);
+    if (!removed)
+      throw new NotFoundException("No removed membership found for this student in this course");
+
+    const assignment = await this.repo.findCourseAssignmentById(courseAssignmentId);
+    if (!assignment) throw new NotFoundException("Course assignment not found");
+
+    await this.repo.runTransaction(async (tx) => {
+      await this.repo.restoreMember(removed.id, tx);
+      await this.audit.record(
+        {
+          actorUserId: adminUserId,
+          action: "ADMIN_RESTORE_PARTNER_MEMBER",
+          entity: "DeliveryPartnerMember",
+          entityId: removed.id,
+          affectedUserId: studentUserId,
+          metadata: { courseAssignmentId },
+        },
+        tx,
+      );
+    });
+
+    void this.notifications
+      .notify({
+        userId: studentUserId,
+        event: "DELIVERY_PARTNER_MEMBER_RESTORED",
+        title: "Access restored",
+        body: `A SkillStream admin restored your access to ${assignment.course.title}.`,
+        href: "/dashboard",
+      })
+      .catch(() => undefined);
+
     return { ok: true };
   }
 
@@ -443,7 +577,8 @@ export class DeliveryPartnerService {
    *  The token is an unguessable secret, so returning the invited email is safe. */
   async invitationInfo(token: string): Promise<PartnerInvitationInfoDto> {
     const invite = await this.repo.findInvitationByToken(token);
-    const valid = !!invite && !invite.claimedAt && invite.expiresAt > new Date();
+    const valid =
+      !!invite && !invite.claimedAt && !invite.declinedAt && invite.expiresAt > new Date();
     return {
       valid,
       email: invite?.email ?? null,
@@ -454,13 +589,23 @@ export class DeliveryPartnerService {
 
   /** A logged-in user claims an invitation, becoming a member of that one
    *  course assignment + consuming a seat. Access itself is resolved at read
-   *  time (see findMemberCoursesForUser) — no separate grant flag. */
+   *  time (see findMemberCoursesForUser) — no separate grant flag.
+   *
+   *  Requires the currently logged-in account's email to match the invited
+   *  address — same rule as OrganizationsService.claimInvitation, and for the
+   *  same reason: otherwise a different logged-in user on the same browser
+   *  could take a seat meant for someone else. */
   async claimInvitation(user: RequestUser, token: string): Promise<DeliveryPartnerCourseAssignmentDto> {
     const invite = await this.repo.findInvitationByTokenPlain(token);
-    if (!invite || invite.claimedAt || invite.expiresAt < new Date()) {
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date()) {
       throw new BadRequestException("Invalid or expired invitation");
     }
     const dbUser = await this.repo.findUserByIdOrThrow(user.id);
+    if (dbUser.email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw new ForbiddenException(
+        `This invitation was sent to ${invite.email} — log in with that account to accept it.`,
+      );
+    }
 
     const assignment = await this.repo.runTransaction(async (tx) => {
       const current = await this.repo.findCourseAssignmentById(invite.courseAssignmentId, tx);
@@ -471,15 +616,60 @@ export class DeliveryPartnerService {
       await this.repo.upsertMember(invite.courseAssignmentId, user.id, dbUser.email, dbUser.name, tx);
       await this.repo.incrementUsedSeats(invite.courseAssignmentId, tx);
       await this.repo.markInvitationClaimed(token, tx);
+
+      const partner = await this.repo.findPartnerById(current.partnerId, tx);
+      if (partner) {
+        await this.notifications.notify(
+          {
+            userId: partner.userId,
+            event: "DELIVERY_PARTNER_MEMBER_JOINED",
+            title: "New member joined",
+            body: `${dbUser.name} joined ${current.course.title} through your invite.`,
+            href: "/delivery-partner/courses",
+            skipEmail: true,
+          },
+          tx,
+        );
+      }
       return current;
     });
 
     return this.toAssignmentDto(assignment);
   }
 
+  /** The invited person turning down an invite — mirrors
+   *  OrganizationsService.declineInvitation: no seat is consumed, so this
+   *  doesn't need the email-match check claim does; it just stops the token
+   *  from being claimable and lets the partner know not to expect this
+   *  member. */
+  async declineInvitation(token: string): Promise<{ ok: true }> {
+    const invite = await this.repo.findInvitationByTokenPlain(token);
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date()) {
+      throw new BadRequestException("Invalid or expired invitation");
+    }
+    const assignment = await this.repo.findCourseAssignmentById(invite.courseAssignmentId);
+    if (!assignment) throw new NotFoundException("Course assignment not found");
+    await this.repo.markInvitationDeclined(token);
+
+    const partner = await this.repo.findPartnerById(assignment.partnerId);
+    if (partner) {
+      void this.notifications
+        .notify({
+          userId: partner.userId,
+          event: "DELIVERY_PARTNER_INVITE_DECLINED",
+          title: "Invitation declined",
+          body: `${invite.email} declined the invitation to join ${assignment.course.title}.`,
+          href: "/delivery-partner/courses",
+        })
+        .catch(() => undefined);
+    }
+
+    return { ok: true };
+  }
+
   /** Every course the current user has access to via a delivery partner —
-   *  powers the member-facing "granted courses" page (kept separate from
-   *  /dashboard/team on purpose, see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3). */
+   *  powers the "From your delivery partners" section on the main student
+   *  dashboard (DashboardClient), grouped by partner. */
   async myGrantedCourses(user: RequestUser): Promise<PartnerGrantedCourseDto[]> {
     const rows = await this.repo.findMemberCoursesForUser(user.id);
     return rows.map((r) => ({
@@ -730,6 +920,17 @@ export class DeliveryPartnerService {
    *  overlapping or identical date ranges — each is redeemed by its own
    *  distinct code, so there's no ambiguity at checkout regardless of how
    *  many are live at once. */
+  /** Validates every id in `courseIds` exists and is PUBLISHED — a campaign
+   *  can discount any published course in the catalog, independent of
+   *  whether that course is assigned to this (or any) partner. */
+  private async assertCoursesPublished(courseIds: string[]): Promise<void> {
+    if (courseIds.length === 0) return;
+    const count = await this.repo.countPublishedCourses(courseIds);
+    if (count !== new Set(courseIds).size) {
+      throw new BadRequestException("One or more selected courses could not be found");
+    }
+  }
+
   async createCampaign(
     partnerId: string,
     input: CreatePartnerCampaignInput,
@@ -739,11 +940,15 @@ export class DeliveryPartnerService {
     if (partner.status !== "APPROVED") {
       throw new BadRequestException("Only an approved partner can have a campaign");
     }
+    const courseIds = input.scope === "SPECIFIC" ? [...new Set(input.courseIds ?? [])] : [];
+    await this.assertCoursesPublished(courseIds);
     const row = await this.repo.createCampaign(partnerId, this.generateCampaignCode(), {
       discountPercent: input.discountPercent,
       startDate: input.startDate,
       endDate: input.endDate,
       usageLimit: input.usageLimit,
+      scope: input.scope,
+      courseIds,
     });
     return this.toCampaignDto(row);
   }
@@ -762,13 +967,33 @@ export class DeliveryPartnerService {
     if (!campaign || campaign.partnerId !== partnerId) {
       throw new NotFoundException("Campaign not found");
     }
-    const row = await this.repo.updateCampaign(campaignId, {
-      discountPercent: input.discountPercent,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      usageLimit: input.usageLimit,
-      active: input.active,
-    });
+    // Merge against the DB row, not just the partial input — a PATCH that
+    // only sends courseIds (scope unchanged) must still be validated against
+    // whatever the campaign's *current* scope actually is, and vice versa.
+    const nextScope = input.scope ?? campaign.scope;
+    let courseIds: string[] | undefined;
+    if (input.scope !== undefined || input.courseIds !== undefined) {
+      courseIds =
+        nextScope === "SPECIFIC"
+          ? [...new Set(input.courseIds ?? campaign.campaignCourses.map((cc) => cc.courseId))]
+          : [];
+      if (nextScope === "SPECIFIC" && courseIds.length === 0) {
+        throw new BadRequestException("Select at least one course for a course-specific campaign");
+      }
+      await this.assertCoursesPublished(courseIds);
+    }
+    const row = await this.repo.updateCampaign(
+      campaignId,
+      {
+        discountPercent: input.discountPercent,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        usageLimit: input.usageLimit,
+        active: input.active,
+        scope: input.scope,
+      },
+      courseIds,
+    );
     return this.toCampaignDto(row);
   }
 
@@ -800,14 +1025,15 @@ export class DeliveryPartnerService {
     return `CMP-${randomUUID().slice(0, 6).toUpperCase()}`;
   }
 
-  /** Validates a campaign code against a cart subtotal — same shape as
+  /** Validates a campaign code against the cart's lines — same shape as
    *  CouponsService.evaluate so CheckoutService.quote can treat the two
-   *  symmetrically. Campaigns are always GLOBAL (all courses), so unlike
-   *  coupons there's no per-course eligibility split. */
+   *  symmetrically. A GLOBAL campaign discounts the whole cart; a SPECIFIC
+   *  one discounts only the lines whose courseId it covers (a partial
+   *  overlap still validates — see validatePartnerCampaign's doc comment). */
   async evaluateCampaign(
     code: string,
-    subtotalCents: number,
-  ): Promise<{ result: PartnerCampaignResult; discountCents: number }> {
+    lines: { courseId: string; priceCents: number }[],
+  ): Promise<{ result: PartnerCampaignResult; discountCents: number; eligibleCourseIds: string[] }> {
     const row = await this.repo.findCampaignByCode(code.trim().toUpperCase());
     const like: PartnerCampaignLike | null = row
       ? {
@@ -820,12 +1046,19 @@ export class DeliveryPartnerService {
           usageLimit: row.usageLimit,
           usageCount: row.usageCount,
           partnerApproved: row.partner.status === "APPROVED",
+          scope: row.scope,
+          courseIds: row.campaignCourses.map((cc) => cc.courseId),
         }
       : null;
-    const result = validatePartnerCampaign(like);
-    const discountCents =
-      result.ok && like ? partnerCampaignDiscountCents(like, subtotalCents) : 0;
-    return { result, discountCents };
+    const cartCourseIds = lines.map((l) => l.courseId);
+    const result = validatePartnerCampaign(like, cartCourseIds);
+    if (!result.ok || !like) return { result, discountCents: 0, eligibleCourseIds: [] };
+    const eligibleCourseIds = eligibleCampaignCourseIds(like, cartCourseIds);
+    const eligibleCents = lines
+      .filter((l) => eligibleCourseIds.includes(l.courseId))
+      .reduce((s, l) => s + l.priceCents, 0);
+    const discountCents = partnerCampaignDiscountCents(like, eligibleCents);
+    return { result, discountCents, eligibleCourseIds };
   }
 }
 

@@ -65,6 +65,9 @@ export const OrganizationDto = z.object({
   accessLocked: z.boolean(),
   seatCount: z.number(),
   usedSeats: z.number(),
+  /** Lifetime invites ever sent — never decreases, unlike usedSeats. See
+   *  Organization.totalInvitesSent. */
+  totalInvitesSent: z.number(),
   createdAt: z.string(),
   members: z.array(OrgMemberDto),
   /** Courses assigned to this org — public or private; assignment is

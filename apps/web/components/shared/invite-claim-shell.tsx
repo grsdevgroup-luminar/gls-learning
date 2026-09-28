@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useLogout } from "@/lib/api/session";
 import { AlertTriangle, LogIn, UserPlus, Loader2, type LucideIcon } from "lucide-react";
 
 /**
@@ -23,6 +24,7 @@ export function InviteClaimShell({
   isLoading,
   sessionLoading,
   isAuthenticated,
+  sessionEmail,
   valid,
   email,
   claimPending,
@@ -39,6 +41,11 @@ export function InviteClaimShell({
   isLoading: boolean;
   sessionLoading: boolean;
   isAuthenticated: boolean;
+  /** The currently logged-in account's own email — compared against the
+   *  invited `email` so a different logged-in user can't accept someone
+   *  else's invite. The backend enforces this too (defense in depth); this
+   *  is just so the wrong-account case doesn't even get to the API. */
+  sessionEmail?: string | null;
   valid: boolean;
   email: string | null;
   claimPending: boolean;
@@ -54,6 +61,12 @@ export function InviteClaimShell({
   joiningLabel: string;
 }) {
   const router = useRouter();
+  const logout = useLogout();
+  const wrongAccount =
+    isAuthenticated &&
+    !!email &&
+    !!sessionEmail &&
+    email.toLowerCase() !== sessionEmail.toLowerCase();
 
   const shell = (children: React.ReactNode) => (
     <div className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center px-4 py-12">
@@ -94,6 +107,34 @@ export function InviteClaimShell({
         <Link href="/" className="text-sm text-primary hover:underline">
           Back to home
         </Link>
+      </div>,
+    );
+  }
+
+  // Valid invite, but the currently logged-in account isn't the one it was
+  // sent to — never offer Accept here. The backend rejects the claim too
+  // (defense in depth), but surfacing it before that round trip is clearer.
+  if (wrongAccount) {
+    return shell(
+      <div className="flex flex-col items-center gap-4 py-4 text-center">
+        <div className="grid h-14 w-14 place-items-center rounded-full bg-warning/10 text-warning">
+          <AlertTriangle className="h-7 w-7" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold">Wrong account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            This invitation was sent to {email} — you&apos;re signed in as {sessionEmail}. Log out and
+            sign in with the invited address to continue.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full"
+          size="lg"
+          onClick={() => logout.mutate(undefined, { onSuccess: () => router.push(`/login?next=${encodeURIComponent(next)}`) })}
+        >
+          <LogIn className="h-4 w-4" /> Log out
+        </Button>
       </div>,
     );
   }

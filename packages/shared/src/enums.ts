@@ -119,6 +119,13 @@ export const CouponScope = {
 } as const;
 export type CouponScope = (typeof CouponScope)[keyof typeof CouponScope];
 
+export const DeliveryPartnerCampaignScope = {
+  GLOBAL: "GLOBAL",
+  SPECIFIC: "SPECIFIC",
+} as const;
+export type DeliveryPartnerCampaignScope =
+  (typeof DeliveryPartnerCampaignScope)[keyof typeof DeliveryPartnerCampaignScope];
+
 export const ReminderTrigger = {
   IDLE: "IDLE",
   LOW_PROGRESS: "LOW_PROGRESS",
@@ -170,6 +177,12 @@ export const NotificationEvent = {
   COURSE_DELETION_REQUESTED: "COURSE_DELETION_REQUESTED",
   COURSE_DELETION_REQUEST_APPROVED: "COURSE_DELETION_REQUEST_APPROVED",
   COURSE_DELETION_REQUEST_REJECTED: "COURSE_DELETION_REQUEST_REJECTED",
+  ORG_INVITE_DECLINED: "ORG_INVITE_DECLINED",
+  DELIVERY_PARTNER_INVITE_DECLINED: "DELIVERY_PARTNER_INVITE_DECLINED",
+  DELIVERY_PARTNER_INVITE_RECEIVED: "DELIVERY_PARTNER_INVITE_RECEIVED",
+  DELIVERY_PARTNER_MEMBER_JOINED: "DELIVERY_PARTNER_MEMBER_JOINED",
+  ORG_MEMBER_RESTORED: "ORG_MEMBER_RESTORED",
+  DELIVERY_PARTNER_MEMBER_RESTORED: "DELIVERY_PARTNER_MEMBER_RESTORED",
 } as const;
 export type NotificationEvent =
   (typeof NotificationEvent)[keyof typeof NotificationEvent];

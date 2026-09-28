@@ -32,6 +32,10 @@ function SignupForm() {
   // Carried from an org-invite link: prefill the invited email and return to
   // the join page (which auto-claims) after the account is created.
   const next = params.get('next');
+  // Locked so someone can't dodge the invite's email-match check (see
+  // OrganizationsService.claimInvitation) by signing up under a different
+  // address after following the invite link.
+  const emailLocked = !!params.get('email') && !!next?.startsWith('/join/');
   const [name, setName] = useState('');
   const [email, setEmail] = useState(params.get('email') ?? '');
   const [password, setPassword] = useState('');
@@ -139,6 +143,7 @@ function SignupForm() {
                     autoCorrect="off"
                     spellCheck={false}
                     required
+                    disabled={emailLocked}
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value.toLowerCase());
@@ -146,6 +151,11 @@ function SignupForm() {
                     }}
                   />
                 </FormField>
+                {emailLocked && (
+                  <p className="-mt-2 text-xs text-muted-foreground">
+                    This account will be created for the email your invitation was sent to.
+                  </p>
+                )}
                 <FormField label="Country">
                   <CountryField
                     value={country}

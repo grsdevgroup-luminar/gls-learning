@@ -572,19 +572,27 @@ async function main() {
         },
       });
 
-      await prisma.orgMember.upsert({
-        where: { orgId_email: { orgId: organization.id, email: m.email } },
-        update: {},
-        create: {
-          id: m.id,
-          orgId: organization.id,
-          userId: user.id,
-          name: m.name,
-          email: m.email,
-          role: m.role === "admin" ? "ADMIN" : "MEMBER",
-          joinedAt: new Date(m.joinedAt),
-        },
+      // OrgMember's unique key is now a partial index (active rows only —
+      // see the membership soft-delete migration), so a Prisma upsert can't
+      // target it directly; find-then-create/update instead.
+      const existingMember = await prisma.orgMember.findFirst({
+        where: { orgId: organization.id, email: m.email, removedAt: null },
       });
+      if (existingMember) {
+        await prisma.orgMember.update({ where: { id: existingMember.id }, data: {} });
+      } else {
+        await prisma.orgMember.create({
+          data: {
+            id: m.id,
+            orgId: organization.id,
+            userId: user.id,
+            name: m.name,
+            email: m.email,
+            role: m.role === "admin" ? "ADMIN" : "MEMBER",
+            joinedAt: new Date(m.joinedAt),
+          },
+        });
+      }
     }
 
     // Assigning a course to an org makes it PRIVATE — visible to members only.

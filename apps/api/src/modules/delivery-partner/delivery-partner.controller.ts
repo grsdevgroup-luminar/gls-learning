@@ -19,6 +19,7 @@ import {
   AssignPartnerCourseSchema,
   CreatePartnerCampaignSchema,
   InvitePartnerMemberSchema,
+  RemovePartnerMemberSchema,
   ReviewPartnerApplicationSchema,
   UpdatePartnerCampaignSchema,
   UpdatePartnerCourseAssignmentSchema,
@@ -28,6 +29,7 @@ import {
   type AssignPartnerCourseInput,
   type CreatePartnerCampaignInput,
   type InvitePartnerMemberInput,
+  type RemovePartnerMemberInput,
   type ReviewPartnerApplicationInput,
   type UpdatePartnerCampaignInput,
   type UpdatePartnerCourseAssignmentInput,
@@ -146,8 +148,12 @@ export class DeliveryPartnerController {
   }
 
   @Delete("delivery-partner/members/:memberId")
-  removeMember(@CurrentUser() user: RequestUser, @Param("memberId") memberId: string) {
-    return this.partners.removeMember(user, memberId);
+  removeMember(
+    @CurrentUser() user: RequestUser,
+    @Param("memberId") memberId: string,
+    @ZodBody(RemovePartnerMemberSchema) body: RemovePartnerMemberInput,
+  ) {
+    return this.partners.removeMember(user, memberId, body.reason);
   }
 
   // ── invitation claim (public preview + authenticated accept) ─────────────
@@ -160,6 +166,11 @@ export class DeliveryPartnerController {
   @Post("delivery-partner/claim/:token")
   claim(@CurrentUser() user: RequestUser, @Param("token") token: string) {
     return this.partners.claimInvitation(user, token);
+  }
+
+  @Post("delivery-partner/decline/:token")
+  decline(@Param("token") token: string) {
+    return this.partners.declineInvitation(token);
   }
 
   // ── admin ──

@@ -17,16 +17,10 @@ export const cartApi = {
 
   clear: () => apiFetch<CartDto>("/cart", { method: "DELETE" }),
 
-  setCoupon: (couponCode: string | null) =>
-    apiFetch<CartDto>("/cart/coupon", {
+  setCode: (code: string | null) =>
+    apiFetch<CartDto>("/cart/code", {
       method: "PATCH",
-      body: { couponCode },
-    }),
-
-  setCampaign: (campaignCode: string | null) =>
-    apiFetch<CartDto>("/cart/campaign", {
-      method: "PATCH",
-      body: { campaignCode },
+      body: { code },
     }),
 
   merge: (input: MergeCartInput) =>

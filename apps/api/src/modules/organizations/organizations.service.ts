@@ -1,14 +1,17 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from "@nestjs/common";
 import { randomBytes, randomUUID } from "node:crypto";
 import * as argon2 from "argon2";
 import { Prisma } from "@prisma/client";
 import { isOrgAccessLocked } from "@skillstream/shared";
 import type {
+  AdminMembershipEntryDto,
   AssignOrgCourseInput,
   CreateOrganizationInput,
   CreateOrganizationResultDto,
@@ -18,11 +21,13 @@ import type {
 } from "@skillstream/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
+import { AuditService } from "../../common/audit/audit.service";
 import { EmailService } from "../email/email.service";
 import {
   NotificationsService,
   type NotifyInput,
 } from "../notifications/notifications.service";
+import { AdminService } from "../admin/admin.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import {
   OrganizationsRepository,
@@ -57,6 +62,8 @@ export class OrganizationsService {
     private readonly repo: OrganizationsRepository,
     private readonly email: EmailService,
     private readonly notifications: NotificationsService,
+    @Inject(forwardRef(() => AdminService)) private readonly admin: AdminService,
+    private readonly audit: AuditService,
   ) {}
 
   private toDto(o: OrgRow): OrganizationDto {
@@ -76,6 +83,7 @@ export class OrganizationsService {
       }),
       seatCount: o.seatCount,
       usedSeats: o.usedSeats,
+      totalInvitesSent: o.totalInvitesSent,
       createdAt: o.createdAt.toISOString(),
       members: o.members.map((m) => ({
         id: m.id,
@@ -239,12 +247,19 @@ export class OrganizationsService {
       throw new BadRequestException("Org admins can only invite members");
     const token = randomUUID();
     const email = input.email.toLowerCase();
-    const invitation = await this.repo.createInvitation({
-      orgId,
-      email,
-      role: input.role,
-      token,
-      expiresAt: new Date(Date.now() + 7 * 86_400_000),
+    const invitation = await this.prisma.$transaction(async (tx) => {
+      const created = await this.repo.createInvitation(
+        {
+          orgId,
+          email,
+          role: input.role,
+          token,
+          expiresAt: new Date(Date.now() + 7 * 86_400_000),
+        },
+        tx,
+      );
+      await this.repo.incrementTotalInvitesSent(orgId, tx);
+      return created;
     });
     // Deliver the join link. Non-blocking: the admin still gets the invitation
     // (with token) back so the link can be copied if email delivery fails.
@@ -254,6 +269,14 @@ export class OrganizationsService {
     // If the invited email already belongs to a platform user, also surface
     // the invite in their in-app notification feed, not just via email.
     const existingUser = await this.repo.findUserByEmail(email);
+    void this.audit.record({
+      actorUserId: user.id,
+      action: "ORG_INVITE_CREATED",
+      entity: "OrgInvitation",
+      entityId: invitation.id,
+      affectedUserId: existingUser?.id ?? null,
+      metadata: { orgId, email, role: input.role },
+    });
     if (existingUser) {
       this.notifications
         .notify({
@@ -274,7 +297,7 @@ export class OrganizationsService {
   async invitationInfo(token: string) {
     const invite = await this.repo.findInvitationByToken(token);
     const valid =
-      !!invite && !invite.claimedAt && invite.expiresAt > new Date();
+      !!invite && !invite.claimedAt && !invite.declinedAt && invite.expiresAt > new Date();
     return {
       valid,
       email: invite?.email ?? null,
@@ -284,13 +307,32 @@ export class OrganizationsService {
     };
   }
 
-  /** A logged-in user claims an invitation, becoming an org member + consuming a seat. */
+  /** A logged-in user claims an invitation, becoming an org member + consuming a seat.
+   *
+   *  Two checks guard this beyond validity/expiry:
+   *  - The invite is only good for the account it was actually sent to —
+   *    otherwise a different logged-in user sharing the browser/link could
+   *    take someone else's seat. Compared case-insensitively since email
+   *    lookups elsewhere in this module are normalized to lowercase.
+   *  - Instructors don't join organizations as a learner-level member —
+   *    instructor and learner roles are kept separate (see the certificate/
+   *    enrollment ownership checks in EnrollmentService for the same rule
+   *    applied the other direction). */
   async claimInvitation(user: RequestUser, token: string): Promise<OrganizationDto> {
     const invite = await this.repo.findInvitationByTokenPlain(token);
-    if (!invite || invite.claimedAt || invite.expiresAt < new Date())
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date())
       throw new BadRequestException("Invalid or expired invitation");
 
     const dbUser = await this.repo.findUserByIdOrThrow(user.id);
+
+    if (dbUser.email.toLowerCase() !== invite.email.toLowerCase())
+      throw new ForbiddenException(
+        `This invitation was sent to ${invite.email} — log in with that account to accept it.`,
+      );
+    if (dbUser.role === "INSTRUCTOR")
+      throw new ForbiddenException(
+        "Instructor accounts can't join organizations as a member",
+      );
 
     // Built inside the transaction, sent after it commits — see
     // NotificationsService's notify()/notifyEmailAfterCommit() split.
@@ -370,6 +412,50 @@ export class OrganizationsService {
     return this.toDto(await this.getRow(invite.orgId));
   }
 
+  /** The invited person turning down an invite — no seat is consumed, so
+   *  unlike claim this doesn't need the email-match/role checks; it just
+   *  needs to stop the token from being claimable and let the org's admins
+   *  know not to expect that member. */
+  async declineInvitation(token: string): Promise<{ ok: true }> {
+    const invite = await this.repo.findInvitationByTokenPlain(token);
+    if (!invite || invite.claimedAt || invite.declinedAt || invite.expiresAt < new Date())
+      throw new BadRequestException("Invalid or expired invitation");
+
+    const org = await this.repo.findOrgByIdOrThrow(invite.orgId);
+    await this.repo.markInvitationDeclined(token);
+
+    const admins = (await this.repo.findOrgAdminUserIds(invite.orgId)).map(
+      (m) => m.userId!,
+    );
+    for (const adminId of admins) {
+      void this.notifications
+        .notify({
+          userId: adminId,
+          event: "ORG_INVITE_DECLINED",
+          title: "Invitation declined",
+          body: `${invite.email} declined the invitation to join ${org.name}.`,
+          href: `/org/${org.slug}/members`,
+        })
+        .catch(() => undefined);
+    }
+
+    return { ok: true };
+  }
+
+  /** An org admin viewing one of their members' learning profile — same rich
+   *  DTO the platform admin sees at GET /admin/students/:id/profile, reused
+   *  rather than re-aggregated, just gated by org-admin + membership instead
+   *  of platform-admin. `studentProfile` itself is scoped to role STUDENT, so
+   *  this naturally 404s for e.g. the org's own ADMIN member — which is fine,
+   *  the ask was to see *students* the org is responsible for. */
+  async memberProfile(user: RequestUser, idOrSlug: string, memberId: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
+    const member = await this.repo.findMember(memberId, orgId);
+    if (!member) throw new NotFoundException("Member not found");
+    if (!member.userId) throw new NotFoundException("This member has no account yet");
+    return this.admin.studentProfile(member.userId);
+  }
+
   async removeMember(
     user: RequestUser,
     idOrSlug: string,
@@ -385,9 +471,17 @@ export class OrganizationsService {
         throw new BadRequestException("An organization must keep one admin");
     }
     const org = await this.getRow(orgId);
-    await this.repo.deleteMember(memberId);
+    await this.repo.softRemoveMember(memberId, user.id, reason);
     if (member.role === "MEMBER")
       await this.repo.decrementUsedSeats(orgId);
+    void this.audit.record({
+      actorUserId: user.id,
+      action: "ORG_MEMBER_REMOVED",
+      entity: "OrgMember",
+      entityId: memberId,
+      affectedUserId: member.userId,
+      metadata: { orgId, reason },
+    });
     if (member.userId) {
       void this.notifications
         .notify({
@@ -399,6 +493,73 @@ export class OrganizationsService {
         .catch(() => undefined);
     }
     return this.toDto(await this.getRow(orgId));
+  }
+
+  // ── admin (platform-admin only; see AdminService.studentMemberships) ────
+  /** Every org membership — current + past — this student has ever had,
+   *  mapped to the shared admin DTO shape. */
+  async adminMembershipHistory(userId: string): Promise<AdminMembershipEntryDto[]> {
+    const rows = await this.repo.findMembershipHistory(userId);
+    const removedByIds = [...new Set(rows.map((r) => r.removedBy).filter((id): id is string => !!id))];
+    const actors = removedByIds.length
+      ? await this.repo.findUsersByIds(removedByIds)
+      : [];
+    const actorById = new Map(actors.map((a) => [a.id, a.name]));
+    return rows.map((r) => ({
+      id: r.orgId,
+      kind: "ORGANIZATION" as const,
+      orgName: r.org.name,
+      role: r.role,
+      joinedAt: r.joinedAt.toISOString(),
+      removedAt: r.removedAt?.toISOString() ?? null,
+      removedBy: r.removedBy
+        ? { id: r.removedBy, name: actorById.get(r.removedBy) ?? "Unknown" }
+        : null,
+      removedReason: r.removedReason,
+    }));
+  }
+
+  /** Restores the most recently removed membership for this student in this
+   *  org — un-deletes the row (keeps original joinedAt) rather than creating
+   *  a new one. Always succeeds, even over the org's normal seat cap: an
+   *  admin override must not be blocked by the same org's own seat settings
+   *  (confirmed product decision — see the plan doc). */
+  async adminRestoreMember(
+    studentUserId: string,
+    orgId: string,
+    adminUserId: string,
+  ): Promise<{ ok: true }> {
+    const removed = await this.repo.findMostRecentRemovedMembership(studentUserId, orgId);
+    if (!removed) throw new NotFoundException("No removed membership found for this student in this organization");
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.repo.restoreMember(removed.id, tx);
+      if (removed.role === "MEMBER") await this.repo.incrementUsedSeats(orgId, tx);
+      await this.audit.record(
+        {
+          actorUserId: adminUserId,
+          action: "ADMIN_RESTORE_ORG_MEMBER",
+          entity: "OrgMember",
+          entityId: removed.id,
+          affectedUserId: studentUserId,
+          metadata: { orgId },
+        },
+        tx,
+      );
+    });
+
+    const org = await this.getRow(orgId);
+    void this.notifications
+      .notify({
+        userId: studentUserId,
+        event: "ORG_MEMBER_RESTORED",
+        title: "Access restored",
+        body: `A SkillStream admin restored your access to ${org.name}.`,
+        href: `/dashboard/team`,
+      })
+      .catch(() => undefined);
+
+    return { ok: true };
   }
 
   // ── course assignment (many-to-many; public or private, admin only) ───────
@@ -447,6 +608,13 @@ export class OrganizationsService {
     if (!invite || invite.orgId !== orgId)
       throw new NotFoundException("Invitation not found");
     await this.repo.deleteInvitation(inviteId);
+    void this.audit.record({
+      actorUserId: user.id,
+      action: "ORG_INVITE_REVOKED",
+      entity: "OrgInvitation",
+      entityId: inviteId,
+      metadata: { orgId, email: invite.email },
+    });
     return { ok: true as const };
   }
 

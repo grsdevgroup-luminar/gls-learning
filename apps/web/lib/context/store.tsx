@@ -63,10 +63,9 @@ export interface MyReview {
 }
 
 const CART_KEY = "skillstream_cart_v2";
-const CART_COUPON_KEY = "skillstream_cart_coupon_v2";
-/** Mutually exclusive with CART_COUPON_KEY — only one discount code applies
- *  at a time, enforced by setCoupon/setCampaignCode clearing each other. */
-const CART_CAMPAIGN_KEY = "skillstream_cart_campaign_v1";
+/** One discount/referral code field — the backend resolves whether it's a
+ *  coupon or a delivery-partner campaign code (see CodeResolverService). */
+const CART_CODE_KEY = "skillstream_cart_code_v1";
 const REGION_KEY = "skillstream_region_v2";
 
 const ROLE_FROM_SESSION: Record<string, Role> = {
@@ -96,16 +95,14 @@ interface StoreContextValue {
    * in-memory cart is [] until the server cart resolves.
    */
   cartLoading: boolean;
-  coupon: string | null;
-  /** A delivery-partner campaign code — mutually exclusive with `coupon`;
-   *  setting one clears the other, both client-side and server-side. */
-  campaignCode: string | null;
+  /** A discount/referral code — coupon or delivery-partner campaign, the
+   *  backend tells them apart (see QuoteDto.appliedCode). */
+  code: string | null;
   addToCart: (courseId: string) => void;
   removeFromCart: (courseId: string) => void;
   clearCart: () => void;
   inCart: (courseId: string) => boolean;
-  setCoupon: (code: string | null) => void;
-  setCampaignCode: (code: string | null) => void;
+  setCode: (code: string | null) => void;
   // enrollment + progress
   enrolled: string[];
   isEnrolled: (courseId: string) => boolean;
@@ -134,17 +131,9 @@ function readGuestCart(): string[] {
   }
 }
 
-function readGuestCoupon(): string | null {
+function readGuestCode(): string | null {
   try {
-    return localStorage.getItem(CART_COUPON_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function readGuestCampaign(): string | null {
-  try {
-    return localStorage.getItem(CART_CAMPAIGN_KEY);
+    return localStorage.getItem(CART_CODE_KEY);
   } catch {
     return null;
   }
@@ -153,8 +142,7 @@ function readGuestCampaign(): string | null {
 function wipeGuestCart() {
   try {
     localStorage.removeItem(CART_KEY);
-    localStorage.removeItem(CART_COUPON_KEY);
-    localStorage.removeItem(CART_CAMPAIGN_KEY);
+    localStorage.removeItem(CART_CODE_KEY);
   } catch {
     /* ignore */
   }
@@ -165,13 +153,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [mounted, setMounted] = useState(false);
 
-  // ── cart / coupon ──
+  // ── cart / code ──
   // Local mirror so the UI reads synchronously. The source of truth is
   // localStorage for guests and the server for authenticated users; both
   // paths keep this state in sync.
   const [cart, setCart] = useState<string[]>([]);
-  const [coupon, setCouponState] = useState<string | null>(null);
-  const [campaignCode, setCampaignCodeState] = useState<string | null>(null);
+  const [code, setCodeState] = useState<string | null>(null);
   const [regionCode, setRegionCodeState] = useState<string>(DEFAULT_REGION);
 
   // ── client caches (my reviews) ──
@@ -193,8 +180,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const id = setTimeout(() => {
       try {
         setCart(readGuestCart());
-        setCouponState(readGuestCoupon());
-        setCampaignCodeState(readGuestCampaign());
+        setCodeState(readGuestCode());
         const r = localStorage.getItem(REGION_KEY);
         if (r) setRegionCodeState(r);
       } catch {
@@ -234,21 +220,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mounted || user) return;
     try {
-      if (coupon && cart.length > 0) localStorage.setItem(CART_COUPON_KEY, coupon);
-      else localStorage.removeItem(CART_COUPON_KEY);
+      if (code && cart.length > 0) localStorage.setItem(CART_CODE_KEY, code);
+      else localStorage.removeItem(CART_CODE_KEY);
     } catch {
       /* ignore */
     }
-  }, [coupon, cart, mounted, user]);
-  useEffect(() => {
-    if (!mounted || user) return;
-    try {
-      if (campaignCode && cart.length > 0) localStorage.setItem(CART_CAMPAIGN_KEY, campaignCode);
-      else localStorage.removeItem(CART_CAMPAIGN_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, [campaignCode, cart, mounted, user]);
+  }, [code, cart, mounted, user]);
 
   // ── pricing regions (rates refreshed daily server-side) ──
   const { data: regionList } = useQuery({
@@ -379,8 +356,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const applyServerCart = useCallback((dto: CartDto) => {
     setCart(dto.items?.map((i) => i.courseId) ?? []);
-    setCouponState(dto.couponCode);
-    setCampaignCodeState(dto.campaignCode);
+    setCodeState(dto.code);
   }, []);
 
   // On login: merge guest cart into DB once, then adopt the server cart as
@@ -392,20 +368,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) {
       mergedForUserRef.current = null;
       // Logout transition: previous render had a signed-in user, now null.
-      // Wipe the persisted cart + coupon so the next visitor on this device
+      // Wipe the persisted cart + code so the next visitor on this device
       // (or the same user opening a new tab) doesn't inherit stale items.
       if (prevUserIdRef.current) {
         wipeGuestCart();
         setCart([]);
-        setCouponState(null);
-        setCampaignCodeState(null);
+        setCodeState(null);
         prevUserIdRef.current = null;
         return;
       }
       // First-load guest — hydrate from localStorage.
       setCart(readGuestCart());
-      setCouponState(readGuestCoupon());
-      setCampaignCodeState(readGuestCampaign());
+      setCodeState(readGuestCode());
       return;
     }
 
@@ -414,18 +388,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     mergedForUserRef.current = user.id;
 
     const guestItems = readGuestCart();
-    // A guest could in principle have both set client-side (e.g. two tabs) —
-    // coupon wins arbitrarily but deterministically, same tie-break as
-    // CartService.merge on the server.
-    const guestCoupon = guestItems.length > 0 ? readGuestCoupon() : null;
-    const guestCampaign = guestItems.length > 0 && !guestCoupon ? readGuestCampaign() : null;
+    const guestCode = guestItems.length > 0 ? readGuestCode() : null;
     const shouldMerge = guestItems.length > 0;
 
     const run = shouldMerge
       ? cartApi.merge({
         courseIds: guestItems,
-        couponCode: guestCoupon ?? undefined,
-        campaignCode: guestCampaign ?? undefined,
+        code: guestCode ?? undefined,
       })
       : cartApi.get();
 
@@ -501,14 +470,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const removeFromCart = useCallback(
     (courseId: string) => {
       if (!user) {
-        // Dropping the last item must drop the coupon/campaign code too —
-        // otherwise it silently reapplies to whatever gets added next.
+        // Dropping the last item must drop the code too — otherwise it
+        // silently reapplies to whatever gets added next.
         setCart((c) => {
           const next = c.filter((x) => x !== courseId);
-          if (next.length === 0) {
-            setCouponState(null);
-            setCampaignCodeState(null);
-          }
+          if (next.length === 0) setCodeState(null);
           return next;
         });
         return;
@@ -528,84 +494,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => {
     if (!user) {
       setCart([]);
-      setCouponState(null);
-      setCampaignCodeState(null);
+      setCodeState(null);
       return;
     }
     runServerMutation(
       () => {
         const prevCart = cart;
-        const prevCoupon = coupon;
-        const prevCampaign = campaignCode;
+        const prevCode = code;
         setCart([]);
-        setCouponState(null);
-        setCampaignCodeState(null);
+        setCodeState(null);
         return {
           rollback: () => {
             setCart(prevCart);
-            setCouponState(prevCoupon);
-            setCampaignCodeState(prevCampaign);
+            setCodeState(prevCode);
           },
         };
       },
       () => cartApi.clear(),
     );
-  }, [user, cart, coupon, campaignCode, runServerMutation]);
+  }, [user, cart, code, runServerMutation]);
 
-  // Mutually exclusive with campaignCode — applying a coupon clears whatever
-  // campaign code was set, both here (immediate UX feedback) and again
-  // server-side (CartService.setCoupon), which is the actual source of truth.
-  const setCoupon = useCallback(
-    (code: string | null) => {
+  const setCode = useCallback(
+    (next: string | null) => {
       if (!user) {
-        setCouponState(code);
-        if (code) setCampaignCodeState(null);
+        setCodeState(next);
         return;
       }
       runServerMutation(
         () => {
-          const prev = coupon;
-          const prevCampaign = campaignCode;
-          setCouponState(code);
-          if (code) setCampaignCodeState(null);
-          return {
-            rollback: () => {
-              setCouponState(prev);
-              setCampaignCodeState(prevCampaign);
-            },
-          };
+          const prev = code;
+          setCodeState(next);
+          return { rollback: () => setCodeState(prev) };
         },
-        () => cartApi.setCoupon(code),
+        () => cartApi.setCode(next),
       );
     },
-    [user, coupon, campaignCode, runServerMutation],
-  );
-
-  /** Mirrors setCoupon — mutually exclusive with it. */
-  const setCampaignCode = useCallback(
-    (code: string | null) => {
-      if (!user) {
-        setCampaignCodeState(code);
-        if (code) setCouponState(null);
-        return;
-      }
-      runServerMutation(
-        () => {
-          const prev = campaignCode;
-          const prevCoupon = coupon;
-          setCampaignCodeState(code);
-          if (code) setCouponState(null);
-          return {
-            rollback: () => {
-              setCampaignCodeState(prev);
-              setCouponState(prevCoupon);
-            },
-          };
-        },
-        () => cartApi.setCampaign(code),
-      );
-    },
-    [user, campaignCode, coupon, runServerMutation],
+    [user, code, runServerMutation],
   );
 
   const value: StoreContextValue = {
@@ -619,14 +543,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // cart
     cart,
     cartLoading,
-    coupon,
-    campaignCode,
+    code,
     addToCart,
     removeFromCart,
     clearCart,
     inCart: (id) => cart?.includes(id) ?? false,
-    setCoupon,
-    setCampaignCode,
+    setCode,
     // enrollment + progress
     enrolled,
     isEnrolled: (id) => enrolled?.includes(id) ?? false,

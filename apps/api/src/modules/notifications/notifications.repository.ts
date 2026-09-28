@@ -89,9 +89,24 @@ export class NotificationFeedRepository {
     });
   }
 
-  deleteOldUnread(cutoff: Date) {
-    return this.prisma.notification.deleteMany({
-      where: { readAt: null, createdAt: { lt: cutoff } },
+  /** Unlike deleteOldRead, these rows are still unread, so the denormalized
+   *  per-user counter has to be walked down before the rows disappear —
+   *  otherwise the badge count permanently overcounts by whatever got pruned. */
+  async deleteOldUnread(cutoff: Date) {
+    const where = { readAt: null, createdAt: { lt: cutoff } } as const;
+    return this.prisma.$transaction(async (tx) => {
+      const groups = await tx.notification.groupBy({
+        by: ["userId"],
+        where,
+        _count: { id: true },
+      });
+      for (const g of groups) {
+        await tx.user.update({
+          where: { id: g.userId },
+          data: { unreadNotificationCount: { decrement: g._count.id } },
+        });
+      }
+      return tx.notification.deleteMany({ where });
     });
   }
 

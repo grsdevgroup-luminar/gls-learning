@@ -8,6 +8,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { type Env, validateEnv } from "./config/env";
 import { StorageModule } from "./modules/storage/storage.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { AuditModule } from "./common/audit/audit.module";
 import { EmailModule } from "./modules/email/email.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -66,6 +67,7 @@ import { RequestLoggingMiddleware } from "./logging/request-logging.middleware";
     }),
     StorageModule,
     PrismaModule,
+    AuditModule,
     EmailModule,
     UsersModule,
     AuthModule,

@@ -18,6 +18,7 @@ import { AdminPricingService } from "./admin-pricing.service";
 import { AdminPricingController } from "./admin-pricing.controller";
 import { CouponsService } from "./coupons.service";
 import { CouponsRepository } from "./coupons.repository";
+import { CodeResolverService } from "./code-resolver.service";
 import { OrdersService } from "./orders.service";
 import { OrdersRepository } from "./orders.repository";
 import { CheckoutService } from "./checkout.service";
@@ -50,6 +51,7 @@ import { CartRepository } from "./cart.repository";
     AdminPricingService,
     CouponsService,
     CouponsRepository,
+    CodeResolverService,
     OrdersService,
     OrdersRepository,
     CheckoutService,

@@ -5,6 +5,10 @@
 > later work (referral/commission durable attribution + refund reversal) that
 > this plan explicitly left "staying as-is" (§0) but which changed after a
 > follow-up QA pass — see `FEATURE_FLOWS.md` §5.2 for the current state.
+> **§13 reverses §6.3** (member course access is now folded into the main
+> dashboard, not a separate page) and **§14** adds admin-side soft-delete/
+> restore/audit for org and delivery-partner membership — both shipped and
+> live, verified against the real API/DB.
 > Companion to [`FEATURE_FLOWS.md`](./FEATURE_FLOWS.md) §5 (delivery partner
 > flow, now the up-to-date reference) and §6 (Organization/B2B flow, whose
 > patterns this plan reuses throughout).
@@ -393,7 +397,14 @@ notification-template registry pattern
 sent the same way org invites are (logged to console in dev without email
 config, sent via the configured driver otherwise).
 
-### 6.3 Member's course access — a dedicated page, not `/dashboard/team`
+### 6.3 ~~Member's course access — a dedicated page, not `/dashboard/team`~~
+
+> **Superseded — see §13.** The client asked directly for this to be folded
+> into the main dashboard instead of living on its own page, overriding the
+> decision below. The reasoning here is kept for the record (it wasn't
+> wrong given the constraints at the time — it just weighed a maintainability
+> concern the client didn't share), but `/dashboard/partner-courses` no
+> longer exists.
 
 **Decision #9, reversing my earlier "fold it into `/dashboard/team`"
 recommendation** now that I've actually weighed it instead of defaulting to
@@ -474,7 +485,7 @@ Every open question from the previous version of this plan has been answered:
 2. ~~Member access scope~~ → **Per-course.** (§3, §6.1)
 3. ~~Member role tiers~~ → **Flat "member," no tiers.** (§3)
 4. ~~Seat/invite limits~~ → **Admin sets a per-course member cap at assignment time**, mirroring `Organization.seatCount`. (§3, §4.1)
-5. ~~`/dashboard/team` vs. a separate page~~ → **Separate page** (`/dashboard/partner-courses` or similar), with the reasoning in §6.3.
+5. ~~`/dashboard/team` vs. a separate page~~ → **Separate page** (`/dashboard/partner-courses` or similar), with the reasoning in §6.3. ~~Superseded by §13: folded into the main dashboard instead, per direct client request.~~
 
 Two small naming/detail items remain genuinely open and low-stakes enough to
 decide during implementation rather than block on:
@@ -580,3 +591,122 @@ then a synthetic paid order refunded in two partial steps → exact
 proportional reversal both times, capped correctly on the second). 11 new
 unit tests (`admin-refund-partner-commission.test.ts`,
 `referral-attribution.test.ts`) plus the full existing suite all pass.
+
+## 13. Member course access folded into the main dashboard (reverses §6.3)
+
+Client direction, given directly rather than discovered in QA: no separate
+"Partner courses" page, no separate "Partner courses" nav item — a delivery
+partner's granted courses should just show up on the student's normal
+`/dashboard`, and the sidebar's "Team courses" item should disappear
+entirely for a student with nothing to show there, instead of linking to an
+empty-state page.
+
+1. **`/dashboard/partner-courses` is deleted.** `DashboardClient`
+   (`apps/web/app/(student)/dashboard/dashboard-client.tsx`) now fetches
+   `partnerApi.grantedCourses` itself (`useMyGrantedCourses`,
+   `apps/web/lib/api/hooks.ts`) and renders a "From your delivery partners"
+   section, grouped by partner, directly under "Your courses" — the exact
+   same grouping/course-card/suspended-partner-banner JSX the old page used,
+   just relocated. The provenance concern §6.3 raised (a student should be
+   able to tell *why* they have access to something) is kept by grouping
+   under partner name with its own heading, rather than merging silently
+   into the flat enrollment list.
+2. **The "Team courses" nav item is now conditional**, not just the page
+   content. `apps/web/app/(student)/layout.tsx` fetches `/me/organizations`
+   alongside `/auth/me` and only includes the nav entry when at least one
+   org membership has `assignedCourseCount > 0` and isn't access-locked —
+   org membership existing with zero assigned courses still hides it (the
+   stricter reading the client asked for). `PortalShell` needed no change;
+   it already just renders whatever `items` array it's given.
+3. `join/partner/[token]/page.tsx`'s post-claim redirect now goes to
+   `/dashboard` instead of the deleted route.
+
+No new endpoint was needed for either change — `partnerApi.grantedCourses`
+and `OrganizationDto.assignedCourseCount` already existed and already carried
+exactly the signal needed.
+
+## 14. Admin oversight: soft-deletable membership, restore, and audit trail
+
+The client's concrete worry: a delivery partner (or an org) revokes a
+paying student unilaterally, possibly without giving a reason, and the
+platform had no way to intervene — `OrgMember`/`DeliveryPartnerMember`
+removal was a hard `DELETE`, so once removed there was no record the row
+had ever existed, no way for a platform admin to see it happened, and no
+way to undo it. This section covers what replaced that.
+
+1. **Soft delete, not hard delete.** Both `OrgMember` and
+   `DeliveryPartnerMember` gained `removedAt`/`removedBy`/`removedReason`
+   columns; `removeMember` now sets these instead of deleting the row. The
+   old `@@unique([orgId, email])` / `@@unique([courseAssignmentId, email])`
+   constraints were dropped in favor of a **partial unique index**
+   (`WHERE "removedAt" IS NULL`, hand-added to the migration SQL the same
+   way `Coupon_single_featured` already does for `Coupon.featured`) — so a
+   removed email can be re-invited without colliding with its own history,
+   but two *active* rows for the same email still can't coexist.
+   `upsertOrgMember`/`upsertMember` could no longer use Prisma's generated
+   compound-unique `upsert` (that input type disappears once the constraint
+   becomes partial), so both became explicit find-active-then-create/update
+   calls.
+2. **Every access-control query that treated row-existence as membership
+   was re-audited for the new `removedAt` filter** — this was the riskiest
+   part of the change, not the schema itself. The one place that mattered
+   most: `EnrollmentRepository.findLessonAccessContext` (feeding
+   `assertLessonAccessible`). Fixing this also closed a real pre-existing
+   gap, not just preserved old behavior: previously, a hard-deleted
+   membership row and a membership that had simply never existed looked
+   identical (both "no row"), so a removed member kept access to any lesson
+   they'd already started — `assertLessonAccessible` only ever re-checked
+   *suspension*, never revocation. The fix fetches both active and
+   soft-removed rows for the caller's `userId` and distinguishes "never had
+   a relationship here" (removedAt-less rows entirely absent → unchanged,
+   access predates the relationship, don't block) from "had one, it was
+   revoked" (a removedAt-set row exists → block, unless some other active
+   path still grants access).
+3. **Two persistent lifetime counters** —
+   `Organization.totalInvitesSent` / `DeliveryPartnerCourseAssignment.totalInvitesSent`
+   — incremented only at invite-creation, never decremented by anything
+   (not revoke, not decline, not member removal). This exists because the
+   obvious alternative, counting invitation rows, isn't stable: revoking a
+   still-pending invite hard-deletes that row (confirmed in both
+   `organizations.repository.ts` and `delivery-partner.repository.ts`), so a
+   raw count would understate history. Displayed alongside `usedSeats`
+   (which legitimately does go down) rather than replacing it.
+4. **Admin can restore a removed membership.**
+   `POST /admin/students/:id/org-memberships/:orgId/restore` and
+   `.../partner-courses/:courseAssignmentId/restore` un-delete the most
+   recently removed row for that (student, org/assignment) pair — preserving
+   the original `joinedAt` rather than creating a fresh row — and always
+   succeed, even if doing so pushes the org/partner over its normal seat
+   cap. That's a deliberate, confirmed product decision: an admin override
+   exists specifically to undo a partner/org's unilateral action, so it
+   can't be the same party's own seat settings that blocks it.
+5. **A purpose-built audit trail**, because the existing generic
+   `AuditInterceptor` (fires on every mutating request) structurally can't
+   capture what this needed: a removal `reason` from the request body, or a
+   clean "who this happened to" field distinct from whichever URL param a
+   route happens to use (it also had a real bug — it always read
+   `req.params.id`, silently wrong for any nested route like
+   `.../members/:memberId`; fixed in passing). A new `AuditService.record()`
+   (`apps/api/src/common/audit/audit.service.ts`), backed by one new
+   `AuditLog.affectedUserId` column, is called explicitly from invite
+   created/revoked, member removed, and member restored, for both the org
+   and delivery-partner flows.
+6. **Admin-facing UI**: `AdminStudentDetailDialog`
+   (`apps/web/components/shared/admin-student-detail-dialog.tsx`) wraps the
+   existing `StudentProfileDialog` content as an "Overview" tab (that
+   component itself is untouched — an org admin's own member view still
+   uses it directly, without admin-only restore actions leaking in) and adds
+   "Memberships" (current + past, with a Restore button on anything
+   removed) and "Activity" (the audit trail) tabs. Swapped in on
+   `/admin/students` only.
+
+Verified live against the real API and DB: created a course-scoped campaign
+end-to-end (see the shared `partner-campaign.ts` changes are covered in
+`FEATURE_FLOWS.md` §5.5, not here), soft-removed a `DeliveryPartnerMember`
+row directly, confirmed the Memberships tab showed it as Removed with the
+reason, clicked Restore, confirmed it flipped back to Active and the
+Activity tab recorded "Admin restore partner member" attributed to the
+acting admin. Full existing test suite still passes; two pre-existing,
+unrelated failures (`authoring-visibility.test.ts`,
+`enrollment-time-learned.test.ts`) were confirmed present before this work
+started and are not caused by it.

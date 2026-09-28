@@ -140,20 +140,35 @@ captured client-side and persisted in `localStorage`
 
 See §5 for the full partner-commission flow.
 
-### 2.3 Price quote (PPP + coupons + partner campaigns)
+### 2.3 Price quote (PPP + one unified discount/referral code)
 1. `POST /checkout/quote` (authenticated) — resolves the buyer's pricing
    region and applies a **regional/PPP multiplier** to each course's base
-   price, then validates and applies a coupon code if present (active,
-   unexpired, under its usage cap, meets minimum spend, correctly scoped to
-   global or a specific course).
-2. **`campaignCode`** is a second, mutually exclusive discount input — a
-   delivery-partner campaign code (§5.5) instead of a coupon. The cart/
-   checkout UI enforces "one or the other" by construction (applying one
-   clears the other), and `CheckoutService.quote` rejects a request that
-   somehow sends both. Unlike a coupon, a valid campaign code also drives
-   commission attribution at session-creation time (§2.4, §5.5) — it isn't
-   just a price adjustment.
-3. This is **the authoritative price** — the client only ever displays what
+   price, then, if a `code` was sent, resolves and applies it.
+2. **One `code` field, not two.** The buyer used to have to pick "Coupon" vs.
+   "Partner code" before typing anything; the cart/checkout UI now has a
+   single "Discount or referral code" input, and the backend figures out
+   which table the code belongs to (`CodeResolverService`, one `findUnique`
+   against `Coupon` and one against `DeliveryPartnerCampaign` — the two code
+   spaces are collision-safe by construction: `Coupon.code` is admin-chosen
+   freeform, `DeliveryPartnerCampaign.code` is always system-generated
+   `CMP-XXXXXX`, and an admin creating a coupon is blocked from picking a
+   code already taken by a campaign, and vice versa). `CartService.setCode`
+   and `CheckoutService.quote` both resolve type the same way, so they never
+   disagree about what a code is. The response's `appliedCode` carries a
+   `type: "COUPON" | "CAMPAIGN"` tag so the UI can show the right success
+   copy without needing to know in advance which kind was entered.
+3. A coupon is validated the same as before (active, unexpired, under its
+   usage cap, meets minimum spend, correctly scoped to global or a specific
+   course). A campaign is validated per §5.5, including the **partial
+   course-overlap** case that didn't exist before: unlike a coupon, a
+   course-scoped campaign with only some of its courses in the cart still
+   applies — just only to the matching lines (`eligibleCourseIds` on the
+   response tells the UI which cart lines an active campaign actually
+   discounts, so it can flag the rest as "Not eligible for this code").
+4. Whichever type resolves, it drives commission attribution the same way a
+   campaign always has (§2.4, §5.5) if it's a campaign — a coupon never
+   attributes commission.
+5. This is **the authoritative price** — the client only ever displays what
    the server computed; nothing client-supplied is trusted.
 
 ### 2.4 Checkout session
@@ -459,9 +474,11 @@ in the partner's network" in the abstract. An invited member stays a normal
 `STUDENT`; they claim via `/join/partner/[token]` (a separate route from the
 org claim page, `/join/[token]`, sharing the same `InviteClaimShell` state
 machine but with its own copy/icon/redirect) and their granted courses show
-up at `/dashboard/partner-courses` — deliberately not folded into
-`/dashboard/team`, since a partner grant is a capped, per-course seat, not a
-B2B "team" relationship. A member's access pauses if their partner is later
+up on the student's main `/dashboard`, grouped by partner under a "From
+your delivery partners" heading — there's no separate page for this anymore
+(see `DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md` §13; a per-course seat still
+isn't a B2B "team" relationship, so it stays visually distinct from "Your
+courses," just not a separate nav destination). A member's access pauses if their partner is later
 suspended, same semantics as an org's grace-period lock. Free self-enrollment
 (`enrollFree`) and lesson-playback gating both check this grant regardless of
 the course's visibility or price — an admin can assign a `PUBLIC`, paid
@@ -471,26 +488,44 @@ the course isn't `PRIVATE`.
 ### 5.5 Campaign codes (discount + commission, admin-created)
 A campaign is a hybrid of a coupon (discounts the buyer) and a referral
 (credits the partner) — admin-only to create, for one `APPROVED` partner at a
-time, applicable to **all courses** (global, unlike course-scoped `Coupon`).
+time. A partner may hold any number of campaigns at once, including several
+active ones with overlapping date ranges — each is redeemed by its own
+distinct code, so there's no ambiguity at checkout regardless of how many are
+live simultaneously.
 
-1. **Admin creates a campaign** for a partner (`ManagePartnerCampaignDialog`
-   on `/admin/delivery-partners` → Partners tab): a discount % (1–100), a
-   start/end date window, and an optional redemption cap (0 = unlimited). A
-   fresh code is generated (`CMP-XXXXXX`) — distinct from the partner's
-   `referralCode`, since a campaign is a separate, time-boxed thing, not the
-   partner's permanent link code. **At most one currently-usable
-   (active/scheduled/limit-reached) campaign per partner at a time** — the
-   server rejects a new campaign whose date range overlaps another active one
-   for the same partner; the admin dialog reflects this by hiding the create
-   form while one exists, showing a "Deactivate" action instead.
+1. **Admin creates a campaign** for a partner: a discount % (1–100), a
+   start/end date window, an optional redemption cap (0 = unlimited), and a
+   **scope** — `GLOBAL` (every course, the only option that used to exist) or
+   `SPECIFIC` (a chosen subset of the catalog, independent of which courses
+   that partner is assigned to distribute via §5.4 — the two are unrelated
+   concepts). A fresh code is generated (`CMP-XXXXXX`) — distinct from the
+   partner's `referralCode`, since a campaign is a separate, time-boxed
+   thing, not the partner's permanent link code.
+   The admin UI (`/admin/delivery-partners` → Partners tab → "Campaigns") is
+   a list dialog (`PartnerCampaignsListDialog`) — search/filter/status
+   badges/usage meter, mirroring the partner-facing read-only table — plus a
+   "New campaign" button opening a small, single-purpose form
+   (`CampaignFormDialog`, with a `CourseMultiSelect` picker when scope is
+   `SPECIFIC`). This replaced an earlier single dialog that mixed a live
+   campaign list with a permanently-visible edit panel in one wide two-column
+   layout — client feedback was that it read as confusing, so create/edit
+   and browse are now fully separate UI.
 2. **The partner sees their code** on `/delivery-partner` (Overview) only
    while a campaign is active or scheduled — a banner with the code, discount
    %, days remaining, and a redemption meter if a cap is set. Nothing renders
    there for a partner with no campaign.
-3. **At checkout**, the buyer enters the code in the cart's "Partner code"
-   field (mutually exclusive with Coupon — §2.3). A valid code:
-   - Discounts the whole cart by the campaign's percentage (`partner-campaign.ts`,
-     shared between API and web for consistent preview/authoritative pricing).
+3. **At checkout**, the buyer enters the code in the cart's single discount/
+   referral code field — see §2.3 for how the backend tells a coupon and a
+   campaign code apart. A valid code:
+   - **`GLOBAL`** discounts the whole cart by the campaign's percentage.
+     **`SPECIFIC`** discounts only the cart lines whose course is in the
+     campaign's set — unlike a course-scoped `Coupon` (all-or-nothing: one
+     mismatched course rejects the whole code), a campaign with a *partial*
+     overlap still applies, just to a smaller eligible subtotal
+     (`partner-campaign.ts`'s `eligibleCampaignCourseIds`, shared between API
+     and web for consistent preview/authoritative pricing). A `SPECIFIC`
+     campaign with **zero** overlap is rejected outright ("doesn't apply to
+     any course in your cart").
    - Takes priority over both durable signup-time attribution *and* the
      checkout-supplied `referralCode` for this order's commission — typing an
      explicit code is a stronger signal than passive attribution
