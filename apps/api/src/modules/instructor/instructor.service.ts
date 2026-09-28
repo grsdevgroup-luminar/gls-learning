@@ -274,7 +274,7 @@ export class InstructorService {
     if (!u?.instructorProfile)
       throw new NotFoundException("Instructor not found");
     const p = u.instructorProfile;
-    const live = await this.repo.computeInstructorStats(u.id);
+    const live = await this.repo.computeInstructorStats(u.id, true);
     return {
       id: u.id,
       name: u.name,
@@ -284,7 +284,7 @@ export class InstructorService {
       expertise: p.expertise,
       ratingAvg: live.ratingAvg,
       studentCount: live.studentCount,
-      courseCount: p.courseCount,
+      courseCount: live.courseCount,
       joinedAt: u.createdAt.toISOString(),
       sampleUrl: p.sampleUrl,
       linkedinUrl: p.linkedinUrl,
@@ -322,7 +322,7 @@ export class InstructorService {
         expertise: p.expertise,
         ratingAvg: live.ratingAvg,
         studentCount: live.studentCount,
-        courseCount: p.courseCount,
+        courseCount: live.courseCount,
         earningsCents: p.earningsCents,
         status: p.status,
         note: null,

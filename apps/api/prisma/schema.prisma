@@ -27,6 +27,12 @@ enum CourseStatus {
   PUBLISHED
 }
 
+enum CourseRevisionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum CategoryStatus {
   ACTIVE
   PENDING
@@ -302,6 +308,8 @@ model User {
   editedEmailTemplates       EmailTemplate[]
   courseDeletionRequests     CourseDeletionRequest[]
 
+  submittedCourseRevisions   CourseRevisionRequest[] @relation("RevisionSubmitter")
+
   @@index([role])
 }
 
@@ -417,6 +425,24 @@ model CourseDeletionRequest {
   @@index([courseId])
   @@index([instructorId])
 }
+model CourseRevisionRequest {
+  id              String               @id @default(cuid())
+  courseId        String
+  course          Course               @relation("CourseEditRequests", fields: [courseId], references: [id], onDelete: Cascade)
+  revisionCourseId String               @unique
+  revisionCourse  Course               @relation("RevisionEditRequest", fields: [revisionCourseId], references: [id], onDelete: Cascade)
+  instructorId    String
+  instructor      User                 @relation("RevisionSubmitter", fields: [instructorId], references: [id], onDelete: Cascade)
+  status          CourseRevisionStatus @default(PENDING)
+  requestedAt     DateTime             @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  reviewNote      String?
+
+  @@index([status])
+  @@index([courseId])
+  @@index([instructorId])
+}
 model InstructorApplication {
   id          String           @id @default(cuid())
   userId      String?
@@ -507,8 +533,13 @@ model Course {
   deliveryPartnerAssignments DeliveryPartnerCourseAssignment[]
   campaignCourses            DeliveryPartnerCampaignCourse[]
   deletionRequests           CourseDeletionRequest[]
+  editRequests               CourseRevisionRequest[] @relation("CourseEditRequests")
+  revisionOfId               String?
+  revisionOf                 Course? @relation("CourseRevisions", fields: [revisionOfId], references: [id], onDelete: Cascade)
+  revisions                  Course[] @relation("CourseRevisions")
+  editRequest                CourseRevisionRequest? @relation("RevisionEditRequest")
 
-  @@unique([instructorId, title])
+  @@index([revisionOfId])
   @@index([status])
   @@index([instructorId])
   @@index([category])
@@ -533,19 +564,21 @@ model CourseOrgAssignment {
 }
 
 model Section {
-  id       String   @id @default(cuid())
-  courseId String
+  id               String   @id @default(cuid())
+  courseId         String
   course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title    String
-  order    Int      @default(0)
+  title            String
+  order            Int      @default(0)
+  sourceSectionId  String?
+  archivedAt       DateTime?
   lessons  Lesson[]
 
   @@index([courseId])
 }
 
 model Lesson {
-  id             String     @id @default(cuid())
-  sectionId      String
+  id              String     @id @default(cuid())
+  sectionId       String
   section        Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   title          String
   durationSec    Int        @default(0)
@@ -559,7 +592,9 @@ model Lesson {
   pptxName       String?
   pptxSizeLabel  String?
   pptxDurationSec Int       @default(0)
-  createdAt      DateTime   @default(now())
+  createdAt       DateTime   @default(now())
+  sourceLessonId  String?
+  archivedAt      DateTime?
 
   quiz           Quiz?
   lessonProgress LessonProgress[]

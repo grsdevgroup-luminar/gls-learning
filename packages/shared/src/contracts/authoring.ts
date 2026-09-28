@@ -108,6 +108,24 @@ export interface CourseDeletionRequestDto {
   enrollmentCount: number;
 }
 
+export const courseRevisionRequestQuerySchema = searchQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+export type CourseRevisionRequestQuery = z.infer<typeof courseRevisionRequestQuerySchema>;
+
+export interface CourseRevisionRequestDto {
+  id: string;
+  courseId: string;
+  revisionCourseId: string;
+  courseTitle: string;
+  instructorId: string;
+  instructorName: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+}
 export const sectionSchema = z.object({
   title: z.string().min(1).max(160),
   order: z.number().int().min(0).optional(),
@@ -147,7 +165,6 @@ export const lessonSchema = z.object({
   articleContent: z.string().nullable().optional(),
   cfVideoUid: z.string().nullable().optional(),
   resources: z.array(lessonResourceSchema).max(20).optional(),
-  pptxDurationSec: z.number().int().min(0).max(86400).optional(),
 });
 export type LessonInput = z.infer<typeof lessonSchema>;
 

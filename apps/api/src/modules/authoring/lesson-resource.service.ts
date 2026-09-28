@@ -93,19 +93,19 @@ export class LessonResourceService {
     return resource;
   }
 
-  async uploadPptx(user: RequestUser, lessonId: string, file: ValidatedResourceFile, durationSec: number) {
+  async uploadPptx(user: RequestUser, lessonId: string, file: ValidatedResourceFile) {
     const lesson = await this.assertLessonAccess(lessonId, user);
     if (lesson.type !== "VIDEO") throw new BadRequestException("PowerPoint slides can only be attached to video lessons");
     const prior = await this.repo.findLessonPptx(lessonId);
     const key = `${PPTX_KEY_PREFIX}/${lessonId}/${ulid()}.pptx`;
     const stored = await this.storage.put({ key, body: file.buffer, contentType: file.mimeType, contentLength: file.size, originalName: file.originalName });
     try {
-      await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: stored.key, pptxName: file.originalName, pptxSizeLabel: humanSize(file.size), pptxDurationSec: durationSec });
+      await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: stored.key, pptxName: file.originalName, pptxSizeLabel: humanSize(file.size) });
     } catch (err) {
       await this.storage.delete(stored.key).catch(() => undefined); throw err;
     }
     if (prior?.pptxStorageKey) await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
-    return { name: file.originalName, sizeLabel: humanSize(file.size), durationSec };
+    return { name: file.originalName, sizeLabel: humanSize(file.size), durationSec: 0 };
   }
 
   async removePptx(user: RequestUser, lessonId: string) {
@@ -116,7 +116,7 @@ export class LessonResourceService {
     // flag for a lesson that never had a server-side PPTX, or racing another
     // successful removal. Access and lesson-type checks above still apply.
     if (!prior?.pptxStorageKey) return { ok: true };
-    await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: null, pptxName: null, pptxSizeLabel: null, pptxDurationSec: 0 });
+    await this.repo.updateLessonPptx(lessonId, { pptxStorageKey: null, pptxName: null, pptxSizeLabel: null });
     await this.storage.delete(prior.pptxStorageKey).catch(() => undefined);
     return { ok: true };
   }

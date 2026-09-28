@@ -27,7 +27,7 @@ export class AdminRepository {
       this.prisma.user.count({
         where: { instructorProfile: { status: "APPROVED" } },
       }),
-      this.prisma.course.count({ where: { status: "PUBLISHED" } }),
+      this.prisma.course.count({ where: { status: "PUBLISHED", revisionOfId: null } }),
       this.prisma.order.count({ where: { status: "PAID" } }),
       this.prisma.order.count({ where: { status: "REFUNDED" } }),
     ]);
@@ -164,8 +164,8 @@ export class AdminRepository {
 
   courseStatsCounts() {
     return this.prisma.$transaction([
-      this.prisma.course.count(),
-      this.prisma.course.count({ where: { status: "PUBLISHED" } }),
+      this.prisma.course.count({ where: { revisionOfId: null } }),
+      this.prisma.course.count({ where: { status: "PUBLISHED", revisionOfId: null } }),
     ]);
   }
 

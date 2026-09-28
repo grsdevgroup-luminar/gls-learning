@@ -16,7 +16,7 @@ import {
   type BLesson, type BSection, type BuilderLessonType,
 } from "./course-builder.types";
 
-export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: "admin" | "instructor" }) {  const router = useRouter();
+export function useCourseBuilder({ courseId, mode, revisionMode = false }: { courseId?: string; mode: "admin" | "instructor"; revisionMode?: boolean }) {  const router = useRouter();
   const qc = useQueryClient();
   const backHref =
     mode === "instructor" ? "/instructor/courses" : "/admin/courses";
@@ -226,7 +226,6 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
                   pendingResourceFiles: [],
                   pptxName: null,
                   hasServerPptx: false,
-                  pptxDurationSec: 0,
                   pendingPptxFile: null,
                   removePptx: false,
                   durationSec: 0,
@@ -499,7 +498,6 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
             await authoringApi.uploadLessonPptx(
               lessonServerId,
               l.pendingPptxFile,
-              l.pptxDurationSec,
             );
           for (const file of l.pendingResourceFiles) {
             await authoringApi.uploadLessonResource(lessonServerId, file);
@@ -539,6 +537,10 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
         await authoringApi.setCourseStatus(id, targetStatus);
       }
 
+      if (revisionMode && action === "review") {
+        await authoringApi.submitCourseRevision(id);
+      }
+
       // Visibility change, applied last so a same-save "publish + make
       // private" combo sees the course as already Published server-side —
       // the API requires PUBLISHED before it will accept PRIVATE.
@@ -548,6 +550,8 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
 
       void qc.invalidateQueries({ queryKey: ["authoring", "course", id] });
       void qc.invalidateQueries({ queryKey: ["instructor", "courses"] });
+      void qc.invalidateQueries({ queryKey: ["instructor", "profile"] });
+      void qc.invalidateQueries({ queryKey: ["instructor-profile"] });
       void qc.invalidateQueries({ queryKey: ["admin"] });
 
       const msg =

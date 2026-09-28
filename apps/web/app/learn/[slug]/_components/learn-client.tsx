@@ -182,7 +182,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                 </div>
               )}
               {contentMode === "slides" && current.pptx?.url ? (
-                <PptxViewer courseId={course.id} lessonId={current.id} url={current.pptx.url} />
+                <PptxViewer url={current.pptx.url} />
               ) : current.hasVideo ? (
                 <div className="w-full shrink-0 overflow-hidden rounded-xl">
                   <ProtectedPlayer

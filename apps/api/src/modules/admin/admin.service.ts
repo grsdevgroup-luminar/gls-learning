@@ -365,6 +365,7 @@ export class AdminService {
     const where: Prisma.CourseWhereInput = {
       // Instructor drafts are private working copies. They become visible to
       // Admin only after the instructor explicitly submits them for review.
+      revisionOfId: null,
       NOT: { status: "DRAFT", instructor: { role: { not: "ADMIN" } } },
 
       ...(query.status ? { status: query.status } : {}),

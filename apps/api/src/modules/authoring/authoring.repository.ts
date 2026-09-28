@@ -24,6 +24,7 @@ export class AuthoringRepository {
         category: true,
         status: true,
         visibility: true,
+        revisionOfId: true,
         // The rest are only read to diff against an admin's edit for the
         // "what changed" notification (see AuthoringService.diffCourseFields)
         // — cheap to carry along on this single primary-key lookup, which
@@ -122,6 +123,7 @@ export class AuthoringRepository {
     return this.prisma.course.findFirst({
       where: {
         instructorId,
+        revisionOfId: null,
         title: { equals: title.trim(), mode: "insensitive" },
         ...(excludeCourseId ? { id: { not: excludeCourseId } } : {}),
       },
@@ -268,7 +270,7 @@ export class AuthoringRepository {
 
   findManyCoursesByInstructor(instructorId: string) {
     return this.prisma.course.findMany({
-      where: { instructorId },
+      where: { instructorId, revisionOfId: null },
       include: COURSE_SUMMARY_INCLUDE,
       orderBy: { updatedAt: "desc" },
     });
@@ -399,7 +401,7 @@ export class AuthoringRepository {
     return this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { pptxStorageKey: true, pptxName: true, pptxSizeLabel: true } });
   }
 
-  updateLessonPptx(lessonId: string, data: { pptxStorageKey: string | null; pptxName: string | null; pptxSizeLabel: string | null; pptxDurationSec?: number }) {
+  updateLessonPptx(lessonId: string, data: { pptxStorageKey: string | null; pptxName: string | null; pptxSizeLabel: string | null }) {
     return this.prisma.lesson.update({ where: { id: lessonId }, data });
   }
 

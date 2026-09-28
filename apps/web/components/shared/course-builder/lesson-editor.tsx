@@ -229,33 +229,6 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                                     </Button>
                                   </div>
                                 )}
-                                {(lesson.pendingPptxFile || lesson.pptxName) && (
-                                  <div className="mt-2 flex items-center gap-2">
-                                    <Label
-                                      htmlFor={`pptx-duration-${lesson.id}`}
-                                      className="text-xs"
-                                    >
-                                      Learning time (minutes)
-                                    </Label>
-                                    <Input
-                                      id={`pptx-duration-${lesson.id}`}
-                                      type="number"
-                                      min="0"
-                                      max="1440"
-                                      value={Math.round(lesson.pptxDurationSec / 60)}
-                                      onChange={(e) =>
-                                        patchLesson(sectionId, lesson.id, {
-                                          pptxDurationSec:
-                                            Math.max(
-                                              0,
-                                              Number(e.target.value) || 0,
-                                            ) * 60,
-                                        })
-                                      }
-                                      className="h-8 w-24"
-                                    />
-                                  </div>
-                                )}
                               </div>
                             )}
                             <LessonResources

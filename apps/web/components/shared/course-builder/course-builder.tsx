@@ -29,9 +29,11 @@ import {
 export function CourseBuilder({
   courseId,
   mode = "admin",
+  revisionMode = false,
 }: {
   courseId?: string;
   mode?: "admin" | "instructor";
+  revisionMode?: boolean;
 }) {
   const {
     detail, isLoading, title, setTitle, subtitle, setSubtitle, setCategory,
@@ -42,7 +44,7 @@ export function CourseBuilder({
     dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
     handleThumbnailFile, save, onBack,
-  } = useCourseBuilder({ courseId, mode });
+  } = useCourseBuilder({ courseId, mode, revisionMode });
   if (courseId && isLoading) {
     return (
       <div className="space-y-6 p-6 md:p-8">
