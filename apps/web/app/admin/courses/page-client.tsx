@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeletionRequestsTab } from "./_components/deletion-requests-tab";
-import { formatUsd, compactNumber } from "@/lib/format";
+import { RevisionRequestsTab } from "./_components/revision-requests-tab";
+import { formatUsd, compactNumber, relativeDate } from "@/lib/format";
 import {
   Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe,
 } from "lucide-react";
@@ -127,6 +128,7 @@ export default function AdminCourses() {
       <TabsList className="shrink-0">
         <TabsTrigger value="all">All courses</TabsTrigger>
         <TabsTrigger value="deletion-requests">Deletion requests</TabsTrigger>
+        <TabsTrigger value="revision-requests">Course changes <span className="ml-1 text-warning">•</span></TabsTrigger>
       </TabsList>
       <TabsContent value="all" className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -207,6 +209,7 @@ export default function AdminCourses() {
                       <div className="min-w-0">
                         <div className="truncate font-medium">{c.title}</div>
                         <div className="text-xs text-muted-foreground">{c.instructor.name}</div>
+                        <div className="text-[11px] text-muted-foreground">Updated {relativeDate(c.updatedAt)}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -280,6 +283,7 @@ export default function AdminCourses() {
       />
       </TabsContent>
 
+      <TabsContent value="revision-requests" className="min-h-0 flex-1 overflow-y-auto"><RevisionRequestsTab /></TabsContent>
       <TabsContent value="deletion-requests" className="flex min-h-0 flex-1 flex-col gap-4">
         <DeletionRequestsTab
           onMutated={() => {

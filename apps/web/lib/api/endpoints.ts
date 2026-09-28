@@ -14,6 +14,7 @@ import type {
   CommentDto,
   CouponDto,
   CourseDeletionRequestDto,
+  CourseRevisionRequestDto,
   CourseDetailDto,
   CourseSummaryDto,
   CreateCommentInput,
@@ -111,6 +112,7 @@ export type {
   CommentDto,
   CouponDto,
   CourseDeletionRequestDto,
+  CourseRevisionRequestDto,
   EmailTemplateDto,
   EmailTemplatePreviewDto,
   ReminderLogDto,
@@ -780,7 +782,16 @@ export const authoringApi = {
       method: "PATCH",
       body: { status },
     }),
-  validateCourseStatus: (id: string, status: "DRAFT" | "REVIEW" | "PUBLISHED") =>
+  ensureCourseRevision: (id: string) =>
+    apiFetch<{ courseId: string; isRevision: boolean; request: { id: string; status: string } | null }>(`/courses/${id}/revision`, { method: "POST" }),
+  submitCourseRevision: (id: string) =>
+    apiFetch<CourseDetailDto>(`/courses/${id}/revision/submit`, { method: "POST" }),
+  courseRevisionRequests: (status?: "PENDING" | "APPROVED" | "REJECTED") =>
+    apiFetch<CourseRevisionRequestDto[]>(`/admin/course-revision-requests${status ? `?status=${status}` : ""}`),
+  approveCourseRevision: (id: string) =>
+    apiFetch<{ ok: true }>(`/admin/course-revision-requests/${id}/approve`, { method: "POST" }),
+  rejectCourseRevision: (id: string, note: string) =>
+    apiFetch<{ ok: true }>(`/admin/course-revision-requests/${id}/reject`, { method: "POST", body: { note } }),  validateCourseStatus: (id: string, status: "DRAFT" | "REVIEW" | "PUBLISHED") =>
     apiFetch<{ ok: true }>(`/courses/${id}/status/validate`, {
       method: "POST",
       body: { status },

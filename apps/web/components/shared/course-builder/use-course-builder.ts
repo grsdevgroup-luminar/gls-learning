@@ -16,7 +16,7 @@ import {
   type BLesson, type BSection, type BuilderLessonType,
 } from "./course-builder.types";
 
-export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: "admin" | "instructor" }) {  const router = useRouter();
+export function useCourseBuilder({ courseId, mode, revisionMode = false }: { courseId?: string; mode: "admin" | "instructor"; revisionMode?: boolean }) {  const router = useRouter();
   const qc = useQueryClient();
   const backHref =
     mode === "instructor" ? "/instructor/courses" : "/admin/courses";
@@ -535,6 +535,10 @@ export function useCourseBuilder({ courseId, mode }: { courseId?: string; mode: 
       // Status transition.
       if (saved.status !== targetStatus) {
         await authoringApi.setCourseStatus(id, targetStatus);
+      }
+
+      if (revisionMode && action === "review") {
+        await authoringApi.submitCourseRevision(id);
       }
 
       // Visibility change, applied last so a same-save "publish + make

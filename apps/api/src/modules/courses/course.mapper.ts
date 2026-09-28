@@ -11,7 +11,7 @@ import type {
 // Prisma payload shapes (with the relations the mappers require).
 const summaryInclude = {
   instructor: { include: { instructorProfile: true } },
-  sections: { include: { lessons: { select: { type: true, durationSec: true } } } },
+  sections: { where: { archivedAt: null }, include: { lessons: { where: { archivedAt: null }, select: { type: true, durationSec: true } } } },
 } satisfies Prisma.CourseInclude;
 
 export type CourseSummaryRow = Prisma.CourseGetPayload<{
@@ -25,9 +25,11 @@ const detailInclude = {
   // check. Never mapped into CourseDetailDto (admin-only concern).
   orgAssignments: { select: { orgId: true } },
   sections: {
+    where: { archivedAt: null },
     orderBy: { order: "asc" },
     include: {
       lessons: {
+        where: { archivedAt: null },
         orderBy: { order: "asc" },
         include: { quiz: { select: { id: true } } },
       },
@@ -94,6 +96,7 @@ export function toCourseSummary(row: CourseSummaryRow): CourseSummaryDto {
     studentCount: row.studentCount,
     durationSec,
     lessonCount,
+    updatedAt: row.updatedAt.toISOString(),
     instructor: mapInstructor(row.instructor),
   };
 }

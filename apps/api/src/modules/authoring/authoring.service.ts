@@ -9,6 +9,7 @@ import {
 import {
   parseLessonResources,
   type CourseDeletionRequestDto,
+  type CourseRevisionRequestDto,
   type CourseDeletionRequestQuery,
   type CreateCourseInput,
   type CourseStatusInput,
@@ -192,6 +193,207 @@ export class AuthoringService {
     return this.detail(id);
   }
 
+  // ── isolated revisions for organization-assigned live courses ───────────
+  private isRevisionCourse(course: { revisionOfId?: string | null }): boolean {
+    return !!course.revisionOfId;
+  }
+
+  private async cloneCourseForRevision(sourceId: string, instructorId: string) {
+    const source = await this.prisma.course.findUnique({
+      where: { id: sourceId },
+      include: {
+        sections: {
+          where: { archivedAt: null },
+          orderBy: { order: "asc" },
+          include: {
+            lessons: {
+              where: { archivedAt: null },
+              orderBy: { order: "asc" },
+              include: {
+                quiz: {
+                  include: { questions: { orderBy: { order: "asc" }, include: { options: { orderBy: { order: "asc" } } } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!source) throw new NotFoundException("Course not found");
+    const slug = await this.uniqueSlug(`${source.slug}-revision`);
+    return this.prisma.$transaction(async (tx) => {
+      const revision = await tx.course.create({
+        data: {
+          courseNumber: `REV-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
+          slug,
+          title: source.title,
+          subtitle: source.subtitle,
+          description: source.description,
+          category: source.category,
+          isoStandard: source.isoStandard,
+          level: source.level,
+          thumbnail: source.thumbnail,
+          instructorId,
+          basePriceCents: source.basePriceCents,
+          originalPriceCents: source.originalPriceCents,
+          language: source.language,
+          status: "DRAFT",
+          visibility: source.visibility,
+          whatYouLearn: source.whatYouLearn,
+          requirements: source.requirements,
+          revisionOfId: source.id,
+        },
+      });
+      for (const section of source.sections) {
+        const copiedSection = await tx.section.create({
+          data: { courseId: revision.id, title: section.title, order: section.order, sourceSectionId: section.id },
+        });
+        for (const lesson of section.lessons) {
+          await tx.lesson.create({
+            data: {
+              sectionId: copiedSection.id,
+              title: lesson.title,
+              durationSec: lesson.durationSec,
+              type: lesson.type,
+              preview: lesson.preview,
+              order: lesson.order,
+              articleContent: lesson.articleContent,
+              resources: lesson.resources as Prisma.InputJsonValue,
+              cfVideoUid: lesson.cfVideoUid,
+              pptxStorageKey: lesson.pptxStorageKey,
+              pptxName: lesson.pptxName,
+              pptxSizeLabel: lesson.pptxSizeLabel,
+              pptxDurationSec: lesson.pptxDurationSec,
+              sourceLessonId: lesson.id,
+              ...(lesson.quiz
+                ? {
+                    quiz: {
+                      create: {
+                        passScore: lesson.quiz.passScore,
+                        questions: {
+                          create: lesson.quiz.questions.map((question) => ({
+                            prompt: question.prompt,
+                            explanation: question.explanation,
+                            order: question.order,
+                            options: { create: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect, order: option.order })) },
+                          })),
+                        },
+                      },
+                    },
+                  }
+                : {}),
+            },
+          });
+        }
+      }
+      return revision;
+    });
+  }
+
+  async ensureCourseRevision(user: RequestUser, courseId: string) {
+    const course = await this.assertCourseAccess(courseId, user);
+    if (user.role === "ADMIN" || course.status !== "PUBLISHED" || (await this.repo.countOrgAssignments(courseId)) === 0) {
+      return { courseId, isRevision: false as const, request: null };
+    }
+    const pending = await this.prisma.courseRevisionRequest.findFirst({
+      where: { courseId, instructorId: user.id, status: "PENDING" },
+      select: { revisionCourseId: true, id: true, status: true },
+    });
+    if (pending) return { courseId: pending.revisionCourseId, isRevision: true as const, request: pending };
+    const draft = await this.prisma.course.findFirst({
+      where: { revisionOfId: courseId, instructorId: user.id, editRequest: null },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    });
+    const revision = draft ?? (await this.cloneCourseForRevision(courseId, user.id));
+    return { courseId: revision.id, isRevision: true as const, request: null };
+  }
+
+  async submitCourseRevision(user: RequestUser, revisionCourseId: string) {
+    const revision = await this.prisma.course.findUnique({ where: { id: revisionCourseId }, select: { id: true, revisionOfId: true, instructorId: true, status: true } });
+    if (!revision?.revisionOfId) throw new BadRequestException("This course is not an editable revision");
+    if (user.role !== "ADMIN" && revision.instructorId !== user.id) throw new ForbiddenException("Not your course revision");
+    const existing = await this.prisma.courseRevisionRequest.findFirst({ where: { revisionCourseId, status: "PENDING" } });
+    if (existing) return this.detail(revisionCourseId);
+    await this.validateStatusChange(user, { category: (await this.prisma.course.findUniqueOrThrow({ where: { id: revisionCourseId }, select: { category: true, status: true } })).category, status: revision.status }, revisionCourseId, "REVIEW");
+    await this.repo.setCourseStatusWithInstructorBump(revisionCourseId, "REVIEW", undefined, false, undefined);
+    await this.prisma.courseRevisionRequest.create({ data: { courseId: revision.revisionOfId, revisionCourseId, instructorId: revision.instructorId } });
+    return this.detail(revisionCourseId);
+  }
+
+  private toRevisionRequestDto(row: {
+    id: string; courseId: string; revisionCourseId: string; instructorId: string; status: "PENDING" | "APPROVED" | "REJECTED"; requestedAt: Date; reviewedAt: Date | null; reviewedBy: string | null; reviewNote: string | null; course: { title: string }; instructor: { name: string };
+  }): CourseRevisionRequestDto {
+    return { id: row.id, courseId: row.courseId, revisionCourseId: row.revisionCourseId, courseTitle: row.course.title, instructorId: row.instructorId, instructorName: row.instructor.name, status: row.status, requestedAt: row.requestedAt.toISOString(), reviewedAt: row.reviewedAt?.toISOString() ?? null, reviewedBy: row.reviewedBy, reviewNote: row.reviewNote };
+  }
+
+  async listCourseRevisionRequests(query: { status?: "PENDING" | "APPROVED" | "REJECTED" }) {
+    const rows = await this.prisma.courseRevisionRequest.findMany({
+      where: query.status ? { status: query.status } : undefined,
+      include: { course: { select: { title: true } }, instructor: { select: { name: true } } },
+      orderBy: { requestedAt: "desc" },
+    });
+    return rows.map((row) => this.toRevisionRequestDto(row));
+  }
+
+  async approveCourseRevision(admin: RequestUser, requestId: string) {
+    const request = await this.prisma.courseRevisionRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        course: true,
+        revisionCourse: { include: { sections: { where: { archivedAt: null },
+          orderBy: { order: "asc" }, include: { lessons: { where: { archivedAt: null },
+              orderBy: { order: "asc" }, include: { quiz: { include: { questions: { include: { options: true } } } } } } } } } },
+      },
+    });
+    if (!request) throw new NotFoundException("Revision request not found");
+    if (request.status !== "PENDING") throw new BadRequestException("This revision request has already been reviewed");
+    await this.validateStatusChange(admin, { category: request.revisionCourse.category, status: request.revisionCourse.status }, request.revisionCourseId, "PUBLISHED");
+    // A revision may keep its source course title, but approval must still
+    // respect uniqueness against other live courses owned by the instructor.
+    await this.assertUniqueCourseTitle(request.course.instructorId, request.revisionCourse.title, request.courseId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.course.update({ where: { id: request.courseId }, data: { title: request.revisionCourse.title, subtitle: request.revisionCourse.subtitle, description: request.revisionCourse.description, category: request.revisionCourse.category, isoStandard: request.revisionCourse.isoStandard, level: request.revisionCourse.level, thumbnail: request.revisionCourse.thumbnail, basePriceCents: request.revisionCourse.basePriceCents, originalPriceCents: request.revisionCourse.originalPriceCents, language: request.revisionCourse.language, whatYouLearn: request.revisionCourse.whatYouLearn, requirements: request.revisionCourse.requirements } });
+      for (const revisionSection of request.revisionCourse.sections) {
+        const liveSection = revisionSection.sourceSectionId ? await tx.section.findUnique({ where: { id: revisionSection.sourceSectionId } }) : null;
+        const targetSection = liveSection ? await tx.section.update({ where: { id: liveSection.id }, data: { title: revisionSection.title, order: revisionSection.order, archivedAt: null } }) : await tx.section.create({ data: { courseId: request.courseId, title: revisionSection.title, order: revisionSection.order } });
+        for (const revisionLesson of revisionSection.lessons) {
+          const liveLesson = revisionLesson.sourceLessonId ? await tx.lesson.findUnique({ where: { id: revisionLesson.sourceLessonId } }) : null;
+          const lessonData = { title: revisionLesson.title, durationSec: revisionLesson.durationSec, type: revisionLesson.type, preview: revisionLesson.preview, order: revisionLesson.order, articleContent: revisionLesson.articleContent, resources: revisionLesson.resources as Prisma.InputJsonValue, cfVideoUid: revisionLesson.cfVideoUid, pptxStorageKey: revisionLesson.pptxStorageKey, pptxName: revisionLesson.pptxName, pptxSizeLabel: revisionLesson.pptxSizeLabel, pptxDurationSec: revisionLesson.pptxDurationSec, archivedAt: null };
+          const targetLesson = liveLesson ? await tx.lesson.update({ where: { id: liveLesson.id }, data: lessonData }) : await tx.lesson.create({ data: { ...lessonData, sectionId: targetSection.id } });
+          if (revisionLesson.quiz) {
+            const quiz = await tx.quiz.upsert({ where: { lessonId: targetLesson.id }, update: { passScore: revisionLesson.quiz.passScore }, create: { lessonId: targetLesson.id, passScore: revisionLesson.quiz.passScore } });
+            await tx.quizQuestion.deleteMany({ where: { quizId: quiz.id } });
+            for (const q of revisionLesson.quiz.questions) await tx.quizQuestion.create({ data: { quizId: quiz.id, prompt: q.prompt, explanation: q.explanation, order: q.order, options: { create: q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect, order: o.order })) } } });
+          }
+        }
+      }
+      const revisionSectionSourceIds = new Set(request.revisionCourse.sections.flatMap((section) => section.sourceSectionId ? [section.sourceSectionId] : []));
+      const revisionLessonSourceIds = new Set(request.revisionCourse.sections.flatMap((section) => section.lessons.flatMap((lesson) => lesson.sourceLessonId ? [lesson.sourceLessonId] : [])));
+      const liveSections = await tx.section.findMany({ where: { courseId: request.courseId }, include: { lessons: { select: { id: true } } } });
+      for (const liveSection of liveSections) {
+        if (!revisionSectionSourceIds.has(liveSection.id)) {
+          await tx.section.update({ where: { id: liveSection.id }, data: { archivedAt: new Date() } });
+          await tx.lesson.updateMany({ where: { sectionId: liveSection.id, archivedAt: null }, data: { archivedAt: new Date() } });
+          continue;
+        }
+        const removedLessonIds = liveSection.lessons.map((lesson) => lesson.id).filter((id) => !revisionLessonSourceIds.has(id));
+        if (removedLessonIds.length) await tx.lesson.updateMany({ where: { id: { in: removedLessonIds }, archivedAt: null }, data: { archivedAt: new Date() } });
+      }      await tx.course.update({ where: { id: request.courseId }, data: { status: "PUBLISHED", publishedAt: request.course.publishedAt ?? new Date() } });
+      await tx.courseRevisionRequest.update({ where: { id: request.id }, data: { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id } });
+    });
+    this.notifyInstructorOfAdminChange({ ...request.course, category: request.course.category } as CourseAccess, request.courseId, "approved the requested course changes");
+    return { ok: true as const };
+  }
+
+  async rejectCourseRevision(admin: RequestUser, requestId: string, note?: string) {
+    const request = await this.prisma.courseRevisionRequest.findUnique({ where: { id: requestId }, include: { course: true } });
+    if (!request) throw new NotFoundException("Revision request not found");
+    if (request.status !== "PENDING") throw new BadRequestException("This revision request has already been reviewed");
+    await this.prisma.courseRevisionRequest.update({ where: { id: requestId }, data: { status: "REJECTED", reviewedAt: new Date(), reviewedBy: admin.id, reviewNote: note?.trim() || null } });
+    this.notifyInstructorOfAdminChange({ ...request.course, category: request.course.category } as CourseAccess, request.courseId, "rejected the requested course changes");
+    return { ok: true as const };
+  }
   // ── courses ────────────────────────────────────────────────────────────
   private async assertUniqueCourseTitle(
     instructorId: string,
@@ -253,7 +455,7 @@ export class AuthoringService {
           "Unassign this course from its organization(s) before making it public",
         );
     }
-    if (input.title !== undefined)
+    if (input.title !== undefined && !course.revisionOfId)
       await this.assertUniqueCourseTitle(course.instructorId, input.title, id);
     const category = input.category
       ? await this.categories.ensureForAuthor(input.category, user)
@@ -300,10 +502,14 @@ export class AuthoringService {
 
   private async validateStatusChange(
     user: RequestUser,
-    course: { category: string; status: string },
+    course: { category: string; status: string; revisionOfId?: string | null },
     id: string,
     status: CourseStatusInput["status"],
   ) {
+    if (course.revisionOfId && status === "PUBLISHED") {
+      throw new BadRequestException("Approve this revision request instead of publishing the private copy");
+    }
+
     // Drafts are visible to admins for monitoring, but only the instructor
     // can submit one for review. This prevents an admin UI action or a direct
     // API request from bypassing the instructor review gate.

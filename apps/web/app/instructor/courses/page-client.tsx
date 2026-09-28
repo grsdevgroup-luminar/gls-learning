@@ -12,7 +12,7 @@ import { ReasonConfirmDialog } from "@/components/shared/reason-confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatUsd, compactNumber } from "@/lib/format";
+import { formatUsd, compactNumber, relativeDate } from "@/lib/format";
 import { Plus, Users, Pencil, Eye, Sparkles, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -143,6 +143,7 @@ function CourseCard({
           </span>
           {course.ratingAvg > 0 && <Stars rating={course.ratingAvg} size={11} showValue />}
           <span>{formatUsd(course.basePriceCents / 100).replace(".00", "")} base price</span>
+          <span>Updated {relativeDate(course.updatedAt)}</span>
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">

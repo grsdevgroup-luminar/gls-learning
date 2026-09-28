@@ -104,6 +104,24 @@ export interface CourseDeletionRequestDto {
   reviewNote: string | null;
 }
 
+export const courseRevisionRequestQuerySchema = searchQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+export type CourseRevisionRequestQuery = z.infer<typeof courseRevisionRequestQuerySchema>;
+
+export interface CourseRevisionRequestDto {
+  id: string;
+  courseId: string;
+  revisionCourseId: string;
+  courseTitle: string;
+  instructorId: string;
+  instructorName: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+}
 export const sectionSchema = z.object({
   title: z.string().min(1).max(160),
   order: z.number().int().min(0).optional(),

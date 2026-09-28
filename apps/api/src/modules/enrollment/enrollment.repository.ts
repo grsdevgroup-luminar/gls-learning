@@ -266,7 +266,7 @@ export class EnrollmentRepository {
 
   countLessonsAndCompleted(courseId: string, enrollmentId: string) {
     return this.prisma.$transaction([
-      this.prisma.lesson.count({ where: { section: { courseId } } }),
+      this.prisma.lesson.count({ where: { archivedAt: null, section: { courseId } } }),
       this.prisma.lessonProgress.count({
         where: { enrollmentId, completed: true },
       }),
