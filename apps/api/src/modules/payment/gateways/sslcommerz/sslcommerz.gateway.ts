@@ -14,6 +14,7 @@ import type {
   WebhookResult,
 } from "../../interfaces/payment-gateway.interface";
 import type { OrderRow } from "../../types";
+import { gatewaySignal } from "../gateway-timeout";
 
 /** Session-init response (relevant fields). */
 interface SslcSessionResponse {
@@ -123,6 +124,7 @@ export class SslcommerzGateway implements PaymentGateway {
       `${this.baseUrl()}/gwprocess/v4/api.php`,
       {
         method: "POST",
+        signal: gatewaySignal(),
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params.toString(),
       },
@@ -154,7 +156,7 @@ export class SslcommerzGateway implements PaymentGateway {
 
     const res = await fetch(
       `${this.baseUrl()}/validator/api/merchantTransIDvalidationAPI.php?${params.toString()}`,
-      { method: "GET" },
+      { method: "GET", signal: gatewaySignal() },
     );
     if (!res.ok) {
       throw new BadRequestException(
@@ -186,7 +188,7 @@ export class SslcommerzGateway implements PaymentGateway {
     url.searchParams.set("store_passwd", store_passwd);
     url.searchParams.set("format", "json");
 
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: gatewaySignal() });
     const json = (await res.json()) as SslcValidationResponse;
 
     const result: WebhookResult = { eventId: valId };
