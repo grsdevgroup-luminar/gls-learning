@@ -221,7 +221,7 @@ export function ManagePartnerCoursesDialog({
                   ) : (
                     assigned.map((a) => (
                       <div key={a.id} className="flex items-center gap-3 rounded-lg border p-2">
-                        <CourseArt seed={a.course.thumbnail} title={a.course.title} className="h-8 w-8 shrink-0 rounded-md" />
+                        <CourseArt seed={a.course.thumbnail} title={a.course.title} iconSize={24} className="h-8 w-8 shrink-0 rounded-md" />
                         <div className="min-w-0 flex-1" title={a.course.title}>
                           <div className="truncate text-sm">{a.course.title}</div>
                           <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
@@ -313,7 +313,7 @@ export function ManagePartnerCoursesDialog({
                   ) : (
                     available.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2">
-                        <CourseArt seed={c.thumbnail} title={c.title} className="h-8 w-8 shrink-0 rounded-md" />
+                        <CourseArt seed={c.thumbnail} title={c.title} iconSize={24} className="h-8 w-8 shrink-0 rounded-md" />
                         <div className="min-w-0 flex-1" title={`${c.title} — ${c.category} · ${c.level}`}>
                           <div className="truncate text-sm">{c.title}</div>
                           <div className="truncate text-xs text-muted-foreground">{c.category} · {c.level}</div>

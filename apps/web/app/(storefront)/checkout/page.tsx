@@ -72,6 +72,23 @@ export default function CheckoutPage() {
     queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
     staleTime: 60_000,
   });
+  const { data: gatewayAvailability, isLoading: gatewaysLoading, isError: gatewaysError } = useQuery({
+    queryKey: ["checkout", "payment-gateways"],
+    queryFn: () => api.paymentGatewayAvailability(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 15000,
+  });
+  const enabledMethods = gatewayAvailability
+    ? methods.filter((m) =>
+        m.id === "stripe" ? gatewayAvailability.stripeEnabled
+          : m.id === "paypal" ? gatewayAvailability.paypalEnabled
+            : gatewayAvailability.sslcommerzEnabled,
+      )
+    : [];
+  const selectedMethod = enabledMethods.some((m) => m.id === method)
+    ? method
+    : (enabledMethods[0]?.id ?? "");
   const items = useMemo(
     () =>
       cart
@@ -120,10 +137,11 @@ export default function CheckoutPage() {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? `co_${crypto.randomUUID()}`
         : `co_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-    [cart.join(","), code, method, regionCode, applyCredit],
+    [cart.join(","), code, selectedMethod, regionCode, applyCredit],
   );
 
   async function pay() {
+    if (!selectedMethod) return;
     if (!user) {
       router.push("/login?next=/checkout");
       return;
@@ -142,9 +160,9 @@ export default function CheckoutPage() {
           regionCode,
           applyCredit,
           gateway:
-            method === "paypal"
+            selectedMethod === "paypal"
               ? "PAYPAL"
-              : method === "sslcommerz"
+              : selectedMethod === "sslcommerz"
                 ? "SSLCOMMERZ"
                 : "STRIPE",
         },
@@ -197,7 +215,7 @@ export default function CheckoutPage() {
   // Also treat the catalog fetch as loading: `items` is derived from
   // (cart ∩ catalog), so an in-flight catalog with a populated cart would
   // also render as empty.
-  if (!mounted || cartLoading || (cart.length > 0 && !catalog)) {
+  if (!mounted || cartLoading || (cart.length > 0 && (!catalog || gatewaysLoading))) {
     return <CheckoutSkeleton />;
   }
 
@@ -267,20 +285,21 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <div className={`grid gap-3 ${methods.length > 1 ? "sm:grid-cols-2" : ""}`}>
-                  {methods.map((m) => (
+                {enabledMethods.length > 0 ? (
+                  <div className={`grid gap-3 ${enabledMethods.length > 1 ? "sm:grid-cols-2" : ""}`}>
+                  {enabledMethods.map((m) => (
                     <button
                       key={m.id}
                       onClick={() => setMethod(m.id)}
                       className={`relative flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all duration-200 ${
-                        method === m.id
+                        selectedMethod === m.id
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
                           : "border-border hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted/50"
                       }`}
                     >
                       <span
                         className="icon-tile grid size-9 shrink-0 place-items-center"
-                        style={{ ["--tile" as string]: method === m.id ? "var(--primary)" : "var(--muted-foreground)" }}
+                        style={{ ["--tile" as string]: selectedMethod === m.id ? "var(--primary)" : "var(--muted-foreground)" }}
                       >
                         <m.icon className="size-4" />
                       </span>
@@ -288,19 +307,28 @@ export default function CheckoutPage() {
                         <div className="text-sm font-medium">{m.label}</div>
                         <div className="text-xs text-muted-foreground">{m.sub}</div>
                       </div>
-                      {method === m.id && (
+                      {selectedMethod === m.id && (
                         <span className="absolute right-3 top-3 grid size-5 animate-in place-items-center rounded-full bg-primary text-primary-foreground zoom-in-50 duration-200">
                           <Check className="size-3" />
                         </span>
                       )}
                     </button>
                   ))}
-                </div>
+                  </div>
+                ) : (
+                  <div role="status" className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+                    {gatewaysError
+                      ? "Payment methods could not be loaded. Refresh the page and try again."
+                      : "No payment methods are currently available. Please try again later."}
+                  </div>
+                )}
 
                 <div className="animate-in rounded-xl border border-primary/20 bg-primary/5 p-6 text-center text-sm font-medium text-foreground fade-in zoom-in-95 duration-200">
-                  {method === "stripe"
-                    ? "You'll be redirected to Stripe's secure checkout to enter your card."
-                    : method === "sslcommerz"
+                  {!selectedMethod
+                    ? "Payment is temporarily unavailable. Please try again later."
+                    : selectedMethod === "stripe"
+                      ? "You'll be redirected to Stripe's secure checkout to enter your card."
+                    : selectedMethod === "sslcommerz"
                       ? "You'll be redirected to SSLCommerz to complete your purchase."
                       : "You'll be redirected to PayPal to complete your purchase."}
                 </div>
@@ -398,7 +426,12 @@ export default function CheckoutPage() {
                 </div>
 
                 <Magnetic strength={0.12} className="flex w-full">
-                  <Button className="sheen w-full" size="lg" onClick={pay} disabled={processing}>
+                  <Button
+                    className="sheen w-full"
+                    size="lg"
+                    onClick={pay}
+                    disabled={processing || !selectedMethod || gatewaysLoading || gatewaysError}
+                  >
                     {processing ? <><Loader2 className="animate-spin" /> Processing…</> : <><Lock /> Pay {formatUsd(total)}</>}
                   </Button>
                 </Magnetic>

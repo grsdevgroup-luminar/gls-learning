@@ -225,6 +225,11 @@ export class EnrollmentService {
     return !!(await this.repo.findAnyPartnerMembershipForCourse(courseId, userId));
   }
 
+  /** Existing learners retain course-page access after the course is made private.
+   * This recognizes an existing enrollment only; it does not grant enrollment. */
+  async hasActiveEnrollment(userId: string, courseId: string): Promise<boolean> {
+    return !!(await this.repo.findActiveByUserAndCourse(userId, courseId));
+  }
   /** Completed ids for an enrolled learner, used to build the gated learner
    * course view without exposing attachment URLs for locked lessons. */
   async completedLessonIds(userId: string, courseId: string): Promise<string[]> {
@@ -241,20 +246,26 @@ export class EnrollmentService {
    *  run for a PUBLIC+paid course (access was only free because of that
    *  grant). A free PUBLIC course is skipped even if some org/partner
    *  assignment happens to also exist on it — that assignment isn't why
-   *  access is free, so its suspension status can't revoke it. */
-  private resolveCourseAccessBlock(course: {
-    visibility: string;
-    basePriceCents: number;
-    orgAssignments: {
-      org: { status: OrgStatus; accessLocksAt: Date | null; members: { removedAt: Date | null }[] };
-    }[];
-    deliveryPartnerAssignments: {
-      partner: { status: string };
-      members: { removedAt: Date | null }[];
-    }[];
-  }): string | null {
+   *  access is free, so its suspension status can't revoke it. A learner
+   *  with their own unrefunded purchase of the course is also exempt — an
+   *  org/partner grant being suspended or revoked can't take away access
+   *  they separately paid for. */
+  private resolveCourseAccessBlock(
+    course: {
+      visibility: string;
+      basePriceCents: number;
+      orgAssignments: {
+        org: { status: OrgStatus; accessLocksAt: Date | null; members: { removedAt: Date | null }[] };
+      }[];
+      deliveryPartnerAssignments: {
+        partner: { status: string };
+        members: { removedAt: Date | null }[];
+      }[];
+    },
+    hasUnrefundedPurchase: boolean,
+  ): string | null {
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
-    if (!needsGrant) return null;
+    if (!needsGrant || hasUnrefundedPurchase) return null;
 
     // Every org this course is assigned to that the user is *currently* an
     // active member of (a soft-removed row doesn't count as membership —
@@ -317,7 +328,11 @@ export class EnrollmentService {
     if (!enrollment) return false;
     const course = await this.repo.findCourseAccessContext(courseId, userId);
     if (!course) return false;
-    return this.resolveCourseAccessBlock(course) !== null;
+    const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
+    const hasUnrefundedPurchase = needsGrant
+      ? await this.repo.hasUnrefundedPurchase(userId, courseId)
+      : false;
+    return this.resolveCourseAccessBlock(course, hasUnrefundedPurchase) !== null;
   }
 
   /** Throws unless the learner is enrolled and all preceding lessons are done. */
@@ -331,7 +346,12 @@ export class EnrollmentService {
     );
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
 
-    const block = this.resolveCourseAccessBlock(lesson.section.course);
+    const course = lesson.section.course;
+    const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
+    const hasUnrefundedPurchase = needsGrant
+      ? await this.repo.hasUnrefundedPurchase(userId, lesson.section.courseId)
+      : false;
+    const block = this.resolveCourseAccessBlock(course, hasUnrefundedPurchase);
     if (block) throw new ForbiddenException(block);
 
     const completed = await this.repo.findCompletedLessonIds(enrollment.id);

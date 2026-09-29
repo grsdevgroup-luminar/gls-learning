@@ -58,6 +58,7 @@ export function SiteHeader() {
   const pendingUrlQRef = useRef<string | null>(null);
   const isAuthed = !!user;
   const isInstructor = !isLoading && role === "INSTRUCTOR";
+  const canUseCart = !isLoading && role !== "INSTRUCTOR" && role !== "ORG_ADMIN" && role !== "DELIVERY_PARTNER";
 
   const pushSearchToUrl = useCallback(
     (query: string) => {
@@ -190,7 +191,7 @@ export function SiteHeader() {
               </>
             )}
             <span aria-hidden className="h-4 w-px bg-border" />
-            {!isInstructor && (
+            {canUseCart && (
               <Button
                 render={<Link href="/cart" />}
                 variant="ghost"
@@ -211,7 +212,7 @@ export function SiteHeader() {
           <div className="flex items-center gap-1 sm:hidden">
             <ThemeToggle />
             {isAuthed && <NotificationBell />}
-            {!isInstructor && (
+            {canUseCart && (
               <Button
                 render={<Link href="/cart" />}
                 variant="ghost"

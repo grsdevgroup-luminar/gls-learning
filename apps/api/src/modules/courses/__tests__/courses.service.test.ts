@@ -10,6 +10,7 @@ import type { RequestUser } from "../../../common/decorators/decorators";
 const admin: RequestUser = { id: "admin_1", email: "a@x.com", role: "ADMIN", mustChangePassword: false };
 const member: RequestUser = { id: "member_1", email: "m@x.com", role: "STUDENT", mustChangePassword: false };
 const stranger: RequestUser = { id: "stranger_1", email: "s@x.com", role: "STUDENT", mustChangePassword: false };
+const owner: RequestUser = { id: "instr_1", email: "i@x.com", role: "INSTRUCTOR", mustChangePassword: false };
 
 function makeCourseRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -48,6 +49,7 @@ function makeService(repoOverrides: Partial<CoursesRepository> = {}) {
   const enrollment = {
     isOrgMemberOfAny: vi.fn().mockResolvedValue(false),
     isPartnerMemberOfCourse: vi.fn().mockResolvedValue(false),
+    hasActiveEnrollment: vi.fn().mockResolvedValue(false),
   } as unknown as EnrollmentService;
   const categoriesRepo = {} as CategoriesService;
   const storage = {} as StorageDriver;
@@ -126,8 +128,86 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     await expect(service.bySlug("intro-to-x", member)).resolves.toMatchObject({ id: "course_1" });
     expect(enrollment.isOrgMemberOfAny).toHaveBeenCalledWith(["org_1", "org_2"], member.id);
   });
+  it("lets the owning instructor view their PRIVATE course", async () => {
+    const { service, enrollment } = makeService({
+      findBySlug: vi.fn().mockResolvedValue(makeCourseRow({ visibility: "PRIVATE" })),
+    });
+
+    await expect(service.bySlug("intro-to-x", owner)).resolves.toMatchObject({ id: "course_1" });
+    expect(enrollment.hasActiveEnrollment).not.toHaveBeenCalled();
+  });
+  it("lets an already-enrolled learner resolve a PRIVATE course", async () => {
+    const { service, enrollment } = makeService({
+      findBySlug: vi.fn().mockResolvedValue(makeCourseRow({ visibility: "PRIVATE" })),
+    });
+    vi.mocked(enrollment.hasActiveEnrollment).mockResolvedValue(true);
+
+    await expect(service.bySlug("intro-to-x", member)).resolves.toMatchObject({ id: "course_1" });
+    expect(enrollment.hasActiveEnrollment).toHaveBeenCalledWith(member.id, "course_1");
+  });
 });
 
+describe("CoursesService.list — admin storefront visibility", () => {
+  it("includes all published visibility levels for admins, including compact search results", async () => {
+    const listAndCount = vi.fn().mockResolvedValue([[], 0]);
+    const findIdsByCompactSearch = vi.fn().mockResolvedValue([{ id: "private_course" }]);
+    const { service, repo } = makeService({ listAndCount, findIdsByCompactSearch });
+
+    await service.list({ q: "privatecourse", sort: "popular", page: 1, pageSize: 12 }, admin);
+
+    const where = vi.mocked(repo.listAndCount).mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(where.status).toBe("PUBLISHED");
+    expect(where.visibility).toBeUndefined();
+    expect(where.AND).toBeUndefined();
+    expect(findIdsByCompactSearch).toHaveBeenCalledWith("privatecourse", admin.id, true);
+  });
+});
+describe("CoursesService.list — member private-course visibility", () => {
+  it("includes only private courses assigned to the current active org or partner membership", async () => {
+    const listAndCount = vi.fn().mockResolvedValue([[], 0]);
+    const { service, repo } = makeService({ listAndCount });
+
+    await service.list({ sort: "popular", page: 1, pageSize: 12 }, member);
+
+    const where = vi.mocked(repo.listAndCount).mock.calls[0]?.[0] as {
+      AND?: Array<{ OR?: unknown[] }>;
+    };
+    expect(where.AND).toEqual([
+      {
+        OR: [
+          { visibility: "PUBLIC" },
+          {
+            visibility: "PRIVATE",
+            OR: [
+              {
+                orgAssignments: {
+                  some: {
+                    org: {
+                      members: { some: { userId: member.id, removedAt: null } },
+                      OR: [
+                        { status: { not: "SUSPENDED" } },
+                        { accessLocksAt: null },
+                        { accessLocksAt: { gt: expect.any(Date) } },
+                      ],
+                    },
+                  },
+                },
+              },
+              {
+                deliveryPartnerAssignments: {
+                  some: {
+                    partner: { status: "APPROVED" },
+                    members: { some: { userId: member.id, removedAt: null } },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+});
 describe("CoursesService.list — compact search", () => {
   it("keeps normalized matches for multi-word compact queries", async () => {
     const listAndCount = vi.fn().mockResolvedValue([[], 0]);

@@ -151,6 +151,8 @@ function wipeGuestCart() {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const { user } = useSession();
+  const cartRestricted = user?.role === "ORG_ADMIN" || user?.role === "DELIVERY_PARTNER" || user?.role === "INSTRUCTOR";
+  const serverCartKey = useMemo(() => ["store", "cart", user?.id ?? "guest"] as const, [user?.id]);
   const [mounted, setMounted] = useState(false);
 
   // ── cart / code ──
@@ -330,7 +332,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     isPending: serverCartPending,
     fetchStatus: serverCartFetchStatus,
   } = useQuery({
-    queryKey: ["store", "cart"],
+    queryKey: serverCartKey,
     queryFn: async () => {
       try {
         return await cartApi.get();
@@ -339,7 +341,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    enabled: !!user && mounted,
+    enabled: !!user && !cartRestricted && mounted,
     staleTime: 30_000,
     retry: false,
   });
@@ -350,6 +352,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // counted as loading.
   const cartLoading =
     !!user &&
+    !cartRestricted &&
     mounted &&
     serverCartPending &&
     serverCartFetchStatus !== "idle";
@@ -384,6 +387,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     prevUserIdRef.current = user.id;
+    if (cartRestricted) {
+      mergedForUserRef.current = user.id;
+      setCart([]);
+      setCodeState(null);
+      return;
+    }
     if (mergedForUserRef.current === user.id) return;
     mergedForUserRef.current = user.id;
 
@@ -402,7 +411,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then((dto) => {
         wipeGuestCart();
         applyServerCart(dto);
-        qc.setQueryData(["store", "cart"], dto);
+        qc.setQueryData(serverCartKey, dto);
       })
       .catch((err) => {
         // Reset the guard so a manual retry (e.g. reopening the cart) will
@@ -414,14 +423,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (err instanceof ApiError && err.status === 401) return;
         toast.error(getApiErrorMessage(err));
       });
-  }, [user, mounted, applyServerCart, qc]);
+  }, [user, cartRestricted, serverCartKey, mounted, applyServerCart, qc]);
 
   // Adopt query updates (e.g. after a background refetch) into local state.
   // A null result means the server responded 401 — treated as "not signed in",
   // so we leave in-memory state alone and let the user-change effect handle it.
   useEffect(() => {
-    if (serverCart && user) applyServerCart(serverCart);
-  }, [serverCart, user, applyServerCart]);
+    if (serverCart && user && !cartRestricted) applyServerCart(serverCart);
+  }, [serverCart, user, cartRestricted, applyServerCart]);
 
   const role: Role = user ? ROLE_FROM_SESSION[user.role] ?? "student" : "guest";
 
@@ -436,7 +445,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       fn()
         .then((dto) => {
           applyServerCart(dto);
-          qc.setQueryData(["store", "cart"], dto);
+          qc.setQueryData(serverCartKey, dto);
         })
         .catch((err) => {
           rollback();
@@ -446,11 +455,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           void refetchCart();
         });
     },
-    [applyServerCart, qc, refetchCart],
+    [applyServerCart, qc, refetchCart, serverCartKey],
   );
 
   const addToCart = useCallback(
     (courseId: string) => {
+      if (user && cartRestricted) return;
       if (!user) {
         setCart((c) => (c.includes(courseId) ? c : [...c, courseId]));
         return;
@@ -464,11 +474,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         () => cartApi.addItem(courseId),
       );
     },
-    [user, cart, runServerMutation],
+    [user, cartRestricted, cart, runServerMutation],
   );
 
   const removeFromCart = useCallback(
     (courseId: string) => {
+      if (user && cartRestricted) return;
       if (!user) {
         // Dropping the last item must drop the code too — otherwise it
         // silently reapplies to whatever gets added next.
@@ -488,10 +499,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         () => cartApi.removeItem(courseId),
       );
     },
-    [user, cart, runServerMutation],
+    [user, cartRestricted, cart, runServerMutation],
   );
 
   const clearCart = useCallback(() => {
+    if (user && cartRestricted) return;
     if (!user) {
       setCart([]);
       setCodeState(null);
@@ -512,10 +524,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       () => cartApi.clear(),
     );
-  }, [user, cart, code, runServerMutation]);
+  }, [user, cartRestricted, cart, code, runServerMutation]);
 
   const setCode = useCallback(
     (next: string | null) => {
+      if (user && cartRestricted) return;
       if (!user) {
         setCodeState(next);
         return;
@@ -529,7 +542,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         () => cartApi.setCode(next),
       );
     },
-    [user, code, runServerMutation],
+    [user, cartRestricted, code, runServerMutation],
   );
 
   const value: StoreContextValue = {

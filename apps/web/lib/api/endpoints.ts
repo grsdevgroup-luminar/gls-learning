@@ -86,6 +86,7 @@ import type {
   CheckoutQuoteInput,
   CheckoutSessionInput,
   CheckoutSessionDto,
+  PaymentGatewayAvailabilityDto,
   LessonNoteDto,
   LessonResourceDto,
   NotificationDto,
@@ -252,6 +253,9 @@ export const api = {
   // commerce
   quote: (body: CheckoutQuoteInput) =>
     apiFetch<QuoteDto>("/checkout/quote", { method: "POST", body }),
+  paymentGatewayAvailability: () =>
+    apiFetch<PaymentGatewayAvailabilityDto>("/checkout/gateways"),
+  checkoutSession: (body: CheckoutSessionInput, idempotencyKey: string) =>
   checkoutSession: (
     body: CheckoutSessionInput,
     idempotencyKey: string,

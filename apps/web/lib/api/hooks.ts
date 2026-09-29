@@ -34,8 +34,10 @@ export { qk };
 // ── catalog ──────────────────────────────────────────────────────────────
 export const useCourses = (params: Record<string, string | string[] | number | undefined>) => {
   const cleanedParams = cleanParams(params);
+  const { user, isLoading: sessionLoading } = useSession();
   return useQuery({
-    queryKey: qk.courses(cleanedParams),
+    queryKey: qk.courses(cleanedParams, user?.id ?? "public"),
+    enabled: !sessionLoading,
     queryFn: () => api.courses(cleanedParams),
     staleTime: 30_000,
   });

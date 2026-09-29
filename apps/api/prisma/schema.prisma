@@ -252,6 +252,7 @@ enum NotificationEvent {
   DELIVERY_PARTNER_MEMBER_RESTORED
   DELIVERY_PARTNER_COMMISSION_CHANGED
   PAYOUT_REQUESTED_ADMIN
+  COURSE_REVISION_REQUESTED
 }
 
 // ─── Identity & roles ─────────────────────────────────────────────────────────

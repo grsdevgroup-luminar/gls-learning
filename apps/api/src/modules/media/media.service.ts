@@ -365,8 +365,8 @@ export class MediaService {
   }
 
   /** Clears lesson association when a video is removed from a lesson. */
-  async detachUploadFromLesson(cloudflareUid: string, tx?: Db): Promise<void> {
-    await this.uploads.detachFromLesson(cloudflareUid, tx);
+  async detachUploadFromLesson(cloudflareUid: string, tx?: Db, expectedLessonId?: string): Promise<void> {
+    await this.uploads.detachFromLesson(cloudflareUid, tx, expectedLessonId);
   }
 
   /** Verifies and applies a Cloudflare Stream encoding webhook (PROCESSING → READY/FAILED). */

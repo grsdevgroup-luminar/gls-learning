@@ -31,6 +31,7 @@ export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCou
   });
   const assignedIds = new Set(organizations.map((organization) => organization.id));
   const availableOrganizations = allOrganizations.filter((organization) => !assignedIds.has(organization.id));
+  const selectedOrganization = allOrganizations.find((organization) => organization.id === selectedOrgId);
   const assignMutation = useMutation({
     mutationFn: (orgId: string) => orgApi.assignCourse(orgId, courseId),
     onSuccess: () => {
@@ -100,7 +101,7 @@ export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCou
             <div className="flex flex-col gap-2 sm:flex-row">
               <Select value={selectedOrgId} onValueChange={(value) => value && setSelectedOrgId(value)}>
                 <SelectTrigger className="w-full sm:flex-1">
-                  <SelectValue placeholder={organizationsLoading ? "Loading organizations…" : "Select an organization"} />
+                  <SelectValue placeholder={organizationsLoading ? "Loading organizations…" : "Select an organization"}>{selectedOrganization?.name ?? (selectedOrgId ? "Organization selected" : undefined)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {availableOrganizations.length === 0 ? (

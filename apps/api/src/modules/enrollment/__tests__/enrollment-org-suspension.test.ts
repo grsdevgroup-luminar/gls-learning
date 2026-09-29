@@ -13,7 +13,7 @@ const courseId = "course_1";
 const lessonId = "lesson_1";
 
 function makeService(repoOverrides: Partial<EnrollmentRepository>) {
-  const repo = { ...repoOverrides } as unknown as EnrollmentRepository;
+  const repo = { hasUnrefundedPurchase: vi.fn().mockResolvedValue(false), ...repoOverrides } as unknown as EnrollmentRepository;
   const config = { get: vi.fn() } as unknown as ConfigService<Env, true>;
   const alerts = {} as AdminAlertsService;
   const notifications = {} as NotificationsService;
@@ -75,6 +75,7 @@ describe("EnrollmentService org-suspension gating", () => {
           lastActivityAt: new Date(),
           completedAt: null,
           course: {
+            updatedAt: new Date(),
             id: courseId,
             slug: "course",
             title: "Course",
@@ -141,6 +142,7 @@ describe("EnrollmentService org-suspension gating", () => {
           lastActivityAt: new Date(),
           completedAt: null,
           course: {
+            updatedAt: new Date(),
             id: courseId,
             slug: "course",
             title: "Course",

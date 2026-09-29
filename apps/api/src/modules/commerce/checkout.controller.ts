@@ -20,12 +20,13 @@ import type { Request, Response } from "express";
 import {
   checkoutQuoteSchema,
   checkoutSessionSchema,
+  UserRole,
   searchQuerySchema,
   type CheckoutQuoteInput,
   type CheckoutSessionInput,
   type SearchQuery,
 } from "@skillstream/shared";
-import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
+import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { clientIp } from "../../common/utils/client-ip";
 import { CheckoutService } from "./checkout.service";
@@ -71,6 +72,12 @@ export class CheckoutController {
     return this.coupons.featured();
   }
 
+  /** Public checkout may read which payment methods are available. */
+  @Public()
+  @Get("checkout/gateways")
+  availableGateways() {
+    return this.checkout.availableGateways();
+  }
   /** Pure price calculation (course IDs + region + coupon, no user data) — the
    *  checkout page shows real pricing to anonymous visitors by design; only
    *  "Pay" itself requires login (`FEATURE_FLOWS.md` §2.4). When the caller is
@@ -85,6 +92,7 @@ export class CheckoutController {
     return this.checkout.quote(body, user?.id);
   }
 
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   @Post("checkout/session")
   session(
     @CurrentUser() user: RequestUser,
