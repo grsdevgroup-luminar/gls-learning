@@ -146,7 +146,7 @@ export default function AdminMarketing() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Automation & reminders</h1>
         <p className="text-muted-foreground">
-          Win back idle learners automatically over email & SMS. Rules are evaluated hourly.
+          Win back idle learners automatically over email & SMS. Rules are evaluated once daily.
         </p>
       </div>
 
@@ -251,7 +251,7 @@ export default function AdminMarketing() {
             emptyMessage={
               activityTab === "recent"
                 ? "No reminder activity yet."
-                : "No marketing automation sends yet. Active rules are swept hourly."
+                : "No marketing automation sends yet. Active rules are swept once daily."
             }
           />
         </CardContent>

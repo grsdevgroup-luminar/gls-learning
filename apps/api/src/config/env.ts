@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseAutomationSweepTime } from "./automation-schedule";
 
 // Validated environment. Fails fast at boot if anything required is missing.
 const optionalUrl = z.preprocess(
@@ -90,6 +91,8 @@ const rawEnvSchema = z.object({
   // free, keyless endpoint covering the emerging-market currencies (BDT, NGN,
   // PKR) that ECB-sourced feeds like frankfurter.app omit.
   FX_RATES_URL: z.string().url().default("https://open.er-api.com/v6/latest/USD"),
+  // Daily marketing-automation sweep (server local time). HH:MM or HH:MM:SS.
+  AUTOMATION_SWEEP_TIME: z.string().default("00:00:00"),
   // Transactional email. `EMAIL_DRIVER` selects the transport adapter; the
   // service layer (templates + helpers) is provider-agnostic. Adding a new
   // provider = extend the enum + register an adapter in EmailModule.
@@ -254,6 +257,14 @@ export const envSchema = rawEnvSchema
           });
         }
       }
+    }
+    if (!parseAutomationSweepTime(env.AUTOMATION_SWEEP_TIME)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AUTOMATION_SWEEP_TIME"],
+        message:
+          "AUTOMATION_SWEEP_TIME must be HH:MM or HH:MM:SS in 24-hour server local time",
+      });
     }
   });
 

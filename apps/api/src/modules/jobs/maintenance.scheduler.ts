@@ -1,19 +1,29 @@
 import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Queue } from "bullmq";
+import type { Env } from "../../config/env";
+import {
+  automationSweepCronPattern,
+  formatAutomationSweepTime,
+} from "../../config/automation-schedule";
 import { MAINTENANCE_QUEUE } from "./jobs.constants";
 
-/** Registers the repeatable maintenance rollup and runs one pass on boot. */
+/** Registers repeatable maintenance jobs and runs selected ones on boot. */
 @Injectable()
 export class MaintenanceScheduler implements OnModuleInit {
   private readonly logger = new Logger(MaintenanceScheduler.name);
 
   constructor(
     @InjectQueue(MAINTENANCE_QUEUE) private readonly queue: Queue,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   async onModuleInit(): Promise<void> {
     try {
+      const sweepTime = this.config.get("AUTOMATION_SWEEP_TIME", { infer: true });
+      const sweepCron = automationSweepCronPattern(sweepTime);
+
       await this.queue.add(
         "rollup",
         {},
@@ -24,16 +34,19 @@ export class MaintenanceScheduler implements OnModuleInit {
           removeOnFail: 50,
         },
       );
-      // Marketing automation: evaluate rules hourly and enqueue reminders.
+      // Marketing automation: evaluate active rules once per day at server local time.
       await this.queue.add(
         "automation-sweep",
         {},
         {
-          repeat: { every: 60 * 60 * 1000 },
+          repeat: { pattern: sweepCron },
           jobId: "automation-sweep",
           removeOnComplete: 50,
           removeOnFail: 50,
         },
+      );
+      this.logger.log(
+        `Scheduled automation-sweep daily at ${formatAutomationSweepTime(sweepTime)} server time (cron: ${sweepCron})`,
       );
       // FX rates: display-only, and the bank's own spread dwarfs a day of
       // drift — daily is plenty, and it keeps us well inside the free feed's
