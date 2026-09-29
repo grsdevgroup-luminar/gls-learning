@@ -256,9 +256,15 @@ export const api = {
   paymentGatewayAvailability: () =>
     apiFetch<PaymentGatewayAvailabilityDto>("/checkout/gateways"),
   checkoutSession: (body: CheckoutSessionInput, idempotencyKey: string) =>
+  checkoutSession: (
+    body: CheckoutSessionInput,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ) =>
     apiFetch<CheckoutSessionDto>("/checkout/session", {
       method: "POST",
       body,
+      signal,
       // Collapses double-clicks and network retries onto a single Order on the
       // server; also flows through to Stripe/PayPal so no duplicate provider
       // session is opened. See docs/PAYMENT_IDEMPOTENCY_PLAN.md.

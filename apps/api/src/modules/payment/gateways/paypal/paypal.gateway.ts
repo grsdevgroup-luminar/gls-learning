@@ -15,6 +15,7 @@ import type {
   WebhookResult,
 } from "../../interfaces/payment-gateway.interface";
 import type { OrderRow } from "../../types";
+import { gatewaySignal } from "../gateway-timeout";
 
 export type PaypalWebhookBody = {
   id?: string;
@@ -74,6 +75,7 @@ export class PaypalGateway implements PaymentGateway {
     const basic = Buffer.from(`${id}:${secret}`).toString("base64");
     const res = await fetch(`${this.baseUrl()}/v1/oauth2/token`, {
       method: "POST",
+      signal: gatewaySignal(),
       headers: {
         Authorization: `Basic ${basic}`,
         "Content-Type": "application/x-www-form-urlencoded",
@@ -104,6 +106,7 @@ export class PaypalGateway implements PaymentGateway {
     const token = await this.accessToken();
     const res = await fetch(`${this.baseUrl()}/v2/checkout/orders`, {
       method: "POST",
+      signal: gatewaySignal(),
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -162,7 +165,7 @@ export class PaypalGateway implements PaymentGateway {
     const token = await this.accessToken();
     const res = await fetch(
       `${this.baseUrl()}/v2/checkout/orders/${order.providerRef}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` }, signal: gatewaySignal() },
     );
     if (!res.ok) return { status: "RESUME" };
     const json = (await res.json()) as PaypalOrderResponse;
@@ -174,6 +177,7 @@ export class PaypalGateway implements PaymentGateway {
       `${this.baseUrl()}/v2/checkout/orders/${order.providerRef}/capture`,
       {
         method: "POST",
+        signal: gatewaySignal(),
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -232,6 +236,7 @@ export class PaypalGateway implements PaymentGateway {
       `${this.baseUrl()}/v2/payments/captures/${order.providerPaymentId}/refund`,
       {
         method: "POST",
+        signal: gatewaySignal(),
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",

@@ -16,6 +16,7 @@ import type {
   WebhookResult,
 } from "../../interfaces/payment-gateway.interface";
 import type { OrderRow } from "../../types";
+import { GATEWAY_TIMEOUT_MS } from "../gateway-timeout";
 
 @Injectable()
 export class StripeGateway implements PaymentGateway {
@@ -24,7 +25,9 @@ export class StripeGateway implements PaymentGateway {
 
   constructor(private readonly config: ConfigService<Env, true>) {
     const key = this.config.get("STRIPE_SECRET_KEY", { infer: true });
-    this.client = key ? new Stripe(key) : null;
+    this.client = key
+      ? new Stripe(key, { timeout: GATEWAY_TIMEOUT_MS, maxNetworkRetries: 1 })
+      : null;
   }
 
   isConfigured(): boolean {

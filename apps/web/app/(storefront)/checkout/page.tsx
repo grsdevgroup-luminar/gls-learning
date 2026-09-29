@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +32,11 @@ const methods = [
   { id: "sslcommerz", label: "SSLCommerz", sub: "bKash, Nagad, cards, mobile banking", icon: CreditCard },
 ];
 
+// The API bounds each provider call at 15s, and a session request can make a
+// few of them (reconcile pending orders, then open the new session). Past this
+// the request is treated as lost so the Pay button never spins indefinitely.
+const CHECKOUT_TIMEOUT_MS = 60_000;
+
 const perks = [
   { icon: InfinityIcon, label: "Lifetime access on any device" },
   { icon: Award, label: "Certificate of completion" },
@@ -48,6 +53,19 @@ export default function CheckoutPage() {
   // Guards against duplicate submissions from StrictMode double-invoke, rapid
   // clicks that outrun `processing` state flips, and unmount/remount races.
   const inFlightRef = useRef<string | null>(null);
+
+  // Hitting Back from the gateway restores this page from the bfcache with
+  // `processing` still true and the in-flight lock held, leaving a dead
+  // "Processing…" button. Reset both so the buyer can pay again.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      inFlightRef.current = null;
+      setProcessing(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   const { data: catalog } = useQuery({
     queryKey: ["store", "courses"],
@@ -149,6 +167,7 @@ export default function CheckoutPage() {
                 : "STRIPE",
         },
         idempotencyKey,
+        AbortSignal.timeout(CHECKOUT_TIMEOUT_MS),
       );
       // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
       // Do NOT clear the cart here — payment isn't confirmed yet. If the user
@@ -173,7 +192,11 @@ export default function CheckoutPage() {
       clearCart();
       router.push(`/checkout/success?order=${session.orderId}`);
     } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      toast.error(
+        err instanceof DOMException && err.name === "TimeoutError"
+          ? "The payment provider is taking too long to respond. Please try again."
+          : getApiErrorMessage(err),
+      );
       // Release the in-flight lock only on failure; on success we're about to
       // navigate away and re-locking would let StrictMode fire a duplicate
       // request in that tiny window.
