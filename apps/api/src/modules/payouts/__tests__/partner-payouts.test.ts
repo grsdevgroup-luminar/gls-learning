@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import Stripe from "stripe";
 import type { ConfigService } from "@nestjs/config";
 import type { Payout } from "@prisma/client";
 import type { Env } from "../../../config/env";
@@ -218,5 +219,74 @@ describe("StripePayoutService — onboarding return URLs", () => {
         return_url: "https://app.example/instructor/earnings?stripe=onboarded",
       }),
     );
+  });
+});
+
+describe("StripePayoutService — executeTransfer errors", () => {
+  const input = {
+    payoutId: "po_1",
+    destinationAccountId: "acct_1",
+    netCents: 5000,
+    payeeUserId: "u_1",
+  };
+
+  function stripeWith(availableCents: number, create = vi.fn()) {
+    const config = { get: vi.fn(() => "sk_test") } as unknown as ConfigService<Env, true>;
+    const svc = new StripePayoutService(config);
+    (svc as unknown as { client: unknown }).client = {
+      balance: {
+        retrieve: vi.fn().mockResolvedValue({
+          available: [{ currency: "usd", amount: availableCents }],
+        }),
+      },
+      transfers: { create },
+    };
+    return { svc, create };
+  }
+
+  it("refuses with a 400 before calling Stripe when the platform balance is short", async () => {
+    const { svc, create } = stripeWith(1200);
+    await expect(svc.executeTransfer(input)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("$12.00 available"),
+    });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("maps Stripe's balance_insufficient to a 400 instead of a 500", async () => {
+    const create = vi.fn().mockRejectedValue(
+      Stripe.errors.StripeError.generate({
+        type: "invalid_request_error",
+        code: "balance_insufficient",
+        message: "You have insufficient available funds in your Stripe account.",
+      }),
+    );
+    const { svc } = stripeWith(10_000, create);
+    await expect(svc.executeTransfer(input)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("Insufficient funds"),
+    });
+  });
+
+  it("surfaces other Stripe request errors with Stripe's reason", async () => {
+    const create = vi.fn().mockRejectedValue(
+      Stripe.errors.StripeError.generate({
+        type: "invalid_request_error",
+        message: "No such destination: 'acct_1'",
+      }),
+    );
+    const { svc } = stripeWith(10_000, create);
+    await expect(svc.executeTransfer(input)).rejects.toMatchObject({
+      status: 400,
+      message: "Stripe rejected the transfer: No such destination: 'acct_1'",
+    });
+  });
+
+  it("maps Stripe outages to a 503", async () => {
+    const create = vi.fn().mockRejectedValue(
+      Stripe.errors.StripeError.generate({ type: "api_error", message: "boom" }),
+    );
+    const { svc } = stripeWith(10_000, create);
+    await expect(svc.executeTransfer(input)).rejects.toMatchObject({ status: 503 });
   });
 });
