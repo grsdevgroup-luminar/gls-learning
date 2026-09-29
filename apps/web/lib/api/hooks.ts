@@ -338,15 +338,16 @@ export const useDeleteAutomationRule = () =>
   useRuleMutation((id: string) => api.adminDeleteAutomationRule(id));
 
 /** Body the PATCH expects, derived from an existing rule. */
-export const ruleToInput = (r: AutomationRuleDto): UpsertAutomationRuleInput => ({
-  name: r.name,
-  trigger: r.trigger,
-  condition: r.condition,
-  channels: r.channels,
-  template: r.template,
-  active: r.active,
-  cooldownHours: r.cooldownHours,
-});
+export const ruleToInput = (r: AutomationRuleDto): UpsertAutomationRuleInput =>
+  ({
+    name: r.name,
+    trigger: r.trigger,
+    params: r.params,
+    channels: r.channels,
+    template: r.template,
+    active: r.active,
+    cooldownHours: r.cooldownHours,
+  }) as UpsertAutomationRuleInput;
 
 // ── email templates ──────────────────────────────────────────────────────
 export const useEmailTemplates = () =>

@@ -6,44 +6,40 @@ import type {
   ReminderChannel,
   ReminderLogDto,
   ReminderTrigger,
+  UpsertAutomationRuleInput,
 } from "@skillstream/shared";
 import {
   REMINDER_TRIGGERS,
-  DEFAULT_AUTOMATION_COOLDOWN_HOURS,
   MIN_AUTOMATION_COOLDOWN_HOURS,
   MAX_AUTOMATION_COOLDOWN_HOURS,
   automationCooldownHoursSchema,
+  idleParamsSchema,
+  lowProgressParamsSchema,
+  abandonedCartParamsSchema,
+  almostDoneParamsSchema,
+  newContentParamsSchema,
+  upsertAutomationRuleSchema,
 } from "@skillstream/shared";
 import {
   ruleToInput,
   useAutomationRules,
-  useCreateAutomationRule,
-  useDeleteAutomationRule,
   useReminderLogs,
   useUpdateAutomationRule,
 } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { relativeDate } from "@/lib/format";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   Send, MailOpen, MousePointerClick, ListChecks, Mail, MessageSquare,
-  Clock, TrendingDown, ShoppingCart, PartyPopper, Sparkles, Plus, Trash2,
+  Clock, TrendingDown, ShoppingCart, PartyPopper, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -118,9 +114,7 @@ export default function AdminMarketing() {
   const { data: rules = [], isLoading } = useAutomationRules();
   const { data: logs = [] } = useReminderLogs();
   const [activityTab, setActivityTab] = useState<ActivityTab>("recent");
-  const create = useCreateAutomationRule();
   const update = useUpdateAutomationRule();
-  const remove = useDeleteAutomationRule();
 
   function toggle(r: AutomationRuleDto) {
     update.mutate(
@@ -132,7 +126,6 @@ export default function AdminMarketing() {
     );
   }
 
-  // Derived from the send log rather than stored — the log is the source of truth.
   const [weekAgo] = useState(() => Date.now() - 7 * 86400_000);
   const sent7d = logs?.filter((l) => Date.parse(l.createdAt) >= weekAgo).length ?? 0;
   const opened = logs?.filter((l) => l.status === "OPENED" || l.status === "CLICKED").length ?? 0;
@@ -150,20 +143,11 @@ export default function AdminMarketing() {
 
   return (
     <div className="space-y-6 p-6 md:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Automation & reminders</h1>
-          <p className="text-muted-foreground">
-            Win back idle learners automatically over email & SMS. Rules are evaluated hourly.
-          </p>
-        </div>
-        <NewRuleDialog
-          pending={create.isPending}
-          onCreate={async (input) => {
-            const rule = await create.mutateAsync(input);
-            toast.success(`${rule.name} created`);
-          }}
-        />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Automation & reminders</h1>
+        <p className="text-muted-foreground">
+          Win back idle learners automatically over email & SMS. Rules are evaluated hourly.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -182,16 +166,17 @@ export default function AdminMarketing() {
         ))}
       </div>
 
-      {/* Rules */}
       <div>
         <h2 className="mb-3 text-lg font-bold">Automation rules</h2>
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading rules…</p>
         ) : rules.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No automation rules yet.</p>
+          <p className="text-sm text-muted-foreground">
+            Automation rules have not been seeded yet. Run the database seed to create the five default rules.
+          </p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {rules?.map((r) => {
+            {rules.map((r) => {
               const Icon = triggerIcon[r.trigger];
               return (
                 <Card key={r.id} className={r.active ? "" : "opacity-70"}>
@@ -221,31 +206,18 @@ export default function AdminMarketing() {
                     <p className="rounded-lg bg-muted/60 p-2.5 text-xs italic text-muted-foreground">
                       “{r.template}”
                     </p>
-                    <CooldownEditor
-                      key={`${r.id}-${r.cooldownHours}`}
+                    <RuleSettingsEditor
+                      key={`${r.id}-${r.cooldownHours}-${JSON.stringify(r.params)}`}
                       rule={r}
                       pending={update.isPending}
-                      onSave={(cooldownHours) => update.mutateAsync({
-                        ...ruleToInput(r), id: r.id, cooldownHours,
-                      })}
-                    />
-                    <ConfirmDialog
-                      trigger={
-                        <Button size="sm" variant="ghost" className="text-destructive" disabled={update.isPending}>
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
-                        </Button>
+                      onSave={(input) =>
+                        update.mutateAsync({
+                          ...ruleToInput(r),
+                          id: r.id,
+                          cooldownHours: input.cooldownHours,
+                          params: input.params,
+                        } as UpsertAutomationRuleInput & { id: string })
                       }
-                      title={`Delete automation rule "${r.name}"?`}
-                      description="This can't be undone."
-                      pending={remove.isPending}
-                      onConfirm={async () => {
-                        try {
-                          await remove.mutateAsync(r.id);
-                          toast.success(`${r.name} deleted`);
-                        } catch (e) {
-                          toast.error(getApiErrorMessage(e));
-                        }
-                      }}
                     />
                   </CardContent>
                 </Card>
@@ -288,192 +260,172 @@ export default function AdminMarketing() {
   );
 }
 
-const TRIGGERS: ReminderTrigger[] = [
-  "IDLE",
-  "LOW_PROGRESS",
-  "ABANDONED_CART",
-  "ALMOST_DONE",
-  "NEW_CONTENT",
-];
+function requiredNumber(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
-function CooldownEditor({ rule, pending, onSave }: {
+function paramsFromStrings(
+  trigger: ReminderTrigger,
+  fields: Record<string, string>,
+): UpsertAutomationRuleInput["params"] | null {
+  switch (trigger) {
+    case "IDLE": {
+      const inactiveDays = requiredNumber(fields.inactiveDays);
+      if (inactiveDays === null) return null;
+      const parsed = idleParamsSchema.safeParse({ inactiveDays });
+      return parsed.success ? parsed.data : null;
+    }
+    case "LOW_PROGRESS": {
+      const enrolledDays = requiredNumber(fields.enrolledDays);
+      const maxProgressPct = requiredNumber(fields.maxProgressPct);
+      if (enrolledDays === null || maxProgressPct === null) return null;
+      const parsed = lowProgressParamsSchema.safeParse({ enrolledDays, maxProgressPct });
+      return parsed.success ? parsed.data : null;
+    }
+    case "ABANDONED_CART": {
+      const pendingHours = requiredNumber(fields.pendingHours);
+      if (pendingHours === null) return null;
+      const parsed = abandonedCartParamsSchema.safeParse({ pendingHours });
+      return parsed.success ? parsed.data : null;
+    }
+    case "ALMOST_DONE": {
+      const minProgressPct = requiredNumber(fields.minProgressPct);
+      if (minProgressPct === null) return null;
+      const parsed = almostDoneParamsSchema.safeParse({ minProgressPct });
+      return parsed.success ? parsed.data : null;
+    }
+    case "NEW_CONTENT": {
+      const lookbackDays = requiredNumber(fields.lookbackDays);
+      if (lookbackDays === null) return null;
+      const parsed = newContentParamsSchema.safeParse({ lookbackDays });
+      return parsed.success ? parsed.data : null;
+    }
+  }
+}
+
+function initialParamFields(rule: AutomationRuleDto): Record<string, string> {
+  switch (rule.trigger) {
+    case "IDLE":
+      return { inactiveDays: String(rule.params.inactiveDays) };
+    case "LOW_PROGRESS":
+      return {
+        enrolledDays: String(rule.params.enrolledDays),
+        maxProgressPct: String(rule.params.maxProgressPct),
+      };
+    case "ABANDONED_CART":
+      return { pendingHours: String(rule.params.pendingHours) };
+    case "ALMOST_DONE":
+      return { minProgressPct: String(rule.params.minProgressPct) };
+    case "NEW_CONTENT":
+      return { lookbackDays: String(rule.params.lookbackDays) };
+  }
+}
+
+function RuleSettingsEditor({ rule, pending, onSave }: {
   rule: AutomationRuleDto;
   pending: boolean;
-  onSave: (hours: number) => Promise<unknown>;
+  onSave: (input: Pick<UpsertAutomationRuleInput, "cooldownHours" | "params">) => Promise<unknown>;
 }) {
-  const [hours, setHours] = useState(String(rule.cooldownHours));
-  const parsed = automationCooldownHoursSchema.safeParse(Number(hours));
-  const inputId = `cooldown-${rule.id}`;
+  const [cooldownHours, setCooldownHours] = useState(String(rule.cooldownHours));
+  const [fields, setFields] = useState(() => initialParamFields(rule));
+  const cooldownParsed = (() => {
+    const hours = requiredNumber(cooldownHours);
+    return hours === null ? { success: false as const } : automationCooldownHoursSchema.safeParse(hours);
+  })();
+  const paramsParsed = paramsFromStrings(rule.trigger, fields);
+  const draft =
+    cooldownParsed.success && paramsParsed
+      ? upsertAutomationRuleSchema.safeParse({
+          ...ruleToInput(rule),
+          cooldownHours: cooldownParsed.data,
+          params: paramsParsed,
+        })
+      : null;
+  const unchanged =
+    draft?.success &&
+    draft.data.cooldownHours === rule.cooldownHours &&
+    JSON.stringify(draft.data.params) === JSON.stringify(rule.params);
+
+  function setField(key: string, value: string) {
+    setFields((prev) => ({ ...prev, [key]: value }));
+  }
 
   async function save() {
-    if (!parsed.success || pending) return;
+    if (!draft?.success || pending || unchanged) return;
     try {
-      await onSave(parsed.data);
-      toast.success("Cooldown saved");
+      await onSave({ cooldownHours: draft.data.cooldownHours, params: draft.data.params });
+      toast.success("Settings saved");
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
   }
 
+  const invalid = !draft?.success;
+
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={inputId}>Cooldown (hours)</Label>
-      <div className="flex gap-2">
+    <div className="space-y-3 rounded-lg border p-3">
+      <ParamFields trigger={rule.trigger} fields={fields} pending={pending} onChange={setField} />
+      <div className="space-y-1.5">
+        <Label htmlFor={`cooldown-${rule.id}`}>Cooldown (hours)</Label>
         <Input
-          id={inputId}
+          id={`cooldown-${rule.id}`}
           type="number"
           min={MIN_AUTOMATION_COOLDOWN_HOURS}
           max={MAX_AUTOMATION_COOLDOWN_HOURS}
           step={1}
-          value={hours}
-          onChange={(e) => setHours(e.target.value)}
+          value={cooldownHours}
+          onChange={(e) => setCooldownHours(e.target.value)}
           disabled={pending}
-          aria-invalid={!parsed.success}
-          aria-describedby={`${inputId}-help`}
+          aria-invalid={!cooldownParsed.success}
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={save}
-          disabled={pending || !parsed.success || Number(hours) === rule.cooldownHours}
-        >
-          Save
-        </Button>
+        <p className="text-xs text-muted-foreground">
+          Minimum hours between reminders from this rule to the same learner (24–8760).
+        </p>
       </div>
-      <p id={`${inputId}-help`} className="text-xs text-muted-foreground">
-        Minimum hours between reminders from this rule to the same learner. Enter 24–8760 hours (up to one year).
-      </p>
+      <Button type="button" onClick={save} disabled={pending || invalid || unchanged} className="w-full">
+        Save settings
+      </Button>
     </div>
   );
 }
 
-function NewRuleDialog({
-  onCreate,
-  pending,
-}: {
-  onCreate: (input: ReturnType<typeof ruleToInput>) => Promise<void>;
+function ParamFields({ trigger, fields, pending, onChange }: {
+  trigger: ReminderTrigger;
+  fields: Record<string, string>;
   pending: boolean;
+  onChange: (key: string, value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [trigger, setTrigger] = useState<ReminderTrigger>("IDLE");
-  const [condition, setCondition] = useState("");
-  const [channels, setChannels] = useState<ReminderChannel[]>(["EMAIL"]);
-  const [template, setTemplate] = useState("");
-  const [cooldownHours, setCooldownHours] = useState<string | null>(null);
-  const hours = cooldownHours ?? String(DEFAULT_AUTOMATION_COOLDOWN_HOURS[trigger]);
-
-  async function submit() {
-    if (pending) return;
-    if (!name.trim()) return toast.error("Name the rule");
-    if (!template.trim()) return toast.error("Add a message template");
-    if (channels.length === 0) return toast.error("Pick at least one channel");
-    const parsed = automationCooldownHoursSchema.safeParse(Number(hours));
-    if (!parsed.success) return toast.error("Cooldown must be a whole number between 24 and 8760 hours");
-    try {
-      await onCreate({
-        name: name.trim(),
-        trigger,
-        condition: condition.trim(),
-        channels,
-        template: template.trim(),
-        active: true,
-        cooldownHours: parsed.data,
-      });
-      setName("");
-      setTemplate("");
-      setCondition("");
-      setCooldownHours(null);
-      setOpen(false);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    }
-  }
-
-  const toggleChannel = (c: ReminderChannel) =>
-    setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}><Plus /> New automation</DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>New automation rule</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Win back idle learners" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Trigger</Label>
-            <Select value={trigger} onValueChange={(v) => setTrigger(v as ReminderTrigger)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TRIGGERS.map((t) => (
-                  <SelectItem key={t} value={t} className="capitalize">{humanize(t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Condition (description)</Label>
-            <Input
-              value={condition}
-              onChange={(e) => setCondition(e.target.value)}
-              placeholder="No activity for 7 days"
-            />
-            <p className="text-xs text-muted-foreground">
-              Shown to admins only — the trigger decides who gets matched.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-rule-cooldown">Cooldown (hours)</Label>
-            <Input
-              id="new-rule-cooldown"
-              type="number"
-              min={MIN_AUTOMATION_COOLDOWN_HOURS}
-              max={MAX_AUTOMATION_COOLDOWN_HOURS}
-              step={1}
-              value={hours}
-              onChange={(e) => setCooldownHours(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Minimum hours between reminders from this rule to the same learner. Enter 24–8760 hours (up to one year).
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Channels</Label>
-            <div className="flex gap-2">
-              {(["EMAIL", "SMS"] as ReminderChannel[]).map((c) => (
-                <Button
-                  key={c}
-                  type="button"
-                  size="sm"
-                  variant={channels.includes(c) ? "secondary" : "outline"}
-                  onClick={() => toggleChannel(c)}
-                >
-                  <ChannelIcon channel={c} /> <span className="capitalize">{humanize(c)}</span>
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Message template</Label>
-            <Textarea
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              rows={3}
-              placeholder="Hi {{first_name}}, your {{course}} is waiting — you're {{progress}}% there!"
-            />
-            <p className="text-xs text-muted-foreground">
-              Placeholders: {"{{first_name}}"}, {"{{course}}"}, {"{{progress}}"}
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button onClick={submit} disabled={pending}>{pending ? "Creating…" : "Create rule"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+  const numInput = (key: string, label: string, step = 1) => (
+    <div key={key} className="space-y-1.5">
+      <Label htmlFor={key}>{label}</Label>
+      <Input
+        id={key}
+        type="number"
+        step={step}
+        value={fields[key] ?? ""}
+        onChange={(e) => onChange(key, e.target.value)}
+        disabled={pending}
+      />
+    </div>
   );
+
+  switch (trigger) {
+    case "IDLE":
+      return numInput("inactiveDays", "Inactive for more than (days)");
+    case "LOW_PROGRESS":
+      return (
+        <>
+          {numInput("enrolledDays", "Enrolled for more than (days)")}
+          {numInput("maxProgressPct", "Progress at most (%)")}
+        </>
+      );
+    case "ABANDONED_CART":
+      return numInput("pendingHours", "Order pending for more than (hours)", 0.25);
+    case "ALMOST_DONE":
+      return numInput("minProgressPct", "Progress at least (%)");
+    case "NEW_CONTENT":
+      return numInput("lookbackDays", "Lessons added within the last (days)");
+  }
 }

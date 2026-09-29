@@ -973,6 +973,8 @@ model AutomationRule {
   name      String
   trigger   ReminderTrigger
   condition String
+  /// Trigger-specific eligibility thresholds (inactiveDays, pendingHours, etc.).
+  params    Json              @default("{}")
   channels  ReminderChannel[]
   template  String
   active    Boolean           @default(true)
