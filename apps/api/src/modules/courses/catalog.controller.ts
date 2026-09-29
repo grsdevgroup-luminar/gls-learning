@@ -18,8 +18,9 @@ export class CatalogController {
   @Get("courses")
   list(
     @ZodQuery(courseListQuerySchema) query: CourseListQuery,
+    @CurrentUser() user?: RequestUser,
   ) {
-    return this.courses.list(query);
+    return this.courses.list(query, user);
   }
 
   @Get("me/recommendations")

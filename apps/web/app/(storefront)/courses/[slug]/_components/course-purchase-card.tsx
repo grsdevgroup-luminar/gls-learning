@@ -29,8 +29,9 @@ import { useEnrollFree } from "@/lib/api/hooks";
  *  takes just the static `course` and reads the rest itself. */
 export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
   const { inCart, addToCart, isEnrolled } = useStore();
-  const { role } = useSession();
-  const isInstructor = role === "INSTRUCTOR";
+  const { role, isLoading } = useSession();
+  const isInstructor = !isLoading && role === "INSTRUCTOR";
+  const isCartRestricted = isLoading || role === "ORG_ADMIN" || role === "DELIVERY_PARTNER";
   const router = useRouter();
   const enroll = useEnrollFree();
   const enrolled = isEnrolled(course.id);
@@ -133,7 +134,7 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
           >
             {enroll.isPending ? "Enrolling…" : "Enroll"}
           </Button>
-        ) : isInstructor ? null : (
+        ) : isInstructor || isCartRestricted ? null : (
           <div className="space-y-2">
             {inCartNow ? (
               <Button

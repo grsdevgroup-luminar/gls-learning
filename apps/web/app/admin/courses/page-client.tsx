@@ -48,7 +48,7 @@ const statusStyle: Record<ApiStatus, string> = {
   REVIEW: "text-warning",
 };
 
-const VALID_TABS = ["all", "deletion-requests"] as const;
+const VALID_TABS = ["all", "deletion-requests", "revision-requests"] as const;
 type CoursesTab = (typeof VALID_TABS)[number];
 
 export default function AdminCourses() {
@@ -89,6 +89,11 @@ export default function AdminCourses() {
     queryFn: adminApi.courseStats,
   });
 
+  const { data: pendingRevisionRequests = [] } = useQuery({
+    queryKey: ["admin", "course-revision-requests", "PENDING"],
+    queryFn: () => authoringApi.courseRevisionRequests("PENDING"),
+    refetchInterval: 30_000,
+  });
   const courses = coursePage?.items ?? [];
   const totalPages = coursePage?.totalPages ?? 1;
 
@@ -147,7 +152,7 @@ export default function AdminCourses() {
       <TabsList className="shrink-0">
         <TabsTrigger value="all">All courses</TabsTrigger>
         <TabsTrigger value="deletion-requests">Deletion requests</TabsTrigger>
-        <TabsTrigger value="revision-requests">Course changes <span className="ml-1 text-warning">•</span></TabsTrigger>
+        <TabsTrigger value="revision-requests">Course changes {pendingRevisionRequests.length > 0 && <Badge variant="outline" className="ml-1 border-warning/40 text-warning">{pendingRevisionRequests.length}</Badge>}</TabsTrigger>
       </TabsList>
       <TabsContent value="all" className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -177,7 +182,8 @@ export default function AdminCourses() {
             </Button>
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1" aria-label="Filter courses by visibility">
+          <span className="mr-1 text-xs text-muted-foreground">Visibility</span>
           {(["PUBLIC", "PRIVATE"] as const).map((v) => (
             <Button
               key={v}

@@ -8,6 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { ThrottlerException } from "@nestjs/throttler";
 import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 
@@ -65,7 +66,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message: string | string[] = "Internal server error";
     let error = "InternalServerError";
 
-    if (exception instanceof HttpException) {
+    if (exception instanceof ThrottlerException) {
+      status = HttpStatus.TOO_MANY_REQUESTS;
+      error = "Too Many Requests";
+      message = "Too many requests. Please wait a moment and try again.";
+    } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const body = exception.getResponse();
       if (typeof body === "string") {

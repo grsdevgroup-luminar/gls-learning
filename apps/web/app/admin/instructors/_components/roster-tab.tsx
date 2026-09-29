@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, GraduationCap, Search } from "lucide-react";
+import { Users, GraduationCap, Search, Wallet } from "lucide-react";
 import { initials, compactNumber, relativeDate } from "@/lib/format";
 import {
   AdminPagination,
@@ -60,9 +60,45 @@ export function RosterTab() {
     refetchOnMount: "always",
   });
 
+  const { data: instructorPayouts = [] } = useQuery({
+    queryKey: ["admin", "instructor-payout-ledger"],
+    queryFn: () => adminApi.payouts({ payeeType: "INSTRUCTOR" }),
+    refetchOnMount: "always",
+  });
+
   const roster = data?.items ?? [];
   const totalPages = data?.totalPages ?? 1;
   const totalStudents = roster.reduce((s, i) => s + i.studentCount, 0);
+  const paidByInstructor = new Map<string, number>();
+  const inFlightByInstructor = new Map<string, number>();
+  for (const payout of instructorPayouts) {
+    if (payout.status === "PAID") {
+      paidByInstructor.set(
+        payout.payeeUserId,
+        (paidByInstructor.get(payout.payeeUserId) ?? 0) + payout.amountCents,
+      );
+    } else if (payout.status === "REQUESTED" || payout.status === "APPROVED") {
+      inFlightByInstructor.set(
+        payout.payeeUserId,
+        (inFlightByInstructor.get(payout.payeeUserId) ?? 0) +
+          payout.amountCents,
+      );
+    }
+  }
+  const formatUsd = (cents: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100);
+  const pageEarnings = roster.reduce(
+    (totals, instructor) => {
+      totals.earned += instructor.earningsCents;
+      totals.paid += paidByInstructor.get(instructor.userId) ?? 0;
+      totals.inFlight += inFlightByInstructor.get(instructor.userId) ?? 0;
+      return totals;
+    },
+    { earned: 0, paid: 0, inFlight: 0 },
+  );
 
   useEffect(() => {
     if (data && page > data.totalPages) setPage(data.totalPages);
@@ -127,6 +163,14 @@ export function RosterTab() {
               <TableHead className={stickyHeaderCellClass}>Courses</TableHead>
               <TableHead className={stickyHeaderCellClass}>Students</TableHead>
               <TableHead className={stickyHeaderCellClass}>Rating</TableHead>
+              <TableHead className={stickyHeaderCellClass}>
+                Total earned
+              </TableHead>
+              <TableHead className={stickyHeaderCellClass}>Paid out</TableHead>
+              <TableHead className={stickyHeaderCellClass}>
+                In progress
+              </TableHead>
+              <TableHead className={stickyHeaderCellClass}>Available</TableHead>
               <TableHead className={`pr-6 ${stickyHeaderCellClass}`}>
                 Joined
               </TableHead>
@@ -136,10 +180,10 @@ export function RosterTab() {
             {isLoading ? (
               [...Array(5)].map((_, i) => (
                 <TableRow key={i}>
-                  {[...Array(6)].map((__, j) => (
+                  {[...Array(10)].map((__, j) => (
                     <TableCell
                       key={j}
-                      className={j === 0 ? "pl-6" : j === 5 ? "pr-6" : ""}
+                      className={j === 0 ? "pl-6" : j === 9 ? "pr-6" : ""}
                     >
                       <div className="h-4 w-full animate-pulse rounded bg-muted" />
                     </TableCell>
@@ -149,7 +193,7 @@ export function RosterTab() {
             ) : roster.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={10}
                   className="py-10 text-center text-muted-foreground"
                 >
                   No instructors found.
@@ -193,6 +237,25 @@ export function RosterTab() {
                       <Stars rating={i.ratingAvg} size={12} showValue />
                     ) : (
                       <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {formatUsd(i.earningsCents)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {formatUsd(paidByInstructor.get(i.userId) ?? 0)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {formatUsd(inFlightByInstructor.get(i.userId) ?? 0)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {formatUsd(
+                      Math.max(
+                        0,
+                        i.earningsCents -
+                          (paidByInstructor.get(i.userId) ?? 0) -
+                          (inFlightByInstructor.get(i.userId) ?? 0),
+                      ),
                     )}
                   </TableCell>
                   <TableCell className="pr-6 text-sm text-muted-foreground">

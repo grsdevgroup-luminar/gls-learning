@@ -4,16 +4,18 @@ import {
   addCartItemSchema,
   mergeCartSchema,
   setCartCodeSchema,
+  UserRole,
   type AddCartItemInput,
   type MergeCartInput,
   type SetCartCodeInput,
 } from "@skillstream/shared";
-import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
+import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { CartService } from "./cart.service";
 
 @ApiTags("cart")
 @ApiBearerAuth()
+@Roles(UserRole.STUDENT, UserRole.ADMIN)
 @Controller("cart")
 export class CartController {
   constructor(private readonly cart: CartService) {}

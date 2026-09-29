@@ -21,6 +21,12 @@ export default function InstructorCourses() {
   const { data: courses, isLoading, error } = useQuery({
     queryKey: ["instructor", "courses"],
     queryFn: instructorApi.courses,
+    // Admin approvals happen in another session, so local cache invalidation
+    // cannot reliably refresh this live-course list.
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
   });
   const { data: deletionRequests } = useQuery({
     queryKey: ["instructor", "course-deletion-requests"],

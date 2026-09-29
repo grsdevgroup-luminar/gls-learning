@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ArgumentsHost } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { ThrottlerException } from "@nestjs/throttler";
 import { AllExceptionsFilter } from "../filters/all-exceptions.filter";
 
 /** Drives the filter and reports what the client would actually receive. */
@@ -29,6 +30,13 @@ const known = (code: string) =>
   new Prisma.PrismaClientKnownRequestError("db said no", { code, clientVersion: "6" });
 
 describe("AllExceptionsFilter", () => {
+  it("returns a friendly message for rate-limited requests", () => {
+    const { status, body } = run(new ThrottlerException());
+    expect(status).toBe(429);
+    expect(body.message).toBe("Too many requests. Please wait a moment and try again.");
+    expect(JSON.stringify(body)).not.toContain("ThrottlerException");
+  });
+
   it("maps a missing row to 404", () => {
     expect(run(known("P2025")).status).toBe(404);
   });

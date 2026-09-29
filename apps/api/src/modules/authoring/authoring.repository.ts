@@ -46,6 +46,10 @@ export class AuthoringRepository {
     return this.prisma.courseOrgAssignment.count({ where: { courseId } });
   }
 
+  countDeliveryPartnerAssignments(courseId: string) {
+    return this.prisma.deliveryPartnerCourseAssignment.count({ where: { courseId } });
+  }
+
   /** Returns lesson content needed to validate a publish transition. */
   findLessonsForPublishValidation(courseId: string) {
     return this.prisma.lesson.findMany({

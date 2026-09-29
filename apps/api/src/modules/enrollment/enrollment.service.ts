@@ -219,6 +219,11 @@ export class EnrollmentService {
     return !!(await this.repo.findAnyPartnerMembershipForCourse(courseId, userId));
   }
 
+  /** Existing learners retain course-page access after the course is made private.
+   * This recognizes an existing enrollment only; it does not grant enrollment. */
+  async hasActiveEnrollment(userId: string, courseId: string): Promise<boolean> {
+    return !!(await this.repo.findActiveByUserAndCourse(userId, courseId));
+  }
   /** Completed ids for an enrolled learner, used to build the gated learner
    * course view without exposing attachment URLs for locked lessons. */
   async completedLessonIds(userId: string, courseId: string): Promise<string[]> {
@@ -247,7 +252,10 @@ export class EnrollmentService {
     // happens to also exist on it — that assignment isn't why access is
     // free, so its suspension status can't revoke it.
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
-    if (needsGrant) {
+    const hasUnrefundedPurchase = needsGrant
+      ? await this.repo.hasUnrefundedPurchase(userId, lesson.section.courseId)
+      : false;
+    if (needsGrant && !hasUnrefundedPurchase) {
       // Every org this course is assigned to that the user is *currently* an
       // active member of (a soft-removed row doesn't count as membership —
       // see findLessonAccessContext). Otherwise, access continues as long as

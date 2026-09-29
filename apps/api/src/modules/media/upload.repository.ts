@@ -197,13 +197,18 @@ export class UploadRepository {
     });
   }
 
-  detachFromLesson(cloudflareUid: string, tx?: Db) {
+  detachFromLesson(cloudflareUid: string, tx?: Db, expectedLessonId?: string) {
+    if (expectedLessonId) {
+      return this.db(tx).upload.updateMany({
+        where: { cloudflareUid, lessonId: expectedLessonId },
+        data: { lessonId: null },
+      });
+    }
     return this.db(tx).upload.update({
       where: { cloudflareUid },
       data: { lessonId: null },
     });
   }
-
   findLessonCfVideoUid(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },

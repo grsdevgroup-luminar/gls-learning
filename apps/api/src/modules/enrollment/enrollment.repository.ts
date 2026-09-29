@@ -115,7 +115,7 @@ export class EnrollmentRepository {
 
   findAnyOrgMembership(orgIds: string[], userId: string) {
     return this.prisma.orgMember.findFirst({
-      where: { userId, orgId: { in: orgIds } },
+      where: { userId, orgId: { in: orgIds }, removedAt: null, org: { OR: [{ status: { not: "SUSPENDED" } }, { accessLocksAt: null }, { accessLocksAt: { gt: new Date() } }] } },
     });
   }
 
@@ -123,9 +123,17 @@ export class EnrollmentRepository {
    *  of any delivery-partner course assignment for this specific course. */
   findAnyPartnerMembershipForCourse(courseId: string, userId: string) {
     return this.prisma.deliveryPartnerMember.findFirst({
-      where: { userId, courseAssignment: { courseId } },
+      where: { userId, removedAt: null, courseAssignment: { courseId, partner: { status: "APPROVED" } } },
       select: { id: true },
     });
+  }
+
+  async hasUnrefundedPurchase(userId: string, courseId: string) {
+    const items = await this.prisma.orderItem.findMany({
+      where: { courseId, order: { userId, status: { in: ["PAID", "PARTIALLY_REFUNDED"] } } },
+      select: { priceCents: true, refundedCents: true },
+    });
+    return items.some((item) => item.refundedCents < item.priceCents);
   }
 
   upsertEnrollment(userId: string, courseId: string, tx?: Db) {
