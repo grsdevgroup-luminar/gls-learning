@@ -241,6 +241,7 @@ export interface AutomationRule {
   name: string;
   trigger: ReminderTrigger;
   condition: string;
+  params: Record<string, number>;
   channels: ReminderChannel[];
   template: string;
   active: boolean;

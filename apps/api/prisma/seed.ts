@@ -383,8 +383,14 @@ async function main() {
     await prisma.automationRule.upsert({
       where: { id: r.id },
       update: data,
-      // Only initialize cooldown on creation; retain admin edits on reseed.
-      create: { id: r.id, ...data, sentCount: r.sentCount, cooldownHours: r.cooldownHours },
+      // Only initialize cooldown and params on creation; retain admin edits on reseed.
+      create: {
+        id: r.id,
+        ...data,
+        sentCount: r.sentCount,
+        cooldownHours: r.cooldownHours,
+        params: r.params,
+      },
     });
   }
 

@@ -26,6 +26,11 @@ import type {
   UpsertCouponInput,
   UpdateUserStatusInput,
 } from "@skillstream/shared";
+import {
+  DEFAULT_AUTOMATION_PARAMS,
+  automationConditionFromParams,
+  parseAutomationRuleParams,
+} from "@skillstream/shared";
 import type { Db } from "../../common/types";
 import { toCourseSummary } from "../courses/course.mapper";
 import { CreditsService } from "../credits/credits.service";
@@ -862,16 +867,33 @@ export class AdminService {
 
   // ── marketing / automation ─────────────────────────────────────────────────
   private toAutomationRuleDto(r: AutomationRule): AutomationRuleDto {
+    const params =
+      parseAutomationRuleParams(r.trigger, r.params) ??
+      DEFAULT_AUTOMATION_PARAMS[r.trigger];
     return {
       id: r.id,
       name: r.name,
       trigger: r.trigger,
-      condition: r.condition,
+      condition: automationConditionFromParams(r.trigger, params),
+      params,
       channels: r.channels,
       template: r.template,
       active: r.active,
       sentCount: r.sentCount,
       cooldownHours: r.cooldownHours,
+    } as AutomationRuleDto;
+  }
+
+  private automationRuleWriteData(input: UpsertAutomationRuleInput) {
+    return {
+      name: input.name,
+      trigger: input.trigger,
+      condition: automationConditionFromParams(input.trigger, input.params),
+      params: input.params as Prisma.InputJsonValue,
+      channels: input.channels,
+      template: input.template,
+      active: input.active,
+      cooldownHours: input.cooldownHours,
     };
   }
 
@@ -888,11 +910,11 @@ export class AdminService {
       const existing = await this.repo.findAutomationRule(id);
       if (!existing) throw new NotFoundException("Automation rule not found");
       return this.toAutomationRuleDto(
-        await this.repo.updateAutomationRule(id, input),
+        await this.repo.updateAutomationRule(id, this.automationRuleWriteData(input)),
       );
     }
     return this.toAutomationRuleDto(
-      await this.repo.createAutomationRule(input),
+      await this.repo.createAutomationRule(this.automationRuleWriteData(input)),
     );
   }
 

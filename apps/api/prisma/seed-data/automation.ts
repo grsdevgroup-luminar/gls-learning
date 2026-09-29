@@ -1,4 +1,5 @@
 import type { AutomationRule, ReminderLogEntry } from "./legacy-types";
+import { DEFAULT_AUTOMATION_PARAMS } from "@skillstream/shared";
 
 export const automationRules: AutomationRule[] = [
   {
@@ -6,7 +7,8 @@ export const automationRules: AutomationRule[] = [
     cooldownHours: 168,
     name: "Ready to continue learning",
     trigger: "idle",
-    condition: "No activity for 8 days",
+    condition: "No activity for more than 8 days",
+    params: DEFAULT_AUTOMATION_PARAMS.IDLE,
     channels: ["email"],
     template: "Ready to continue learning?",
     active: true,
@@ -17,7 +19,8 @@ export const automationRules: AutomationRule[] = [
     cooldownHours: 168,
     name: "Encourage stalled progress",
     trigger: "low_progress",
-    condition: "10% or less complete after 3 weeks",
+    condition: "Enrolled for more than 21 days, progress at most 10%",
+    params: DEFAULT_AUTOMATION_PARAMS.LOW_PROGRESS,
     channels: ["email"],
     template: "You're just getting started—pick up where you left off.",
     active: true,
@@ -28,7 +31,8 @@ export const automationRules: AutomationRule[] = [
     cooldownHours: 24,
     name: "Recover abandoned carts",
     trigger: "abandoned_cart",
-    condition: "Order unpaid for 4.5 hours",
+    condition: "Order pending for more than 4.5 hours",
+    params: DEFAULT_AUTOMATION_PARAMS.ABANDONED_CART,
     channels: ["email"],
     template: "Your order is waiting—complete payment to continue.",
     active: true,
@@ -39,7 +43,8 @@ export const automationRules: AutomationRule[] = [
     cooldownHours: 168,
     name: "Finish the course",
     trigger: "almost_done",
-    condition: "85% or more complete",
+    condition: "Progress at least 85%",
+    params: DEFAULT_AUTOMATION_PARAMS.ALMOST_DONE,
     channels: ["email"],
     template: "You're so close—finish your course and earn your certificate!",
     active: true,
@@ -50,7 +55,8 @@ export const automationRules: AutomationRule[] = [
     cooldownHours: 168,
     name: "New content announcement",
     trigger: "new_content",
-    condition: "A new lesson was added in the last 7 days since the learner last studied",
+    condition: "Lessons added within the last 7 days, after the learner's last activity",
+    params: DEFAULT_AUTOMATION_PARAMS.NEW_CONTENT,
     channels: ["email"],
     template: "New content was added to your course.",
     active: true,

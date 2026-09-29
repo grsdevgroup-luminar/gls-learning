@@ -821,7 +821,15 @@ async function automation() {
 
   r = await req("POST", "/admin/automation-rules", {
     token: t,
-    body: { name: `E2E Rule ${ts}`, trigger: "IDLE", condition: "No activity for 7 days", channels: ["EMAIL"], template: "Hi {{first_name}}, come back to {{course}}!", active: false },
+    body: {
+      name: `E2E Rule ${ts}`,
+      trigger: "IDLE",
+      params: { inactiveDays: 7 },
+      channels: ["EMAIL"],
+      template: "Hi {{first_name}}, come back to {{course}}!",
+      active: false,
+      cooldownHours: 168,
+    },
   });
   check("create automation rule (inactive)", r.status === 201 && !!r.json?.id, `${r.status} ${msg(r)}`);
   state.rule = r.json?.id;
@@ -829,11 +837,29 @@ async function automation() {
 
   r = await req("PATCH", `/admin/automation-rules/${state.rule}`, {
     token: t,
-    body: { name: `E2E Rule ${ts} v2`, trigger: "ALMOST_DONE", condition: "Over 85% complete", channels: ["EMAIL", "SMS"], template: "Almost there {{first_name}} — {{progress}}% of {{course}}", active: false },
+    body: {
+      name: `E2E Rule ${ts} v2`,
+      trigger: "ALMOST_DONE",
+      params: { minProgressPct: 85 },
+      channels: ["EMAIL", "SMS"],
+      template: "Almost there {{first_name}} — {{progress}}% of {{course}}",
+      active: false,
+      cooldownHours: 168,
+    },
   });
   check("update automation rule", r.status === 200, `${r.status} ${msg(r)}`);
 
-  r = await req("POST", "/admin/automation-rules", { token: t, body: { name: "bad", trigger: "NOT_A_TRIGGER", channels: ["EMAIL"], template: "x" } });
+  r = await req("POST", "/admin/automation-rules", {
+    token: t,
+    body: {
+      name: "bad",
+      trigger: "NOT_A_TRIGGER",
+      params: { inactiveDays: 8 },
+      channels: ["EMAIL"],
+      template: "x",
+      cooldownHours: 168,
+    },
+  });
   check("invalid trigger rejected", r.status === 400, `${r.status} ${msg(r)}`);
 
   r = await req("GET", "/admin/reminder-logs", { token: t });

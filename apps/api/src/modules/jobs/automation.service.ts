@@ -2,22 +2,14 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
 import { AutomationRule, ReminderTrigger } from "@prisma/client";
 import { Queue } from "bullmq";
-import { completionPct } from "@skillstream/shared";
+import { completionPct, parseAutomationRuleParams } from "@skillstream/shared";
 import { firstName } from "../../common/utils/text";
 import { NOTIFICATIONS_QUEUE } from "./jobs.constants";
 import type { ReminderJobData } from "./notifications.processor";
 import { AutomationRepository } from "./automation.repository";
 
-// ponytail: thresholds are per-trigger constants, not per-rule config. The
-// AutomationRule.condition column is admin-facing prose ("No activity for 8
-// days"), not a parsed DSL, and the spec only keys rules by trigger. If per-rule
-// numbers are ever needed, add structured columns and read them here instead.
-const IDLE_DAYS = 8;
-const LOW_PROGRESS_DAYS = 21;
-const LOW_PROGRESS_PCT = 10;
-const ABANDONED_CART_HOURS = 4.5;
-const ALMOST_DONE_PCT = 85;
-const NEW_CONTENT_DAYS = 7;
+// Eligibility thresholds live in AutomationRule.params (JSONB), validated per
+// trigger before each sweep. condition is admin-facing prose derived from params.
 
 /** One person to contact, plus the values their rule's template can interpolate. */
 interface Target {
@@ -92,7 +84,14 @@ export class AutomationService {
 
     let enqueued = 0;
     for (const rule of rules) {
-      const targets = await this.audienceFor(rule.trigger, now);
+      const targets = await this.audienceFor(rule, now);
+      if (targets === null) {
+        this.logger.warn(
+          `automation sweep: skipping rule ${rule.id} (${rule.trigger}) — invalid params`,
+        );
+        continue;
+      }
+
       let sentForRule = 0;
 
       for (const target of targets) {
@@ -140,48 +139,65 @@ export class AutomationService {
     return recent !== null;
   }
 
-  private audienceFor(trigger: ReminderTrigger, now: Date): Promise<Target[]> {
-    switch (trigger) {
-      case "IDLE":
-        return this.idleLearners(now);
-      case "LOW_PROGRESS":
-        return this.lowProgress(now);
-      case "ABANDONED_CART":
-        return this.abandonedCarts(now);
-      case "ALMOST_DONE":
-        return this.almostDone();
-      case "NEW_CONTENT":
-        return this.newContent(now);
+  private async audienceFor(rule: AutomationRule, now: Date): Promise<Target[] | null> {
+    switch (rule.trigger) {
+      case "IDLE": {
+        const params = parseAutomationRuleParams("IDLE", rule.params);
+        if (!params) return null;
+        return this.idleLearners(now, params.inactiveDays);
+      }
+      case "LOW_PROGRESS": {
+        const params = parseAutomationRuleParams("LOW_PROGRESS", rule.params);
+        if (!params) return null;
+        return this.lowProgress(now, params.enrolledDays, params.maxProgressPct);
+      }
+      case "ABANDONED_CART": {
+        const params = parseAutomationRuleParams("ABANDONED_CART", rule.params);
+        if (!params) return null;
+        return this.abandonedCarts(now, params.pendingHours);
+      }
+      case "ALMOST_DONE": {
+        const params = parseAutomationRuleParams("ALMOST_DONE", rule.params);
+        if (!params) return null;
+        return this.almostDone(params.minProgressPct);
+      }
+      case "NEW_CONTENT": {
+        const params = parseAutomationRuleParams("NEW_CONTENT", rule.params);
+        if (!params) return null;
+        return this.newContent(now, params.lookbackDays);
+      }
     }
   }
 
   // ── audiences ─────────────────────────────────────────────────────────────
 
-  private async idleLearners(now: Date): Promise<Target[]> {
+  private async idleLearners(now: Date, inactiveDays: number): Promise<Target[]> {
     const rows = await this.enrollmentsInProgress("IDLE", {
-      lastActivityAt: { lt: daysAgo(now, IDLE_DAYS) },
+      lastActivityAt: { lt: daysAgo(now, inactiveDays) },
     });
     return rows.map((r) => r.target);
   }
 
-  private async lowProgress(now: Date): Promise<Target[]> {
+  private async lowProgress(
+    now: Date,
+    enrolledDays: number,
+    maxProgressPct: number,
+  ): Promise<Target[]> {
     const rows = await this.enrollmentsInProgress("LOW_PROGRESS", {
-      enrolledAt: { lt: daysAgo(now, LOW_PROGRESS_DAYS) },
+      enrolledAt: { lt: daysAgo(now, enrolledDays) },
     });
-    return rows.filter((r) => r.pct <= LOW_PROGRESS_PCT).map((r) => r.target);
+    return rows.filter((r) => r.pct <= maxProgressPct).map((r) => r.target);
   }
 
-  private async almostDone(): Promise<Target[]> {
+  private async almostDone(minProgressPct: number): Promise<Target[]> {
     const rows = await this.enrollmentsInProgress("ALMOST_DONE", {});
-    return rows.filter((r) => r.pct >= ALMOST_DONE_PCT).map((r) => r.target);
+    return rows.filter((r) => r.pct >= minProgressPct).map((r) => r.target);
   }
 
   /** No Cart table exists — a checkout that never completed is an Order left in
    *  PENDING, which is the only server-side signal of an abandoned cart. */
-  private async abandonedCarts(now: Date): Promise<Target[]> {
-    const orders = await this.repo.findPendingOrders(
-      hoursAgo(now, ABANDONED_CART_HOURS),
-    );
+  private async abandonedCarts(now: Date, pendingHours: number): Promise<Target[]> {
+    const orders = await this.repo.findPendingOrders(hoursAgo(now, pendingHours));
     const cta = REMINDER_CTA.ABANDONED_CART;
     return orders.map((o) => ({
       userId: o.userId,
@@ -196,8 +212,8 @@ export class AutomationService {
   }
 
   /** A new lesson was added since the learner last studied the course. */
-  private async newContent(now: Date): Promise<Target[]> {
-    const since = daysAgo(now, NEW_CONTENT_DAYS);
+  private async newContent(now: Date, lookbackDays: number): Promise<Target[]> {
+    const since = daysAgo(now, lookbackDays);
     const rows = await this.enrollmentsInProgress("NEW_CONTENT", {});
     if (rows.length === 0) return [];
 

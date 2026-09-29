@@ -7,6 +7,19 @@ import {
   ReminderTrigger,
   StudentStatus,
 } from "../enums.js";
+import {
+  abandonedCartParamsSchema,
+  almostDoneParamsSchema,
+  automationConditionFromParams,
+  idleParamsSchema,
+  lowProgressParamsSchema,
+  newContentParamsSchema,
+  type AbandonedCartAutomationParams,
+  type AlmostDoneAutomationParams,
+  type IdleAutomationParams,
+  type LowProgressAutomationParams,
+  type NewContentAutomationParams,
+} from "./automation-params.js";
 import { searchQuerySchema } from "./common.js";
 
 export interface AdminOverviewDto {
@@ -280,23 +293,31 @@ export const DEFAULT_AUTOMATION_COOLDOWN_HOURS: Record<ReminderTrigger, number> 
   NEW_CONTENT: 168,
 };
 
+export const MIN_AUTOMATION_COOLDOWN_HOURS = 24;
 export const MAX_AUTOMATION_COOLDOWN_HOURS = 8760; // One year.
-export const automationCooldownHoursSchema = z.number().int().min(1).max(MAX_AUTOMATION_COOLDOWN_HOURS);
+export const automationCooldownHoursSchema = z
+  .number()
+  .int()
+  .min(MIN_AUTOMATION_COOLDOWN_HOURS)
+  .max(MAX_AUTOMATION_COOLDOWN_HOURS);
 
-export interface AutomationRuleDto {
+type AutomationRuleBaseDto = {
   id: string;
   name: string;
-  trigger: ReminderTrigger;
-  /** Admin-facing prose describing the rule ("No activity for 7 days"). The
-   *  sweep's thresholds live in code — this string is not parsed. */
   condition: string;
   channels: ReminderChannel[];
   template: string;
   active: boolean;
   sentCount: number;
-  /** Minimum hours between reminders for the same user and rule. */
   cooldownHours: number;
-}
+};
+
+export type AutomationRuleDto =
+  | (AutomationRuleBaseDto & { trigger: "IDLE"; params: IdleAutomationParams })
+  | (AutomationRuleBaseDto & { trigger: "LOW_PROGRESS"; params: LowProgressAutomationParams })
+  | (AutomationRuleBaseDto & { trigger: "ABANDONED_CART"; params: AbandonedCartAutomationParams })
+  | (AutomationRuleBaseDto & { trigger: "ALMOST_DONE"; params: AlmostDoneAutomationParams })
+  | (AutomationRuleBaseDto & { trigger: "NEW_CONTENT"; params: NewContentAutomationParams });
 
 export interface ReminderLogDto {
   id: string;
@@ -311,16 +332,50 @@ export interface ReminderLogDto {
   createdAt: string;
 }
 
-export const upsertAutomationRuleSchema = z.object({
+const automationRuleBaseSchema = {
   name: z.string().min(1).max(120),
-  trigger: z.nativeEnum(ReminderTrigger),
-  condition: z.string().default(""),
   channels: z.array(z.nativeEnum(ReminderChannel)).min(1),
   template: z.string().min(1).max(2000),
   active: z.boolean().default(true),
   cooldownHours: automationCooldownHoursSchema,
-});
+};
+
+export const upsertAutomationRuleSchema = z.discriminatedUnion("trigger", [
+  z.object({
+    ...automationRuleBaseSchema,
+    trigger: z.literal(ReminderTrigger.IDLE),
+    params: idleParamsSchema,
+  }),
+  z.object({
+    ...automationRuleBaseSchema,
+    trigger: z.literal(ReminderTrigger.LOW_PROGRESS),
+    params: lowProgressParamsSchema,
+  }),
+  z.object({
+    ...automationRuleBaseSchema,
+    trigger: z.literal(ReminderTrigger.ABANDONED_CART),
+    params: abandonedCartParamsSchema,
+  }),
+  z.object({
+    ...automationRuleBaseSchema,
+    trigger: z.literal(ReminderTrigger.ALMOST_DONE),
+    params: almostDoneParamsSchema,
+  }),
+  z.object({
+    ...automationRuleBaseSchema,
+    trigger: z.literal(ReminderTrigger.NEW_CONTENT),
+    params: newContentParamsSchema,
+  }),
+]);
 export type UpsertAutomationRuleInput = z.infer<typeof upsertAutomationRuleSchema>;
+
+export { automationConditionFromParams };
+export type { AutomationParamsByTrigger } from "./automation-params.js";
+export {
+  DEFAULT_AUTOMATION_PARAMS,
+  parseAutomationRuleParams,
+  resolveAutomationRuleParams,
+} from "./automation-params.js";
 
 // ── Email templates ─────────────────────────────────────────────────────────
 
