@@ -31,6 +31,7 @@ function makeService(repoOverrides: Partial<AuthoringRepository> = {}) {
   const repo = {
     findCourseInstructor: vi.fn().mockResolvedValue(makeCourseInstructorRow()),
     countOrgAssignments: vi.fn().mockResolvedValue(0),
+    countDeliveryPartnerAssignments: vi.fn().mockResolvedValue(0),
     countLessons: vi.fn().mockResolvedValue(1),
     findLessonsForPublishValidation: vi.fn().mockResolvedValue([
       { title: "Lesson", type: "VIDEO", articleContent: null, cfVideoUid: "video_1", resources: [], quiz: null },
@@ -86,7 +87,8 @@ describe("AuthoringService.update — visibility gating", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("rejects a non-admin instructor trying to set visibility", async () => {
-    const { service } = makeService();
+    const { service, repo } = makeService();
+    vi.mocked(repo.findCourseInstructor).mockResolvedValue(makeCourseInstructorRow({ status: "DRAFT" }) as never);
 
     await expect(
       service.update(instructor, "course_1", { visibility: "PRIVATE" }),
@@ -195,6 +197,7 @@ describe("AuthoringService.update — visibility gating", () => {
         .fn()
         .mockResolvedValue(makeCourseInstructorRow({ visibility: "PRIVATE" })),
       countOrgAssignments: vi.fn().mockResolvedValue(0),
+    countDeliveryPartnerAssignments: vi.fn().mockResolvedValue(0),
     countLessons: vi.fn().mockResolvedValue(1),
     findLessonsForPublishValidation: vi.fn().mockResolvedValue([
       { title: "Lesson", type: "VIDEO", articleContent: null, cfVideoUid: "video_1", resources: [], quiz: null },
@@ -241,6 +244,7 @@ describe("AuthoringService.setStatus — blocked while org-assigned", () => {
   it("allows unpublishing once the course has no org assignments left", async () => {
     const { service, repo } = makeService({
       countOrgAssignments: vi.fn().mockResolvedValue(0),
+    countDeliveryPartnerAssignments: vi.fn().mockResolvedValue(0),
     countLessons: vi.fn().mockResolvedValue(1),
     findLessonsForPublishValidation: vi.fn().mockResolvedValue([
       { title: "Lesson", type: "VIDEO", articleContent: null, cfVideoUid: "video_1", resources: [], quiz: null },

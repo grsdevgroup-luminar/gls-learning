@@ -182,7 +182,8 @@ export default function AdminCourses() {
             </Button>
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1" aria-label="Filter courses by visibility">
+          <span className="mr-1 text-xs text-muted-foreground">Visibility</span>
           {(["PUBLIC", "PRIVATE"] as const).map((v) => (
             <Button
               key={v}

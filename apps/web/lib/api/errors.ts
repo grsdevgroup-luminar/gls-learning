@@ -14,6 +14,10 @@ export class ApiError extends Error {
 
   /** Flattened, human-readable message(s) from the problem detail. */
   get displayMessage(): string {
+    if (this.status === 429) {
+      return "Too many requests. Please wait a moment and try again.";
+    }
+
     const m = this.problem?.message;
     if (Array.isArray(m)) return m.join(", ");
     return m ?? this.message;

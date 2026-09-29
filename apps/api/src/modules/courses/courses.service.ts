@@ -57,40 +57,47 @@ export class CoursesService {
   }
 
   async list(query: CourseListQuery, user?: RequestUser): Promise<Paginated<CourseSummaryDto>> {
-    // Public callers only see public courses; authenticated members also see private courses assigned to their active organization or approved partner membership.
-    const visibilityFilter: Prisma.CourseWhereInput = user
-      ? {
-          AND: [
-            {
-              OR: [
-                { visibility: "PUBLIC" },
-                {
-                  visibility: "PRIVATE",
-                  OR: [
-                    {
-                      orgAssignments: {
-                        some: {
-                          org: {
+    // Public callers see public courses, members also see their assigned private courses, and admins can manage all published courses.
+    const visibilityFilter: Prisma.CourseWhereInput = !user
+      ? { visibility: "PUBLIC" }
+      : user.role === "ADMIN"
+        ? {}
+        : {
+            AND: [
+              {
+                OR: [
+                  { visibility: "PUBLIC" },
+                  {
+                    visibility: "PRIVATE",
+                    OR: [
+                      {
+                        orgAssignments: {
+                          some: {
+                            org: {
+                              members: { some: { userId: user.id, removedAt: null } },
+                              OR: [
+                                { status: { not: "SUSPENDED" } },
+                                { accessLocksAt: null },
+                                { accessLocksAt: { gt: new Date() } },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                      {
+                        deliveryPartnerAssignments: {
+                          some: {
+                            partner: { status: "APPROVED" },
                             members: { some: { userId: user.id, removedAt: null } },
                           },
                         },
                       },
-                    },
-                    {
-                      deliveryPartnerAssignments: {
-                        some: {
-                          partner: { status: "APPROVED" },
-                          members: { some: { userId: user.id, removedAt: null } },
-                        },
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        }
-      : { visibility: "PUBLIC" };
+                    ],
+                  },
+                ],
+              },
+            ],
+          };
     const where: Prisma.CourseWhereInput = {
       status: "PUBLISHED",
       ...visibilityFilter,
@@ -130,7 +137,11 @@ export class CoursesService {
       // Prisma's `contains` cannot ignore separators inside a field. Restrict
       // the normal filtered query to ids found by the database's normalized
       // title/category expression so compact searches also work.
-      const compactMatches = await this.repo.findIdsByCompactSearch(search, user?.id);
+      const compactMatches = await this.repo.findIdsByCompactSearch(
+        search,
+        user?.id,
+        user?.role === "ADMIN",
+      );
       const compactMatchIds = compactMatches.map(({ id }) => id);
 
       // Keep both paths under the same OR: a compact title such as

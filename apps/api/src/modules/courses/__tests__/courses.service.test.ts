@@ -147,6 +147,21 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
   });
 });
 
+describe("CoursesService.list — admin storefront visibility", () => {
+  it("includes all published visibility levels for admins, including compact search results", async () => {
+    const listAndCount = vi.fn().mockResolvedValue([[], 0]);
+    const findIdsByCompactSearch = vi.fn().mockResolvedValue([{ id: "private_course" }]);
+    const { service, repo } = makeService({ listAndCount, findIdsByCompactSearch });
+
+    await service.list({ q: "privatecourse", sort: "popular", page: 1, pageSize: 12 }, admin);
+
+    const where = vi.mocked(repo.listAndCount).mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(where.status).toBe("PUBLISHED");
+    expect(where.visibility).toBeUndefined();
+    expect(where.AND).toBeUndefined();
+    expect(findIdsByCompactSearch).toHaveBeenCalledWith("privatecourse", admin.id, true);
+  });
+});
 describe("CoursesService.list — member private-course visibility", () => {
   it("includes only private courses assigned to the current active org or partner membership", async () => {
     const listAndCount = vi.fn().mockResolvedValue([[], 0]);
@@ -169,6 +184,11 @@ describe("CoursesService.list — member private-course visibility", () => {
                   some: {
                     org: {
                       members: { some: { userId: member.id, removedAt: null } },
+                      OR: [
+                        { status: { not: "SUSPENDED" } },
+                        { accessLocksAt: null },
+                        { accessLocksAt: { gt: expect.any(Date) } },
+                      ],
                     },
                   },
                 },

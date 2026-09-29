@@ -9,6 +9,7 @@ import type {
   CheckoutQuoteInput,
   CheckoutSessionInput,
   CheckoutSessionDto,
+  PaymentGatewayAvailabilityDto,
   QuoteDto,
   QuoteLineDto,
 } from "@skillstream/shared";
@@ -165,6 +166,14 @@ export class CheckoutService {
     }
   }
 
+  async availableGateways(): Promise<PaymentGatewayAvailabilityDto> {
+    const settings = await this.repo.findPlatformSettings();
+    return {
+      stripeEnabled: settings?.stripeEnabled ?? true,
+      paypalEnabled: settings?.paypalEnabled ?? true,
+      sslcommerzEnabled: settings?.sslcommerzEnabled ?? true,
+    };
+  }
   async createSession(
     userId: string,
     input: CheckoutSessionInput,

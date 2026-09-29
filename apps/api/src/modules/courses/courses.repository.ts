@@ -25,15 +25,19 @@ export class CoursesRepository {
     ]);
   }
 
-  /** Find public course ids using a separator-insensitive title/category match.
+  /** Find published catalog-visible course ids using a separator-insensitive title/category match.
    * This makes searches such as `react18mastery` match "React 18 Mastery". */
-  findIdsByCompactSearch(keyword: string, userId?: string) {
+  findIdsByCompactSearch(keyword: string, userId?: string, includeAllPrivate = false) {
     return this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
       SELECT "id"
       FROM "Course"
       WHERE "status" = 'PUBLISHED'
                 AND (
           "visibility" = 'PUBLIC'
+          OR (
+            ${includeAllPrivate}
+            AND "visibility" = 'PRIVATE'
+          )
           OR (
             ${userId ?? ""} <> ''
             AND (

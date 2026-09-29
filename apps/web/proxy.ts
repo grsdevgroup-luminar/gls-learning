@@ -54,11 +54,19 @@ function roleFromToken(token: string | undefined): Role | null {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const role = roleFromToken(request.cookies.get("access_token")?.value);
+
+  // Instructor, organization, and delivery-partner accounts do not use individual checkout.
+  const restrictedCommerceRole = role === "ORG_ADMIN" || role === "DELIVERY_PARTNER" || role === "INSTRUCTOR";
+  const isCommerceRoute = ["/cart", "/checkout"].some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  if (isCommerceRoute && restrictedCommerceRole) {
+    const destination = role === "ORG_ADMIN" ? "/org" : role === "DELIVERY_PARTNER" ? "/delivery-partner" : "/instructor";
+    return NextResponse.redirect(new URL(destination, request.url));
+  }
 
   // Keep instructors out of the public storefront while preserving the root URL.
   // This is an internal rewrite, so there is no visible URL redirect.
   if (pathname === "/") {
-    const role = roleFromToken(request.cookies.get("access_token")?.value);
     if (role === "INSTRUCTOR") {
       return NextResponse.rewrite(new URL("/instructor", request.url));
     }
@@ -101,5 +109,7 @@ export const config = {
     "/instructor/:path*",
     "/delivery-partner/:path*",
     "/org/:path*",
+    "/cart/:path*",
+    "/checkout/:path*",
   ],
 };

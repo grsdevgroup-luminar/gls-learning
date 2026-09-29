@@ -252,7 +252,10 @@ export class EnrollmentService {
     // happens to also exist on it — that assignment isn't why access is
     // free, so its suspension status can't revoke it.
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
-    if (needsGrant) {
+    const hasUnrefundedPurchase = needsGrant
+      ? await this.repo.hasUnrefundedPurchase(userId, lesson.section.courseId)
+      : false;
+    if (needsGrant && !hasUnrefundedPurchase) {
       // Every org this course is assigned to that the user is *currently* an
       // active member of (a soft-removed row doesn't count as membership —
       // see findLessonAccessContext). Otherwise, access continues as long as

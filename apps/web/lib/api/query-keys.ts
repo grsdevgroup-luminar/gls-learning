@@ -13,7 +13,7 @@ export function cleanParams(params: QueryParams = {}) {
 }
 
 export const qk = {
-  courses: (params?: QueryParams) => ["courses", cleanParams(params)] as const,
+  courses: (params?: QueryParams, viewerKey = "public") => ["courses", viewerKey, cleanParams(params)] as const,
   course: (slug: string) => ["course", slug] as const,
   enrollments: ["enrollments"] as const,
   grantedCourses: ["me", "delivery-partner", "granted-courses"] as const,

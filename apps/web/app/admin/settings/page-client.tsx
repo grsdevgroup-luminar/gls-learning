@@ -85,6 +85,13 @@ export default function AdminSettings() {
       on: settings.paypalEnabled,
       field: 'paypalEnabled' as const,
     },
+    {
+      id: 'sslcommerz' as const,
+      name: 'SSLCommerz',
+      desc: 'bKash, Nagad, cards, mobile banking',
+      on: settings.sslcommerzEnabled,
+      field: 'sslcommerzEnabled' as const,
+    },
   ];
 
   return (
@@ -150,11 +157,9 @@ export default function AdminSettings() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   {g.name}{' '}
-                  {g.on && (
-                    <Badge variant="secondary" className="text-success">
-                      <Check className="mr-0.5 h-3 w-3" /> Enabled
-                    </Badge>
-                  )}
+                  <Badge variant="secondary" className={g.on ? 'text-success' : 'text-muted-foreground'}>
+                    {g.on ? <><Check className="mr-0.5 h-3 w-3" /> Enabled</> : 'Disabled'}
+                  </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground">{g.desc}</div>
               </div>

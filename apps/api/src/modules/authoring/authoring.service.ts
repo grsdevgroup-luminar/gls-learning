@@ -788,9 +788,13 @@ export class AuthoringService {
           `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
         );
     }
-    if (status !== "PUBLISHED" && (await this.repo.countOrgAssignments(id)) > 0)
+    if (
+      status !== "PUBLISHED" &&
+      ((await this.repo.countOrgAssignments(id)) > 0 ||
+        (await this.repo.countDeliveryPartnerAssignments(id)) > 0)
+    )
       throw new BadRequestException(
-        "Unassign this course from its organization(s) before unpublishing it",
+        "Unassign this course from its organization(s) or delivery partner(s) before unpublishing it",
       );
   }
 

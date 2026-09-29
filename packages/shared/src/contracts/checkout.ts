@@ -18,6 +18,12 @@ export const checkoutSessionSchema = checkoutQuoteSchema.extend({
   gateway: z.enum(["STRIPE", "PAYPAL", "SSLCOMMERZ"]),
 });
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionSchema>;
+/** Public, non-sensitive availability flags used to render checkout options. */
+export interface PaymentGatewayAvailabilityDto {
+  stripeEnabled: boolean;
+  paypalEnabled: boolean;
+  sslcommerzEnabled: boolean;
+}
 
 export interface QuoteLineDto {
   courseId: string;
