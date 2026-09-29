@@ -245,6 +245,7 @@ export interface AutomationRule {
   template: string;
   active: boolean;
   sentCount: number;
+  cooldownHours: number;
 }
 
 export interface CartItem {

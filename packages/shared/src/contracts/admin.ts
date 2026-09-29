@@ -271,6 +271,18 @@ export type RefundOrderInput = z.infer<typeof refundOrderSchema>;
 
 // ── Automation rules ──────────────────────────────────────────────────────────
 
+/** Starting values for new rules; delivery always uses the saved rule value. */
+export const DEFAULT_AUTOMATION_COOLDOWN_HOURS: Record<ReminderTrigger, number> = {
+  IDLE: 168,
+  LOW_PROGRESS: 168,
+  ABANDONED_CART: 24,
+  ALMOST_DONE: 168,
+  NEW_CONTENT: 168,
+};
+
+export const MAX_AUTOMATION_COOLDOWN_HOURS = 8760; // One year.
+export const automationCooldownHoursSchema = z.number().int().min(1).max(MAX_AUTOMATION_COOLDOWN_HOURS);
+
 export interface AutomationRuleDto {
   id: string;
   name: string;
@@ -282,6 +294,8 @@ export interface AutomationRuleDto {
   template: string;
   active: boolean;
   sentCount: number;
+  /** Minimum hours between reminders for the same user and rule. */
+  cooldownHours: number;
 }
 
 export interface ReminderLogDto {
@@ -304,6 +318,7 @@ export const upsertAutomationRuleSchema = z.object({
   channels: z.array(z.nativeEnum(ReminderChannel)).min(1),
   template: z.string().min(1).max(2000),
   active: z.boolean().default(true),
+  cooldownHours: automationCooldownHoursSchema,
 });
 export type UpsertAutomationRuleInput = z.infer<typeof upsertAutomationRuleSchema>;
 

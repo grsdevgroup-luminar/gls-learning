@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import type {
@@ -318,6 +319,44 @@ export class CheckoutService {
     }
 
     return this.payments.startPayment(order, input.gateway);
+  }
+
+  /** Resume payment for a specific pending order — used by abandoned-cart
+   *  reminders so the buyer returns to the exact checkout they left, not
+   *  whatever happens to be in their cart now. */
+  async resumeSession(userId: string, orderId: string): Promise<CheckoutSessionDto> {
+    const order = await this.repo.findById(orderId);
+    if (!order || order.userId !== userId) {
+      throw new NotFoundException("Order not found");
+    }
+    if (order.status === "PAID") {
+      return {
+        orderId: order.id,
+        gateway: order.gateway,
+        redirectUrl: this.payments.successUrl(order.id),
+      };
+    }
+    if (order.status !== "PENDING") {
+      throw new BadRequestException("This order can no longer be resumed");
+    }
+
+    await this.assertGatewayEnabled(order.gateway);
+
+    const resolution = await this.payments.reconcilePendingPayment(order);
+    if (resolution.status === "PAID") {
+      await this.orders.fulfill(order.id, resolution.providerPaymentId);
+      return {
+        orderId: order.id,
+        gateway: order.gateway,
+        redirectUrl: this.payments.successUrl(order.id),
+      };
+    }
+    if (resolution.status === "ABANDONED") {
+      await this.repo.markFailedIfPending(order.id, userId);
+      throw new BadRequestException("This order has expired");
+    }
+
+    return this.resurrectSession(order);
   }
 
   private normalizeIdempotencyKey(raw: string | undefined): string | undefined {

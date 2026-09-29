@@ -345,6 +345,7 @@ export const ruleToInput = (r: AutomationRuleDto): UpsertAutomationRuleInput => 
   channels: r.channels,
   template: r.template,
   active: r.active,
+  cooldownHours: r.cooldownHours,
 });
 
 // ── email templates ──────────────────────────────────────────────────────

@@ -93,6 +93,16 @@ export class CheckoutController {
   }
 
   @Roles(UserRole.STUDENT, UserRole.ADMIN)
+  @Post("checkout/resume/:orderId")
+  @ApiOperation({ summary: "Resume payment for a pending order" })
+  resume(
+    @CurrentUser() user: RequestUser,
+    @Param("orderId") orderId: string,
+  ) {
+    return this.checkout.resumeSession(user.id, orderId);
+  }
+
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   @Post("checkout/session")
   session(
     @CurrentUser() user: RequestUser,

@@ -871,6 +871,7 @@ export class AdminService {
       template: r.template,
       active: r.active,
       sentCount: r.sentCount,
+      cooldownHours: r.cooldownHours,
     };
   }
 
