@@ -3,6 +3,7 @@ import type { AutomationRule, ReminderLogEntry } from "./legacy-types";
 export const automationRules: AutomationRule[] = [
   {
     id: "ar1",
+    cooldownHours: 168,
     name: "Ready to continue learning",
     trigger: "idle",
     condition: "No activity for 8 days",
@@ -13,6 +14,7 @@ export const automationRules: AutomationRule[] = [
   },
   {
     id: "ar2",
+    cooldownHours: 168,
     name: "Encourage stalled progress",
     trigger: "low_progress",
     condition: "10% or less complete after 3 weeks",
@@ -23,6 +25,7 @@ export const automationRules: AutomationRule[] = [
   },
   {
     id: "ar3",
+    cooldownHours: 24,
     name: "Recover abandoned carts",
     trigger: "abandoned_cart",
     condition: "Order unpaid for 4.5 hours",
@@ -33,6 +36,7 @@ export const automationRules: AutomationRule[] = [
   },
   {
     id: "ar4",
+    cooldownHours: 168,
     name: "Finish the course",
     trigger: "almost_done",
     condition: "85% or more complete",
@@ -43,6 +47,7 @@ export const automationRules: AutomationRule[] = [
   },
   {
     id: "ar5",
+    cooldownHours: 168,
     name: "New content announcement",
     trigger: "new_content",
     condition: "A new lesson was added in the last 7 days since the learner last studied",

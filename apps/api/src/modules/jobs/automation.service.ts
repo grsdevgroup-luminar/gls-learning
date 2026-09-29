@@ -19,16 +19,6 @@ const ABANDONED_CART_HOURS = 4.5;
 const ALMOST_DONE_PCT = 85;
 const NEW_CONTENT_DAYS = 7;
 
-/** How long before the same rule may contact the same user again. Without this
- *  an hourly sweep would re-notify every idle learner every hour. */
-const COOLDOWN_HOURS: Record<ReminderTrigger, number> = {
-  IDLE: 24 * 7,
-  LOW_PROGRESS: 24 * 7,
-  ABANDONED_CART: 24,
-  ALMOST_DONE: 24 * 7,
-  NEW_CONTENT: 24 * 7,
-};
-
 /** One person to contact, plus the values their rule's template can interpolate. */
 interface Target {
   userId: string;
@@ -145,7 +135,7 @@ export class AutomationService {
     userId: string,
     now: Date,
   ): Promise<boolean> {
-    const since = hoursAgo(now, COOLDOWN_HOURS[rule.trigger]);
+    const since = hoursAgo(now, rule.cooldownHours);
     const recent = await this.repo.findRecentReminder(userId, rule.id, since);
     return recent !== null;
   }
