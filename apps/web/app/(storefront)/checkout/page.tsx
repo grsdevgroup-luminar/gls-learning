@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession } from "@/lib/api/session";
+import { qk } from "@/lib/api/query-keys";
 import { formatLocal } from "@/lib/pricing";
 import { formatUsd } from "@/lib/format";
 import { toast } from "sonner";
@@ -43,10 +44,18 @@ const perks = [
   { icon: ShieldCheck, label: "30-day money-back guarantee" },
 ];
 
+function gatewayToMethod(gateway: string): string {
+  if (gateway === "PAYPAL") return "paypal";
+  if (gateway === "SSLCOMMERZ") return "sslcommerz";
+  return "stripe";
+}
+
 export default function CheckoutPage() {
   const { cart, cartLoading, region, regionCode, code, clearCart, mounted } = useStore();
-  const { user } = useSession();
+  const { user, isLoading: sessionLoading } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resumeOrderId = searchParams.get("order");
   const [method, setMethod] = useState("stripe");
   const [processing, setProcessing] = useState(false);
   const [applyCredit, setApplyCredit] = useState(false);
@@ -66,6 +75,23 @@ export default function CheckoutPage() {
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
+
+  const { data: resumeOrder, isLoading: resumeOrderLoading } = useQuery({
+    queryKey: qk.myOrder(resumeOrderId ?? ""),
+    queryFn: () => api.myOrder(resumeOrderId as string),
+    enabled: mounted && !!user && !!resumeOrderId,
+  });
+  const isResumeCheckout = !!resumeOrderId && resumeOrder?.status === "PENDING";
+
+  useEffect(() => {
+    if (!resumeOrder || resumeOrder.status !== "PENDING") return;
+    setMethod(gatewayToMethod(resumeOrder.gateway));
+  }, [resumeOrder]);
+
+  useEffect(() => {
+    if (!resumeOrderId || !mounted || sessionLoading || user) return;
+    router.replace(`/login?next=${encodeURIComponent(`/checkout?order=${resumeOrderId}`)}`);
+  }, [resumeOrderId, mounted, sessionLoading, user, router]);
 
   const { data: catalog } = useQuery({
     queryKey: ["store", "courses"],
@@ -109,7 +135,7 @@ export default function CheckoutPage() {
         regionCode,
         applyCredit,
       }),
-    enabled: mounted && cart.length > 0,
+    enabled: mounted && cart.length > 0 && !isResumeCheckout,
   });
   const lineUsd = (courseId: string) => {
     const line = quote?.lines.find((l) => l.courseId === courseId);
@@ -118,11 +144,17 @@ export default function CheckoutPage() {
     return c ? c.basePriceCents / 100 : 0;
   };
   const fallbackSubtotalCents = items?.reduce((sum, c) => sum + c.basePriceCents, 0) ?? 0;
-  const subtotalCents = quote?.subtotalCents ?? fallbackSubtotalCents;
-  const discountCents = quote?.discountCents ?? 0;
-  const creditAppliedCents = quote?.creditAppliedCents ?? 0;
+  const subtotalCents = isResumeCheckout
+    ? resumeOrder!.subtotalCents
+    : (quote?.subtotalCents ?? fallbackSubtotalCents);
+  const discountCents = isResumeCheckout ? resumeOrder!.discountCents : (quote?.discountCents ?? 0);
+  const creditAppliedCents = isResumeCheckout
+    ? resumeOrder!.creditAppliedCents
+    : (quote?.creditAppliedCents ?? 0);
   const availableCreditCents = quote?.availableCreditCents ?? 0;
-  const totalCents = quote?.totalCents ?? Math.max(0, subtotalCents - discountCents - creditAppliedCents);
+  const totalCents = isResumeCheckout
+    ? resumeOrder!.totalCents
+    : (quote?.totalCents ?? Math.max(0, subtotalCents - discountCents - creditAppliedCents));
   const subtotal = subtotalCents / 100;
   const discount = discountCents / 100;
   const creditApplied = creditAppliedCents / 100;
@@ -141,19 +173,23 @@ export default function CheckoutPage() {
   );
 
   async function pay() {
-    if (!selectedMethod) return;
+    if (!isResumeCheckout && !selectedMethod) return;
+    const checkoutPath = resumeOrderId ? `/checkout?order=${resumeOrderId}` : "/checkout";
     if (!user) {
-      router.push("/login?next=/checkout");
+      router.push(`/login?next=${encodeURIComponent(checkoutPath)}`);
       return;
     }
     // Belt-and-suspenders on top of `disabled={processing}`: a rage-click
     // that fires two synchronous handlers before React commits state will be
     // deduped here before hitting the network.
-    if (inFlightRef.current === idempotencyKey) return;
-    inFlightRef.current = idempotencyKey;
+    const lockKey = isResumeCheckout ? `resume_${resumeOrderId}` : idempotencyKey;
+    if (inFlightRef.current === lockKey) return;
+    inFlightRef.current = lockKey;
     setProcessing(true);
     try {
-      const session = await api.checkoutSession(
+      const session = isResumeCheckout
+        ? await api.resumeCheckout(resumeOrderId!, AbortSignal.timeout(CHECKOUT_TIMEOUT_MS))
+        : await api.checkoutSession(
         {
           courseIds: cart,
           code: code ?? undefined,
@@ -166,9 +202,9 @@ export default function CheckoutPage() {
                 ? "SSLCOMMERZ"
                 : "STRIPE",
         },
-        idempotencyKey,
-        AbortSignal.timeout(CHECKOUT_TIMEOUT_MS),
-      );
+          idempotencyKey,
+          AbortSignal.timeout(CHECKOUT_TIMEOUT_MS),
+        );
       // Real gateway configured → hand off to Stripe/PayPal hosted checkout.
       // Do NOT clear the cart here — payment isn't confirmed yet. If the user
       // hits Back from the gateway (or cancels), the checkout page must still
@@ -215,11 +251,49 @@ export default function CheckoutPage() {
   // Also treat the catalog fetch as loading: `items` is derived from
   // (cart ∩ catalog), so an in-flight catalog with a populated cart would
   // also render as empty.
-  if (!mounted || cartLoading || (cart.length > 0 && (!catalog || gatewaysLoading))) {
+  if (
+    !mounted
+    || cartLoading
+    || gatewaysLoading
+    || (resumeOrderId && sessionLoading)
+    || (resumeOrderId && user && resumeOrderLoading)
+    || (cart.length > 0 && !catalog && !isResumeCheckout)
+  ) {
     return <CheckoutSkeleton />;
   }
 
-  if (items.length === 0) {
+  if (resumeOrderId && !sessionLoading && !user) {
+    return <CheckoutSkeleton />;
+  }
+
+  if (resumeOrderId && user && !resumeOrderLoading && !resumeOrder) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="text-2xl font-bold">Order not found</h1>
+        <p className="mt-2 text-muted-foreground">This payment link is invalid or no longer available.</p>
+        <Button className="mt-6" render={<Link href="/courses" />}>Browse courses</Button>
+      </div>
+    );
+  }
+
+  if (resumeOrderId && resumeOrder && resumeOrder.status === "PAID") {
+    router.replace(`/checkout/success?order=${resumeOrderId}`);
+    return <CheckoutSkeleton />;
+  }
+
+  if (resumeOrderId && resumeOrder && resumeOrder.status !== "PENDING") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="text-2xl font-bold">This order can&apos;t be resumed</h1>
+        <p className="mt-2 text-muted-foreground">
+          The payment link has expired or the order was already completed.
+        </p>
+        <Button className="mt-6" render={<Link href="/courses" />}>Browse courses</Button>
+      </div>
+    );
+  }
+
+  if (!isResumeCheckout && items.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-muted">
@@ -237,10 +311,15 @@ export default function CheckoutPage() {
       {/* Header: back link + step indicator */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link href="/cart" className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to cart
+          <Link
+            href={isResumeCheckout ? "/courses" : "/cart"}
+            className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> {isResumeCheckout ? "Back to courses" : "Back to cart"}
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Checkout</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isResumeCheckout ? "Complete your order" : "Checkout"}
+          </h1>
         </div>
         <Steps />
       </div>
@@ -281,7 +360,11 @@ export default function CheckoutPage() {
                   </span>
                   <div>
                     <h2 className="font-semibold leading-tight">Payment method</h2>
-                    <p className="text-xs text-muted-foreground">Choose how you&apos;d like to pay</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isResumeCheckout
+                        ? "Continue with the payment method you started"
+                        : "Choose how you'd like to pay"}
+                    </p>
                   </div>
                 </div>
 
@@ -290,7 +373,9 @@ export default function CheckoutPage() {
                   {enabledMethods.map((m) => (
                     <button
                       key={m.id}
-                      onClick={() => setMethod(m.id)}
+                      type="button"
+                      onClick={() => !isResumeCheckout && setMethod(m.id)}
+                      disabled={isResumeCheckout && method !== m.id}
                       className={`relative flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all duration-200 ${
                         selectedMethod === m.id
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
@@ -357,10 +442,23 @@ export default function CheckoutPage() {
               <CardContent className="space-y-4 pt-6">
                 <div className="flex items-center justify-between">
                   <h2 className="font-semibold">Order summary</h2>
-                  <Badge variant="secondary">{items.length} course{items.length !== 1 && "s"}</Badge>
+                  <Badge variant="secondary">
+                    {(isResumeCheckout ? resumeOrder!.items.length : items.length)} course
+                    {(isResumeCheckout ? resumeOrder!.items.length : items.length) !== 1 && "s"}
+                  </Badge>
                 </div>
                 <div className="space-y-3">
-                  {items?.map((c) => {
+                  {isResumeCheckout
+                    ? resumeOrder!.items.map((line) => (
+                        <div key={line.id} className="flex items-center gap-3">
+                          <CourseArt seed={line.courseId} title={line.title} className="h-12 w-16 shrink-0 rounded-md" iconSize={18} />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">{line.title}</div>
+                          </div>
+                          <div className="text-sm font-semibold">{formatUsd(line.priceCents / 100)}</div>
+                        </div>
+                      ))
+                    : items?.map((c) => {
                     const ineligible =
                       quote?.appliedCode?.valid &&
                       quote.appliedCode.type === "CAMPAIGN" &&
@@ -381,7 +479,7 @@ export default function CheckoutPage() {
                   })}
                 </div>
                 <Separator />
-                {availableCreditCents > 0 && (
+                {!isResumeCheckout && availableCreditCents > 0 && (
                   <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm hover:bg-muted/40">
                     <input
                       type="checkbox"

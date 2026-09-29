@@ -269,6 +269,11 @@ export const api = {
       // session is opened. See docs/PAYMENT_IDEMPOTENCY_PLAN.md.
       headers: { "Idempotency-Key": idempotencyKey },
     }),
+  resumeCheckout: (orderId: string, signal?: AbortSignal) =>
+    apiFetch<CheckoutSessionDto>(`/checkout/resume/${orderId}`, {
+      method: "POST",
+      signal,
+    }),
   myOrders: (params: Record<string, string | number | undefined> = {}) =>
     apiFetch<Paginated<OrderDto>>(`/me/orders${qs(params)}`),
   myOrder: (orderId: string) => apiFetch<OrderDto>(`/me/orders/${orderId}`),

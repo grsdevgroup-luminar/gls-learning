@@ -37,32 +37,37 @@ interface Target {
   ctaLabel: string;
 }
 
+interface CtaContext {
+  courseSlug?: string | null;
+  orderId?: string;
+}
+
 /** Per-trigger CTA — enrollment-based triggers deep-link to the course player;
- *  abandoned cart goes to checkout. Paths are relative; EmailService prefixes
- *  FRONTEND_URL. */
+ *  abandoned cart resumes the specific pending order. Paths are relative;
+ *  EmailService prefixes FRONTEND_URL. */
 const REMINDER_CTA: Record<
   ReminderTrigger,
-  { label: string; href: (courseSlug: string | null) => string }
+  { label: string; href: (ctx: CtaContext) => string }
 > = {
   IDLE: {
     label: "Continue learning",
-    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+    href: ({ courseSlug }) => (courseSlug ? `/learn/${courseSlug}` : "/dashboard"),
   },
   LOW_PROGRESS: {
     label: "Continue learning",
-    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+    href: ({ courseSlug }) => (courseSlug ? `/learn/${courseSlug}` : "/dashboard"),
   },
   ALMOST_DONE: {
     label: "Finish your course",
-    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+    href: ({ courseSlug }) => (courseSlug ? `/learn/${courseSlug}` : "/dashboard"),
   },
   ABANDONED_CART: {
     label: "Complete payment",
-    href: () => "/checkout",
+    href: ({ orderId }) => (orderId ? `/checkout?order=${orderId}` : "/checkout"),
   },
   NEW_CONTENT: {
     label: "View new lessons",
-    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+    href: ({ courseSlug }) => (courseSlug ? `/learn/${courseSlug}` : "/dashboard"),
   },
 };
 
@@ -195,18 +200,25 @@ export class AutomationService {
         course: o.items[0]?.course.title ?? "your cart",
         progress: "0",
       },
-      href: cta.href(o.items[0]?.course.slug ?? null),
+      href: cta.href({ orderId: o.id }),
       ctaLabel: cta.label,
     }));
   }
 
-  /** The course gained an edit since the learner last touched it. */
+  /** A new lesson was added since the learner last studied the course. */
   private async newContent(now: Date): Promise<Target[]> {
-    const rows = await this.enrollmentsInProgress("NEW_CONTENT", {
-      course: { updatedAt: { gte: daysAgo(now, NEW_CONTENT_DAYS) } },
-    });
+    const since = daysAgo(now, NEW_CONTENT_DAYS);
+    const rows = await this.enrollmentsInProgress("NEW_CONTENT", {});
+    if (rows.length === 0) return [];
+
+    const courseIds = [...new Set(rows.map((r) => r.courseId))];
+    const latestLessonAt = await this.repo.findLatestLessonAddedAt(courseIds);
+
     return rows
-      .filter((r) => r.courseUpdatedAt > r.lastActivityAt)
+      .filter((r) => {
+        const addedAt = latestLessonAt.get(r.courseId);
+        return addedAt && addedAt >= since && addedAt > r.lastActivityAt;
+      })
       .map((r) => r.target);
   }
 
@@ -235,8 +247,8 @@ export class AutomationService {
         );
         return {
           pct,
+          courseId: e.courseId,
           lastActivityAt: e.lastActivityAt,
-          courseUpdatedAt: e.course.updatedAt,
           target: {
             userId: e.userId,
             vars: {
@@ -244,7 +256,7 @@ export class AutomationService {
               course: e.course.title,
               progress: String(pct),
             },
-            href: cta.href(e.course.slug),
+            href: cta.href({ courseSlug: e.course.slug }),
             ctaLabel: cta.label,
           } satisfies Target,
         };
