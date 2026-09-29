@@ -20,6 +20,7 @@ export interface ReminderJobData {
    *  and get the plain single-line template they've always had. */
   body?: string;
   href?: string;
+  ctaLabel?: string;
   ruleId?: string;
 }
 
@@ -47,7 +48,7 @@ export class NotificationsProcessor extends WorkerHost {
 
   async process(job: Job<ReminderJobData>): Promise<unknown> {
     if (job.name !== "reminder") return undefined;
-    const { userId, channel, trigger, subject, body, href, ruleId } = job.data;
+    const { userId, channel, trigger, subject, body, href, ctaLabel, ruleId } = job.data;
 
     const user = await this.repo.findUserForReminder(userId);
     if (!user) return { ok: false, reason: "user gone" };
@@ -64,7 +65,7 @@ export class NotificationsProcessor extends WorkerHost {
       if (body) {
         await this.email.sendNotificationEmail(trigger, user.email, user.name, subject, body, href);
       } else {
-        await this.email.sendReminder(user.email, user.name, subject);
+        await this.email.sendReminder(user.email, user.name, subject, { href, ctaLabel });
       }
     } else {
       // No number on file is a dead end, not a failure — don't log it as sent

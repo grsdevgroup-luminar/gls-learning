@@ -193,15 +193,22 @@ export class EmailService {
   /** Engagement reminder (marketing automation). Reminders stay on
    *  `AutomationRule.template`, not the EmailTemplate registry — this renders
    *  straight into the shared layout rather than looking up a template key. */
-  async sendReminder(to: string, name: string, subject: string): Promise<void> {
+  async sendReminder(
+    to: string,
+    name: string,
+    subject: string,
+    opts?: { href?: string; ctaLabel?: string },
+  ): Promise<void> {
     const safeSubject = escapeHtml(subject);
+    const ctaHref = `${this.frontendUrl}${opts?.href ?? "/dashboard"}`;
+    const ctaLabel = opts?.ctaLabel ?? "Continue learning";
     const html = renderEmailLayout({
       headline: safeSubject,
       bodyHtml: `<p style="margin:0">Hi ${escapeHtml(firstName(name))}, ${safeSubject}</p>`,
-      ctaLabel: "Continue learning",
-      ctaHref: `${this.frontendUrl}/dashboard`,
+      ctaLabel,
+      ctaHref,
     });
-    await this.deliver(to, subject, html, `Hi ${name},\n\n${subject}\n\n${this.frontendUrl}/dashboard`);
+    await this.deliver(to, subject, html, `Hi ${name},\n\n${subject}\n\n${ctaHref}`);
   }
 
   /** Email fan-out for a Phase 1 in-app notification (order paid, application

@@ -372,19 +372,18 @@ async function main() {
 
   // ── Automation rules ──
   for (const r of mockRules) {
+    const data = {
+      name: r.name,
+      trigger: REMINDER_TRIGGER[r.trigger],
+      condition: r.condition,
+      channels: r.channels.map((ch) => ch.toUpperCase()) as any,
+      template: r.template,
+      active: r.active,
+    };
     await prisma.automationRule.upsert({
       where: { id: r.id },
-      update: {},
-      create: {
-        id: r.id,
-        name: r.name,
-        trigger: REMINDER_TRIGGER[r.trigger],
-        condition: r.condition,
-        channels: r.channels.map((ch) => ch.toUpperCase()) as any,
-        template: r.template,
-        active: r.active,
-        sentCount: r.sentCount,
-      },
+      update: data,
+      create: { id: r.id, ...data, sentCount: r.sentCount },
     });
   }
 

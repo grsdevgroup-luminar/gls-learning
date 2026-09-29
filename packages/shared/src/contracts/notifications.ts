@@ -81,11 +81,11 @@ export const REMINDER_TRIGGER_COPY: Record<
 > = {
   IDLE: {
     title: "Idle reminders",
-    description: "Nudge me if I haven't studied in a week",
+    description: "Nudge me if I haven't studied in 8 days",
   },
   LOW_PROGRESS: {
     title: "Stalled progress",
-    description: "Encourage me when I fall behind on a course",
+    description: "Encourage me when I'm at 10% or less after 3 weeks",
   },
   ALMOST_DONE: {
     title: "Almost done",

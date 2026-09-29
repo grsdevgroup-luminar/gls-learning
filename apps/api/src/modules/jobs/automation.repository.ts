@@ -33,7 +33,7 @@ export class AutomationRepository {
       },
       include: {
         user: { select: { name: true } },
-        items: { include: { course: { select: { title: true } } }, take: 1 },
+        items: { include: { course: { select: { title: true, slug: true } } }, take: 1 },
       },
     });
   }
@@ -43,7 +43,7 @@ export class AutomationRepository {
       where: { status: "IN_PROGRESS", ...where },
       include: {
         user: { select: { name: true } },
-        course: { select: { title: true, updatedAt: true } },
+        course: { select: { title: true, slug: true, updatedAt: true } },
         _count: { select: { lessonProgress: { where: { completed: true } } } },
       },
     });

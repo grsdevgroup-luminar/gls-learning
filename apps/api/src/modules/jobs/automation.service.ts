@@ -9,13 +9,13 @@ import type { ReminderJobData } from "./notifications.processor";
 import { AutomationRepository } from "./automation.repository";
 
 // ponytail: thresholds are per-trigger constants, not per-rule config. The
-// AutomationRule.condition column is admin-facing prose ("No activity for 7
+// AutomationRule.condition column is admin-facing prose ("No activity for 8
 // days"), not a parsed DSL, and the spec only keys rules by trigger. If per-rule
 // numbers are ever needed, add structured columns and read them here instead.
-const IDLE_DAYS = 7;
-const LOW_PROGRESS_DAYS = 14;
-const LOW_PROGRESS_PCT = 15;
-const ABANDONED_CART_HOURS = 3;
+const IDLE_DAYS = 8;
+const LOW_PROGRESS_DAYS = 21;
+const LOW_PROGRESS_PCT = 10;
+const ABANDONED_CART_HOURS = 4.5;
 const ALMOST_DONE_PCT = 85;
 const NEW_CONTENT_DAYS = 7;
 
@@ -33,7 +33,38 @@ const COOLDOWN_HOURS: Record<ReminderTrigger, number> = {
 interface Target {
   userId: string;
   vars: Record<string, string>;
+  href: string;
+  ctaLabel: string;
 }
+
+/** Per-trigger CTA — enrollment-based triggers deep-link to the course player;
+ *  abandoned cart goes to checkout. Paths are relative; EmailService prefixes
+ *  FRONTEND_URL. */
+const REMINDER_CTA: Record<
+  ReminderTrigger,
+  { label: string; href: (courseSlug: string | null) => string }
+> = {
+  IDLE: {
+    label: "Continue learning",
+    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+  },
+  LOW_PROGRESS: {
+    label: "Continue learning",
+    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+  },
+  ALMOST_DONE: {
+    label: "Finish your course",
+    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+  },
+  ABANDONED_CART: {
+    label: "Complete payment",
+    href: () => "/checkout",
+  },
+  NEW_CONTENT: {
+    label: "View new lessons",
+    href: (slug) => (slug ? `/learn/${slug}` : "/dashboard"),
+  },
+};
 
 const hoursAgo = (now: Date, h: number) => new Date(now.getTime() - h * 3600_000);
 const daysAgo = (now: Date, d: number) => hoursAgo(now, d * 24);
@@ -77,6 +108,8 @@ export class AutomationService {
             channel,
             trigger: rule.trigger,
             subject: renderTemplate(rule.template, target.vars),
+            href: target.href,
+            ctaLabel: target.ctaLabel,
             ruleId: rule.id,
           };
           await this.queue.add("reminder", data, {
@@ -130,21 +163,21 @@ export class AutomationService {
   // ── audiences ─────────────────────────────────────────────────────────────
 
   private async idleLearners(now: Date): Promise<Target[]> {
-    const rows = await this.enrollmentsInProgress({
+    const rows = await this.enrollmentsInProgress("IDLE", {
       lastActivityAt: { lt: daysAgo(now, IDLE_DAYS) },
     });
     return rows.map((r) => r.target);
   }
 
   private async lowProgress(now: Date): Promise<Target[]> {
-    const rows = await this.enrollmentsInProgress({
+    const rows = await this.enrollmentsInProgress("LOW_PROGRESS", {
       enrolledAt: { lt: daysAgo(now, LOW_PROGRESS_DAYS) },
     });
-    return rows.filter((r) => r.pct < LOW_PROGRESS_PCT).map((r) => r.target);
+    return rows.filter((r) => r.pct <= LOW_PROGRESS_PCT).map((r) => r.target);
   }
 
   private async almostDone(): Promise<Target[]> {
-    const rows = await this.enrollmentsInProgress({});
+    const rows = await this.enrollmentsInProgress("ALMOST_DONE", {});
     return rows.filter((r) => r.pct >= ALMOST_DONE_PCT).map((r) => r.target);
   }
 
@@ -154,6 +187,7 @@ export class AutomationService {
     const orders = await this.repo.findPendingOrders(
       hoursAgo(now, ABANDONED_CART_HOURS),
     );
+    const cta = REMINDER_CTA.ABANDONED_CART;
     return orders.map((o) => ({
       userId: o.userId,
       vars: {
@@ -161,12 +195,14 @@ export class AutomationService {
         course: o.items[0]?.course.title ?? "your cart",
         progress: "0",
       },
+      href: cta.href(o.items[0]?.course.slug ?? null),
+      ctaLabel: cta.label,
     }));
   }
 
   /** The course gained an edit since the learner last touched it. */
   private async newContent(now: Date): Promise<Target[]> {
-    const rows = await this.enrollmentsInProgress({
+    const rows = await this.enrollmentsInProgress("NEW_CONTENT", {
       course: { updatedAt: { gte: daysAgo(now, NEW_CONTENT_DAYS) } },
     });
     return rows
@@ -178,8 +214,9 @@ export class AutomationService {
 
   /** Loads IN_PROGRESS enrollments matching `where`, with completion percent
    *  computed via the same shared helper the UI and API use. */
-  private async enrollmentsInProgress(where: object) {
+  private async enrollmentsInProgress(trigger: ReminderTrigger, where: object) {
     const enrollments = await this.repo.findInProgressEnrollments(where);
+    const cta = REMINDER_CTA[trigger];
 
     const lessonTotals = new Map<string, number>();
     const totalFor = async (courseId: string) => {
@@ -207,6 +244,8 @@ export class AutomationService {
               course: e.course.title,
               progress: String(pct),
             },
+            href: cta.href(e.course.slug),
+            ctaLabel: cta.label,
           } satisfies Target,
         };
       }),
