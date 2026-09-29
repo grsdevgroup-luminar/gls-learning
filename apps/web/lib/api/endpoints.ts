@@ -255,7 +255,6 @@ export const api = {
     apiFetch<QuoteDto>("/checkout/quote", { method: "POST", body }),
   paymentGatewayAvailability: () =>
     apiFetch<PaymentGatewayAvailabilityDto>("/checkout/gateways"),
-  checkoutSession: (body: CheckoutSessionInput, idempotencyKey: string) =>
   checkoutSession: (
     body: CheckoutSessionInput,
     idempotencyKey: string,
