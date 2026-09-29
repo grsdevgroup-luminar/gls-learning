@@ -10,6 +10,7 @@ import type {
 import {
   REMINDER_TRIGGERS,
   DEFAULT_AUTOMATION_COOLDOWN_HOURS,
+  MIN_AUTOMATION_COOLDOWN_HOURS,
   MAX_AUTOMATION_COOLDOWN_HOURS,
   automationCooldownHoursSchema,
 } from "@skillstream/shared";
@@ -321,7 +322,7 @@ function CooldownEditor({ rule, pending, onSave }: {
         <Input
           id={inputId}
           type="number"
-          min={1}
+          min={MIN_AUTOMATION_COOLDOWN_HOURS}
           max={MAX_AUTOMATION_COOLDOWN_HOURS}
           step={1}
           value={hours}
@@ -340,7 +341,7 @@ function CooldownEditor({ rule, pending, onSave }: {
         </Button>
       </div>
       <p id={`${inputId}-help`} className="text-xs text-muted-foreground">
-        Minimum hours between reminders from this rule to the same learner. Enter 1–8760 hours (up to one year).
+        Minimum hours between reminders from this rule to the same learner. Enter 24–8760 hours (up to one year).
       </p>
     </div>
   );
@@ -368,7 +369,7 @@ function NewRuleDialog({
     if (!template.trim()) return toast.error("Add a message template");
     if (channels.length === 0) return toast.error("Pick at least one channel");
     const parsed = automationCooldownHoursSchema.safeParse(Number(hours));
-    if (!parsed.success) return toast.error("Cooldown must be a whole number between 1 and 8760 hours");
+    if (!parsed.success) return toast.error("Cooldown must be a whole number between 24 and 8760 hours");
     try {
       await onCreate({
         name: name.trim(),
@@ -429,14 +430,14 @@ function NewRuleDialog({
             <Input
               id="new-rule-cooldown"
               type="number"
-              min={1}
+              min={MIN_AUTOMATION_COOLDOWN_HOURS}
               max={MAX_AUTOMATION_COOLDOWN_HOURS}
               step={1}
               value={hours}
               onChange={(e) => setCooldownHours(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Minimum hours between reminders from this rule to the same learner. Enter 1–8760 hours (up to one year).
+              Minimum hours between reminders from this rule to the same learner. Enter 24–8760 hours (up to one year).
             </p>
           </div>
           <div className="space-y-1.5">

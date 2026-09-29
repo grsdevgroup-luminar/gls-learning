@@ -17,7 +17,12 @@ describe("automation rule cooldown validation", () => {
       .toMatchObject({ cooldownHours: 8760 });
   });
 
-  it.each([undefined, 0, -1, 1.5, "24", Infinity, 8761, 2147483648])(
+  it("accepts the minimum cooldown", () => {
+    expect(upsertAutomationRuleSchema.parse({ ...input, cooldownHours: 24 }))
+      .toMatchObject({ cooldownHours: 24 });
+  });
+
+  it.each([undefined, 0, -1, 23, 1.5, "24", Infinity, 8761, 2147483648])(
     "rejects invalid cooldown %s", (cooldownHours) => {
       expect(upsertAutomationRuleSchema.safeParse({ ...input, cooldownHours }).success)
         .toBe(false);

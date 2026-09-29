@@ -280,8 +280,13 @@ export const DEFAULT_AUTOMATION_COOLDOWN_HOURS: Record<ReminderTrigger, number> 
   NEW_CONTENT: 168,
 };
 
+export const MIN_AUTOMATION_COOLDOWN_HOURS = 24;
 export const MAX_AUTOMATION_COOLDOWN_HOURS = 8760; // One year.
-export const automationCooldownHoursSchema = z.number().int().min(1).max(MAX_AUTOMATION_COOLDOWN_HOURS);
+export const automationCooldownHoursSchema = z
+  .number()
+  .int()
+  .min(MIN_AUTOMATION_COOLDOWN_HOURS)
+  .max(MAX_AUTOMATION_COOLDOWN_HOURS);
 
 export interface AutomationRuleDto {
   id: string;
