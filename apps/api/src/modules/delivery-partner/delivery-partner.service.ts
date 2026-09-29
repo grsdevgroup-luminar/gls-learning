@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -374,6 +375,10 @@ export class DeliveryPartnerService {
       throw new BadRequestException("No seats remaining for this course");
     }
     const email = input.email.toLowerCase();
+    if (await this.repo.findActiveMemberByEmail(courseAssignmentId, email))
+      throw new ConflictException("This student is already a member.");
+    if (await this.repo.findPendingInvitation(courseAssignmentId, email))
+      throw new ConflictException("This student has already been invited.");
     const token = randomUUID();
     const invitation = await this.repo.runTransaction(async (tx) => {
       const created = await this.repo.createInvitation(
@@ -397,8 +402,9 @@ export class DeliveryPartnerService {
     // If the invited email already belongs to a platform user, also surface
     // the invite in their in-app notification feed, not just via email —
     // mirrors OrganizationsService.invite's ORG_INVITE_RECEIVED. The href
-    // lands them straight on the dashboard overlay (PartnerInviteModal)
-    // rather than the standalone claim page — see join/partner/[token]/page.tsx.
+    // lands them on the standalone claim page (join/partner/[token]/page.tsx)
+    // — accept/decline only ever happens there, never sprung open just from
+    // landing on the dashboard.
     const existingUser = await this.repo.findUserByEmail(email);
     void this.audit.record({
       actorUserId: user.id,
@@ -415,7 +421,7 @@ export class DeliveryPartnerService {
           event: "DELIVERY_PARTNER_INVITE_RECEIVED",
           title: "Course invitation",
           body: `${partner.user.name} has given you free access to ${assignment.course.title}.`,
-          href: `/dashboard?partnerInvite=${token}`,
+          href: `/join/partner/${token}`,
           skipEmail: true,
         })
         .catch(() => undefined);
@@ -735,10 +741,26 @@ export class DeliveryPartnerService {
   }
 
   async updatePartner(partnerId: string, input: UpdatePartnerInput): Promise<DeliveryPartnerDto> {
+    const before = await this.repo.findPartnerById(partnerId);
     const a = await this.repo.updatePartner(partnerId, {
       commissionPercent: input.commissionPercent,
       status: input.status,
     });
+    if (
+      before &&
+      input.commissionPercent !== undefined &&
+      input.commissionPercent !== before.commissionPercent
+    ) {
+      void this.notifications
+        .notify({
+          userId: a.userId,
+          event: "DELIVERY_PARTNER_COMMISSION_CHANGED",
+          title: "Commission rate updated",
+          body: `Your commission rate is now ${input.commissionPercent}%.`,
+          href: "/delivery-partner/earnings",
+        })
+        .catch(() => undefined);
+    }
     return this.toDto(a);
   }
 

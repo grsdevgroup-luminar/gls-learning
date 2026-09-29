@@ -24,6 +24,43 @@ export type EnrollmentRow = Prisma.EnrollmentGetPayload<{
   include: typeof ENROLLMENT_INCLUDE;
 }>;
 
+/** The org/partner membership fields `EnrollmentService`'s access-block
+ *  logic needs, scoped to one user — shared between findLessonAccessContext
+ *  (nested under a lesson) and findCourseAccessContext (queried directly by
+ *  course) so both feed the same resolveCourseAccessBlock check. `members`
+ *  is deliberately NOT filtered by `removedAt` — see findLessonAccessContext's
+ *  doc comment for why a revoked grant must still be visible here. */
+function courseAccessSelect(userId: string) {
+  return {
+    visibility: true,
+    basePriceCents: true,
+    orgAssignments: {
+      select: {
+        org: {
+          select: {
+            id: true,
+            status: true,
+            accessLocksAt: true,
+            members: {
+              where: { userId },
+              select: { id: true, removedAt: true },
+            },
+          },
+        },
+      },
+    },
+    deliveryPartnerAssignments: {
+      select: {
+        partner: { select: { status: true } },
+        members: {
+          where: { userId },
+          select: { id: true, removedAt: true },
+        },
+      },
+    },
+  } satisfies Prisma.CourseSelect;
+}
+
 @Injectable()
 export class EnrollmentRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -210,32 +247,7 @@ export class EnrollmentRepository {
             courseId: true,
             course: {
               select: {
-                visibility: true,
-                basePriceCents: true,
-                orgAssignments: {
-                  select: {
-                    org: {
-                      select: {
-                        id: true,
-                        status: true,
-                        accessLocksAt: true,
-                        members: {
-                          where: { userId },
-                          select: { id: true, removedAt: true },
-                        },
-                      },
-                    },
-                  },
-                },
-                deliveryPartnerAssignments: {
-                  select: {
-                    partner: { select: { status: true } },
-                    members: {
-                      where: { userId },
-                      select: { id: true, removedAt: true },
-                    },
-                  },
-                },
+                ...courseAccessSelect(userId),
                 sections: {
                   orderBy: { order: "asc" },
                   select: {
@@ -250,6 +262,16 @@ export class EnrollmentRepository {
           },
         },
       },
+    });
+  }
+
+  /** Course-level counterpart to findLessonAccessContext, for callers that
+   *  need the same revoked/suspended check without a specific lesson (the
+   *  dashboard list and the course-detail/curriculum page). */
+  findCourseAccessContext(courseId: string, userId: string) {
+    return this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: courseAccessSelect(userId),
     });
   }
 

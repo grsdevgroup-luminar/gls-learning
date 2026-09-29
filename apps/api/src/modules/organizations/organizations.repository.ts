@@ -120,6 +120,23 @@ export class OrganizationsRepository {
     });
   }
 
+  /** An open (unclaimed, undeclined, unexpired) invitation for this email —
+   *  used to reject a duplicate invite before creating another one. */
+  findPendingInvitation(orgId: string, email: string, tx?: Db) {
+    return this.db(tx).orgInvitation.findFirst({
+      where: { orgId, email, claimedAt: null, declinedAt: null, expiresAt: { gt: new Date() } },
+    });
+  }
+
+  /** An active (non-removed) member with this email — used alongside
+   *  findPendingInvitation so inviting someone already on the roster is
+   *  rejected the same way as re-inviting a pending one. */
+  findActiveMemberByEmail(orgId: string, email: string, tx?: Db) {
+    return this.db(tx).orgMember.findFirst({
+      where: { orgId, email, removedAt: null },
+    });
+  }
+
   findInvitationByToken(token: string) {
     return this.prisma.orgInvitation.findUnique({
       where: { token },

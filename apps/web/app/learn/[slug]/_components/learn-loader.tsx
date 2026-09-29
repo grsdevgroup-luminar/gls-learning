@@ -2,6 +2,7 @@
 
 import { useCourse, useLearningCourse } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { LearnClient } from "./learn-client";
 
 export function LearnLoader({ slug }: { slug: string }) {
@@ -13,6 +14,7 @@ export function LearnLoader({ slug }: { slug: string }) {
     data: learningCourse,
     isLoading: learningLoading,
     isError: learningError,
+    error: learningErrorObj,
   } = useLearningCourse(data?.id, !!user && !!data);
 
   if (isLoading || sessionLoading || (user && learningLoading)) {
@@ -31,11 +33,17 @@ export function LearnLoader({ slug }: { slug: string }) {
     (user ? !learningCourse : false) ||
     (data.sections?.every((s) => s.lessons?.length === 0) ?? false)
   ) {
+    // A revoked/suspended membership surfaces its own message from the API
+    // (see EnrollmentService.resolveCourseAccessBlock); everything else falls
+    // back to the generic message below.
+    const revokedMessage = learningError ? getApiErrorMessage(learningErrorObj) : null;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">
         <h1 className="text-xl font-semibold">Course not available</h1>
         <p className="text-muted-foreground">
-          This course has no lessons yet, or is no longer available.
+          {revokedMessage && /revoked|suspended/i.test(revokedMessage)
+            ? revokedMessage
+            : "This course has no lessons yet, or is no longer available."}
         </p>
       </div>
     );

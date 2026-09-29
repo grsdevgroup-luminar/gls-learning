@@ -314,6 +314,15 @@ export class PayoutsService {
       })
       .catch(() => undefined);
 
+    void this.notifications
+      .notifyAdmins({
+        event: "PAYOUT_REQUESTED_ADMIN",
+        title: "New payout request",
+        body: `${user.email} requested a $${(requestedCents / 100).toFixed(2)} payout.`,
+        href: "/admin/payouts",
+      })
+      .catch(() => undefined);
+
     return this.toDto(payout, { name: "", email: "" });
   }
 
