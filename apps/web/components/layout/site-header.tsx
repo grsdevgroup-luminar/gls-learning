@@ -244,15 +244,7 @@ export function SiteHeader() {
                 <Avatar className="h-8 w-8 ring-1 ring-border">
                   {user?.avatar && <AvatarImage src={user.avatar} alt="" />}
                   <AvatarFallback className="brand-gradient text-xs text-white">
-                    {role === "ADMIN"
-                      ? "AD"
-                      : role === "INSTRUCTOR"
-                        ? "IN"
-                        : role === "DELIVERY_PARTNER"
-                          ? "DP"
-                          : role === "ORG_ADMIN"
-                            ? "OA"
-                            : initials(user?.name ?? "User")}
+                    {initials(user?.name || user?.email || "User")}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>

@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Megaphone, Copy, Percent, CheckCircle2, Clock3, Ban } from "lucide-react";
+import { Search, Megaphone, Copy, CheckCircle2, Clock3, Ban } from "lucide-react";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import {
   AdminPagination, AdminRowsPerPage, ADMIN_PAGE_SIZE_OPTIONS,
@@ -192,7 +192,7 @@ export default function PartnerCampaigns() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm font-semibold">
-                      <Percent className="h-3.5 w-3.5 text-primary" /> {c.discountPercent}%
+                      {c.discountPercent}%
                     </div>
                   </TableCell>
                   <TableCell>

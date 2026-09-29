@@ -76,6 +76,7 @@ export function CampaignFormDialog({
 }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<FormState>(() => campaign ? formFromCampaign(campaign) : emptyForm());
+  const [seatLimitValid, setSeatLimitValid] = useState(true);
 
   useEffect(() => {
     if (open) setForm(campaign ? formFromCampaign(campaign) : emptyForm());
@@ -91,7 +92,7 @@ export function CampaignFormDialog({
         discountPercent: Number(form.discountPercent),
         startDate: new Date(form.startDate),
         endDate: new Date(form.endDate),
-        usageLimit: Number(form.usageLimit) || 0,
+        usageLimit: Number(form.usageLimit),
         scope: form.scope,
         courseIds: form.scope === "SPECIFIC" ? form.courseIds : undefined,
       }),
@@ -111,7 +112,7 @@ export function CampaignFormDialog({
         discountPercent: Number(form.discountPercent),
         startDate: new Date(form.startDate),
         endDate: new Date(form.endDate),
-        usageLimit: Number(form.usageLimit) || 0,
+        usageLimit: Number(form.usageLimit),
         active: form.active,
         scope: form.scope,
         courseIds: form.scope === "SPECIFIC" ? form.courseIds : undefined,
@@ -131,6 +132,7 @@ export function CampaignFormDialog({
   function submit() {
     const pct = Number(form.discountPercent);
     if (!pct || pct <= 0 || pct > 100) return toast.error("Discount must be between 1 and 100");
+    if (!seatLimitValid) return toast.error("Seat limit must be greater than 0");
     if (!form.endDate) return toast.error("Pick an end date");
     if (new Date(form.endDate) <= new Date(form.startDate)) {
       return toast.error("End date must be after the start date");
@@ -162,8 +164,10 @@ export function CampaignFormDialog({
             <div className="space-y-1.5">
               <Label>Seat limit</Label>
               <UnlimitedNumberInput
+                key={campaign?.id ?? "new"}
                 value={form.usageLimit}
                 onChange={(v) => setForm((p) => ({ ...p, usageLimit: v }))}
+                onValidityChange={setSeatLimitValid}
                 max={1_000_000}
                 aria-label="Seat limit"
               />

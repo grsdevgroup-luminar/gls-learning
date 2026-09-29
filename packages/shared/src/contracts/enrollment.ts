@@ -33,6 +33,12 @@ export interface EnrollmentDto {
   lastActivityAt: string;
   completedAt: string | null;
   certificate: CertificateDto | null;
+  /** True if the org/delivery-partner grant that gave access to this course
+   *  has since been revoked or suspended, with no other active path — the
+   *  student stays enrolled (history/certificate preserved) but can no
+   *  longer watch lessons. Only an admin restoring the membership clears
+   *  this. */
+  accessRevoked: boolean;
 }
 
 export interface WeeklyActivityDayDto {

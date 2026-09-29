@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Infinity as InfinityIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,21 @@ import { cn } from "@/lib/utils";
  * usageLimit — see docs/DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §3/§4.2). The
  * wire value is unchanged (still a plain integer, "0" for unlimited) — this
  * just replaces "type 0 and remember what that means" with a click.
+ *
+ * "Unlimited" is only ever entered via the ∞ button (or an initial value
+ * already at `unlimitedValue` when this field mounts, e.g. loaded from the
+ * server) — never by typing. Typing a value below `min` (including "0") is
+ * left on screen as-is and flagged invalid via `aria-invalid` / a red ring,
+ * rather than being silently rewritten. Callers that need a blocking
+ * validation message on save should watch `onValidityChange`. Give this
+ * component a `key` tied to the record being edited (e.g. `campaign?.id`) so
+ * its internal unlimited/valid state doesn't leak between records.
  */
 export function UnlimitedNumberInput({
   id,
   value,
   onChange,
+  onValidityChange,
   unlimitedValue = "0",
   defaultLimitedValue = "10",
   min = 1,
@@ -31,6 +41,10 @@ export function UnlimitedNumberInput({
   id?: string;
   value: string;
   onChange: (value: string) => void;
+  /** Called whenever the field's validity changes — `false` while a typed
+   *  (non-toggled) value is empty or below `min`. Callers that need to block
+   *  saving on an invalid value should track this. */
+  onValidityChange?: (valid: boolean) => void;
   /** The value that means "unlimited" on the wire — "0" for every current
    *  caller, kept overridable in case that convention ever changes. */
   unlimitedValue?: string;
@@ -44,7 +58,11 @@ export function UnlimitedNumberInput({
   "aria-label"?: string;
   disabled?: boolean;
 }) {
-  const isUnlimited = value === unlimitedValue;
+  // Tracks whether unlimited mode was entered via the ∞ button (or was
+  // already the value on mount) — deliberately NOT derived from
+  // `value === unlimitedValue` on every render, so a typed "0" doesn't
+  // silently collapse into the same disabled "No cap" state as the toggle.
+  const [isUnlimited, setIsUnlimited] = useState(() => value === unlimitedValue);
 
   // Remembers the last non-unlimited value — whether typed here or received
   // fresh via props (e.g. on mount, or after a save resets the field to the
@@ -55,6 +73,14 @@ export function UnlimitedNumberInput({
   useEffect(() => {
     if (!isUnlimited) lastLimitedRef.current = value;
   }, [isUnlimited, value]);
+
+  const n = Number(value);
+  const invalid = !isUnlimited && (value === "" || Number.isNaN(n) || n < min);
+
+  useEffect(() => {
+    onValidityChange?.(!invalid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invalid]);
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -70,15 +96,11 @@ export function UnlimitedNumberInput({
         placeholder={isUnlimited ? "No cap" : undefined}
         disabled={disabled || isUnlimited}
         aria-label={ariaLabel}
-        className={inputClassName}
-        // 0 is reserved for "unlimited" and only reachable via the ∞ button
-        // below — typing it here directly would silently mean the same
-        // thing without the explicit toggle, so it's clamped up to the
-        // minimum instead.
+        aria-invalid={invalid}
+        className={cn(invalid && "border-destructive focus-visible:ring-destructive/20", inputClassName)}
         onChange={(e) => {
-          const raw = e.target.value;
-          const n = Number(raw);
-          onChange(raw !== "" && !Number.isNaN(n) && n < min ? String(min) : raw);
+          setIsUnlimited(false);
+          onChange(e.target.value);
         }}
       />
       <Tooltip>
@@ -91,7 +113,11 @@ export function UnlimitedNumberInput({
               aria-pressed={isUnlimited}
               aria-label={isUnlimited ? "Unlimited — click to set a limit" : "Set unlimited"}
               disabled={disabled}
-              onClick={() => onChange(isUnlimited ? lastLimitedRef.current : unlimitedValue)}
+              onClick={() => {
+                const next = !isUnlimited;
+                setIsUnlimited(next);
+                onChange(next ? unlimitedValue : lastLimitedRef.current);
+              }}
             />
           }
         >

@@ -18,6 +18,7 @@ import {
   type ActivityDayDto,
   type ActivityPeriod,
   type WatchTimeResultDto,
+  type OrgStatus,
 
 } from "@skillstream/shared";
 import { ConfigService } from "@nestjs/config";
@@ -81,7 +82,7 @@ export class EnrollmentService {
     return apiBaseUrl(this.config);
   }
 
-  private toDto(row: EnrollmentRow): EnrollmentDto {
+  private toDto(row: EnrollmentRow, accessRevoked = false): EnrollmentDto {
     const lessonCount = countLessons(row.course);
     const completedLessonIds = row.lessonProgress
       .filter((p) => p.completed)
@@ -111,6 +112,7 @@ export class EnrollmentService {
       lastActivityAt: row.lastActivityAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
       certificate: mapCertificate(row.certificate, this.apiBase),
+      accessRevoked,
     };
   }
 
@@ -163,13 +165,17 @@ export class EnrollmentService {
 
   async myEnrollments(userId: string): Promise<EnrollmentDto[]> {
     const rows = await this.repo.findManyByUser(userId);
-    return rows.map((r) => this.toDto(r));
+    const revoked = await Promise.all(
+      rows.map((r) => this.isCourseAccessRevoked(userId, r.courseId)),
+    );
+    return rows.map((r, i) => this.toDto(r, revoked[i]));
   }
 
   async getOne(userId: string, courseId: string): Promise<EnrollmentDto> {
     const row = await this.repo.findByUserAndCourse(userId, courseId);
     if (!row) throw new NotFoundException("Not enrolled in this course");
-    return this.toDto(row);
+    const accessRevoked = await this.isCourseAccessRevoked(userId, courseId);
+    return this.toDto(row, accessRevoked);
   }
 
   async isEnrolled(userId: string, courseId: string): Promise<boolean> {
@@ -233,6 +239,102 @@ export class EnrollmentService {
     return rows.map((row) => row.lessonId);
   }
 
+  /** Shared by assertLessonAccessible, isCourseAccessRevoked, and
+   *  CoursesService.learning — returns the reason access is blocked, or null
+   *  if it isn't. Gated the same way as enrollFree: an org/partner
+   *  course-assignment isn't limited to PRIVATE courses, so this must also
+   *  run for a PUBLIC+paid course (access was only free because of that
+   *  grant). A free PUBLIC course is skipped even if some org/partner
+   *  assignment happens to also exist on it — that assignment isn't why
+   *  access is free, so its suspension status can't revoke it. A learner
+   *  with their own unrefunded purchase of the course is also exempt — an
+   *  org/partner grant being suspended or revoked can't take away access
+   *  they separately paid for. */
+  private resolveCourseAccessBlock(
+    course: {
+      visibility: string;
+      basePriceCents: number;
+      orgAssignments: {
+        org: { status: OrgStatus; accessLocksAt: Date | null; members: { removedAt: Date | null }[] };
+      }[];
+      deliveryPartnerAssignments: {
+        partner: { status: string };
+        members: { removedAt: Date | null }[];
+      }[];
+    },
+    hasUnrefundedPurchase: boolean,
+  ): string | null {
+    const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
+    if (!needsGrant || hasUnrefundedPurchase) return null;
+
+    // Every org this course is assigned to that the user is *currently* an
+    // active member of (a soft-removed row doesn't count as membership —
+    // see findLessonAccessContext). Otherwise, access continues as long as
+    // *any* one of those orgs isn't currently locked (grace period
+    // respected).
+    const memberOrgs = course.orgAssignments
+      .map((a) => a.org)
+      .filter((org) => org.members.some((m) => !m.removedAt));
+    // Same idea for delivery-partner access, one level deeper (per
+    // course-assignment, not per-partner) — no grace period, a partner is
+    // simply APPROVED or not.
+    const memberPartnerAssignments = course.deliveryPartnerAssignments.filter((a) =>
+      a.members.some((m) => !m.removedAt),
+    );
+    const orgLocked = memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org));
+    const partnerLocked =
+      memberPartnerAssignments.length > 0 &&
+      memberPartnerAssignments.every((a) => a.partner.status !== "APPROVED");
+    // Only block if *every* active path this user has to this course is
+    // locked — someone with both an active org seat and a suspended
+    // partner grant (or vice versa) should still get in through whichever
+    // path works.
+    const hasAnyActivePath = memberOrgs.length > 0 || memberPartnerAssignments.length > 0;
+    const allActivePathsLocked =
+      (memberOrgs.length === 0 || orgLocked) &&
+      (memberPartnerAssignments.length === 0 || partnerLocked);
+    if (hasAnyActivePath && allActivePathsLocked) {
+      return "Access to this course is currently suspended";
+    }
+    // No currently-active path — either this user was never granted access
+    // through any of the course's orgs/assignments (predates the
+    // relationship, e.g. unassigned since they enrolled — allow through,
+    // unchanged from the original behavior), or a grant they *did* have
+    // was explicitly revoked (an org/partner removed them) — that must
+    // block, even though nothing else in this function would otherwise
+    // catch it once the active-membership filter drops the row.
+    if (!hasAnyActivePath) {
+      const hadRevokedOrgMembership = course.orgAssignments.some((a) =>
+        a.org.members.some((m) => !!m.removedAt),
+      );
+      const hadRevokedPartnerMembership = course.deliveryPartnerAssignments.some((a) =>
+        a.members.some((m) => !!m.removedAt),
+      );
+      if (hadRevokedOrgMembership || hadRevokedPartnerMembership) {
+        return "Access to this course was revoked";
+      }
+    }
+    return null;
+  }
+
+  /** True if this user is enrolled in the course but the org/partner grant
+   *  that gave them access has since been revoked or suspended, with no
+   *  other active path — used by the dashboard list and the course-detail
+   *  page to gate a course that `assertLessonAccessible` would also reject.
+   *  False for courses that never needed a grant (free public) or where the
+   *  user isn't enrolled at all. */
+  async isCourseAccessRevoked(userId: string, courseId: string): Promise<boolean> {
+    const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
+    if (!enrollment) return false;
+    const course = await this.repo.findCourseAccessContext(courseId, userId);
+    if (!course) return false;
+    const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
+    const hasUnrefundedPurchase = needsGrant
+      ? await this.repo.hasUnrefundedPurchase(userId, courseId)
+      : false;
+    return this.resolveCourseAccessBlock(course, hasUnrefundedPurchase) !== null;
+  }
+
   /** Throws unless the learner is enrolled and all preceding lessons are done. */
   async assertLessonAccessible(userId: string, lessonId: string): Promise<void> {
     const lesson = await this.repo.findLessonAccessContext(lessonId, userId);
@@ -245,65 +347,12 @@ export class EnrollmentService {
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
 
     const course = lesson.section.course;
-    // Gated the same way as enrollFree: an org/partner course-assignment
-    // isn't limited to PRIVATE courses, so this must also run for a
-    // PUBLIC+paid course (access was only free because of that grant). A
-    // free PUBLIC course is skipped even if some org/partner assignment
-    // happens to also exist on it — that assignment isn't why access is
-    // free, so its suspension status can't revoke it.
     const needsGrant = course.visibility === "PRIVATE" || course.basePriceCents > 0;
     const hasUnrefundedPurchase = needsGrant
       ? await this.repo.hasUnrefundedPurchase(userId, lesson.section.courseId)
       : false;
-    if (needsGrant && !hasUnrefundedPurchase) {
-      // Every org this course is assigned to that the user is *currently* an
-      // active member of (a soft-removed row doesn't count as membership —
-      // see findLessonAccessContext). Otherwise, access continues as long as
-      // *any* one of those orgs isn't currently locked (grace period
-      // respected).
-      const memberOrgs = course.orgAssignments
-        .map((a) => a.org)
-        .filter((org) => org.members.some((m) => !m.removedAt));
-      // Same idea for delivery-partner access, one level deeper (per
-      // course-assignment, not per-partner) — no grace period, a partner is
-      // simply APPROVED or not.
-      const memberPartnerAssignments = course.deliveryPartnerAssignments.filter((a) =>
-        a.members.some((m) => !m.removedAt),
-      );
-      const orgLocked = memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org));
-      const partnerLocked =
-        memberPartnerAssignments.length > 0 &&
-        memberPartnerAssignments.every((a) => a.partner.status !== "APPROVED");
-      // Only block if *every* active path this user has to this course is
-      // locked — someone with both an active org seat and a suspended
-      // partner grant (or vice versa) should still get in through whichever
-      // path works.
-      const hasAnyActivePath = memberOrgs.length > 0 || memberPartnerAssignments.length > 0;
-      const allActivePathsLocked =
-        (memberOrgs.length === 0 || orgLocked) &&
-        (memberPartnerAssignments.length === 0 || partnerLocked);
-      if (hasAnyActivePath && allActivePathsLocked) {
-        throw new ForbiddenException("Access to this course is currently suspended");
-      }
-      // No currently-active path — either this user was never granted access
-      // through any of the course's orgs/assignments (predates the
-      // relationship, e.g. unassigned since they enrolled — allow through,
-      // unchanged from the original behavior), or a grant they *did* have
-      // was explicitly revoked (an org/partner removed them) — that must
-      // block, even though nothing else in this function would otherwise
-      // catch it once the active-membership filter drops the row.
-      if (!hasAnyActivePath) {
-        const hadRevokedOrgMembership = course.orgAssignments.some((a) =>
-          a.org.members.some((m) => !!m.removedAt),
-        );
-        const hadRevokedPartnerMembership = course.deliveryPartnerAssignments.some((a) =>
-          a.members.some((m) => !!m.removedAt),
-        );
-        if (hadRevokedOrgMembership || hadRevokedPartnerMembership) {
-          throw new ForbiddenException("Access to this course was revoked");
-        }
-      }
-    }
+    const block = this.resolveCourseAccessBlock(course, hasUnrefundedPurchase);
+    if (block) throw new ForbiddenException(block);
 
     const completed = await this.repo.findCompletedLessonIds(enrollment.id);
     const orderedLessonIds = lesson.section.course.sections.flatMap((section) =>

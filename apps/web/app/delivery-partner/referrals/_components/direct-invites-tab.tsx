@@ -11,6 +11,7 @@ import { relativeDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -24,7 +25,7 @@ import {
 import {
   AdminTableCard, stickyHeaderCellClass, stickyHeaderRowClass,
 } from "@/app/admin/_components/admin-table";
-import { UserPlus, Search, UserMinus, MailX } from "lucide-react";
+import { UserPlus, Search, UserMinus, MailX, Users, CheckCircle2, Clock } from "lucide-react";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { toast } from "sonner";
 
@@ -143,8 +144,36 @@ export function DirectInvitesTab() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
+  // Lifetime count — sums each course assignment's totalInvitesSent, which
+  // only ever increments (see its doc comment), so revoking a member or an
+  // invite expiring/being cancelled never reduces this, unlike rows.length
+  // which reflects only currently-active/pending rows.
+  const totalInvited = (assignments ?? []).reduce((sum, a) => sum + a.totalInvitesSent, 0);
+
+  const stats = [
+    { icon: Users, label: "Total invited", value: totalInvited },
+    { icon: CheckCircle2, label: "Active", value: members?.length ?? 0 },
+    { icon: Clock, label: "Pending", value: invitations?.length ?? 0 },
+  ];
+
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        {stats.map((s) => (
+          <Card key={s.label}>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                <s.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold leading-none">{s.value}</div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <form
         className="flex flex-col gap-2 sm:flex-row"
         onSubmit={(e) => {

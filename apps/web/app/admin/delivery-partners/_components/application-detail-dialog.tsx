@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, X, Mail, Globe2, Calendar, FileText, Download, Eye, Percent } from "lucide-react";
+import { Check, X, Mail, Globe2, Calendar, FileText, Download, Eye } from "lucide-react";
 import { initials } from "@/lib/format";
 import { flagFor, nameFor } from "@skillstream/shared";
 import type { DeliveryPartnerApplicationDto } from "@/lib/api/endpoints";
@@ -74,7 +74,7 @@ export function ApplicationDetailDialog({
               {a.expectedCommissionPercent != null && (
                 <div className="min-w-0">
                   <div className="text-xs text-muted-foreground">Requested commission</div>
-                  <div className="inline-flex items-center gap-1.5"><Percent className="size-3.5 shrink-0 text-muted-foreground" /> {a.expectedCommissionPercent}%</div>
+                  <div className="inline-flex items-center gap-1.5">{a.expectedCommissionPercent}%</div>
                 </div>
               )}
             </div>

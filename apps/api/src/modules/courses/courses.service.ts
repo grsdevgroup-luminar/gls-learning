@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   isLessonSequentiallyAccessible,
@@ -244,6 +244,9 @@ export class CoursesService {
    * the playback and quiz endpoints. */
   async learning(userId: string, courseId: string): Promise<CourseDetailDto> {
     const completedIds = await this.enrollment.completedLessonIds(userId, courseId);
+    if (await this.enrollment.isCourseAccessRevoked(userId, courseId)) {
+      throw new ForbiddenException("Access to this course was revoked");
+    }
     const row = await this.repo.findById(courseId);
     if (!row) throw new NotFoundException("Course not found");
 

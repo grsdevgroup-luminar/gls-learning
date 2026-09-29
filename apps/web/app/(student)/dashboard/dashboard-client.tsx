@@ -15,7 +15,6 @@ import {
 } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
 import { CoursePreferencesModal } from "@/components/shared/course-preferences-modal";
-import { PartnerInviteModal } from "@/components/shared/partner-invite-modal";
 import { CourseArt } from "@/components/shared/course-art";
 import { Meter } from "@/components/shared/meter";
 import { CircularProgress } from "@/components/shared/circular-progress";
@@ -90,7 +89,9 @@ export default function DashboardClient() {
 
   const enrolled = enrollments ?? [];
   const inProgress = enrolled
-    .filter((e) => e.status === "IN_PROGRESS")
+    // A revoked-access course can't be resumed — it stays listed below
+    // (with its own badge) but never as the featured hero.
+    .filter((e) => e.status === "IN_PROGRESS" && !e.accessRevoked)
     .sort(
       (a, b) =>
         new Date(b.lastActivityAt).getTime() -
@@ -255,6 +256,7 @@ export default function DashboardClient() {
                 className={cn(
                   "group flex items-center gap-4 p-3.5 transition-colors hover:bg-secondary/50",
                   i > 0 && "border-t border-border",
+                  e.accessRevoked && "opacity-60",
                 )}
               >
                 <CourseArt
@@ -267,18 +269,24 @@ export default function DashboardClient() {
                   <span className="truncate text-sm font-semibold group-hover:text-primary">
                     {e.course.title}
                   </span>
-                  <div className="flex items-center gap-3">
-                    <Meter
-                      value={e.progressPct}
-                      height={5}
-                      className="max-w-48"
-                    />
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {e.completedCount}/{e.lessonCount} · {e.progressPct}%
-                    </span>
-                  </div>
+                  {e.accessRevoked ? (
+                    <Badge variant="outline" className="w-fit text-destructive">
+                      Access revoked
+                    </Badge>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <Meter
+                        value={e.progressPct}
+                        height={5}
+                        className="max-w-48"
+                      />
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {e.completedCount}/{e.lessonCount} · {e.progressPct}%
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {e.status === "COMPLETED" ? (
+                {e.accessRevoked ? null : e.status === "COMPLETED" ? (
                   <CircularProgress
                     value={100}
                     size={32}
@@ -389,8 +397,6 @@ export default function DashboardClient() {
           </div>
         </section>
       )}
-
-      <PartnerInviteModal />
 
       <section className="flex flex-col gap-4 rounded-xl border border-border bg-secondary/50 p-4 sm:flex-row sm:items-center sm:p-5">
         <div className="flex items-start gap-4 sm:flex-1">

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -245,8 +246,12 @@ export class OrganizationsService {
     // at org creation, not via the self-service invite flow.
     if (user.role !== "ADMIN" && input.role === "ADMIN")
       throw new BadRequestException("Org admins can only invite members");
-    const token = randomUUID();
     const email = input.email.toLowerCase();
+    if (await this.repo.findActiveMemberByEmail(orgId, email))
+      throw new ConflictException("This student is already a member.");
+    if (await this.repo.findPendingInvitation(orgId, email))
+      throw new ConflictException("This student has already been invited.");
+    const token = randomUUID();
     const invitation = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.createInvitation(
         {

@@ -444,6 +444,25 @@ export class DeliveryPartnerRepository {
     });
   }
 
+  /** An open (unclaimed, undeclined, unexpired) invitation for this email on
+   *  this course assignment — used to reject a duplicate invite before
+   *  creating another one. */
+  findPendingInvitation(courseAssignmentId: string, email: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerInvitation.findFirst({
+      where: { courseAssignmentId, email, claimedAt: null, declinedAt: null, expiresAt: { gt: new Date() } },
+    });
+  }
+
+  /** An active (non-removed) member with this email on this course
+   *  assignment — used alongside findPendingInvitation so inviting someone
+   *  already on the roster is rejected the same way as re-inviting a
+   *  pending one. */
+  findActiveMemberByEmail(courseAssignmentId: string, email: string, tx?: Db) {
+    return this.db(tx).deliveryPartnerMember.findFirst({
+      where: { courseAssignmentId, email, removedAt: null },
+    });
+  }
+
   /** Public claim-page lookup — includes just enough to render the preview
    *  (course title, partner name) without exposing anything else. */
   findInvitationByToken(token: string) {

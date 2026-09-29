@@ -20,7 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Megaphone, Copy, PauseCircle, Trash2, Percent, Search, Plus, Pencil, Info,
+  Megaphone, Copy, PauseCircle, Trash2, Search, Plus, Pencil, Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -181,7 +181,7 @@ export function PartnerCampaignsListDialog({
                     {statusStyle[c.status].label}
                   </Badge>
                   <div className="flex items-center gap-1 text-sm font-semibold">
-                    <Percent className="h-3.5 w-3.5 text-primary" /> {c.discountPercent}%
+                    {c.discountPercent}%
                   </div>
                   <Badge variant="secondary" className="text-xs font-normal">
                     {c.scope === "SPECIFIC" ? `${c.courses.length} course${c.courses.length === 1 ? "" : "s"}` : "All courses"}

@@ -49,6 +49,13 @@ function makeService(repoOverrides: Partial<EnrollmentRepository> = {}) {
     updateEnrollment: vi.fn().mockResolvedValue(undefined),
     findCertificateByEnrollment: vi.fn().mockResolvedValue(null),
     findByUserAndCourse: vi.fn(),
+    findCourseAccessContext: vi.fn().mockResolvedValue({
+      visibility: "PUBLIC",
+      basePriceCents: 0,
+      orgAssignments: [],
+      deliveryPartnerAssignments: [],
+    }),
+    hasUnrefundedPurchase: vi.fn().mockResolvedValue(false),
     ...repoOverrides,
   } as unknown as EnrollmentRepository;
 
@@ -95,6 +102,7 @@ function enrollmentRow(
       subtitle: "",
       category: "Dev",
       isoStandard: "ISO-1",
+      updatedAt: now,
       level: "BEGINNER",
       thumbnail: "",
       status: "PUBLISHED",
@@ -133,11 +141,15 @@ describe("EnrollmentService time learned persistence", () => {
         {
           lessonId: lesson1,
           completed: true,
+          completedAt: new Date("2026-09-01T12:00:00.000Z"),
           lesson: { durationSec: 600 },
         },
         {
           lessonId: lesson2,
           completed: false,
+          // Unchecked, but completedAt is retained (see toDto's comment) —
+          // its duration still counts toward lifetime time learned.
+          completedAt: new Date("2026-09-01T12:00:00.000Z"),
           lesson: { durationSec: 120 },
         },
       ]),
