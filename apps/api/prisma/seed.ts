@@ -1,13 +1,10 @@
-/** Seeds admin and student accounts, pricing, and automation rules. */
-import { PrismaClient, type Prisma } from "@prisma/client";
+/** Seeds the admin account, pricing, and automation rules. */
+import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 
-import { students as mockStudents } from "./seed-data/students";
 import { automationRules as mockRules } from "./seed-data/automation";
 
 const prisma = new PrismaClient();
-
-const cents = (d: number) => Math.round(d * 100);
 
 const REMINDER_TRIGGER: Record<string, any> = {
   idle: "IDLE",
@@ -18,8 +15,6 @@ const REMINDER_TRIGGER: Record<string, any> = {
 };
 
 async function main() {
-  const defaultHash = await argon2.hash("password123", { type: argon2.argon2id });
-
   // ── Admin ──
   await prisma.user.upsert({
     where: { email: "admin@skillstream.dev" },
@@ -67,35 +62,6 @@ async function main() {
     await prisma.region.upsert({ where: { code: r.code }, update: r, create: r });
   for (const o of countryOverrides)
     await prisma.countryOverride.upsert({ where: { country: o.country }, update: o, create: o });
-
-  // ── Students → User + StudentProfile ──
-  for (const s of mockStudents) {
-    const isDemo = s.email === "student@demo.com";
-    await prisma.user.upsert({
-      where: { id: s.id },
-      update: {},
-      create: {
-        id: s.id,
-        email: s.email,
-        name: s.name,
-        country: s.country,
-        passwordHash: isDemo
-          ? await argon2.hash("student12345", { type: argon2.argon2id })
-          : defaultHash,
-        role: "STUDENT",
-        emailVerified: true,
-        createdAt: new Date(s.joinedAt),
-        studentProfile: {
-          create: {
-            streakDays: s.streakDays,
-            status: s.status.toUpperCase() as any,
-            totalSpentCents: cents(s.totalSpent),
-            notificationPrefs: s.prefs as unknown as Prisma.InputJsonValue,
-          },
-        },
-      },
-    });
-  }
 
   // ── Automation rules ──
   for (const r of mockRules) {
