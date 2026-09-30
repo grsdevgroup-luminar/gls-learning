@@ -29,9 +29,16 @@ import { useEnrollFree } from "@/lib/api/hooks";
  *  takes just the static `course` and reads the rest itself. */
 export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
   const { inCart, addToCart, isEnrolled } = useStore();
-  const { role, isLoading } = useSession();
+  const { user, role, isLoading } = useSession();
   const isInstructor = !isLoading && role === "INSTRUCTOR";
-  const isCartRestricted = isLoading || role === "ORG_ADMIN" || role === "DELIVERY_PARTNER";
+  const hasPendingApplication =
+    user?.instructorStatus === "PENDING" ||
+    user?.deliveryPartnerStatus === "PENDING";
+  const isCartRestricted =
+    isLoading ||
+    role === "ORG_ADMIN" ||
+    role === "DELIVERY_PARTNER" ||
+    hasPendingApplication;
   const isOrganizationAdmin = !isLoading && role === "ORG_ADMIN";
   const router = useRouter();
   const enroll = useEnrollFree();
@@ -130,6 +137,10 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
           >
             <PlayCircle /> Go to course
           </Button>
+        ) : hasPendingApplication ? (
+          <div className="rounded-md border bg-muted/40 px-3 py-2.5 text-center text-sm text-muted-foreground">
+            Course purchases and enrollment are unavailable while your application is pending.
+          </div>
         ) : canEnrollForOrganization ? (
           <Button
             className="w-full"

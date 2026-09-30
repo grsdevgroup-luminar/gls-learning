@@ -74,6 +74,7 @@ function makeService(repoOverrides: Partial<EnrollmentRepository> = {}) {
       notify: vi.fn(),
       notifyEmailAfterCommit: vi.fn(),
     } as unknown as NotificationsService,
+    { hasPendingRoleApplication: vi.fn().mockResolvedValue(false) } as never,
   );
 
   return { service, repo };

@@ -135,6 +135,11 @@ export class CheckoutService {
   }
 
   private async assertCanPurchase(userId: string, courseIds: string[]): Promise<void> {
+    if (await this.users.hasPendingRoleApplication(userId)) {
+      throw new ForbiddenException(
+        "Course purchases are unavailable while your application is pending",
+      );
+    }
     const courses = await this.repo.findPublishedCourseOwnersByIds([...new Set(courseIds)]);
     if (courses.some((course) => course.instructorId === userId)) {
       throw new ForbiddenException("Instructors cannot purchase their own courses");
@@ -339,6 +344,11 @@ export class CheckoutService {
     if (order.status !== "PENDING") {
       throw new BadRequestException("This order can no longer be resumed");
     }
+
+    await this.assertCanPurchase(
+      userId,
+      order.items.map((item) => item.courseId),
+    );
 
     await this.assertGatewayEnabled(order.gateway);
 
