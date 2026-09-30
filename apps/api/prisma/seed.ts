@@ -1,23 +1,14 @@
-/** Seeds demo accounts, pricing, automation rules, and organizations. */
+/** Seeds admin and student accounts, pricing, and automation rules. */
 import { PrismaClient, type Prisma } from "@prisma/client";
 import * as argon2 from "argon2";
 
 import { students as mockStudents } from "./seed-data/students";
 import { automationRules as mockRules } from "./seed-data/automation";
-import {
-  organizations as mockOrgs,
-  pendingInvitations,
-} from "./seed-data/organizations";
 
 const prisma = new PrismaClient();
 
 const cents = (d: number) => Math.round(d * 100);
 
-const ORG_STATUS: Record<string, Prisma.OrganizationCreateInput["status"]> = {
-  active: "ACTIVE",
-  trial: "TRIAL",
-  suspended: "SUSPENDED",
-};
 const REMINDER_TRIGGER: Record<string, any> = {
   idle: "IDLE",
   low_progress: "LOW_PROGRESS",
@@ -130,96 +121,8 @@ async function main() {
     });
   }
 
-  // ── Organizations → Org + real member Users ──
-  // Every member is a real User so the org admin can actually log in and the
-  // member list joins to a live account. `usedSeats` is derived from the members
-  // actually created rather than copied from the mock, so the seat bar and the
-  // server-side seat check (organizations.service.ts) agree.
-  for (const org of mockOrgs) {
-    const organization = await prisma.organization.upsert({
-      where: { slug: org.slug },
-      update: {},
-      create: {
-        id: org.id,
-        slug: org.slug,
-        name: org.name,
-        domain: org.domain,
-        adminEmail: org.adminEmail,
-        status: ORG_STATUS[org.status],
-        seatCount: org.seatCount,
-        usedSeats: 0,
-        createdAt: new Date(org.createdAt),
-      },
-    });
-
-    for (const m of org.members) {
-      // An org ADMIN needs the ORG_ADMIN platform role to reach /org/[slug].
-      const user = await prisma.user.upsert({
-        where: { email: m.email },
-        update: {},
-        create: {
-          email: m.email,
-          name: m.name,
-          passwordHash: defaultHash,
-          role: m.role === "admin" ? "ORG_ADMIN" : "STUDENT",
-          emailVerified: true,
-          createdAt: new Date(m.joinedAt),
-        },
-      });
-
-      // OrgMember's unique key is now a partial index (active rows only —
-      // see the membership soft-delete migration), so a Prisma upsert can't
-      // target it directly; find-then-create/update instead.
-      const existingMember = await prisma.orgMember.findFirst({
-        where: { orgId: organization.id, email: m.email, removedAt: null },
-      });
-      if (existingMember) {
-        await prisma.orgMember.update({ where: { id: existingMember.id }, data: {} });
-      } else {
-        await prisma.orgMember.create({
-          data: {
-            id: m.id,
-            orgId: organization.id,
-            userId: user.id,
-            name: m.name,
-            email: m.email,
-            role: m.role === "admin" ? "ADMIN" : "MEMBER",
-            joinedAt: new Date(m.joinedAt),
-          },
-        });
-      }
-    }
-
-    await prisma.organization.update({
-      where: { id: organization.id },
-      data: {
-        usedSeats: await prisma.orgMember.count({
-          where: { orgId: organization.id, role: "MEMBER" },
-        }),
-      },
-    });
-  }
-
-  // Outstanding invites so the members page has pending rows to action.
-  for (const inv of pendingInvitations) {
-    await prisma.orgInvitation.upsert({
-      where: { token: inv.token },
-      update: {},
-      create: {
-        id: inv.id,
-        orgId: inv.orgId,
-        email: inv.email,
-        role: inv.role === "admin" ? "ADMIN" : "MEMBER",
-        token: inv.token,
-        expiresAt: new Date(inv.expiresAt),
-      },
-    });
-  }
-
   const counts = {
     users: await prisma.user.count(),
-    organizations: await prisma.organization.count(),
-    orgMembers: await prisma.orgMember.count(),
   };
   console.log("Seed complete:", counts);
 }
