@@ -96,7 +96,7 @@ export function PartnersTab() {
         </div>
       </div>
 
-      <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none">
+      <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className={stickyHeaderRowClass}>
@@ -126,13 +126,13 @@ export function PartnersTab() {
               partners.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className="pl-6">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <Avatar className="h-7 w-7">
                         <AvatarFallback className="text-xs">{initials(a.name)}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <div className="text-sm font-medium">{a.name}</div>
-                        <div className="text-xs text-muted-foreground">
+                      <div className="min-w-0 max-w-[260px] flex-1">
+                        <div className="truncate text-sm font-medium">{a.name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
                           {a.email}{a.region ? ` · ${a.region}` : ""}
                         </div>
                       </div>

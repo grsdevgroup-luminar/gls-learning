@@ -36,8 +36,13 @@ export interface PutInput {
  *    time a learner opens the lesson; call `getUrl` on the read path.
  *  - `delete` is idempotent — deleting a missing key must not throw.
  */
+export interface GetUrlOptions {
+  disposition?: "inline" | "attachment";
+  fileName?: string;
+}
+
 export interface StorageDriver {
   put(input: PutInput): Promise<StoredObject>;
   delete(key: string): Promise<void>;
-  getUrl(key: string): Promise<string>;
+  getUrl(key: string, options?: GetUrlOptions): Promise<string>;
 }

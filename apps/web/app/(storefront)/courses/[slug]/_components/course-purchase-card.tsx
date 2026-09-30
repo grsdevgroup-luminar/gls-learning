@@ -32,6 +32,7 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
   const { role, isLoading } = useSession();
   const isInstructor = !isLoading && role === "INSTRUCTOR";
   const isCartRestricted = isLoading || role === "ORG_ADMIN" || role === "DELIVERY_PARTNER";
+  const isOrganizationAdmin = !isLoading && role === "ORG_ADMIN";
   const router = useRouter();
   const enroll = useEnrollFree();
   const enrolled = isEnrolled(course.id);
@@ -117,7 +118,11 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
           </Badge>
         )}
 
-        {enrolled ? (
+        {isLoading ? null : isOrganizationAdmin ? (
+          <div className="rounded-md border bg-muted/40 px-3 py-2.5 text-center text-sm text-muted-foreground">
+            Organization admins manage course access for their members and can’t enroll as learners.
+          </div>
+        ) : enrolled ? (
           <Button
             className="w-full"
             size="lg"
@@ -160,9 +165,11 @@ export function CoursePurchaseCard({ course }: { course: CourseDetailDto }) {
             </Button>
           </div>
         )}
-        <p className="text-center text-xs text-muted-foreground">
-          30-day money-back guarantee
-        </p>
+        {!isOrganizationAdmin && !isLoading && (
+          <p className="text-center text-xs text-muted-foreground">
+            30-day money-back guarantee
+          </p>
+        )}
 
         <Separator />
         <div>

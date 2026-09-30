@@ -100,10 +100,16 @@ export class DeliveryPartnerService {
   ): Promise<DeliveryPartnerApplicationDto> {
     const documents = parsePartnerDocuments(a.documents);
     const resolved: PartnerDocumentDto[] = await Promise.all(
-      documents.map(async (d) => ({
-        ...d,
-        url: await this.storage.getUrl(d.key).catch(() => ""),
-      })),
+      documents.map(async (d) => {
+        const isPdf = d.name.toLowerCase().endsWith(".pdf");
+        const [url, previewUrl] = await Promise.all([
+          this.storage.getUrl(d.key).catch(() => ""),
+          isPdf
+            ? this.storage.getUrl(d.key, { disposition: "inline", fileName: d.name }).catch(() => "")
+            : Promise.resolve(undefined),
+        ]);
+        return { ...d, url, ...(previewUrl ? { previewUrl } : {}) };
+      }),
     );
     return {
       id: a.id,

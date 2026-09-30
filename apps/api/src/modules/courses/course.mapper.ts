@@ -119,19 +119,16 @@ export function toCourseDetail(
     lessons: s.lessons.map((l) => {
       durationSec += l.durationSec;
       lessonCount += 1;
-      // Preview lessons are the course's marketing surface — their resources
-      // (slides, starter code) must be downloadable by anyone browsing the
-      // catalog, not just enrolled learners. So `preview === true` bypasses
-      // both the `includeLessonResources` gate (public catalog) and the
-      // sequential-access gate (enrolled but hasn't reached this lesson yet).
+      // A public lesson preview does not make its attachments public. Uploaded
+      // files and external resource links are returned only on authorized
+      // learning/editor paths; enrolled learners still pass the sequential gate.
       const lessonResources = parseLessonResources(l.resources);
       const pptxResource = l.type === "VIDEO" && !opts?.includeArticleContent
         ? lessonResources.find((resource) => resource.name.toLowerCase().endsWith(".pptx"))
         : undefined;
       const exposeResources =
-        l.preview ||
-        (opts?.includeLessonResources === true &&
-          (!opts.accessibleLessonIds || opts.accessibleLessonIds.has(l.id)));
+        opts?.includeLessonResources === true &&
+        (!opts.accessibleLessonIds || opts.accessibleLessonIds.has(l.id));
       return {
         id: l.id,
         title: l.title,

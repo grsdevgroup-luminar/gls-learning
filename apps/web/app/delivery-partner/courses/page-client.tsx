@@ -116,7 +116,7 @@ export default function PartnerCoursesPage() {
         </div>
       </div>
 
-      <AdminTableCard>
+      <AdminTableCard scrollClassName="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className={stickyHeaderRowClass}>

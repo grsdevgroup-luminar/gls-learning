@@ -309,14 +309,18 @@ export function SiteHeader() {
                   </DropdownMenuItem>
                 ) : (
                   <>
-                    <DropdownMenuItem render={<Link href="/dashboard" />}>
-                      <LayoutDashboard /> Dashboard
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={<Link href="/dashboard/progress" />}
-                    >
-                      <GraduationCap /> My Learning
-                    </DropdownMenuItem>
+                    {user?.instructorStatus !== "PENDING" && (
+                      <>
+                        <DropdownMenuItem render={<Link href="/dashboard" />}>
+                          <LayoutDashboard /> Dashboard
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          render={<Link href="/dashboard/progress" />}
+                        >
+                          <GraduationCap /> My Learning
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     <DropdownMenuItem render={<Link href="/account" />}>
                       <User /> Account
                     </DropdownMenuItem>

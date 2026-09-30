@@ -138,6 +138,8 @@ export type DeliveryPartnerReferralDto = z.infer<typeof DeliveryPartnerReferralD
 
 export interface PartnerDocumentDto extends PartnerDocument {
   url: string;
+  /** Inline browser URL for previewable PDFs; the regular url remains a download URL. */
+  previewUrl?: string;
 }
 
 export interface DeliveryPartnerApplicationDto {

@@ -8,6 +8,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type {
+  GetUrlOptions,
   PutInput,
   StorageDriver,
   StoredObject,
@@ -88,14 +89,25 @@ export class S3Driver implements StorageDriver {
     }
   }
 
-  async getUrl(key: string): Promise<string> {
-    if (this.publicBase) {
+  async getUrl(
+    key: string,
+    options?: GetUrlOptions,
+  ): Promise<string> {
+    if (this.publicBase && !options?.disposition) {
       const encoded = key.split("/").map(encodeURIComponent).join("/");
       return `${this.publicBase}/${encoded}`;
     }
     return getSignedUrl(
       this.client,
-      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ...(options?.disposition
+          ? {
+              ResponseContentDisposition: `${options.disposition}; filename="${sanitizeFilename(options.fileName ?? key.split("/").at(-1) ?? "document")}"`,
+            }
+          : {}),
+      }),
       { expiresIn: this.ttlSec },
     );
   }

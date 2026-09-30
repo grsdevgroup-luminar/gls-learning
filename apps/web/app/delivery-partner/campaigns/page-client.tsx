@@ -149,7 +149,7 @@ export default function PartnerCampaigns() {
         <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
       </div>
 
-      <AdminTableCard>
+      <AdminTableCard scrollClassName="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className={stickyHeaderRowClass}>

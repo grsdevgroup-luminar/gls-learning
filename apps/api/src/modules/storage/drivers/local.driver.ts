@@ -3,6 +3,7 @@ import path from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type {
+  GetUrlOptions,
   PutInput,
   StorageDriver,
   StoredObject,
@@ -71,7 +72,7 @@ export class LocalDriver implements StorageDriver {
     }
   }
 
-  async getUrl(key: string): Promise<string> {
+  async getUrl(key: string, _options?: GetUrlOptions): Promise<string> {
     // Encode each segment individually so ULIDs and extensions survive but
     // any accidental slashes/spaces get escaped.
     const encoded = key.split("/").map(encodeURIComponent).join("/");

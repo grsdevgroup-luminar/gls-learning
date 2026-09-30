@@ -642,6 +642,18 @@ export type InstructorCourseDto = CourseSummaryDto & {
 
 // ── organizations (B2B portal) ─────────────────────────────────────────────
 
+export type OrgLearningDashboardDto = {
+  enrolledLearners: number;
+  activeLearners: number;
+  completionRate: number;
+  watchTimeMinutes: number;
+  courses: Array<{
+    courseId: string;
+    enrolledLearners: number;
+    activeLearners: number;
+  }>;
+};
+
 export const orgApi = {
   /** Provisions the org's admin account directly (temp password) — the
    *  response is the only time the raw password is ever returned. */
@@ -699,6 +711,8 @@ export const orgApi = {
     apiFetch<{ ok: true }>(`/organizations/decline/${token}`, { method: "POST" }),
   courses: (orgId: string) =>
     apiFetch<CourseSummaryDto[]>(`/organizations/${orgId}/courses`),
+  learningDashboard: (orgId: string) =>
+    apiFetch<OrgLearningDashboardDto>(`/organizations/${orgId}/learning-dashboard`),
   assignCourse: (orgId: string, courseId: string) =>
     apiFetch<OrganizationDto>(`/organizations/${orgId}/courses`, {
       method: "POST",

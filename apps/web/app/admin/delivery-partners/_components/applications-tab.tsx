@@ -111,7 +111,7 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search applications…" className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
         </div>
-        <div className="flex gap-1">
+        <div className="flex max-w-full flex-wrap gap-1">
           {STATUS_FILTERS.map((s) => (
             <Button
               key={s}
@@ -129,7 +129,7 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
         </div>
       </div>
 
-      <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none">
+      <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className={stickyHeaderRowClass}>

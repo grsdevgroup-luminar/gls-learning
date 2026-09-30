@@ -120,6 +120,11 @@ export class OrganizationsController {
     return this.orgs.listCourses(user, id);
   }
 
+  @Get("organizations/:id/learning-dashboard")
+  learningDashboard(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.orgs.learningDashboard(user, id);
+  }
+
   @Post("organizations/:id/courses")
   assignCourse(
     @CurrentUser() user: RequestUser,

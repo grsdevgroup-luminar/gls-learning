@@ -13,7 +13,11 @@ const courseId = "course_1";
 const lessonId = "lesson_1";
 
 function makeService(repoOverrides: Partial<EnrollmentRepository>) {
-  const repo = { hasUnrefundedPurchase: vi.fn().mockResolvedValue(false), ...repoOverrides } as unknown as EnrollmentRepository;
+  const repo = {
+    findUserRole: vi.fn().mockResolvedValue({ role: "STUDENT" }),
+    hasUnrefundedPurchase: vi.fn().mockResolvedValue(false),
+    ...repoOverrides,
+  } as unknown as EnrollmentRepository;
   const config = { get: vi.fn() } as unknown as ConfigService<Env, true>;
   const alerts = {} as AdminAlertsService;
   const notifications = {} as NotificationsService;
@@ -32,6 +36,18 @@ function nonMemberOrg(id: string, status: string) {
 
 describe("EnrollmentService org-suspension gating", () => {
   describe("enrollFree", () => {
+    it("rejects instructors before reading course or enrollment data", async () => {
+      const findCourseAccess = vi.fn();
+      const service = makeService({
+        findUserRole: vi.fn().mockResolvedValue({ role: "INSTRUCTOR" }),
+        findCourseAccess,
+      });
+
+      await expect(service.enrollFree(userId, courseId)).rejects.toThrow(
+        "Only student accounts can enroll in courses",
+      );
+      expect(findCourseAccess).not.toHaveBeenCalled();
+    });
     it("blocks a new enrollment immediately once the org is suspended, mode-agnostic", async () => {
       const service = makeService({
         findCourseAccess: vi.fn().mockResolvedValue({

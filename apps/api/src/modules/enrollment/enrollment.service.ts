@@ -383,6 +383,10 @@ export class EnrollmentService {
    * public courses with no grant must go through checkout.
    */
   async enrollFree(userId: string, courseId: string): Promise<EnrollmentDto> {
+    const user = await this.repo.findUserRole(userId);
+    if (!user || (user.role !== "STUDENT" && user.role !== "ADMIN")) {
+      throw new ForbiddenException("Only student accounts can enroll in courses");
+    }
     const course = await this.repo.findCourseAccess(courseId, userId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");
