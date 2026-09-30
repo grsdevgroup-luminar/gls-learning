@@ -311,6 +311,9 @@ export function useUpdateSettings() {
 }
 
 // ── marketing automation ──────────────────────────────────────────────────
+export const useAutomationSchedule = () =>
+  useQuery({ queryKey: qk.automationSchedule, queryFn: api.adminAutomationSchedule });
+
 export const useAutomationRules = () =>
   useQuery({ queryKey: qk.automationRules, queryFn: api.adminAutomationRules });
 

@@ -7,6 +7,9 @@ import {
   Post,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { ConfigService } from "@nestjs/config";
+import type { Env } from "../../config/env";
+import { formatAutomationSweepTime } from "../../config/automation-schedule";
 import {
   adminCourseQuerySchema,
   adminOrderQuerySchema,
@@ -22,6 +25,7 @@ import {
   upsertEmailTemplateSchema,
   previewEmailTemplateSchema,
   type AdminCourseQuery,
+  type AutomationScheduleDto,
   type AdminOrderQuery,
   type AdminReviewQuery,
   type PatchCouponInput,
@@ -52,6 +56,7 @@ export class AdminController {
     private readonly reviews: ReviewsService,
     private readonly emailTemplates: EmailTemplatesService,
     private readonly email: EmailService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   @Get("overview")
@@ -219,6 +224,15 @@ export class AdminController {
   }
 
   // marketing / automation
+  @Get("automation-schedule")
+  automationSchedule(): AutomationScheduleDto {
+    return {
+      sweepTime: formatAutomationSweepTime(
+        this.config.get("AUTOMATION_SWEEP_TIME", { infer: true }),
+      ),
+    };
+  }
+
   @Get("automation-rules")
   automationRules() {
     return this.admin.listAutomationRules();

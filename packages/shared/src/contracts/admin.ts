@@ -312,6 +312,11 @@ type AutomationRuleBaseDto = {
   cooldownHours: number;
 };
 
+export interface AutomationScheduleDto {
+  /** Daily sweep time in HH:MM:SS, using server-local time. */
+  sweepTime: string;
+}
+
 export type AutomationRuleDto =
   | (AutomationRuleBaseDto & { trigger: "IDLE"; params: IdleAutomationParams })
   | (AutomationRuleBaseDto & { trigger: "LOW_PROGRESS"; params: LowProgressAutomationParams })
