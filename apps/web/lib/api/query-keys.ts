@@ -46,6 +46,7 @@ export const qk = {
   featuredCoupon: ["featured-coupon"] as const,
   adminSettings: ["admin-settings"] as const,
   automationRules: ["automation-rules"] as const,
+  automationSchedule: ["automation-schedule"] as const,
   reminderLogs: ["reminder-logs"] as const,
   emailTemplates: ["email-templates"] as const,
   catalog: ["store", "courses"] as const,

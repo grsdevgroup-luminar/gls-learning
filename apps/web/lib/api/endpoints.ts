@@ -13,6 +13,7 @@ import type {
   AdminStudentMembershipsDto,
   AdminStudentActivityEntryDto,
   AutomationRuleDto,
+  AutomationScheduleDto,
   CommentDto,
   CouponDto,
   CourseDeletionRequestDto,
@@ -442,6 +443,7 @@ export const api = {
     apiFetch<{ ok: true; archived: boolean }>(`/admin/categories/${id}`, { method: "DELETE" }),
 
   // marketing automation
+  adminAutomationSchedule: () => apiFetch<AutomationScheduleDto>("/admin/automation-schedule"),
   adminAutomationRules: () => apiFetch<AutomationRuleDto[]>("/admin/automation-rules"),
   adminCreateAutomationRule: (input: UpsertAutomationRuleInput) =>
     apiFetch<AutomationRuleDto>("/admin/automation-rules", { method: "POST", body: input }),
