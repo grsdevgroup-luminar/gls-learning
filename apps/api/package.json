@@ -16,7 +16,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:backfill-uploads": "tsx prisma/scripts/backfill-uploads.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "admin:create": "tsx prisma/scripts/create-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
