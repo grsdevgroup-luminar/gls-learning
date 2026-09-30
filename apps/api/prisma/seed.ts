@@ -1,27 +1,9 @@
-/**
- * Seeds the database to full parity with the original prototype's mock data.
- * The fixtures live in ./seed-data — backend-owned, self-contained — snapshot
- * ed there from apps/web/lib/mock/* once the frontend was migrated onto
- * @skillstream/shared DTOs directly and the frontend's copies were deleted as
- * dead code (they weren't dead here).
- */
+/** Seeds demo accounts, pricing, automation rules, and organizations. */
 import { PrismaClient, type Prisma } from "@prisma/client";
 import * as argon2 from "argon2";
 
-import { courses as mockCourses } from "./seed-data/courses";
-import {
-  instructors as mockInstructors,
-  pendingApplications,
-} from "./seed-data/instructors";
 import { students as mockStudents } from "./seed-data/students";
-import { coupons as mockCoupons } from "./seed-data/coupons";
-import { reviews as mockReviews } from "./seed-data/reviews";
 import { automationRules as mockRules } from "./seed-data/automation";
-import {
-  deliveryPartners as mockPartners,
-  pendingPartnerApplications,
-  partnerReferrals,
-} from "./seed-data/delivery-partners";
 import {
   organizations as mockOrgs,
   pendingInvitations,
@@ -31,43 +13,10 @@ const prisma = new PrismaClient();
 
 const cents = (d: number) => Math.round(d * 100);
 
-const LEVEL: Record<string, Prisma.CourseCreateInput["level"]> = {
-  Beginner: "BEGINNER",
-  Intermediate: "INTERMEDIATE",
-  Advanced: "ADVANCED",
-  "All Levels": "ALL_LEVELS",
-};
-const COURSE_STATUS: Record<string, Prisma.CourseCreateInput["status"]> = {
-  published: "PUBLISHED",
-  draft: "DRAFT",
-  review: "REVIEW",
-};
-const LESSON_TYPE: Record<string, "VIDEO" | "QUIZ" | "ARTICLE"> = {
-  video: "VIDEO",
-  quiz: "QUIZ",
-  article: "ARTICLE",
-};
-const REVIEW_STATUS: Record<string, "PENDING" | "APPROVED" | "HIDDEN"> = {
-  approved: "APPROVED",
-  pending: "PENDING",
-  hidden: "HIDDEN",
-};
 const ORG_STATUS: Record<string, Prisma.OrganizationCreateInput["status"]> = {
   active: "ACTIVE",
   trial: "TRIAL",
   suspended: "SUSPENDED",
-};
-const PARTNER_STATUS: Record<string, Prisma.DeliveryPartnerCreateInput["status"]> = {
-  approved: "APPROVED",
-  pending: "PENDING",
-  rejected: "REJECTED",
-  suspended: "SUSPENDED",
-};
-const REFERRAL_STATUS: Record<string, Prisma.DeliveryPartnerReferralCreateInput["status"]> = {
-  pending: "PENDING",
-  confirmed: "CONFIRMED",
-  paid: "PAID",
-  reversed: "REVERSED",
 };
 const REMINDER_TRIGGER: Record<string, any> = {
   idle: "IDLE",
@@ -76,16 +25,6 @@ const REMINDER_TRIGGER: Record<string, any> = {
   almost_done: "ALMOST_DONE",
   new_content: "NEW_CONTENT",
 };
-
-function slugifyName(name: string): string {
-  return (
-    "usr_" +
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_|_$/g, "")
-  );
-}
 
 async function main() {
   const defaultHash = await argon2.hash("password123", { type: argon2.argon2id });
@@ -138,128 +77,7 @@ async function main() {
   for (const o of countryOverrides)
     await prisma.countryOverride.upsert({ where: { country: o.country }, update: o, create: o });
 
-  // ── Instructors → User + InstructorProfile ──
-  for (const ins of mockInstructors) {
-    await prisma.user.upsert({
-      where: { id: ins.id },
-      update: {},
-      create: {
-        id: ins.id,
-        email: ins.email ?? `${ins.id}@skillstream.com`,
-        name: ins.name,
-        passwordHash: defaultHash,
-        role: "INSTRUCTOR",
-        emailVerified: true,
-        instructorProfile: {
-          create: {
-            title: ins.title,
-            bio: ins.bio,
-            expertise: ins.expertise,
-            ratingAvg: ins.rating,
-            studentCount: ins.students,
-            courseCount: ins.courses,
-            status: "APPROVED",
-          },
-        },
-      },
-    });
-  }
-
-  // ── Pending instructor applications ──
-  for (const app of pendingApplications) {
-    await prisma.instructorApplication.upsert({
-      where: { id: app.id },
-      update: {},
-      create: {
-        id: app.id,
-        name: app.name,
-        email: app.email,
-        expertise: app.expertise,
-        headline: app.headline,
-        bio: app.bio,
-        sampleUrl: app.sampleUrl,
-        status: "PENDING",
-        appliedAt: new Date(app.appliedAt),
-      },
-    });
-  }
-
-  // ── Courses (+ sections, lessons, quizzes) ──
-  for (const c of mockCourses) {
-    await prisma.course.upsert({
-      where: { id: c.id },
-      update: {},
-      create: {
-        id: c.id,
-        courseNumber: c.courseNumber,
-        slug: c.slug,
-        title: c.title,
-        subtitle: c.subtitle,
-        description: c.description,
-        category: c.category,
-        level: LEVEL[c.level],
-        thumbnail: c.thumbnail,
-        instructorId: c.instructorId,
-        basePriceCents: cents(c.basePrice),
-        originalPriceCents: c.originalPrice ? cents(c.originalPrice) : null,
-        language: c.language,
-        status: COURSE_STATUS[c.status],
-        bestseller: c.bestseller ?? false,
-        whatYouLearn: c.whatYouLearn,
-        requirements: c.requirements,
-        ratingAvg: c.rating,
-        reviewCount: c.reviewCount,
-        studentCount: c.studentCount,
-        revenueCents: cents(c.revenue),
-        updatedAt: new Date(c.updatedAt),
-        publishedAt: c.status === "published" ? new Date(c.updatedAt) : null,
-        sections: {
-          create: c.sections.map((s, si) => ({
-            id: `${c.id}_${s.id}`,
-            title: s.title,
-            order: si,
-            lessons: {
-              create: s.lessons.map((l, li) => ({
-                id: l.id,
-                title: l.title,
-                durationSec: l.durationSec,
-                type: LESSON_TYPE[l.type],
-                preview: l.preview ?? false,
-                order: li,
-                resources: (l.resources ?? []) as unknown as Prisma.InputJsonValue,
-                quiz: l.quiz
-                  ? {
-                      create: {
-                        id: `quiz_${l.id}`,
-                        passScore: l.quiz.passScore,
-                        questions: {
-                          create: l.quiz.questions.map((q, qi) => ({
-                            id: q.id,
-                            prompt: q.prompt,
-                            explanation: q.explanation,
-                            order: qi,
-                            options: {
-                              create: q.options.map((o, oi) => ({
-                                id: o.id,
-                                text: o.text,
-                                isCorrect: o.id === q.correctOptionId,
-                                order: oi,
-                              })),
-                            },
-                          })),
-                        },
-                      },
-                    }
-                  : undefined,
-              })),
-            },
-          })),
-        },
-      },
-    });
-  }
-
-  // ── Students → User + StudentProfile + Enrollments + LessonProgress ──
+  // ── Students → User + StudentProfile ──
   for (const s of mockStudents) {
     const isDemo = s.email === "student@demo.com";
     await prisma.user.upsert({
@@ -284,88 +102,6 @@ async function main() {
             notificationPrefs: s.prefs as unknown as Prisma.InputJsonValue,
           },
         },
-      },
-    });
-
-    for (const e of s.enrollments) {
-      const enrollment = await prisma.enrollment.upsert({
-        where: { userId_courseId: { userId: s.id, courseId: e.courseId } },
-        update: {},
-        create: {
-          userId: s.id,
-          courseId: e.courseId,
-          watchTimeSec: e.watchTimeSec,
-          lastActivityAt: new Date(e.lastActivity),
-          enrolledAt: new Date(e.lastActivity),
-        },
-      });
-      for (const lessonId of e.completedLessonIds) {
-        await prisma.lessonProgress.upsert({
-          where: {
-            enrollmentId_lessonId: { enrollmentId: enrollment.id, lessonId },
-          },
-          update: {},
-          create: { enrollmentId: enrollment.id, lessonId, completed: true },
-        });
-      }
-    }
-  }
-
-  // ── Reviews → reviewer User pool (one review per (course,user)) ──
-  const seenCourseUser = new Set<string>();
-  for (const r of mockReviews) {
-    const userId = slugifyName(r.author);
-    await prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        email: `${userId}@reviewers.skillstream.dev`,
-        name: r.author,
-        passwordHash: defaultHash,
-        role: "STUDENT",
-        emailVerified: true,
-      },
-    });
-    const key = `${r.courseId}:${userId}`;
-    if (seenCourseUser.has(key)) continue; // unique(courseId,userId)
-    seenCourseUser.add(key);
-    await prisma.review.upsert({
-      where: { courseId_userId: { courseId: r.courseId, userId } },
-      update: {},
-      create: {
-        courseId: r.courseId,
-        userId,
-        rating: r.rating,
-        title: "",
-        body: r.body,
-        status: REVIEW_STATUS[r.status],
-        helpful: r.helpful,
-        createdAt: new Date(r.date),
-      },
-    });
-  }
-
-  // ── Coupons ──
-  for (const c of mockCoupons) {
-    await prisma.coupon.upsert({
-      where: { code: c.code },
-      update: {},
-      create: {
-        code: c.code,
-        type: c.type.toUpperCase() as any,
-        // PERCENT keeps the percent value; FIXED stored as cents; FREE ignores it.
-        value: c.type === "fixed" ? cents(c.value) : c.value,
-        description: c.description,
-        minSpendCents: c.minSpend ? cents(c.minSpend) : null,
-        scope: c.scope.toUpperCase() as any,
-        courseId: c.courseId,
-        expiresAt: new Date(c.expiresAt),
-        usageLimit: c.usageLimit,
-        used: c.used,
-        active: c.active,
-        // Exactly one may be featured; LAUNCH40 drives the storefront banner.
-        featured: c.code === "LAUNCH40",
       },
     });
   }
@@ -394,154 +130,7 @@ async function main() {
     });
   }
 
-  // ── Delivery partners → User + DeliveryPartner + attributed Orders + Referrals ──
-  // A referral only exists against a real paid Order (that's the FK), so each
-  // seeded referral gets a real order for a real student and course. Commission
-  // is derived from the order total and the partner's rate — the same rule
-  // orders.service.ts applies at payment — so the roster totals, the referral
-  // list, and live crediting can never disagree.
-  const sellableCourses = await prisma.course.findMany({
-    where: { status: "PUBLISHED" },
-    select: { id: true, title: true, basePriceCents: true },
-    orderBy: { id: "asc" },
-  });
-  // Restricted to the students this seed creates. Querying every STUDENT would
-  // sweep in throwaway users left by test runs, and their names surface as the
-  // referred student on the partner's referral list.
-  const buyers = await prisma.user.findMany({
-    where: { id: { in: mockStudents.map((s) => s.id) } },
-    select: { id: true, country: true },
-    orderBy: { id: "asc" },
-  });
-
-  for (const [i, a] of mockPartners.entries()) {
-    const user = await prisma.user.upsert({
-      where: { email: a.email },
-      update: {},
-      create: {
-        email: a.email,
-        name: a.name,
-        passwordHash: defaultHash,
-        role: "DELIVERY_PARTNER",
-        emailVerified: true,
-        createdAt: new Date(a.joinedAt),
-      },
-    });
-
-    const partner = await prisma.deliveryPartner.upsert({
-      where: { userId: user.id },
-      update: {},
-      create: {
-        userId: user.id,
-        commissionPercent: a.commissionPercent,
-        region: a.region,
-        status: PARTNER_STATUS[a.status],
-        createdAt: new Date(a.joinedAt),
-      },
-    });
-
-    // Campaign codes are the only attribution mechanism — one long-running
-    // seed campaign per partner covers every seeded referral below.
-    const campaign = await prisma.deliveryPartnerCampaign.upsert({
-      where: { code: a.campaignCode },
-      update: {},
-      create: {
-        partnerId: partner.id,
-        code: a.campaignCode,
-        discountPercent: 15,
-        startDate: new Date(a.joinedAt),
-        endDate: new Date("2027-01-01T00:00:00Z"),
-        active: false,
-      },
-    });
-
-    const refs = partnerReferrals.filter((r) => r.partnerId === a.id);
-    let paidCents = 0;
-    let pendingCents = 0;
-
-    for (const [j, r] of refs.entries()) {
-      const course = sellableCourses[(i + j) % sellableCourses.length];
-      const buyer = buyers[(i + j) % buyers.length];
-      const orderId = `seed_${r.id}`;
-      const totalCents = course.basePriceCents;
-      const commissionCents = Math.round(
-        (totalCents * a.commissionPercent) / 100,
-      );
-
-      await prisma.order.upsert({
-        where: { id: orderId },
-        update: {},
-        create: {
-          id: orderId,
-          userId: buyer.id,
-          country: buyer.country,
-          subtotalCents: totalCents,
-          totalCents,
-          gateway: "STRIPE",
-          status: "PAID",
-          createdAt: new Date(r.date),
-          paidAt: new Date(r.date),
-          partnerId: partner.id,
-          campaignId: campaign.id,
-          campaignCode: campaign.code,
-          items: {
-            create: {
-              courseId: course.id,
-              titleSnapshot: course.title,
-              priceCents: totalCents,
-            },
-          },
-        },
-      });
-
-      await prisma.deliveryPartnerReferral.upsert({
-        where: { orderId },
-        update: {},
-        create: {
-          partnerId: partner.id,
-          orderId,
-          commissionCents,
-          status: REFERRAL_STATUS[r.status],
-          createdAt: new Date(r.date),
-        },
-      });
-
-      // Paid out already, vs. still owed (spec: pending + confirmed are owed).
-      if (r.status === "paid") paidCents += commissionCents;
-      else pendingCents += commissionCents;
-    }
-
-    await prisma.deliveryPartner.update({
-      where: { id: partner.id },
-      data: {
-        referralCount: refs.length,
-        paidEarningsCents: paidCents,
-        pendingEarningsCents: pendingCents,
-        totalEarningsCents: paidCents + pendingCents,
-      },
-    });
-  }
-
-  // Pending applications so the admin review queue has something to action.
-  for (const app of pendingPartnerApplications) {
-    await prisma.deliveryPartnerApplication.upsert({
-      where: { id: app.id },
-      update: {},
-      create: {
-        id: app.id,
-        name: app.name,
-        email: app.email,
-        customFields: [
-          { label: "Region", value: app.region },
-          { label: "Why us", value: app.bio },
-        ],
-        status: "PENDING",
-        appliedAt: new Date(app.appliedAt),
-      },
-    });
-  }
-
-  // ── Organizations → Org + real member Users + private course assignment ──
+  // ── Organizations → Org + real member Users ──
   // Every member is a real User so the org admin can actually log in and the
   // member list joins to a live account. `usedSeats` is derived from the members
   // actually created rather than copied from the mock, so the seat bar and the
@@ -601,20 +190,6 @@ async function main() {
       }
     }
 
-    // Assigning a course to an org makes it PRIVATE — visible to members only.
-    for (const courseId of org.privateCourseIds) {
-      await prisma.course.update({
-        where: { id: courseId },
-        data: { visibility: "PRIVATE" },
-      });
-
-      await prisma.courseOrgAssignment.upsert({
-        where: { courseId_orgId: { courseId, orgId: organization.id } },
-        update: {},
-        create: { courseId, orgId: organization.id },
-      });
-    }
-
     await prisma.organization.update({
       where: { id: organization.id },
       data: {
@@ -643,13 +218,6 @@ async function main() {
 
   const counts = {
     users: await prisma.user.count(),
-    courses: await prisma.course.count(),
-    lessons: await prisma.lesson.count(),
-    reviews: await prisma.review.count(),
-    coupons: await prisma.coupon.count(),
-    enrollments: await prisma.enrollment.count(),
-    deliveryPartners: await prisma.deliveryPartner.count(),
-    partnerReferrals: await prisma.deliveryPartnerReferral.count(),
     organizations: await prisma.organization.count(),
     orgMembers: await prisma.orgMember.count(),
   };
