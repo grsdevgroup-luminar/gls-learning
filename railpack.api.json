@@ -13,12 +13,13 @@
       ]
     },
     "build": {
-      "inputs": [{ "step": "install" }],
+      "inputs": [
+        {
+          "step": "install"
+        }
+      ],
       "commands": [
-        "pnpm --filter @grslearning/api exec prisma generate",
-        "pnpm --filter @grslearning/shared build",
-        "PLAYWRIGHT_BROWSERS_PATH=0 pnpm --filter @grslearning/api exec playwright install chromium",
-        "pnpm --filter @grslearning/api build"
+        "pnpm build:api"
       ]
     }
   },

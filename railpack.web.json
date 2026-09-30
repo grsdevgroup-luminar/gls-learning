@@ -13,14 +13,17 @@
       ]
     },
     "build": {
-      "inputs": [{ "step": "install" }],
+      "inputs": [
+        {
+          "step": "install"
+        }
+      ],
       "commands": [
-        "pnpm --filter @grslearning/shared build",
-        "pnpm --filter @grslearning/web build"
+        "pnpm build:web"
       ]
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter @grslearning/web start"
+    "startCommand": "pnpm start:web"
   }
 }
