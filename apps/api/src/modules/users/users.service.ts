@@ -25,6 +25,10 @@ export class UsersService {
     return this.repo.findById(id);
   }
 
+  hasPendingRoleApplication(userId: string): Promise<boolean> {
+    return this.repo.hasPendingRoleApplication(userId);
+  }
+
   /** Full user with the role-specific profile needed for /auth/me. */
   findWithProfiles(id: string) {
     return this.repo.findWithProfiles(id);

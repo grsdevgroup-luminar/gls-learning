@@ -7,5 +7,7 @@ export default async function CommerceLayout({ children }: { children: React.Rea
   if (user?.role === "ORG_ADMIN") redirect("/org");
   if (user?.role === "DELIVERY_PARTNER") redirect("/delivery-partner");
   if (user?.role === "INSTRUCTOR") redirect("/instructor");
+  if (user?.instructorStatus === "PENDING") redirect("/instructor");
+  if (user?.deliveryPartnerStatus === "PENDING") redirect("/delivery-partner");
   return children;
 }
