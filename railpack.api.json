@@ -23,6 +23,6 @@
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter @grslearning/api exec prisma migrate deploy && PLAYWRIGHT_BROWSERS_PATH=0 node apps/api/dist/main.js"
+    "startCommand": "pnpm start:api"
   }
 }
