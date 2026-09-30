@@ -17,7 +17,7 @@ const REMINDER_TRIGGER: Record<string, any> = {
 async function main() {
   // ── Admin ──
   await prisma.user.upsert({
-    where: { email: "admin@skillstream.dev" },
+    where: { email: "admin@grslearning.dev" },
     update: {},
     create: {
       email: "admin@skillstream.dev",
