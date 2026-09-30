@@ -38,14 +38,14 @@ export default function OrgCourses() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Assigned Courses</h1>
         <p className="text-muted-foreground">
-          These courses were curated for {org.name} by SkillStream and are available to all members.
+          These courses were curated for {org.name} by GRS Learning and are available to all members.
         </p>
       </div>
 
       {assigned.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-16">
           <BookOpen className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No courses assigned yet. Contact SkillStream to add some.</p>
+          <p className="text-sm text-muted-foreground">No courses assigned yet. Contact GRS Learning to add some.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

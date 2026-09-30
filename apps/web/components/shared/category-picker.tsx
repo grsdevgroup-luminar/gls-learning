@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CategoryDto } from "@skillstream/shared";
+import type { CategoryDto } from "@grslearning/shared";
 import { Check, ChevronDown, LoaderCircle, Pencil, Plus, Search, Settings2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi } from "@/lib/api/endpoints";

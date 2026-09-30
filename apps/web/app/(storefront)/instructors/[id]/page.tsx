@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { InstructorPublicProfileDto } from "@skillstream/shared";
+import type { InstructorPublicProfileDto } from "@grslearning/shared";
 import { serverApiCachedOptional } from "@/lib/api/server";
 import { InstructorHero } from "./_components/instructor-hero";
 import { InstructorCourses } from "./_components/instructor-courses";

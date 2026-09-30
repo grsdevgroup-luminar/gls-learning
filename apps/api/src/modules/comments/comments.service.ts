@@ -4,7 +4,7 @@ import type {
   CreateCommentInput,
   Paginated,
   PaginationQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CommentsRepository, type CommentRow } from "./comments.repository";
 
 @Injectable()

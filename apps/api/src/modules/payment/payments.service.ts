@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PaymentGateway as PaymentGatewayName } from "@prisma/client";
-import type { CheckoutSessionDto, OrderDto } from "@skillstream/shared";
+import type { CheckoutSessionDto, OrderDto } from "@grslearning/shared";
 import type { Env } from "../../config/env";
 import { OrdersService } from "../commerce/orders.service";
 import { PaymentGatewayFactory } from "./factory/payment-gateway.factory";

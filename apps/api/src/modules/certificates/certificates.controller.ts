@@ -41,7 +41,7 @@ export class CertificatesController {
     const pdf = await this.certificates.pdfForUser(serial, user.id);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="skillstream-certificate-${serial}.pdf"`,
+      `attachment; filename="grslearning-certificate-${serial}.pdf"`,
     );
     return new StreamableFile(pdf);
   }
@@ -91,7 +91,7 @@ export class CertificatesController {
     const pdf = await this.certificates.pdf(serial);
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="skillstream-certificate-${serial}.pdf"`,
+      `inline; filename="grslearning-certificate-${serial}.pdf"`,
     );
     return new StreamableFile(pdf);
   }

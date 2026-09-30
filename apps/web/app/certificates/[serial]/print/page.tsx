@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import type { CertificateVerificationDto } from '@skillstream/shared';
+import type { CertificateVerificationDto } from '@grslearning/shared';
 import { serverApiOptional } from '@/lib/api/server';
 import { Button } from '@/components/ui/button';
 import { CertificateTemplate } from '@/components/shared/certificate-template';

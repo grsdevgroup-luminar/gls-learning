@@ -42,7 +42,7 @@ import {
   type RegisterInput,
   type ResetPasswordInput,
   type UpdateProfileInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { ZodBody } from "../../common/utils/swagger";
 import {
   AllowPendingPasswordChange,

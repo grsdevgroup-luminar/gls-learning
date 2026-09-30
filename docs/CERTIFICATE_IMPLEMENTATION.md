@@ -211,14 +211,14 @@ Existing dependencies include Prisma, the existing NestJS API/authentication mod
 The new certificate path adds `playwright` to `apps/api`. No QR-code dependency was added because the QR code is embedded in the supplied static artwork. Deployment installs Chromium through Railpack. Locally:
 
 ```powershell
-pnpm --filter @skillstream/api exec playwright install chromium
+pnpm --filter @grslearning/api exec playwright install chromium
 ```
 
 `PLAYWRIGHT_EXECUTABLE_PATH` may be set when Chromium is installed at a non-default location.
 
 ## 14. Database migration and local setup
 
-Apply migrations with `pnpm --filter @skillstream/api prisma:deploy`, install Chromium with the command above, then run the API and web applications using the repository's normal development commands. The API `FRONTEND_URL` must point to the web application because Playwright loads the frontend print route.
+Apply migrations with `pnpm --filter @grslearning/api prisma:deploy`, install Chromium with the command above, then run the API and web applications using the repository's normal development commands. The API `FRONTEND_URL` must point to the web application because Playwright loads the frontend print route.
 
 ## 15. Testing locally
 

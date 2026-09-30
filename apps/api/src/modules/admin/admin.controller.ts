@@ -38,7 +38,7 @@ import {
   type UpsertAutomationRuleInput,
   type UpsertEmailTemplateInput,
   type PreviewEmailTemplateInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AdminService } from "./admin.service";

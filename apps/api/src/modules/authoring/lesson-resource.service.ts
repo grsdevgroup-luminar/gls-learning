@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import type { LessonResourceDto } from "@skillstream/shared";
+import type { LessonResourceDto } from "@grslearning/shared";
 import { ulid } from "ulid";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { AuthoringRepository } from "./authoring.repository";

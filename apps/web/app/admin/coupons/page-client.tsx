@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { couponStatus, type CouponStatus, type CouponType } from "@skillstream/shared";
+import { couponStatus, type CouponStatus, type CouponType } from "@grslearning/shared";
 import type { CouponDto } from "@/lib/api/endpoints";
 import {
   useAdminCoupons,

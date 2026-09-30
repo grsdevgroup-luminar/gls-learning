@@ -15,12 +15,12 @@
     "build": {
       "inputs": [{ "step": "install" }],
       "commands": [
-        "pnpm --filter @skillstream/shared build",
-        "pnpm --filter @skillstream/web build"
+        "pnpm --filter @grslearning/shared build",
+        "pnpm --filter @grslearning/web build"
       ]
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter @skillstream/web start"
+    "startCommand": "pnpm --filter @grslearning/web start"
   }
 }

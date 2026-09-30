@@ -15,13 +15,13 @@ import {
   Magnetic,
 } from "@/components/shared/motion";
 import { serverApi } from "@/lib/api/server";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import { MAX_PAGE_SIZE } from "@grslearning/shared";
 import type {
   CourseSummaryDto,
   InstructorRosterDto,
   Paginated,
   ReviewDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { compactNumber, initials } from "@/lib/format";
 import {
   ShieldCheck, Globe2, LineChart, BellRing, ArrowRight, Star,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ReviewStatus } from "@skillstream/shared";
+import { ReviewStatus } from "@grslearning/shared";
 import { adminApi, type ReviewDto } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { initials, relativeDate } from "@/lib/format";

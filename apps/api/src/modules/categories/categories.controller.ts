@@ -7,7 +7,7 @@ import {
   type CategoryProposalInput,
   type CreateCategoryInput,
   type UpdateCategoryInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { CategoriesService } from "./categories.service";

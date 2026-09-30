@@ -6,7 +6,7 @@ import type {
   Paginated,
   PaginationQuery,
   UnreadCountDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { Queue } from "bullmq";
 import type { Db } from "../../common/types";
 import { PrismaService } from "../../prisma/prisma.service";

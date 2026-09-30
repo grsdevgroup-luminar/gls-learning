@@ -65,7 +65,7 @@ importers:
       '@sentry/node':
         specifier: ^8.47.0
         version: 8.55.2
-      '@skillstream/shared':
+      '@grslearning/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@types/pdfkit':
@@ -141,7 +141,7 @@ importers:
       '@nestjs/testing':
         specifier: ^11.0.1
         version: 11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(@nestjs/platform-express@11.1.27)
-      '@skillstream/config':
+      '@grslearning/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/cookie-parser':
@@ -189,7 +189,7 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
-      '@skillstream/shared':
+      '@grslearning/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tanstack/react-query':
@@ -277,7 +277,7 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
-      '@skillstream/config':
+      '@grslearning/config':
         specifier: workspace:*
         version: link:../config
       tsup:

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
   recordWatchTimeSchema,
   type RecordWatchTimeInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { EnrollmentService } from "./enrollment.service";

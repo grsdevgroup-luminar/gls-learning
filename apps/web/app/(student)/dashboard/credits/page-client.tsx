@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditLedgerReason } from "@skillstream/shared";
+import { CreditLedgerReason } from "@grslearning/shared";
 import { useMyCreditBalances, useMyCreditHistory } from "@/lib/api/hooks";
 import { formatUsd } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

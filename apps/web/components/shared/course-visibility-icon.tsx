@@ -1,6 +1,6 @@
 "use client";
 
-import type { CourseVisibility } from "@skillstream/shared";
+import type { CourseVisibility } from "@grslearning/shared";
 import { Lock, Globe } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 

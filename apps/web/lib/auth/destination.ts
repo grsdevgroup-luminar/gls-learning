@@ -1,4 +1,4 @@
-import type { AuthUserDto } from "@skillstream/shared";
+import type { AuthUserDto } from "@grslearning/shared";
 
 /** Where to send a user right after they authenticate (fresh login, or
  *  finishing a forced password change). Role portals take priority over a

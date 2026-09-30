@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
-import type { OrganizationDto } from "@skillstream/shared";
+import type { OrganizationDto } from "@grslearning/shared";
 
 export const metadata: Metadata = {
   title: "Organization Portal",

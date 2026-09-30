@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdminMembershipEntryDto } from "@skillstream/shared";
+import type { AdminMembershipEntryDto } from "@grslearning/shared";
 import { adminApi, type AdminStudentProfileDto } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { ProfileDetails, ProfileSkeleton } from "@/components/shared/student-profile-dialog";

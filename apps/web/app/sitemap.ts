@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { serverApi } from "@/lib/api/server";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
-import type { CourseSummaryDto, Paginated } from "@skillstream/shared";
+import { MAX_PAGE_SIZE } from "@grslearning/shared";
+import type { CourseSummaryDto, Paginated } from "@grslearning/shared";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 

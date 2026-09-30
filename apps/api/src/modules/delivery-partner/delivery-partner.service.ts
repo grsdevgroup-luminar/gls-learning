@@ -16,7 +16,7 @@ import {
   parsePartnerDocuments,
   partnerCampaignDiscountCents,
   validatePartnerCampaign,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type {
   AdminDeliveryPartnerApplicationQuery,
   AdminDeliveryPartnerQuery,
@@ -43,7 +43,7 @@ import type {
   UpdatePartnerCampaignInput,
   UpdatePartnerCourseAssignmentInput,
   UpdatePartnerInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { toCourseSummary } from "../courses/course.mapper";
 import { AuditService } from "../../common/audit/audit.service";
@@ -570,7 +570,7 @@ export class DeliveryPartnerService {
         userId: studentUserId,
         event: "DELIVERY_PARTNER_MEMBER_RESTORED",
         title: "Access restored",
-        body: `A SkillStream admin restored your access to ${assignment.course.title}.`,
+        body: `A GRS Learning admin restored your access to ${assignment.course.title}.`,
         href: "/dashboard",
       })
       .catch(() => undefined);

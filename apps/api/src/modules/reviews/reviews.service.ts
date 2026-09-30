@@ -10,7 +10,7 @@ import type {
   ReviewDto,
   ReviewStatusInput,
   RatingStage,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import { EnrollmentService } from "../enrollment/enrollment.service";

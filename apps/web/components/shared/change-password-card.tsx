@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { passwordSchema } from "@skillstream/shared";
+import { passwordSchema } from "@grslearning/shared";
 import { authApi } from "@/lib/api/auth";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { PasswordRequirements } from "@/components/shared/password-requirements";

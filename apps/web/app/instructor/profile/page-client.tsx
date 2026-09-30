@@ -7,7 +7,7 @@ import { apiFetch, apiFetchMultipart } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useCategories } from "@/lib/api/hooks";
 import { SESSION_QUERY_KEY } from "@/lib/api/session";
-import { updateInstructorProfileSchema, type UpdateInstructorProfileInput } from "@skillstream/shared";
+import { updateInstructorProfileSchema, type UpdateInstructorProfileInput } from "@grslearning/shared";
 import { ApprovalGate } from "../_components/approval-gate";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, Clock } from "lucide-react";

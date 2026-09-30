@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import type { AuthUserDto, DeliveryPartnerDto } from "@skillstream/shared";
+import type { AuthUserDto, DeliveryPartnerDto } from "@grslearning/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { Logo } from "@/components/shared/logo";

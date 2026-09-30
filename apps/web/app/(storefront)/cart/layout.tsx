@@ -1,4 +1,4 @@
-import type { AuthUserDto } from "@skillstream/shared";
+import type { AuthUserDto } from "@grslearning/shared";
 import { redirect } from "next/navigation";
 import { serverApiOptional } from "@/lib/api/server";
 import { u } from "framer-motion/client";

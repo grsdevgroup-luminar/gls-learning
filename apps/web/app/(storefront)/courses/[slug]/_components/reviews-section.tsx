@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { CourseDetailDto, ReviewDto } from "@skillstream/shared";
+import type { CourseDetailDto, ReviewDto } from "@grslearning/shared";
 import { useStore } from "@/lib/context/store";
 import { useSession } from "@/lib/api/session";
 import { RatingBars } from "./rating-bars";

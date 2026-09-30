@@ -11,7 +11,7 @@ import {
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { flagFor } from "@/lib/countries";
-import { COUNTRIES } from "@skillstream/shared";
+import { COUNTRIES } from "@grslearning/shared";
 
 /** Searchable country picker used by any form that collects an ISO
  *  alpha-2 country code (signup, instructor signup). */

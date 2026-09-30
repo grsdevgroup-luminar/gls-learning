@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, ChevronLeft, ChevronRight } from "lucide-react";
-import type { NotificationDto } from "@skillstream/shared";
+import type { NotificationDto } from "@grslearning/shared";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,

@@ -3,7 +3,7 @@ import {
   DEFAULT_NOTIFICATION_PREFS,
   resolveNotificationPrefs,
   updateNotificationPreferencesSchema,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
 describe("resolveNotificationPrefs", () => {
   it("fills every trigger when nothing is stored", () => {

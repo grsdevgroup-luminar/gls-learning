@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api/endpoints";
-import { UpdatePartnerSchema, type UpdatePartnerInput } from "@skillstream/shared";
+import { UpdatePartnerSchema, type UpdatePartnerInput } from "@grslearning/shared";
 import { formatUsd } from "@/lib/format";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";

@@ -8,7 +8,7 @@ import {
   type AddCartItemInput,
   type MergeCartInput,
   type SetCartCodeInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { CartService } from "./cart.service";

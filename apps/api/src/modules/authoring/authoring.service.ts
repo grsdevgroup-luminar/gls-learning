@@ -21,7 +21,7 @@ import {
   type UpdateCourseInput,
   type UpdateQuizInput,
   type UpdateQuizQuestionInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { Prisma } from "@prisma/client";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -683,7 +683,7 @@ export class AuthoringService {
       // public catalog unilaterally.
       if (user.role !== "ADMIN")
         throw new ForbiddenException(
-          "Course visibility is managed by SkillStream — contact support",
+          "Course visibility is managed by GRS Learning — contact support",
         );
       if (input.visibility === "PRIVATE" && course.status !== "PUBLISHED")
         throw new BadRequestException("Publish this course before making it private");

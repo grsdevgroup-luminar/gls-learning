@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CourseSummaryDto } from "@skillstream/shared";
+import type { CourseSummaryDto } from "@grslearning/shared";
 import { CourseArt } from "@/components/shared/course-art";
 import { Stars } from "@/components/shared/stars";
 import { Price } from "@/components/shared/price";

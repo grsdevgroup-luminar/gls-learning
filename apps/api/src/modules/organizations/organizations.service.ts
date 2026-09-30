@@ -10,7 +10,7 @@ import {
 import { randomBytes, randomUUID } from "node:crypto";
 import * as argon2 from "argon2";
 import { Prisma } from "@prisma/client";
-import { isOrgAccessLocked } from "@skillstream/shared";
+import { isOrgAccessLocked } from "@grslearning/shared";
 import type {
   AdminMembershipEntryDto,
   AssignOrgCourseInput,
@@ -19,7 +19,7 @@ import type {
   InviteOrgMemberInput,
   OrganizationDto,
   UpdateOrganizationInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../../common/audit/audit.service";
@@ -126,7 +126,7 @@ export class OrganizationsService {
   private async assertPlatformAdmin(user: RequestUser, idOrSlug: string) {
     if (user.role !== "ADMIN")
       throw new ForbiddenException(
-        "Course assignments are managed by SkillStream — contact support",
+        "Course assignments are managed by GRS Learning — contact support",
       );
     return this.getRow(idOrSlug);
   }
@@ -149,7 +149,7 @@ export class OrganizationsService {
     const adminEmail = input.adminEmail.toLowerCase();
     if (await this.repo.findUserByEmail(adminEmail))
       throw new BadRequestException(
-        "This email already has a SkillStream account — use a different admin email",
+        "This email already has a GRS Learning account — use a different admin email",
       );
 
     const slug = await this.uniqueSlug(input.name);
@@ -213,7 +213,7 @@ export class OrganizationsService {
         input.graceDays !== undefined)
     )
       throw new ForbiddenException(
-        "Seat count and status are managed by SkillStream — contact support",
+        "Seat count and status are managed by GRS Learning — contact support",
       );
 
     const { suspensionMode, graceDays, ...rest } = input;
@@ -559,7 +559,7 @@ export class OrganizationsService {
         userId: studentUserId,
         event: "ORG_MEMBER_RESTORED",
         title: "Access restored",
-        body: `A SkillStream admin restored your access to ${org.name}.`,
+        body: `A GRS Learning admin restored your access to ${org.name}.`,
         href: `/dashboard/team`,
       })
       .catch(() => undefined);

@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "skillstream-dev",
+      "name": "grslearning-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev:app"],
       "port": 3001

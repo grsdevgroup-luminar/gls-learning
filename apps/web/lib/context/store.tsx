@@ -32,7 +32,7 @@ import type {
   CartDto,
   CourseSummaryDto,
   EnrollmentDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
 /** Completed-lesson-id map keyed by courseId, from the user's enrollments. */
 function enrollmentsToProgress(
@@ -62,11 +62,11 @@ export interface MyReview {
   ratingWeight: number;
 }
 
-const CART_KEY = "skillstream_cart_v2";
+const CART_KEY = "grslearning_cart_v2";
 /** One discount/referral code field — the backend resolves whether it's a
  *  coupon or a delivery-partner campaign code (see CodeResolverService). */
-const CART_CODE_KEY = "skillstream_cart_code_v1";
-const REGION_KEY = "skillstream_region_v2";
+const CART_CODE_KEY = "grslearning_cart_code_v1";
+const REGION_KEY = "grslearning_region_v2";
 
 const ROLE_FROM_SESSION: Record<string, Role> = {
   STUDENT: "student",

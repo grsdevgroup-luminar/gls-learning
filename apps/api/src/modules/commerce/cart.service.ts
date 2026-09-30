@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { CartDto, MergeCartInput } from "@skillstream/shared";
+import type { CartDto, MergeCartInput } from "@grslearning/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Db } from "../../common/types";
 import { CartRepository, type CartRow } from "./cart.repository";

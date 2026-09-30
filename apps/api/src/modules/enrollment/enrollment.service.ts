@@ -20,7 +20,7 @@ import {
   type WatchTimeResultDto,
   type OrgStatus,
 
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { ConfigService } from "@nestjs/config";
 import { AdminAlertsService } from "../email/admin-alerts.service";
 import {

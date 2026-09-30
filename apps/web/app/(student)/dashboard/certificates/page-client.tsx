@@ -120,7 +120,7 @@ export default function CertificatesPage() {
     try {
       await downloadFile(
         `/certificates/me/${encodeURIComponent(cert.serial)}/pdf`,
-        `skillstream-certificate-${cert.serial}.pdf`,
+        `grslearning-certificate-${cert.serial}.pdf`,
       );
 
     } catch (error) {

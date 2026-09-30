@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { CourseDetailDto } from "@skillstream/shared";
+import type { CourseDetailDto } from "@grslearning/shared";
 import { useStore } from "@/lib/context/store";
 import { Price } from "@/components/shared/price";
 import { Button } from "@/components/ui/button";

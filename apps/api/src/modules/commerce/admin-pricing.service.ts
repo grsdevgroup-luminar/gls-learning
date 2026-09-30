@@ -19,7 +19,7 @@ import {
   type PatchRegionInput,
   type PatchTierInput,
   type UpsertTierInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { Env } from "../../config/env";
 import { fetchUsdRates, rateFromFeed } from "../jobs/fx-feed";
 import { PricingRepository } from "./pricing.repository";

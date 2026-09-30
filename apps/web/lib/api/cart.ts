@@ -1,4 +1,4 @@
-import type { CartDto, MergeCartInput } from "@skillstream/shared";
+import type { CartDto, MergeCartInput } from "@grslearning/shared";
 import { apiFetch } from "./client";
 
 export const cartApi = {

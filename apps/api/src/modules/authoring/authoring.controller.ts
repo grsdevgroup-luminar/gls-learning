@@ -38,7 +38,7 @@ import {
   type UpdateCourseInput,
   type UpdateQuizInput,
   type UpdateQuizQuestionInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AuthoringService } from "./authoring.service";

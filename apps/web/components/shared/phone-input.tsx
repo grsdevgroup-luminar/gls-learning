@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { callingCodeFor, isValidPhone } from '@skillstream/shared';
+import { callingCodeFor, isValidPhone } from '@grslearning/shared';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 

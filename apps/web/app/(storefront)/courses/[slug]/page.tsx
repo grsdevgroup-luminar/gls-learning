@@ -4,7 +4,7 @@ import type {
   CourseDetailDto,
   Paginated,
   ReviewDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { serverApiOptional, serverApiCached } from "@/lib/api/server";
 import { CourseDetail } from "./_components/course-detail";
 

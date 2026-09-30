@@ -1,5 +1,5 @@
 {
-  "name": "skillstream",
+  "name": "grslearning",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.4.0",
@@ -13,10 +13,10 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "db:generate": "pnpm --filter @skillstream/api prisma:generate",
-    "db:migrate": "pnpm --filter @skillstream/api prisma:migrate",
-    "db:seed": "pnpm --filter @skillstream/api prisma:seed",
-    "db:studio": "pnpm --filter @skillstream/api prisma:studio",
+    "db:generate": "pnpm --filter @grslearning/api prisma:generate",
+    "db:migrate": "pnpm --filter @grslearning/api prisma:migrate",
+    "db:seed": "pnpm --filter @grslearning/api prisma:seed",
+    "db:studio": "pnpm --filter @grslearning/api prisma:studio",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
   },

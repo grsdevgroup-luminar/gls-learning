@@ -1,4 +1,4 @@
-import type { CourseDetailDto, LessonResourceDto } from "@skillstream/shared";
+import type { CourseDetailDto, LessonResourceDto } from "@grslearning/shared";
 import type { StorageDriver } from "./storage.driver";
 
 /**

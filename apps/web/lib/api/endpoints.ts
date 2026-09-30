@@ -103,7 +103,7 @@ import type {
   ActivityPeriod,
   CategoryDto,
   WatchTimeResultDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { apiFetch, apiFetchMultipart } from "./client";
 
 // Re-exported so pages can import DTO types alongside the endpoint helpers.
@@ -155,7 +155,7 @@ export type {
   PayoutBreakdownDto,
   PayoutStripeStatusDto,
   StripeOnboardLinkDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
 /** `GET /me/certificates` returns certificates enriched with course info
  *  (unlike the bare `CertificateDto` embedded in enrollments). */

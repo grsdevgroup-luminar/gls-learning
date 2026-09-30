@@ -23,7 +23,7 @@ function docsBasicAuth(user: string, password: string): RequestHandler {
       return;
     }
     res
-      .set("WWW-Authenticate", 'Basic realm="SkillStream API docs"')
+      .set("WWW-Authenticate", 'Basic realm="GRS Learning API docs"')
       .status(401)
       .send("Authentication required");
   };
@@ -46,7 +46,7 @@ export function setupSwagger(
   }
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("SkillStream API")
+    .setTitle("GRS Learning API")
     .setDescription(
       [
         "Course platform backend.",

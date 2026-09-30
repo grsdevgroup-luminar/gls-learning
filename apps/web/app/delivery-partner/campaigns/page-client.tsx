@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { DeliveryPartnerCampaignDto } from "@skillstream/shared";
+import type { DeliveryPartnerCampaignDto } from "@grslearning/shared";
 import { useMyDeliveryPartner, useMyPartnerCampaigns } from "@/lib/api/delivery-partner-hooks";
 import { PartnerMissingState, PartnerPageLoading, PartnerStatusState } from "../_components/partner-page-state";
 import { Card, CardContent } from "@/components/ui/card";

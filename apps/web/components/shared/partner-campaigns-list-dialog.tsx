@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DeliveryPartnerCampaignDto, PartnerCampaignStatus } from "@skillstream/shared";
+import type { DeliveryPartnerCampaignDto, PartnerCampaignStatus } from "@grslearning/shared";
 import { adminApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Meter } from "@/components/shared/meter";

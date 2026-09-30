@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Seed-fixture-only types. This is what used to be apps/web/types/index.ts,
-// before the frontend was migrated onto @skillstream/shared DTOs directly and
+// before the frontend was migrated onto @grslearning/shared DTOs directly and
 // this file (+ apps/web/lib/mock/*) was deleted as dead frontend code. It
 // wasn't dead here: prisma/seed.ts's fixture data (courses.ts, instructors.ts,
 // etc., now living alongside this file in prisma/seed-data/) is still typed

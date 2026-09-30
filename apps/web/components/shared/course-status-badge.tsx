@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CircleDot, Clock, Eye, FileText } from "lucide-react";
-import type { CourseStatus } from "@skillstream/shared";
+import type { CourseStatus } from "@grslearning/shared";
 
 const META: Record<
   CourseStatus | "NEW",

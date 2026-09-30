@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowRight, Upload, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { applyInstructorSchema, type InstructorCvUploadDto } from "@skillstream/shared";
+import { applyInstructorSchema, type InstructorCvUploadDto } from "@grslearning/shared";
 import { ApplySocialLinks, type SocialLinkField } from "./apply-social-links";
 
 const OTHER_EXPERTISE = "__other__";

@@ -1,4 +1,4 @@
-# SkillStream — Feature & Role Flows (Start to End)
+# GRS Learning — Feature & Role Flows (Start to End)
 
 > Companion to [`SYSTEM_DESIGN.md`](./SYSTEM_DESIGN.md) (architecture, diagrams,
 > data model). This document walks through **every role and every feature** as a
@@ -125,7 +125,7 @@ expiry) and clears both cookies.
 ### 2.2 Referral capture (delivery partner attribution)
 If a visitor arrives via `?ref=CODE` (a delivery partner's link), the code is
 captured client-side and persisted in `localStorage`
-(`skillstream_ref_v1`) — this survives navigation and is attached at checkout.
+(`grslearning_ref_v1`) — this survives navigation and is attached at checkout.
 **Two attribution paths, in priority order:**
 1. **Durable, signup-time** — if the code was present when the visitor
    created their account, it's locked into `User.referredByPartnerId`
@@ -329,7 +329,7 @@ only ever touch their own courses.
 2. **Lesson types** (`LessonType`): `VIDEO`, `ARTICLE`, `QUIZ`.
    - **Video**: the builder requests a tus upload reservation from the API
      (`POST /media/tus`), then the browser uploads the raw file **straight to
-     Cloudflare** via tus-js-client, bypassing the SkillStream API for the byte
+     Cloudflare** via tus-js-client, bypassing the GRS Learning API for the byte
      transfer entirely. After bytes complete, the client calls
      `POST /media/uploads/:id/complete`; playback later signs a short-lived
      (2hr) HLS/iframe URL, and checks enrollment first unless the lesson is
@@ -618,7 +618,7 @@ reporting, no writes.
 
 ### 7.2 Organizations
 Create + list orgs (see §6.1), plus a **Plan** dialog for the two fields only
-SkillStream may change — `seatCount` and `status`. `OrganizationsService.update`
+GRS Learning may change — `seatCount` and `status`. `OrganizationsService.update`
 enforces that split server-side: an org admin editing their own org can change
 name/domain/logo (wired on `/org/[slug]/account`) but gets a 403 for seats or
 status, so a customer can't grant themselves seats or lift a suspension.

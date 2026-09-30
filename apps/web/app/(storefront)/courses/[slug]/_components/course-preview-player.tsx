@@ -3,7 +3,7 @@
 import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { PlayCircle } from "lucide-react";
-import type { LessonPublicDto } from "@skillstream/shared";
+import type { LessonPublicDto } from "@grslearning/shared";
 
 /** Only the watermark (viewer email) is session-dependent — everything else
  *  about which lesson previews is static, decided server-side by the parent. */

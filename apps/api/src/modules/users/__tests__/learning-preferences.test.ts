@@ -3,7 +3,7 @@ import {
   REQUIRED_INTEREST_CATEGORY_COUNT,
   LEARNING_CATEGORIES,
   updateLearningPreferencesSchema,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
 describe("updateLearningPreferencesSchema", () => {
   it("keeps the complete ten-category taxonomy available", () => {

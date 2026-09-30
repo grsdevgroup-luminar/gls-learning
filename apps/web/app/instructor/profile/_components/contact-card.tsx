@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useSession, SESSION_QUERY_KEY } from "@/lib/api/session";
-import { isIsoCountryCode, isValidPhone } from "@skillstream/shared";
+import { isIsoCountryCode, isValidPhone } from "@grslearning/shared";
 import { Reveal, Stagger } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";

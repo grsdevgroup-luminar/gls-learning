@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { DEFAULT_REGION, regionalPriceCents, type RegionRow } from "@skillstream/shared";
+import { DEFAULT_REGION, regionalPriceCents, type RegionRow } from "@grslearning/shared";
 import { PricingRepository } from "./pricing.repository";
 
 @Injectable()
