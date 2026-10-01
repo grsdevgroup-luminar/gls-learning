@@ -127,7 +127,7 @@ export class AutomationService {
 
   /** ponytail: the cooldown reads ReminderLog, which the processor writes on
    *  delivery, so a reminder enqueued but not yet processed isn't visible here.
-   *  The sweep runs hourly and jobs drain in seconds, so the overlap is
+   *  The sweep runs daily and jobs drain in seconds, so the overlap is
    *  negligible; if it ever matters, record the intent at enqueue time instead. */
   private async inCooldown(
     rule: AutomationRule,
