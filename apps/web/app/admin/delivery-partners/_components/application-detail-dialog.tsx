@@ -39,25 +39,26 @@ export function ApplicationDetailDialog({
                   <span className="text-lg font-semibold">{a.name}</span>
                   {statusBadge[a.status]}
                 </div>
-                <p className="text-sm text-muted-foreground">{a.email}</p>
+                <p className="min-w-0 break-words text-sm text-muted-foreground">{a.email}</p>
               </div>
             </div>
 
             <div
-              className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm ${a.reviewedAt ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+              className="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3"
             >
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Email</div>
                 <div className="flex items-start gap-1.5">
                   <Mail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="break-words">{a.email}</span>
+                  <span className="min-w-0 break-words">{a.email}</span>
                 </div>
               </div>
               {a.country && (
                 <div className="min-w-0">
                   <div className="text-xs text-muted-foreground">Country</div>
-                  <div className="inline-flex items-center gap-1.5">
-                    <Globe2 className="size-3.5 shrink-0 text-muted-foreground" /> {flagFor(a.country)} {nameFor(a.country)}
+                  <div className="flex min-w-0 items-start gap-1.5">
+                    <Globe2 className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 break-words">{flagFor(a.country)} {nameFor(a.country)}</span>
                   </div>
                 </div>
               )}
@@ -109,7 +110,7 @@ export function ApplicationDetailDialog({
                         variant="ghost"
                         size="sm"
                         className="h-8 shrink-0 gap-1.5 px-2"
-                        render={<a href={d.url} target="_blank" rel="noreferrer" />}
+                        render={<a href={d.previewUrl ?? d.url} target="_blank" rel="noreferrer" />}
                       >
                         <Eye className="size-3.5" /> Preview
                       </Button>

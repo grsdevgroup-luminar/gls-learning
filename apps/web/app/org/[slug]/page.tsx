@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CourseArt } from "@/components/shared/course-art";
-import { Users, BookOpen, Layers, Mail } from "lucide-react";
+import { Users, BookOpen, Layers, Mail, Activity, Clock3, GraduationCap, TrendingUp } from "lucide-react";
 import { initials } from "@/lib/format";
 
 const statusColors: Record<string, string> = {
@@ -30,10 +30,18 @@ export default function OrgOverview() {
     queryFn: () => orgApi.courses(org!.id),
     enabled: !!org?.id,
   });
+  const { data: learning } = useQuery({
+    queryKey: ["org", org?.id, "learning-dashboard"],
+    queryFn: () => orgApi.learningDashboard(org!.id),
+    enabled: !!org?.id,
+  });
 
   if (!org) return null;
 
   const assigned = courses ?? [];
+  const activityByCourse = new Map(
+    (learning?.courses ?? []).map((course) => [course.courseId, course]),
+  );
   const statusLabel = org.status.charAt(0) + org.status.slice(1).toLowerCase();
 
   return (
@@ -59,6 +67,20 @@ export default function OrgOverview() {
         <Stat icon={Layers} label="Seats available" value={org.seatCount - org.usedSeats} tint="var(--tint-emerald)" />
         <Stat icon={Mail} label="Admin" value={org.adminEmail.split("@")[0]} tint="var(--tint-amber)" />
       </StatStrip>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Learner activity</h2>
+          <p className="text-sm text-muted-foreground">Learning metrics for members enrolled in your assigned courses.</p>
+        </div>
+        <StatStrip className="grid-cols-2 lg:grid-cols-4">
+          <Stat icon={GraduationCap} label="Enrolled learners" value={learning?.enrolledLearners ?? "—"} tint="var(--tint-indigo)" />
+          <Stat icon={Activity} label="Active (30 days)" value={learning?.activeLearners ?? "—"} tint="var(--tint-sky)" />
+          <Stat icon={TrendingUp} label="Average lesson progress" value={learning ? `${learning.completionRate}%` : "—"} tint="var(--tint-emerald)" />
+          <Stat icon={Clock3} label="Video watch time" value={learning ? `${learning.watchTimeMinutes} min` : "—"} tint="var(--tint-amber)" />
+        </StatStrip>
+
+      </section>
 
       {/* Seat usage bar */}
       <Card>
@@ -95,10 +117,20 @@ export default function OrgOverview() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {assigned.map((c) => (
               <Card key={c.id} className="flex gap-3 p-4">
-                <CourseArt seed={c.thumbnail} title={c.title} className="h-12 w-12 shrink-0 rounded-lg" />
+                <CourseArt seed={c.thumbnail} title={c.title} iconSize={24} className="h-12 w-12 shrink-0 rounded-lg" />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{c.title}</div>
                   <div className="text-xs text-muted-foreground">{c.level}</div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {activityByCourse.get(c.id)?.enrolledLearners ?? "—"} enrolled
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      {activityByCourse.get(c.id)?.activeLearners ?? "—"} active (30 days)
+                    </span>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -136,6 +168,7 @@ export default function OrgOverview() {
           </CardContent>
         </Card>
       </div>
+
     </div>
   );
 }

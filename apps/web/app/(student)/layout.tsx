@@ -29,6 +29,12 @@ export default async function StudentLayout({ children }: { children: React.Reac
   if (user?.deliveryPartnerStatus === "PENDING") {
     redirect("/delivery-partner");
   }
+  // Instructor applicants keep the STUDENT database role until approval, but
+  // should stay in the instructor application-status flow rather than seeing
+  // the learner dashboard (including when they enter a dashboard URL directly).
+  if (user?.instructorStatus === "PENDING") {
+    redirect("/instructor");
+  }
   // Org admins have their own portal — keep them out of the student shell
   // (proxy.ts also redirects /dashboard, but this catches /account too).
   if (user?.role === "ORG_ADMIN") {

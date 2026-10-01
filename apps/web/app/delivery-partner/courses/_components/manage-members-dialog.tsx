@@ -144,10 +144,10 @@ export function ManageMembersDialog({
         <Users className="h-3.5 w-3.5" />
         {unlimited ? `${assignment.usedSeats} members` : `${assignment.usedSeats}/${assignment.memberCap} members`}
       </DialogTrigger>
-      <DialogContent className="flex h-[min(700px,calc(100vh-2rem))] w-[calc(100vw-2rem)] !max-w-none flex-col sm:w-[min(760px,calc(100vw-3rem))] sm:min-w-[640px]">
+      <DialogContent className="flex h-[min(700px,calc(100vh-2rem))] w-[calc(100vw-2rem)] !max-w-none flex-col sm:w-[min(760px,calc(100vw-3rem))] sm:min-w-0">
         <DialogHeader>
-          <div className="flex items-center gap-1.5">
-            <DialogTitle>{assignment.course.title} — members</DialogTitle>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <DialogTitle className="min-w-0 flex-1 truncate">{assignment.course.title} — members</DialogTitle>
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -174,7 +174,7 @@ export function ManageMembersDialog({
         </DialogHeader>
 
         <form
-          className="flex shrink-0 gap-2"
+          className="flex shrink-0 flex-col gap-2 sm:flex-row"
           onSubmit={(e) => {
             e.preventDefault();
             if (!email.trim()) return;
@@ -221,7 +221,7 @@ export function ManageMembersDialog({
           <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
         </div>
 
-        <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none">
+        <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className={stickyHeaderRowClass}>

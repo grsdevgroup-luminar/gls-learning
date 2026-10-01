@@ -334,6 +334,51 @@ export class OrganizationsRepository {
     });
   }
 
+  findOrgLearningCourses(orgId: string) {
+    return this.prisma.course.findMany({
+      where: { orgAssignments: { some: { orgId } } },
+      select: {
+        id: true,
+        title: true,
+        sections: {
+          where: { archivedAt: null },
+          select: {
+            lessons: { where: { archivedAt: null }, select: { id: true } },
+          },
+        },
+      },
+    });
+  }
+
+  findOrgLearnerUserIds(orgId: string) {
+    return this.prisma.orgMember.findMany({
+      where: { orgId, role: "MEMBER", removedAt: null, userId: { not: null } },
+      select: { userId: true },
+    });
+  }
+
+  findOrgMemberEnrollments(courseIds: string[], userIds: string[]) {
+    if (courseIds.length === 0 || userIds.length === 0) return Promise.resolve([]);
+    return this.prisma.enrollment.findMany({
+      where: { courseId: { in: courseIds }, userId: { in: userIds } },
+      select: {
+        userId: true,
+        courseId: true,
+        watchTimeSec: true,
+        enrolledAt: true,
+        lastActivityAt: true,
+        lessonProgress: {
+          where: {
+            completed: true,
+            lesson: { archivedAt: null, section: { archivedAt: null } },
+          },
+          select: { lessonId: true },
+        },
+      },
+      orderBy: { lastActivityAt: "desc" },
+    });
+  }
+
   findUserMemberships(userId: string) {
     return this.prisma.orgMember.findMany({
       where: { userId, removedAt: null },

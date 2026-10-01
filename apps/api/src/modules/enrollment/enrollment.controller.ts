@@ -1,15 +1,17 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
+  UserRole,
   recordWatchTimeSchema,
   type RecordWatchTimeInput,
 } from "@skillstream/shared";
-import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
+import { CurrentUser, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { EnrollmentService } from "./enrollment.service";
 
 @ApiTags("enrollment")
 @ApiBearerAuth()
+@Roles(UserRole.STUDENT, UserRole.ADMIN)
 @Controller()
 export class EnrollmentController {
   constructor(private readonly enrollment: EnrollmentService) {}

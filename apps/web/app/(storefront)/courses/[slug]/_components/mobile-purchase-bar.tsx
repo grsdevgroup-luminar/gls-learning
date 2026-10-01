@@ -20,9 +20,17 @@ import { CoursePurchaseCard } from "./course-purchase-card";
  *  entirely and keeps the sticky sidebar instead. */
 export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
   const { inCart, addToCart, isEnrolled } = useStore();
-  const { role, isLoading } = useSession();
+  const { user, role, isLoading } = useSession();
   const isInstructor = !isLoading && role === "INSTRUCTOR";
-  const isCartRestricted = isLoading || role === "ORG_ADMIN" || role === "DELIVERY_PARTNER";
+  const hasPendingApplication =
+    user?.instructorStatus === "PENDING" ||
+    user?.deliveryPartnerStatus === "PENDING";
+  const isCartRestricted =
+    isLoading ||
+    role === "ORG_ADMIN" ||
+    role === "DELIVERY_PARTNER" ||
+    hasPendingApplication;
+  const isOrganizationAdmin = !isLoading && role === "ORG_ADMIN";
   const router = useRouter();
   const enroll = useEnrollFree();
   const [open, setOpen] = useState(false);
@@ -60,7 +68,12 @@ export function MobilePurchaseBar({ course }: { course: CourseDetailDto }) {
 
   return (
     <>
-      {!isInstructor && (!isCartRestricted || canEnrollForOrganization || enrolled) && (
+      {!isLoading &&
+        !isInstructor &&
+        !isOrganizationAdmin &&
+        (enrolled ||
+          (!hasPendingApplication &&
+            (!isCartRestricted || canEnrollForOrganization))) && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur supports-backdrop-filter:bg-background/85 lg:hidden">
           <div className="flex items-center gap-3">
             <button

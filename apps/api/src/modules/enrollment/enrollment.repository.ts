@@ -69,6 +69,12 @@ export class EnrollmentRepository {
     return tx ?? this.prisma;
   }
 
+  findUserRole(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+  }
   findManyByUser(userId: string) {
     return this.prisma.enrollment.findMany({
       where: { userId },

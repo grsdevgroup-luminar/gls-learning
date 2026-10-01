@@ -625,6 +625,64 @@ export class OrganizationsService {
 
   /** Courses assigned to an org — visible to any member (or platform admin),
    *  unless the org's access is currently locked by suspension. */
+  async learningDashboard(user: RequestUser, idOrSlug: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
+    const [courses, memberRows] = await Promise.all([
+      this.repo.findOrgLearningCourses(orgId),
+      this.repo.findOrgLearnerUserIds(orgId),
+    ]);
+    const userIds = memberRows.flatMap((member) => member.userId ? [member.userId] : []);
+    const enrollments = await this.repo.findOrgMemberEnrollments(
+      courses.map((course) => course.id),
+      userIds,
+    );
+    const lessonCounts = new Map(
+      courses.map((course) => [
+        course.id,
+        course.sections.reduce((total, section) => total + section.lessons.length, 0),
+      ]),
+    );
+    const uniqueLearners = new Set(enrollments.map((row) => row.userId));
+    const activeSince = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const courseMetrics = courses.map((course) => {
+      const matching = enrollments.filter((row) => row.courseId === course.id);
+      return {
+        courseId: course.id,
+        enrolledLearners: new Set(matching.map((row) => row.userId)).size,
+        activeLearners: new Set(
+          matching
+            .filter((row) => row.lastActivityAt > row.enrolledAt && row.lastActivityAt.getTime() >= activeSince)
+            .map((row) => row.userId),
+        ).size,
+      };
+    });
+    const activeLearners = new Set(
+      enrollments
+        .filter((row) => row.lastActivityAt > row.enrolledAt && row.lastActivityAt.getTime() >= activeSince)
+        .map((row) => row.userId),
+    );
+    const totalPossibleCompletions = enrollments.reduce(
+      (total, row) => total + (lessonCounts.get(row.courseId) ?? 0),
+      0,
+    );
+    const totalCompletedLessons = enrollments.reduce(
+      (total, row) => total + row.lessonProgress.length,
+      0,
+    );
+
+    return {
+      enrolledLearners: uniqueLearners.size,
+      activeLearners: activeLearners.size,
+      completionRate: totalPossibleCompletions
+        ? Math.round((totalCompletedLessons / totalPossibleCompletions) * 100)
+        : 0,
+      watchTimeMinutes: Math.floor(
+        enrollments.reduce((total, row) => total + row.watchTimeSec, 0) / 60,
+      ),
+      courses: courseMetrics,
+    };
+  }
+
   async listCourses(user: RequestUser, idOrSlug: string) {
     const org = await this.getRow(idOrSlug);
     if (user.role !== "ADMIN") {

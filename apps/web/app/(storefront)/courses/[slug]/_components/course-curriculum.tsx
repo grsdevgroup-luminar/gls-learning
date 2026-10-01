@@ -91,11 +91,10 @@ export function CourseCurriculum({ course }: { course: CourseDetailDto }) {
                             {lessonTime(l.durationSec)}
                           </span>
                         </div>
-                        {/* Preview lessons expose their resources to anyone
-                            browsing the catalog — the API only returns them
-                            for `preview === true`, so any items here are
-                            already cleared for public download. */}
+                        {/* Public course details omit lesson resources. They are
+                            returned only through the authorized learning endpoint. */}
                         {l.preview && l.resources.length > 0 && (
+
                           <ul className="ml-9 mt-1 space-y-1 border-l pl-3">
                             {l.resources?.map((r) => {
                               const isFile = Boolean(r.storageKey);

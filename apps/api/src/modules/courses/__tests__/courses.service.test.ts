@@ -66,6 +66,30 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     await expect(service.bySlug("intro-to-x")).resolves.toMatchObject({ id: "course_1" });
   });
 
+  it("does not expose preview lesson resource links to an anonymous caller", async () => {
+    const lesson = {
+      id: "lesson_1",
+      title: "Sample lesson",
+      durationSec: 60,
+      type: "VIDEO",
+      preview: true,
+      order: 0,
+      quiz: null,
+      cfVideoUid: null,
+      resources: [{ name: "sample.pdf", url: "https://files.example/sample.pdf" }],
+    };
+    const { service } = makeService({
+      findBySlug: vi.fn().mockResolvedValue(
+        makeCourseRow({
+          sections: [{ id: "section_1", title: "Intro", order: 0, lessons: [lesson] }],
+        }),
+      ),
+    });
+
+    const course = await service.bySlug("intro-to-x");
+    expect(course.sections[0]?.lessons[0]?.resources).toEqual([]);
+    expect(course.sections[0]?.lessons[0]?.pptx).toBeNull();
+  });
   it("404s a DRAFT course for an anonymous caller", async () => {
     const { service } = makeService({
       findBySlug: vi.fn().mockResolvedValue(makeCourseRow({ status: "DRAFT" })),

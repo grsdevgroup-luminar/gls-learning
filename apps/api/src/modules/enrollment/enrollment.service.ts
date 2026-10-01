@@ -31,6 +31,7 @@ import type { Db } from "../../common/types";
 import { apiBaseUrl, certificatePdfUrl } from "../../common/utils/urls";
 import type { Env } from "../../config/env";
 import { PrismaService } from "../../prisma/prisma.service";
+import { UsersService } from "../users/users.service";
 import { toCourseSummary } from "../courses/course.mapper";
 import {
   EnrollmentRepository,
@@ -76,6 +77,7 @@ export class EnrollmentService {
     private readonly config: ConfigService<Env, true>,
     private readonly alerts: AdminAlertsService,
     private readonly notifications: NotificationsService,
+    private readonly users: UsersService,
   ) { }
 
   private get apiBase(): string {
@@ -383,6 +385,15 @@ export class EnrollmentService {
    * public courses with no grant must go through checkout.
    */
   async enrollFree(userId: string, courseId: string): Promise<EnrollmentDto> {
+    if (await this.users.hasPendingRoleApplication(userId)) {
+      throw new ForbiddenException(
+        "Course enrollment is unavailable while your application is pending",
+      );
+    }
+    const user = await this.repo.findUserRole(userId);
+    if (!user || (user.role !== "STUDENT" && user.role !== "ADMIN")) {
+      throw new ForbiddenException("Only student accounts can enroll in courses");
+    }
     const course = await this.repo.findCourseAccess(courseId, userId);
     if (!course || course.status !== "PUBLISHED")
       throw new NotFoundException("Course not found");

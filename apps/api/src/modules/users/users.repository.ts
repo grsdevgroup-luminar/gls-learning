@@ -14,6 +14,26 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  async hasPendingRoleApplication(userId: string): Promise<boolean> {
+    const [instructorApplication, deliveryPartnerApplication] = await Promise.all([
+      this.prisma.instructorApplication.findFirst({
+        where: { userId },
+        orderBy: { appliedAt: "desc" },
+        select: { status: true },
+      }),
+      this.prisma.deliveryPartnerApplication.findFirst({
+        where: { userId },
+        orderBy: { appliedAt: "desc" },
+        select: { status: true },
+      }),
+    ]);
+
+    return (
+      instructorApplication?.status === "PENDING" ||
+      deliveryPartnerApplication?.status === "PENDING"
+    );
+  }
+
   findWithProfiles(id: string) {
     return this.prisma.user.findUnique({
       where: { id },

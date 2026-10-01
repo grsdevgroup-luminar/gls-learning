@@ -233,9 +233,12 @@ export class CoursesService {
           user.id,
         )
       : false;
-    const detail = toCourseDetail(row, { canEnrollForOrganization });
-    // Preview lessons expose resources publicly (see mapper); their uploaded
-    // files need fresh signed URLs just like the enrolled learning path.
+    const canManageCourse = user?.role === "ADMIN" || isInstructorOwner;
+    const detail = toCourseDetail(row, {
+      canEnrollForOrganization,
+      includeLessonResources: canManageCourse,
+    });
+    // Public catalog callers do not receive attachment or resource-link URLs.
     return signCourseResourceUrls(detail, this.storage);
   }
 

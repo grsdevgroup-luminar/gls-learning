@@ -53,7 +53,7 @@ export default function OrgCourses() {
             <Card key={c.id}>
               <CardContent className="flex flex-col gap-3 p-4">
                 <div className="flex gap-3">
-                  <CourseArt seed={c.thumbnail} title={c.title} className="h-14 w-14 shrink-0 rounded-lg" />
+                  <CourseArt seed={c.thumbnail} title={c.title} iconSize={24} className="h-14 w-14 shrink-0 rounded-lg" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{c.title}</div>
                     <div className="mt-1 text-xs text-muted-foreground">{c.category}</div>

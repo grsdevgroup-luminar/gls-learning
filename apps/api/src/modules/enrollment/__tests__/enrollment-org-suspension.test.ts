@@ -12,13 +12,27 @@ const userId = "user_1";
 const courseId = "course_1";
 const lessonId = "lesson_1";
 
-function makeService(repoOverrides: Partial<EnrollmentRepository>) {
-  const repo = { hasUnrefundedPurchase: vi.fn().mockResolvedValue(false), ...repoOverrides } as unknown as EnrollmentRepository;
+function makeService(
+  repoOverrides: Partial<EnrollmentRepository>,
+  hasPendingRoleApplication = vi.fn().mockResolvedValue(false),
+) {
+  const repo = {
+    findUserRole: vi.fn().mockResolvedValue({ role: "STUDENT" }),
+    hasUnrefundedPurchase: vi.fn().mockResolvedValue(false),
+    ...repoOverrides,
+  } as unknown as EnrollmentRepository;
   const config = { get: vi.fn() } as unknown as ConfigService<Env, true>;
   const alerts = {} as AdminAlertsService;
   const notifications = {} as NotificationsService;
   const prisma = {} as PrismaService;
-  return new EnrollmentService(repo, prisma, config, alerts, notifications);
+  return new EnrollmentService(
+    repo,
+    prisma,
+    config,
+    alerts,
+    notifications,
+    { hasPendingRoleApplication } as never,
+  );
 }
 
 /** A "member" org row shaped as `findCourseAccess`/`findLessonAccessContext`
@@ -32,6 +46,31 @@ function nonMemberOrg(id: string, status: string) {
 
 describe("EnrollmentService org-suspension gating", () => {
   describe("enrollFree", () => {
+    it("rejects enrollment while an instructor or delivery-partner application is pending", async () => {
+      const findUserRole = vi.fn();
+      const service = makeService(
+        { findUserRole },
+        vi.fn().mockResolvedValue(true),
+      );
+
+      await expect(service.enrollFree(userId, courseId)).rejects.toThrow(
+        "Course enrollment is unavailable while your application is pending",
+      );
+      expect(findUserRole).not.toHaveBeenCalled();
+    });
+
+    it("rejects instructors before reading course or enrollment data", async () => {
+      const findCourseAccess = vi.fn();
+      const service = makeService({
+        findUserRole: vi.fn().mockResolvedValue({ role: "INSTRUCTOR" }),
+        findCourseAccess,
+      });
+
+      await expect(service.enrollFree(userId, courseId)).rejects.toThrow(
+        "Only student accounts can enroll in courses",
+      );
+      expect(findCourseAccess).not.toHaveBeenCalled();
+    });
     it("blocks a new enrollment immediately once the org is suspended, mode-agnostic", async () => {
       const service = makeService({
         findCourseAccess: vi.fn().mockResolvedValue({

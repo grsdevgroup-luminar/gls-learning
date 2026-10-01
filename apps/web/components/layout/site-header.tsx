@@ -58,7 +58,13 @@ export function SiteHeader() {
   const pendingUrlQRef = useRef<string | null>(null);
   const isAuthed = !!user;
   const isInstructor = !isLoading && role === "INSTRUCTOR";
-  const canUseCart = !isLoading && role !== "INSTRUCTOR" && role !== "ORG_ADMIN" && role !== "DELIVERY_PARTNER";
+  const canUseCart =
+    !isLoading &&
+    role !== "INSTRUCTOR" &&
+    role !== "ORG_ADMIN" &&
+    role !== "DELIVERY_PARTNER" &&
+    user?.instructorStatus !== "PENDING" &&
+    user?.deliveryPartnerStatus !== "PENDING";
 
   const pushSearchToUrl = useCallback(
     (query: string) => {
@@ -309,14 +315,19 @@ export function SiteHeader() {
                   </DropdownMenuItem>
                 ) : (
                   <>
-                    <DropdownMenuItem render={<Link href="/dashboard" />}>
-                      <LayoutDashboard /> Dashboard
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={<Link href="/dashboard/progress" />}
-                    >
-                      <GraduationCap /> My Learning
-                    </DropdownMenuItem>
+                    {user?.instructorStatus !== "PENDING" &&
+                      user?.deliveryPartnerStatus !== "PENDING" && (
+                      <>
+                        <DropdownMenuItem render={<Link href="/dashboard" />}>
+                          <LayoutDashboard /> Dashboard
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          render={<Link href="/dashboard/progress" />}
+                        >
+                          <GraduationCap /> My Learning
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     <DropdownMenuItem render={<Link href="/account" />}>
                       <User /> Account
                     </DropdownMenuItem>

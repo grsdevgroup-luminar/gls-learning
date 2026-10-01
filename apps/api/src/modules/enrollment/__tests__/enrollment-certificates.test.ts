@@ -93,7 +93,14 @@ function makeService(overrides: {
 
   const alerts = {} as AdminAlertsService;
 
-  const service = new EnrollmentService(repo, prisma, config, alerts, notifications);
+  const service = new EnrollmentService(
+    repo,
+    prisma,
+    config,
+    alerts,
+    notifications,
+    { hasPendingRoleApplication: vi.fn().mockResolvedValue(false) } as never,
+  );
 
   return { service, repo, prisma, notifications };
 }
