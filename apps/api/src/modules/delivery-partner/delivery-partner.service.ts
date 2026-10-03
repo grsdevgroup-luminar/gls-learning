@@ -75,12 +75,16 @@ export class DeliveryPartnerService {
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
-  private toDto(a: DeliveryPartnerRow): DeliveryPartnerDto {
+  private async toDto(a: DeliveryPartnerRow): Promise<DeliveryPartnerDto> {
+    const avatar = a.user.avatarKey
+      ? await this.storage.getUrl(a.user.avatarKey).catch(() => a.user.avatar)
+      : a.user.avatar;
     return {
       id: a.id,
       userId: a.userId,
       name: a.user.name,
       email: a.user.email,
+      avatar,
       region: a.region,
       commissionPercent: a.commissionPercent,
       status: a.status,
@@ -738,7 +742,7 @@ export class DeliveryPartnerService {
       : {};
     const [rows, total] = await this.repo.findPartnersPage(where, query.page, query.pageSize);
     return {
-      items: rows.map((a) => this.toDto(a)),
+      items: await Promise.all(rows.map((a) => this.toDto(a))),
       page: query.page,
       pageSize: query.pageSize,
       total,

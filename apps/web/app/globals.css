@@ -65,12 +65,19 @@
   color-scheme: light;
 }
 .certificate-dialog-preview {
-  width: 210mm;
+  width: 100%;
   max-width: none;
   color-scheme: light;
 }
+.certificate-dialog-frame {
+  width: 100%;
+  overflow: hidden;
+  background: #e9e9e9;
+  color-scheme: light;
+}
 .certificate-dialog-scroll {
-  max-width: calc(100vw - 4.5rem);
+  width: 100%;
+  max-width: 100%;
   max-height: calc(100vh - 4.5rem);
   overflow: auto;
   border-radius: 0.75rem;
@@ -255,7 +262,7 @@
   --destructive: #dc2626;
   --success: #16a34a;
   --success-foreground: #ffffff;
-  --warning: #d97706;
+  --warning: #b45309;
   --warning-foreground: #ffffff;
   --border: rgba(16, 15, 23, 0.08);
   --input: rgba(16, 15, 23, 0.12);
@@ -313,7 +320,7 @@
   --destructive: oklch(0.7 0.18 18);
   --success: oklch(0.78 0.16 158);
   --success-foreground: oklch(0.17 0.03 274);
-  --warning: oklch(0.84 0.15 82);
+  --warning: oklch(0.78 0.15 82);
   --warning-foreground: oklch(0.2 0.03 82);
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 14%);

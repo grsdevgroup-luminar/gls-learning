@@ -23,7 +23,7 @@ export const partnerSelect = {
   paidEarningsCents: true,
   referralCount: true,
   createdAt: true,
-  user: { select: { name: true, email: true } },
+  user: { select: { name: true, email: true, avatar: true, avatarKey: true } },
 } satisfies Prisma.DeliveryPartnerSelect;
 
 export type DeliveryPartnerRow = Prisma.DeliveryPartnerGetPayload<{

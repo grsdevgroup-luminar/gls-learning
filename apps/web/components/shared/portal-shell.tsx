@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Award,
+  ArrowUp,
   BarChart3,
   BookOpen,
   Building2,
@@ -96,6 +97,7 @@ export function PortalShell({
   badge,
   user,
   showBackToSite = true,
+  showMobileJumpToTop = false,
   children,
 }: {
   items: NavItem[];
@@ -107,12 +109,22 @@ export function PortalShell({
     avatar?: string | null;
   };
   showBackToSite?: boolean;
+  showMobileJumpToTop?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const logoutMut = useLogout();
   const [open, setOpen] = useState(false);
+  const [showJumpToTop, setShowJumpToTop] = useState(false);
+
+  useEffect(() => {
+    const updateJumpButton = () => setShowJumpToTop(window.scrollY > 420);
+
+    updateJumpButton();
+    window.addEventListener("scroll", updateJumpButton, { passive: true });
+    return () => window.removeEventListener("scroll", updateJumpButton);
+  }, []);
 
   async function handleLogout() {
     setOpen(false);
@@ -268,6 +280,17 @@ export function PortalShell({
         >
           {children}
         </main>
+
+        {showMobileJumpToTop && showJumpToTop && (
+          <button
+            type="button"
+            aria-label="Jump to top"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-5 right-4 z-50 grid size-11 place-items-center rounded-full border border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:hidden"
+          >
+            <ArrowUp className="size-5" />
+          </button>
+        )}
       </div>
     </div>
   );

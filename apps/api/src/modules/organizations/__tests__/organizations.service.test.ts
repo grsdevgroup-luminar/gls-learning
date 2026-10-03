@@ -68,7 +68,15 @@ function makeService(repoOverrides: Partial<OrganizationsRepository> = {}) {
   const admin = {} as AdminService;
   const audit = { record: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
 
-  const service = new OrganizationsService(prisma, repo, email, notifications, admin, audit);
+  const service = new OrganizationsService(
+    prisma,
+    repo,
+    email,
+    notifications,
+    admin,
+    audit,
+    { getUrl: vi.fn().mockResolvedValue("") } as never,
+  );
   return { service, repo, email };
 }
 

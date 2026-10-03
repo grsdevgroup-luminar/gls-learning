@@ -57,6 +57,9 @@ export const OrganizationDto = z.object({
   domain: z.string().nullable(),
   logoUrl: z.string().nullable(),
   adminEmail: z.string(),
+  /** Admin account identity/photo, populated only in the platform-admin list. */
+  adminName: z.string().optional(),
+  adminAvatar: z.string().nullable().optional(),
   status: z.nativeEnum(OrgStatus),
   suspensionMode: z.nativeEnum(OrgSuspensionMode).nullable(),
   accessLocksAt: z.string().nullable(),

@@ -24,6 +24,8 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { PlanDialog } from "./plan-dialog";
 import { CredentialsPanel } from "./credentials-panel";
 import { ManageOrgCoursesDialog } from "@/components/shared/manage-org-courses-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initials } from "@/lib/format";
 
 const statusColors: Record<string, string> = {
   ACTIVE: "text-success",
@@ -211,8 +213,18 @@ export default function AdminOrganizations() {
                 filtered?.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell>
-                      <div className="font-medium">{o.name}</div>
-                      <div className="text-xs text-muted-foreground">{o.adminEmail}</div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Avatar className="size-8 shrink-0">
+                          {o.adminAvatar && <AvatarImage src={o.adminAvatar} alt="" />}
+                          <AvatarFallback className="text-xs">
+                            {initials(o.adminName ?? o.adminEmail)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{o.name}</div>
+                          <div className="truncate text-xs text-muted-foreground">{o.adminEmail}</div>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{o.domain ?? "—"}</TableCell>
                     <TableCell className="text-sm">

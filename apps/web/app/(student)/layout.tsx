@@ -62,6 +62,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <PortalShell
       items={items}
       badge="Student"
+      showMobileJumpToTop
       user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}
     >
       {children}

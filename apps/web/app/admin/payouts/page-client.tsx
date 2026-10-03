@@ -437,7 +437,7 @@ export default function AdminPayouts() {
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Explain why this payout wasn't approved — the payee will see this."
-                className="min-h-24 w-full resize-y"
+                className="field-sizing-fixed h-24 min-h-24 max-h-40 w-full min-w-0 max-w-full resize-y overflow-y-auto whitespace-pre-wrap break-all"
               />
             </div>
             <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
