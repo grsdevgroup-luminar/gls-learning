@@ -17,7 +17,7 @@ export function AdminTableCard({
       <CardContent className="flex min-h-0 flex-1 flex-col px-0">
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto pb-1 max-h-[560px] [&_[data-slot=table-container]]:overflow-visible",
+            "min-h-0 flex-1 overflow-y-auto pb-1 max-h-[560px] [&_[data-slot=table-container]]:overflow-x-auto",
             scrollClassName,
           )}
         >

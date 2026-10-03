@@ -179,8 +179,12 @@ export function PortalShell({
             {badge}
           </span>
         </div>
-        <NotificationBell size="icon-sm" />
-        <ThemeToggle size="icon-sm" className="shrink-0" />
+        {/* Already in the mobile top bar — showing them again here would collide
+            with the Sheet's own auto-placed close button in this same corner. */}
+        <div className="hidden items-center gap-2 md:flex">
+          <NotificationBell size="icon-sm" />
+          <ThemeToggle size="icon-sm" className="shrink-0" />
+        </div>
       </div>
       <div className="shrink-0 px-3 pt-3">
         <CommandPalette items={items} />
@@ -259,7 +263,7 @@ export function PortalShell({
         <main
           className={cn(
             "relative min-h-0 flex-1",
-            isCourseBuilderRoute && "h-screen max-h-screen overflow-hidden",
+            isCourseBuilderRoute && "lg:h-screen lg:max-h-screen lg:overflow-hidden",
           )}
         >
           {children}

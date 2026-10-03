@@ -155,8 +155,8 @@ export default function AdminCourses() {
         <TabsTrigger value="revision-requests">Course changes {pendingRevisionRequests.length > 0 && <Badge variant="outline" className="ml-1 border-warning/40 text-warning">{pendingRevisionRequests.length}</Badge>}</TabsTrigger>
       </TabsList>
       <TabsContent value="all" className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={qInput}
@@ -165,7 +165,7 @@ export default function AdminCourses() {
             className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(["all", "PUBLISHED", "DRAFT", "REVIEW"] as const).map((s) => (
             <Button
               key={s}
@@ -199,7 +199,7 @@ export default function AdminCourses() {
             </Button>
           ))}
         </div>
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <AdminRowsPerPage
             value={pageSize}
             onChange={(value) => {

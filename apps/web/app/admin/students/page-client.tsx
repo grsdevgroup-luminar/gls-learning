@@ -13,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Search, Users, UserCheck, AlertTriangle, Eye } from "lucide-react";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { flagFor, formatCountry } from "@/lib/countries";
@@ -93,37 +94,45 @@ export default function AdminStudents() {
       </div>
 
       {/* Stat cards */}
-      {isLoading ? (
-        <div className="grid grid-cols-3 gap-4 shrink-0">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="flex items-center gap-3 pt-6">
-                <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
-                <div className="space-y-1.5">
-                  <div className="h-7 w-12 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-4 shrink-0">
-          {stats.map((s) => (
-            <Card key={s.label}>
-              <CardContent className="flex items-center gap-3 pt-6">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                  <s.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold leading-none">{s.value}</div>
-                  <div className="text-xs text-muted-foreground">{s.label}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      <CollapsibleStats
+        summary={
+          statsData
+            ? `${statsData.total} total · ${statsData.active} active · ${statsData.atRisk} at risk`
+            : "Loading stats…"
+        }
+      >
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-4 shrink-0 sm:grid-cols-3">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="flex items-center gap-3 pt-6">
+                  <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+                  <div className="space-y-1.5">
+                    <div className="h-7 w-12 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 shrink-0 sm:grid-cols-3">
+            {stats.map((s) => (
+              <Card key={s.label}>
+                <CardContent className="flex items-center gap-3 pt-6">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <s.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold leading-none">{s.value}</div>
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CollapsibleStats>
 
       {/* Search and Rows per page controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">

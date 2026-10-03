@@ -18,6 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Check, EyeOff, MessageSquare, Search, Star, Flag, X } from "lucide-react";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { toast } from "sonner";
 import {
   AdminPagination,
@@ -171,25 +172,33 @@ export default function AdminReviews() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
-        {(stats.length ? stats : [
-          { icon: Star, label: "Avg. rating", value: "…" },
-          { icon: MessageSquare, label: "Approved reviews", value: "…" },
-          { icon: Flag, label: "Pending moderation", value: "…" },
-        ]).map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold leading-none">{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <CollapsibleStats
+        summary={
+          statsData
+            ? `${statsData.avgRating.toFixed(2)} avg rating · ${statsData.approved} approved · ${statsData.pending} pending`
+            : "Loading stats…"
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {(stats.length ? stats : [
+            { icon: Star, label: "Avg. rating", value: "…" },
+            { icon: MessageSquare, label: "Approved reviews", value: "…" },
+            { icon: Flag, label: "Pending moderation", value: "…" },
+          ]).map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold leading-none">{s.value}</div>
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </CollapsibleStats>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative sm:max-w-xs sm:flex-1">
@@ -201,72 +210,74 @@ export default function AdminReviews() {
             className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           />
         </div>
-        <Select
-          value={status}
-          onValueChange={(value) => {
-            if (!value) return;
-            setStatus(value as StatusFilter);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[11.5rem]" aria-label="Filter by status">
-            <SelectValue>
-              {status === "all" ? "All statuses" : STATUS_LABELS[status]}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTERS.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s === "all" ? "All statuses" : STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={courseId}
-          onValueChange={(value) => {
-            if (!value) return;
-            setCourseId(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[14rem]" aria-label="Filter by course">
-            <SelectValue>
-              {courseId === "all"
-                ? "All courses"
-                : courses.find((c) => c.id === courseId)?.title ?? "All courses"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All courses</SelectItem>
-            {courses.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={rating}
-          onValueChange={(value) => {
-            if (!value) return;
-            setRating(value as RatingFilter);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[10.5rem]" aria-label="Filter by rating">
-            <SelectValue>
-              {rating === "all" ? "All ratings" : `${rating} star${rating === "1" ? "" : "s"}`}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {RATING_FILTERS.map((r) => (
-              <SelectItem key={r} value={r}>
-                {r === "all" ? "All ratings" : `${r} star${r === "1" ? "" : "s"}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <Select
+            value={status}
+            onValueChange={(value) => {
+              if (!value) return;
+              setStatus(value as StatusFilter);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[11.5rem]" aria-label="Filter by status">
+              <SelectValue>
+                {status === "all" ? "All statuses" : STATUS_LABELS[status]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_FILTERS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s === "all" ? "All statuses" : STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={courseId}
+            onValueChange={(value) => {
+              if (!value) return;
+              setCourseId(value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[14rem]" aria-label="Filter by course">
+              <SelectValue>
+                {courseId === "all"
+                  ? "All courses"
+                  : courses.find((c) => c.id === courseId)?.title ?? "All courses"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All courses</SelectItem>
+              {courses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={rating}
+            onValueChange={(value) => {
+              if (!value) return;
+              setRating(value as RatingFilter);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="col-span-2 w-full sm:col-span-1 sm:w-[10.5rem]" aria-label="Filter by rating">
+              <SelectValue>
+                {rating === "all" ? "All ratings" : `${rating} star${rating === "1" ? "" : "s"}`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {RATING_FILTERS.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r === "all" ? "All ratings" : `${r} star${r === "1" ? "" : "s"}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="sm:ml-auto">
           <AdminRowsPerPage
             value={pageSize}
@@ -346,7 +357,7 @@ export default function AdminReviews() {
 function ReviewBody({ r }: { r: ReviewDto }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="text-xs">{initials(r.author)}</AvatarFallback>
@@ -358,8 +369,8 @@ function ReviewBody({ r }: { r: ReviewDto }) {
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Badge variant="outline" className="text-xs">{r.courseTitle}</Badge>
+        <div className="flex min-w-0 shrink-0 items-center gap-2">
+          <Badge variant="outline" className="max-w-[160px] truncate text-xs">{r.courseTitle}</Badge>
           <Badge
             variant="outline"
             className={
