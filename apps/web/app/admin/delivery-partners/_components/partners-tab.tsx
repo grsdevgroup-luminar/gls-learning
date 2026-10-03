@@ -6,6 +6,7 @@ import { adminApi } from "@/lib/api/endpoints";
 import { UpdatePartnerSchema, type UpdatePartnerInput } from "@skillstream/shared";
 import { formatUsd } from "@/lib/format";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -79,19 +80,23 @@ export function PartnersTab() {
 
   return (
     <>
-      <StatStrip className="grid-cols-2 shrink-0 lg:grid-cols-4">
-        <Stat icon={Users} label="Total partners" value={data?.total ?? "—"} tint="var(--tint-indigo)" />
-        <Stat icon={Link2} label="Referrals on this page" value={totals.referrals} tint="var(--tint-sky)" />
-        <Stat icon={DollarSign} label="Commissions paid" value={formatUsd(totals.paid / 100)} tint="var(--tint-emerald)" />
-        <Stat icon={DollarSign} label="Pending" value={formatUsd(totals.pending / 100)} tint="var(--tint-amber)" />
-      </StatStrip>
+      <CollapsibleStats
+        summary={`${data?.total ?? "—"} partners · ${totals.referrals} referrals · ${formatUsd(totals.paid / 100)} paid`}
+      >
+        <StatStrip className="grid-cols-2 shrink-0 lg:grid-cols-4">
+          <Stat icon={Users} label="Total partners" value={data?.total ?? "—"} tint="var(--tint-indigo)" />
+          <Stat icon={Link2} label="Referrals on this page" value={totals.referrals} tint="var(--tint-sky)" />
+          <Stat icon={DollarSign} label="Commissions paid" value={formatUsd(totals.paid / 100)} tint="var(--tint-emerald)" />
+          <Stat icon={DollarSign} label="Pending" value={formatUsd(totals.pending / 100)} tint="var(--tint-amber)" />
+        </StatStrip>
+      </CollapsibleStats>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search partners…" className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
         </div>
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <AdminRowsPerPage value={pageSize} onChange={(v) => setPageSize(v)} />
         </div>
       </div>

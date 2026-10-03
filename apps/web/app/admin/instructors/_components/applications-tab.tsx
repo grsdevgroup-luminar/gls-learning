@@ -86,12 +86,12 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
 
   return (
     <>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search applications…" className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {STATUS_FILTERS.map((s) => (
             <Button
               key={s}
@@ -104,7 +104,7 @@ export function ApplicationsTab({ onMutated }: { onMutated: () => void }) {
             </Button>
           ))}
         </div>
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <AdminRowsPerPage value={pageSize} onChange={(v) => setPageSize(v)} />
         </div>
       </div>

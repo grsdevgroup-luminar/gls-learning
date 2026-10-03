@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Wallet, Clock, CheckCircle2, Search, X, Info } from "lucide-react";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 
 const statusCls: Record<string, string> = {
   REQUESTED: "text-warning",
@@ -197,19 +198,23 @@ export default function AdminPayouts() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <s.icon className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="text-sm text-muted-foreground">{s.label}</div>
-                <div className="text-xl font-bold">{s.value}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <CollapsibleStats
+        summary={`${stats[0].value} awaiting action · ${stats[1].value} open · ${stats[2].value} paid to date`}
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {stats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <s.icon className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="text-sm text-muted-foreground">{s.label}</div>
+                  <div className="text-xl font-bold">{s.value}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </CollapsibleStats>
 
       <Card>
         <CardContent className="space-y-3 p-4">
@@ -223,40 +228,42 @@ export default function AdminPayouts() {
                 className="search-input border-input bg-background pl-8 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
               />
             </div>
-            <Select
-              value={status}
-              onValueChange={(v) => setStatus(v as PayoutStatus | "ALL")}
-            >
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All statuses</SelectItem>
-                <SelectItem value="REQUESTED">Requested</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={payeeType}
-              onValueChange={(v) => setPayeeType(v as PayeeType | "ALL")}
-            >
-              <SelectTrigger className="w-full sm:w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All payees</SelectItem>
-                <SelectItem value="INSTRUCTOR">Instructors</SelectItem>
-                <SelectItem value="DELIVERY_PARTNER">Delivery partners</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as PayoutStatus | "ALL")}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All statuses</SelectItem>
+                  <SelectItem value="REQUESTED">Requested</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="PAID">Paid</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={payeeType}
+                onValueChange={(v) => setPayeeType(v as PayeeType | "ALL")}
+              >
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All payees</SelectItem>
+                  <SelectItem value="INSTRUCTOR">Instructors</SelectItem>
+                  <SelectItem value="DELIVERY_PARTNER">Delivery partners</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearAll}
-                className="h-9 gap-1 text-xs"
+                className="h-9 shrink-0 gap-1 self-start text-xs sm:self-auto"
               >
                 <X className="h-3.5 w-3.5" /> Clear
               </Button>

@@ -13,6 +13,7 @@ import {
   Search, Mail, AlertTriangle, Handshake,
 } from "lucide-react";
 import { EmailTemplateEditor } from "./email-template-editor";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 
 const CATEGORY_META: Record<EmailTemplateCategory, { label: string; icon: typeof Mail }> = {
   auth: { label: "Auth & onboarding", icon: KeyRound },
@@ -84,16 +85,20 @@ export default function EmailTemplatesClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Customized" value={customizedCount} />
-        <StatCard label="Using default" value={templates.length - customizedCount} />
-        <StatCard label="Sent (7 days)" value={sent7d} />
-        <StatCard
-          label="Failed (7 days)"
-          value={failed7d}
-          tone={failed7d > 0 ? "destructive" : undefined}
-        />
-      </div>
+      <CollapsibleStats
+        summary={`${customizedCount} customized · ${sent7d} sent · ${failed7d} failed (7d)`}
+      >
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Customized" value={customizedCount} />
+          <StatCard label="Using default" value={templates.length - customizedCount} />
+          <StatCard label="Sent (7 days)" value={sent7d} />
+          <StatCard
+            label="Failed (7 days)"
+            value={failed7d}
+            tone={failed7d > 0 ? "destructive" : undefined}
+          />
+        </div>
+      </CollapsibleStats>
 
       <div className="flex flex-wrap gap-2">
         <Button

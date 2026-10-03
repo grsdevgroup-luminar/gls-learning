@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { OrderStatus } from "@skillstream/shared";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -191,33 +192,41 @@ export default function AdminOrders() {
         <p className="text-muted-foreground">Transactions across Stripe and PayPal.</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 shrink-0">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              {statsLoading ? (
-                <>
-                  <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
-                  <div className="space-y-1.5">
-                    <div className="h-7 w-16 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                    <s.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold leading-none">{s.value}</div>
-                    <div className="text-xs text-muted-foreground">{s.label}</div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <CollapsibleStats
+        summary={
+          statsLoading
+            ? "Loading stats…"
+            : `${stats[0].value} gross · ${stats[1].value} orders · ${stats[2].value} refunds`
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 shrink-0 sm:grid-cols-3">
+          {stats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex items-center gap-3 pt-6">
+                {statsLoading ? (
+                  <>
+                    <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+                    <div className="space-y-1.5">
+                      <div className="h-7 w-16 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                      <s.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold leading-none">{s.value}</div>
+                      <div className="text-xs text-muted-foreground">{s.label}</div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </CollapsibleStats>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center shrink-0">
         <div className="relative sm:max-w-xs sm:flex-1">
@@ -229,48 +238,50 @@ export default function AdminOrders() {
             className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
           />
         </div>
-        <Select
-          value={status}
-          onValueChange={(value) => {
-            if (!value) return;
-            setStatus(value as StatusFilter);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[11.5rem]" aria-label="Filter by status">
-            <SelectValue>
-              {status === "all" ? "All statuses" : STATUS_LABELS[status]}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTERS.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s === "all" ? "All statuses" : STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={gateway}
-          onValueChange={(value) => {
-            if (!value) return;
-            setGateway(value as GatewayFilter);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[12.5rem]" aria-label="Filter by gateway">
-            <SelectValue>
-              {GATEWAY_FILTERS.find((option) => option.value === gateway)?.label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {GATEWAY_FILTERS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select
+            value={status}
+            onValueChange={(value) => {
+              if (!value) return;
+              setStatus(value as StatusFilter);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-1/2 sm:w-[11.5rem]" aria-label="Filter by status">
+              <SelectValue>
+                {status === "all" ? "All statuses" : STATUS_LABELS[status]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_FILTERS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s === "all" ? "All statuses" : STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={gateway}
+            onValueChange={(value) => {
+              if (!value) return;
+              setGateway(value as GatewayFilter);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-1/2 sm:w-[12.5rem]" aria-label="Filter by gateway">
+              <SelectValue>
+                {GATEWAY_FILTERS.find((option) => option.value === gateway)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {GATEWAY_FILTERS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="sm:ml-auto">
           <AdminRowsPerPage
             value={pageSize}

@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api/endpoints";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle2, XCircle } from "lucide-react";
@@ -74,26 +75,34 @@ export default function AdminInstructors() {
           value="applications"
           className="flex min-h-0 flex-1 flex-col gap-4 pt-4"
         >
-          <StatStrip className="grid-cols-2 shrink-0 lg:grid-cols-3">
-            <Stat
-              icon={Clock}
-              label="Pending applications"
-              value={stats?.pending ?? "—"}
-              tint="var(--tint-amber)"
-            />
-            <Stat
-              icon={CheckCircle2}
-              label="Approved applications"
-              value={stats?.approved ?? "—"}
-              tint="var(--tint-emerald)"
-            />
-            <Stat
-              icon={XCircle}
-              label="Rejected"
-              value={stats?.rejected ?? "—"}
-              tint="var(--tint-rose)"
-            />
-          </StatStrip>
+          <CollapsibleStats
+            summary={
+              stats
+                ? `${stats.pending} pending · ${stats.approved} approved · ${stats.rejected} rejected`
+                : "Loading stats…"
+            }
+          >
+            <StatStrip className="grid-cols-1 shrink-0 sm:grid-cols-3">
+              <Stat
+                icon={Clock}
+                label="Pending applications"
+                value={stats?.pending ?? "—"}
+                tint="var(--tint-amber)"
+              />
+              <Stat
+                icon={CheckCircle2}
+                label="Approved applications"
+                value={stats?.approved ?? "—"}
+                tint="var(--tint-emerald)"
+              />
+              <Stat
+                icon={XCircle}
+                label="Rejected"
+                value={stats?.rejected ?? "—"}
+                tint="var(--tint-rose)"
+              />
+            </StatStrip>
+          </CollapsibleStats>
           <ApplicationsTab
             onMutated={() => {
               qc.invalidateQueries({

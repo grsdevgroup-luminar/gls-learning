@@ -424,6 +424,14 @@ export class InstructorService {
       );
       return created;
     });
+    void this.notifications
+      .notifyAdmins({
+        event: "NAME_CHANGE_REQUESTED",
+        title: "Instructor name change requested",
+        body: `${current.name} requested to change their name to "${requestedName}".`,
+        href: "/admin/instructors",
+      })
+      .catch(() => undefined);
     return toNameChangeDto(request);
   }
   async requestExpertiseChange(
@@ -456,6 +464,14 @@ export class InstructorService {
       currentExpertise: current.instructorProfile.expertise,
       requestedExpertise,
     });
+    void this.notifications
+      .notifyAdmins({
+        event: "EXPERTISE_CHANGE_REQUESTED",
+        title: "Instructor expertise change requested",
+        body: `${current.name} requested to change their expertise to "${requestedExpertise}".`,
+        href: "/admin/instructors",
+      })
+      .catch(() => undefined);
     return toExpertiseChangeDto(request);
   }
   async updateProfile(
@@ -599,8 +615,8 @@ export class InstructorService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await this.repo.updateExpertiseChangeRequest(
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedRequest = await this.repo.updateExpertiseChangeRequest(
         id,
         { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id },
         tx,
@@ -621,8 +637,18 @@ export class InstructorService {
           tx,
         );
       }
-      return toExpertiseChangeDto(updated);
+      return toExpertiseChangeDto(updatedRequest);
     });
+    void this.notifications
+      .notify({
+        userId: request.userId,
+        event: "EXPERTISE_CHANGE_APPROVED",
+        title: "Expertise change approved",
+        body: `Your expertise has been updated to "${request.requestedExpertise}".`,
+        href: "/instructor/profile",
+      })
+      .catch(() => undefined);
+    return updated;
   }
 
   async rejectExpertiseChange(
@@ -649,6 +675,15 @@ export class InstructorService {
       reviewedBy: admin.id,
       note,
     });
+    void this.notifications
+      .notify({
+        userId: request.userId,
+        event: "EXPERTISE_CHANGE_REJECTED",
+        title: "Expertise change request update",
+        body: note,
+        href: "/instructor/profile",
+      })
+      .catch(() => undefined);
     return toExpertiseChangeDto(updated);
   }
   async listNameChangeRequests(
@@ -695,8 +730,8 @@ export class InstructorService {
         "The instructor name changed before this request was reviewed",
       );
     }
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await this.repo.updateNameChangeRequest(
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedRequest = await this.repo.updateNameChangeRequest(
         id,
         { status: "APPROVED", reviewedAt: new Date(), reviewedBy: admin.id },
         tx,
@@ -721,8 +756,18 @@ export class InstructorService {
         );
       }
       await this.repo.updateUserName(request.userId, request.requestedName, tx);
-      return toNameChangeDto(updated);
+      return toNameChangeDto(updatedRequest);
     });
+    void this.notifications
+      .notify({
+        userId: request.userId,
+        event: "NAME_CHANGE_APPROVED",
+        title: "Name change approved",
+        body: `Your name has been updated to "${request.requestedName}".`,
+        href: "/instructor/profile",
+      })
+      .catch(() => undefined);
+    return updated;
   }
 
   async rejectNameChange(
