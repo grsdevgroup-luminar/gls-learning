@@ -7,6 +7,7 @@ import { adminApi, type InstructorProfileDto } from "@/lib/api/endpoints";
 import { useCategories } from "@/lib/api/hooks";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { Stars } from "@/components/shared/stars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -106,23 +107,27 @@ export function RosterTab() {
 
   return (
     <>
-      <StatStrip className="grid-cols-1 shrink-0 sm:grid-cols-2">
-        <Stat
-          icon={GraduationCap}
-          label="Active instructors"
-          value={data?.total ?? "—"}
-          tint="var(--tint-indigo)"
-        />
-        <Stat
-          icon={Users}
-          label="Students on this page"
-          value={compactNumber(totalStudents)}
-          tint="var(--tint-sky)"
-        />
-      </StatStrip>
+      <CollapsibleStats
+        summary={`${data?.total ?? "—"} active instructors · ${compactNumber(totalStudents)} students on this page`}
+      >
+        <StatStrip className="grid-cols-1 shrink-0 sm:grid-cols-2">
+          <Stat
+            icon={GraduationCap}
+            label="Active instructors"
+            value={data?.total ?? "—"}
+            tint="var(--tint-indigo)"
+          />
+          <Stat
+            icon={Users}
+            label="Students on this page"
+            value={compactNumber(totalStudents)}
+            tint="var(--tint-sky)"
+          />
+        </StatStrip>
+      </CollapsibleStats>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={qInput}
@@ -132,7 +137,7 @@ export function RosterTab() {
           />
         </div>
         <Select value={expertise} onValueChange={(v) => v && setExpertise(v)}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -144,7 +149,7 @@ export function RosterTab() {
             ))}
           </SelectContent>
         </Select>
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <AdminRowsPerPage value={pageSize} onChange={(v) => setPageSize(v)} />
         </div>
       </div>

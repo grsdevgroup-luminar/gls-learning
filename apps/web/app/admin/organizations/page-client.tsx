@@ -17,6 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Building2, Users, BookOpen, Plus, Search } from "lucide-react";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -162,21 +163,25 @@ export default function AdminOrganizations() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold leading-none">{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <CollapsibleStats
+        summary={`${stats[0].value} orgs · ${stats[1].value} active · ${stats[2].value} members · ${stats[3].value} assignments`}
+      >
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {stats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold leading-none">{s.value}</div>
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </CollapsibleStats>
 
       <div className="relative sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

@@ -139,8 +139,8 @@ export function EmailTemplateEditor({
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
-          <div className="space-y-4">
+        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
+          <div className="min-w-0 space-y-4">
             <div className="space-y-1.5">
               <Label>Subject</Label>
               <Input
@@ -189,7 +189,7 @@ export function EmailTemplateEditor({
             )}
           </div>
 
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <div className="flex items-center justify-between">
               <Label>Preview</Label>
               <div className="flex gap-1">
@@ -214,7 +214,7 @@ export function EmailTemplateEditor({
             <div className="rounded-lg border bg-slate-100 p-4 dark:bg-muted/30">
               <div
                 className="mx-auto overflow-hidden rounded-md border bg-white shadow-sm"
-                style={{ width: device === "mobile" ? 375 : 600 }}
+                style={{ width: device === "mobile" ? 375 : 600, maxWidth: "100%" }}
               >
                 {device === "desktop" && (
                   <div className="flex items-center gap-1.5 border-b bg-slate-50 px-3 py-2 dark:bg-muted">
