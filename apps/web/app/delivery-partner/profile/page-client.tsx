@@ -1,6 +1,12 @@
 "use client";
 
+import { useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMyDeliveryPartner } from "@/lib/api/delivery-partner-hooks";
+import { useSession, SESSION_QUERY_KEY } from "@/lib/api/session";
+import { apiFetch, apiFetchMultipart } from "@/lib/api/client";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import {
   PartnerMissingState,
   PartnerPageLoading,
@@ -10,9 +16,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User } from "lucide-react";
 import { ChangePasswordCard } from "@/components/shared/change-password-card";
+import { PhotoCard } from "@/app/instructor/profile/_components/photo-card";
+import { toast } from "sonner";
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 export default function PartnerProfile() {
   const { data: partner, isLoading } = useMyDeliveryPartner();
+  const { user } = useSession();
+  const qc = useQueryClient();
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadAvatar = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiFetchMultipart<{ avatar: string | null }>("/auth/me/avatar", form);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      router.refresh();
+      toast.success("Photo updated");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  const deleteAvatar = useMutation({
+    mutationFn: () =>
+      apiFetch<{ avatar: string | null }>("/auth/me/avatar", { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      router.refresh();
+      toast.success("Photo removed");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  function handleAvatarPicked(file: File | undefined) {
+    if (!file) return;
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error("Photo must be under 5 MB");
+      return;
+    }
+    uploadAvatar.mutate(file);
+  }
 
   if (isLoading) return <PartnerPageLoading />;
   if (!partner) return <PartnerMissingState />;
@@ -34,6 +82,17 @@ export default function PartnerProfile() {
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground">Your partner details.</p>
       </div>
+
+      <PhotoCard
+        name={partner.name}
+        title={partner.region || "Delivery partner"}
+        avatar={user?.avatar ?? ""}
+        fileInputRef={fileInputRef}
+        onFilePicked={handleAvatarPicked}
+        onRemove={() => deleteAvatar.mutate()}
+        uploading={uploadAvatar.isPending}
+        removing={deleteAvatar.isPending}
+      />
 
       <Card>
         <CardHeader>

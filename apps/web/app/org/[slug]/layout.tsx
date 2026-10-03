@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
-import type { OrganizationDto } from "@skillstream/shared";
+import type { AuthUserDto, OrganizationDto } from "@skillstream/shared";
 
 export const metadata: Metadata = {
   title: "Organization Portal",
@@ -19,7 +19,10 @@ export default async function OrgLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const org = await serverApiOptional<OrganizationDto>(`/organizations/${slug}`);
+  const [org, user] = await Promise.all([
+    serverApiOptional<OrganizationDto>(`/organizations/${slug}`),
+    serverApiOptional<AuthUserDto>("/auth/me"),
+  ]);
 
   const name = org?.name ?? "Organization";
   const email = org?.adminEmail ?? "";
@@ -32,7 +35,7 @@ export default async function OrgLayout({
   ];
 
   return (
-    <PortalShell items={items} badge="Company Admin" user={{ name, email, initials: initials(name) }}>
+    <PortalShell items={items} badge="Company Admin" user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}>
       {children}
     </PortalShell>
   );

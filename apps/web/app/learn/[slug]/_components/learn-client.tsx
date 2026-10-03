@@ -480,7 +480,7 @@ function RatingControl({ courseId }: { courseId: string }) {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={existing?.body || "Write your review"}
-          className="min-h-20 resize-y"
+          className="h-32 min-h-32 max-h-32 resize-none overflow-y-auto overscroll-contain [field-sizing:fixed]"
           maxLength={4000}
           required
         />

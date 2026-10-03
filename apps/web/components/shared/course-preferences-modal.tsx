@@ -131,32 +131,37 @@ export function CoursePreferencesModal({
         w-[min(92vw,720px)]
         max-w-none!
         max-h-[90dvh]
+        flex
+        flex-col
         min-w-0
         gap-0
         overflow-x-hidden
-        overflow-y-auto
+        overflow-hidden
         p-0
         shadow-2xl
        "
       >
         {/* Header + Categories */}
-        <div className="min-w-0 px-3 pb-5 pt-6 sm:px-6 sm:pb-7 sm:pt-8">
-          <DialogHeader className="items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        <div className="min-h-0 min-w-0 overflow-hidden px-3 pb-5 pt-6 sm:px-6 sm:pb-7 sm:pt-8">
+          <DialogHeader className="w-full items-center gap-2 text-center">
+            <DialogTitle className="w-full text-center text-2xl font-semibold tracking-tight sm:text-3xl">
               Choose your learning interests
             </DialogTitle>
 
-            <DialogDescription className="max-w-xl text-sm sm:text-base">
+            <DialogDescription className="w-full max-w-xl text-center text-sm sm:text-base">
               Choose at least three categories to personalize your course
               recommendations.
             </DialogDescription>
           </DialogHeader>
 
           {/* The viewport stays two rows by five columns; new categories scroll inside it. */}
-          <div className="mt-5 min-w-0 aspect-[5/2] overflow-y-auto pr-1 sm:mt-5 sm:pr-2">
+          <div
+            className="mt-5 min-w-0 aspect-[5/2] max-h-[40vw] overflow-y-auto overscroll-contain pr-1 sm:mt-5 sm:pr-2"
+            aria-label="Learning interest categories"
+          >
             <div
               aria-busy={savePreferences.isPending}
-              className="grid min-w-0 grid-cols-5 gap-1.5 sm:gap-3"
+              className="grid h-full min-w-0 grid-cols-5 auto-rows-[calc((100%_-_0.375rem)/2)] gap-1.5 sm:auto-rows-[calc((100%_-_0.75rem)/2)] sm:gap-3"
             >
               {categories.map((category) => {
                 const selected = selectedCategories.includes(category);
@@ -169,17 +174,16 @@ export function CoursePreferencesModal({
                     aria-pressed={selected}
                     disabled={savePreferences.isPending || categoriesLoading}
                     onClick={() => toggleCategory(category)}
-                    className={`flex aspect-square min-w-0 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border px-2 py-2 text-center text-[10px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm ${
+                    className={`flex h-full min-w-0 w-full flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg border px-0.5 py-1 text-center text-[9px] font-medium leading-tight whitespace-normal wrap-break-words transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 sm:gap-1 sm:px-2 sm:py-2 sm:text-sm ${
                       selected
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card hover:border-primary hover:bg-accent"
                     }`}
                   >
-                    <CategoryIcon
-                      className="size-8 shrink-0 sm:size-6"
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 max-w-full wrap-break-words">
+                    <span className="flex size-5 shrink-0 items-center justify-center sm:size-6">
+                      <CategoryIcon className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="line-clamp-2 min-h-[2.25em] w-full min-w-0 max-w-full text-center wrap-break-words">
                       {category}
                     </span>
                   </button>
@@ -194,6 +198,7 @@ export function CoursePreferencesModal({
           className="
             flex
             min-w-0
+            shrink-0
             items-center
             justify-between
             gap-3

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { orgApi } from "@/lib/api/endpoints";
+import { apiFetch, apiFetchMultipart } from "@/lib/api/client";
+import { useSession, SESSION_QUERY_KEY } from "@/lib/api/session";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +15,9 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/shared/form-field";
 import { Building2, Mail, Globe, Calendar, Shield } from "lucide-react";
 import { ChangePasswordCard } from "@/components/shared/change-password-card";
+import { PhotoCard } from "@/app/instructor/profile/_components/photo-card";
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 const statusColors: Record<string, string> = {
   ACTIVE: "text-success",
@@ -23,6 +28,9 @@ const statusColors: Record<string, string> = {
 export default function OrgAccount() {
   const params = useParams<{ slug: string }>();
   const qc = useQueryClient();
+  const router = useRouter();
+  const { user } = useSession();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [edit, setEdit] = useState<{
     name: string;
     domain: string;
@@ -38,6 +46,40 @@ export default function OrgAccount() {
     queryFn: () => orgApi.courses(org!.id),
     enabled: !!org?.id,
   });
+
+  const uploadAvatar = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiFetchMultipart<{ avatar: string | null }>("/auth/me/avatar", form);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      router.refresh();
+      toast.success("Photo updated");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  const deleteAvatar = useMutation({
+    mutationFn: () =>
+      apiFetch<{ avatar: string | null }>("/auth/me/avatar", { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      router.refresh();
+      toast.success("Photo removed");
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  function handleAvatarPicked(file: File | undefined) {
+    if (!file) return;
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error("Photo must be under 5 MB");
+      return;
+    }
+    uploadAvatar.mutate(file);
+  }
 
   const save = useMutation({
     mutationFn: () =>
@@ -80,6 +122,17 @@ export default function OrgAccount() {
           Organization details and plan information.
         </p>
       </div>
+
+      <PhotoCard
+        name={user?.name ?? org.adminEmail.split("@")[0]}
+        title="Organization administrator"
+        avatar={user?.avatar ?? ""}
+        fileInputRef={fileInputRef}
+        onFilePicked={handleAvatarPicked}
+        onRemove={() => deleteAvatar.mutate()}
+        uploading={uploadAvatar.isPending}
+        removing={deleteAvatar.isPending}
+      />
 
       <Card>
         <CardHeader>

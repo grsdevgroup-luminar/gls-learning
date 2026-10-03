@@ -8,7 +8,7 @@ import { formatUsd } from "@/lib/format";
 import { StatStrip, Stat } from "@/components/shared/stat-strip";
 import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +133,7 @@ export function PartnersTab() {
                   <TableCell className="pl-6">
                     <div className="flex min-w-0 items-center gap-2">
                       <Avatar className="h-7 w-7">
+                        {a.avatar && <AvatarImage src={a.avatar} alt="" />}
                         <AvatarFallback className="text-xs">{initials(a.name)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 max-w-[260px] flex-1">

@@ -30,6 +30,8 @@ import {
 } from "../notifications/notifications.service";
 import { AdminService } from "../admin/admin.service";
 import { toCourseSummary } from "../courses/course.mapper";
+import { STORAGE_DRIVER } from "../storage/storage.constants";
+import type { StorageDriver } from "../storage/storage.driver";
 import {
   OrganizationsRepository,
   type OrgRow,
@@ -65,6 +67,7 @@ export class OrganizationsService {
     private readonly notifications: NotificationsService,
     @Inject(forwardRef(() => AdminService)) private readonly admin: AdminService,
     private readonly audit: AuditService,
+    @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
   private toDto(o: OrgRow): OrganizationDto {
@@ -184,7 +187,25 @@ export class OrganizationsService {
 
   async list(): Promise<OrganizationDto[]> {
     const rows = await this.repo.findManyOrganizations();
-    return rows.map((o) => this.toDto(o));
+    const adminRows = await this.repo.findOrgAdminAvatarRows(
+      rows.map((org) => org.id),
+    );
+    const adminByOrgId = new Map(adminRows.map((row) => [row.orgId, row]));
+    return Promise.all(
+      rows.map(async (org) => {
+        const admin = adminByOrgId.get(org.id);
+        const adminAvatar = admin?.user?.avatarKey
+          ? await this.storage
+              .getUrl(admin.user.avatarKey)
+              .catch(() => admin.user?.avatar ?? null)
+          : admin?.user?.avatar ?? null;
+        return {
+          ...this.toDto(org),
+          ...(admin ? { adminName: admin.name } : {}),
+          adminAvatar,
+        };
+      }),
+    );
   }
 
   async get(user: RequestUser, orgId: string): Promise<OrganizationDto> {

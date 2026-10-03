@@ -38,7 +38,13 @@ export function PptxViewer({
       const availableWidth = frame?.clientWidth ?? host.current.clientWidth;
       const availableHeight = Math.max(360, window.innerHeight - 90);
       const slideHeight = Math.max(240, availableHeight - 64);
-      const width = Math.max(280, Math.min(Math.floor(availableWidth), Math.floor(slideHeight * 16 / 9)));
+      // On mobile landscape, the viewport is short but still wide enough to
+      // display the slide at full width. Capping by height here makes the
+      // presentation look unnecessarily small on phones held sideways.
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      const width = isMobile
+        ? Math.max(280, Math.floor(availableWidth))
+        : Math.max(280, Math.min(Math.floor(availableWidth), Math.floor(slideHeight * 16 / 9)));
       const height = Math.round(width * 9 / 16);
       host.current.style.width = `${width}px`;
       host.current.style.height = `${height}px`;

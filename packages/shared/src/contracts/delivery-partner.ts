@@ -106,6 +106,7 @@ export const DeliveryPartnerDto = z.object({
   userId: z.string(),
   name: z.string(),
   email: z.string(),
+  avatar: z.string().nullable().optional(),
   region: z.string(),
   commissionPercent: z.number(),
   status: z.nativeEnum(DeliveryPartnerStatus),

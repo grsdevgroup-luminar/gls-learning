@@ -69,6 +69,22 @@ export class OrganizationsRepository {
     });
   }
 
+  findOrgAdminAvatarRows(orgIds: string[]) {
+    return this.prisma.orgMember.findMany({
+      where: {
+        orgId: { in: orgIds },
+        role: "ADMIN",
+        removedAt: null,
+        userId: { not: null },
+      },
+      select: {
+        orgId: true,
+        name: true,
+        user: { select: { avatar: true, avatarKey: true } },
+      },
+    });
+  }
+
   updateOrganization(
     orgId: string,
     data: Prisma.OrganizationUpdateInput,

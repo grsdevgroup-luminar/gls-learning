@@ -196,7 +196,7 @@ export default function CertificatesPage() {
       )}
 
       <Dialog open={!!active} onOpenChange={(open) => !open && setActive(null)}>
-        <DialogContent className="w-fit max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-none">
+        <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100vh-2rem)] max-w-[calc(100vw-1rem)] overflow-hidden sm:w-fit sm:max-w-[calc(100vw-2rem)]">
           <DialogTitle className="sr-only">
             {active ? `Certificate — ${active.courseTitle}` : 'Certificate'}
           </DialogTitle>
@@ -204,10 +204,10 @@ export default function CertificatesPage() {
             Certificate of completion, shareable and downloadable.
           </DialogDescription>
           {active && (
-            <div className="certificate-dialog-scroll">
-              <div className="certificate-dialog-preview">
-                <CertificateTemplate data={templateData(active)} />
-                <div className="flex justify-end gap-2">
+            <div className="certificate-dialog-scroll w-full">
+              <div className="certificate-dialog-preview w-full sm:w-[210mm]">
+                <CertificateDialogPreview cert={active} />
+                <div className="flex flex-wrap justify-end gap-2">
                   <Button
                     variant="outline"
                     render={<a href={`/verify/${active.serial}`} />}
@@ -261,6 +261,37 @@ function CertificateCardPreview({ cert }: { cert: CertificateDto }) {
 
   return (
     <div ref={frameRef} className="certificate-card-preview" style={style}>
+      <CertificateTemplate variant="small" data={templateData(cert)} />
+    </div>
+  );
+}
+
+function CertificateDialogPreview({ cert }: { cert: CertificateDto }) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const resize = () => {
+      setScale(Math.min(1, frame.clientWidth / 793.7));
+    };
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(frame);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const style = {
+    '--certificate-card-scale': scale,
+    height: `${1122.5 * scale}px`,
+  } as CSSProperties;
+
+  return (
+    <div ref={frameRef} className="certificate-dialog-frame" style={style}>
       <CertificateTemplate variant="small" data={templateData(cert)} />
     </div>
   );
