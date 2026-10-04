@@ -129,8 +129,16 @@ export class PaymentsService {
     });
   }
 
-  async handlePaypalWebhook(body: unknown): Promise<void> {
-    await this.processWebhook(PaymentGatewayName.PAYPAL, { body });
+  async handlePaypalWebhook(
+    body: unknown,
+    rawBody: Buffer | undefined,
+    headers: Record<string, string | undefined>,
+  ): Promise<void> {
+    await this.processWebhook(PaymentGatewayName.PAYPAL, {
+      body,
+      rawBody,
+      headers,
+    });
   }
 
   async handleSslcommerzWebhook(body: unknown): Promise<void> {

@@ -37,8 +37,15 @@ export class PaymentsController {
   @Public()
   @Post("webhooks/paypal")
   @HttpCode(200)
-  async paypal(@Body() body: unknown): Promise<{ received: true }> {
-    await this.payments.handlePaypalWebhook(body);
+  async paypal(
+    @Req() req: RawBodyRequest<Request>,
+    @Body() body: unknown,
+  ): Promise<{ received: true }> {
+    await this.payments.handlePaypalWebhook(
+      body,
+      req.rawBody,
+      req.headers as Record<string, string | undefined>,
+    );
     return { received: true };
   }
 
