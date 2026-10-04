@@ -56,6 +56,9 @@ const rawEnvSchema = z.object({
   PAYOUT_MIN_NET_CENTS: z.coerce.number().int().min(100).default(2_500),
   PAYPAL_CLIENT_ID: z.string().optional(),
   PAYPAL_CLIENT_SECRET: z.string().optional(),
+  // Webhook ID from the PayPal dashboard (app → Webhooks). Required to verify
+  // inbound webhook signatures; sandbox and live apps have different IDs.
+  PAYPAL_WEBHOOK_ID: z.string().optional(),
   // Sandbox (`api-m.sandbox.paypal.com`) vs live (`api-m.paypal.com`). Defaults
   // to sandbox in non-prod. Set to "true" in prod when the credentials come
   // from a sandbox app — live host rejects sandbox creds with `invalid_client`.

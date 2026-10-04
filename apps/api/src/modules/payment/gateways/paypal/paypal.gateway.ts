@@ -251,7 +251,59 @@ export class PaypalGateway implements PaymentGateway {
     }
   }
 
+  /**
+   * Asks PayPal whether the transmission headers were signed for this exact
+   * payload and our webhook ID. Without this anyone could POST a fake
+   * PAYMENT.CAPTURE.COMPLETED and get an order fulfilled for free.
+   */
+  private async assertSignedByPaypal(input: WebhookInput): Promise<void> {
+    const webhookId = this.config.get("PAYPAL_WEBHOOK_ID", { infer: true });
+    if (!webhookId || !this.isConfigured())
+      throw new ServiceUnavailableException("PayPal webhooks not configured");
+
+    const h = input.headers ?? {};
+    const transmission = {
+      auth_algo: h["paypal-auth-algo"],
+      cert_url: h["paypal-cert-url"],
+      transmission_id: h["paypal-transmission-id"],
+      transmission_sig: h["paypal-transmission-sig"],
+      transmission_time: h["paypal-transmission-time"],
+    };
+    if (Object.values(transmission).some((v) => !v))
+      throw new BadRequestException("Missing PayPal signature headers");
+
+    // Splice the raw bytes in as webhook_event: re-serialising the parsed body
+    // can reorder keys or reformat numbers and break PayPal's signature check.
+    const event = input.rawBody?.toString("utf8") ?? JSON.stringify(input.body);
+    const payload = `${JSON.stringify({
+      ...transmission,
+      webhook_id: webhookId,
+    }).slice(0, -1)},"webhook_event":${event}}`;
+
+    const token = await this.accessToken();
+    const res = await fetch(
+      `${this.baseUrl()}/v1/notifications/verify-webhook-signature`,
+      {
+        method: "POST",
+        signal: gatewaySignal(),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: payload,
+      },
+    );
+    if (!res.ok)
+      throw new ServiceUnavailableException(
+        `PayPal webhook verification failed (${res.status}): ${await res.text()}`,
+      );
+    const json = (await res.json()) as { verification_status?: string };
+    if (json.verification_status !== "SUCCESS")
+      throw new BadRequestException("Invalid PayPal webhook signature");
+  }
+
   async verifyWebhook(input: WebhookInput): Promise<WebhookResult> {
+    await this.assertSignedByPaypal(input);
     const body = input.body as PaypalWebhookBody | undefined;
     const eventId = body?.id;
     const type = body?.event_type;

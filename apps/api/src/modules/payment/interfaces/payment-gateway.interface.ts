@@ -21,6 +21,8 @@ export interface WebhookInput {
   rawBody?: Buffer;
   body?: unknown;
   signature?: string;
+  /** Lower-cased request headers, for providers that sign via several headers. */
+  headers?: Record<string, string | undefined>;
 }
 
 export interface WebhookResult {
