@@ -39,12 +39,4 @@ export class AdminAlertsRepository {
       where: { createdAt: { gte: start, lt: end } },
     });
   }
-
-  findAtRiskStudents() {
-    return this.prisma.studentProfile.findMany({
-      where: { status: "AT_RISK" },
-      select: { user: { select: { name: true, email: true } } },
-      take: 25,
-    });
-  }
 }

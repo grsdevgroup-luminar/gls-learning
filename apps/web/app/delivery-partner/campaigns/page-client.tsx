@@ -149,35 +149,26 @@ export default function PartnerCampaigns() {
         <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
       </div>
 
-      <AdminTableCard scrollClassName="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className={stickyHeaderRowClass}>
-              <TableHead className={stickyHeaderCellClass}>Code</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Discount</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Courses</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Usage</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Dates</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {all.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                  No campaigns yet — ask an admin to set one up for you.
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                  No campaigns match this search/filter.
-                </TableCell>
-              </TableRow>
-            ) : (
-              paged.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
+      {all.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No campaigns yet — ask an admin to set one up for you.
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No campaigns match this search/filter.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="space-y-3 sm:hidden">
+            {paged.map((c) => (
+              <Card key={c.id}>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-sm font-semibold">{c.code}</span>
                       <Button
@@ -189,19 +180,25 @@ export default function PartnerCampaigns() {
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-sm font-semibold">
-                      {c.discountPercent}%
+                    <Badge variant="outline" className={`shrink-0 ${statusStyle[c.status].className}`}>
+                      {statusStyle[c.status].label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span className="font-semibold">{c.discountPercent}%</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="shrink-0 text-muted-foreground">Courses</span>
+                    <div className="min-w-0 text-right">
+                      <CampaignCoursesCell campaign={c} />
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <CampaignCoursesCell campaign={c} />
-                  </TableCell>
-                  <TableCell>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="shrink-0 text-muted-foreground">Usage</span>
                     {c.usageLimit > 0 ? (
-                      <div className="flex min-w-[140px] items-center gap-2">
-                        <Meter value={(c.usageCount / c.usageLimit) * 100} height={6} className="w-20" />
+                      <div className="flex items-center gap-2">
+                        <Meter value={(c.usageCount / c.usageLimit) * 100} height={6} className="w-16" />
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {c.usageCount.toLocaleString()}/{c.usageLimit.toLocaleString()}
                         </span>
@@ -209,21 +206,84 @@ export default function PartnerCampaigns() {
                     ) : (
                       <span className="text-xs text-muted-foreground">{c.usageCount.toLocaleString()} · unlimited</span>
                     )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {c.startDate.slice(0, 10)} → {c.endDate.slice(0, 10)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusStyle[c.status].className}>
-                      {statusStyle[c.status].label}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </AdminTableCard>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Dates</span>
+                    <span className="text-xs text-muted-foreground">
+                      {c.startDate.slice(0, 10)} → {c.endDate.slice(0, 10)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <AdminTableCard scrollClassName="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className={stickyHeaderRowClass}>
+                    <TableHead className={stickyHeaderCellClass}>Code</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Discount</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Courses</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Usage</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Dates</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-sm font-semibold">{c.code}</span>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label="Copy code"
+                            onClick={() => { navigator.clipboard?.writeText(c.code); toast.success("Code copied"); }}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm font-semibold">
+                          {c.discountPercent}%
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <CampaignCoursesCell campaign={c} />
+                      </TableCell>
+                      <TableCell>
+                        {c.usageLimit > 0 ? (
+                          <div className="flex min-w-[140px] items-center gap-2">
+                            <Meter value={(c.usageCount / c.usageLimit) * 100} height={6} className="w-20" />
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {c.usageCount.toLocaleString()}/{c.usageLimit.toLocaleString()}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{c.usageCount.toLocaleString()} · unlimited</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {c.startDate.slice(0, 10)} → {c.endDate.slice(0, 10)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={statusStyle[c.status].className}>
+                          {statusStyle[c.status].label}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AdminTableCard>
+          </div>
+        </>
+      )}
 
       <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} total={filtered.length} itemLabel="campaign" />
     </div>

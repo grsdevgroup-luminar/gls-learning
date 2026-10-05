@@ -20,7 +20,6 @@ import {
   searchQuerySchema,
   updatePlatformSettingsSchema,
   upsertCouponSchema,
-  updateUserStatusSchema,
   upsertAutomationRuleSchema,
   upsertEmailTemplateSchema,
   previewEmailTemplateSchema,
@@ -34,7 +33,6 @@ import {
   type SearchQuery,
   type UpdatePlatformSettingsInput,
   type UpsertCouponInput,
-  type UpdateUserStatusInput,
   type UpsertAutomationRuleInput,
   type UpsertEmailTemplateInput,
   type PreviewEmailTemplateInput,
@@ -147,14 +145,6 @@ export class AdminController {
   }
 
   // users
-  @Patch("users/:id/status")
-  updateUserStatus(
-    @Param("id") id: string,
-    @ZodBody(updateUserStatusSchema) body: UpdateUserStatusInput,
-  ) {
-    return this.admin.updateUserStatus(id, body);
-  }
-
   @Delete("users/:id")
   deleteUser(@Param("id") id: string) {
     return this.admin.deleteUser(id);

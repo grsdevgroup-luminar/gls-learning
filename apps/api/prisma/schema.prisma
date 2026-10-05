@@ -142,7 +142,6 @@ enum EnrollmentStatus {
 enum StudentStatus {
   ACTIVE
   IDLE
-  AT_RISK
 }
 
 enum ReviewStatus {

@@ -24,7 +24,6 @@ import type {
   RefundOrderInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
-  UpdateUserStatusInput,
 } from "@skillstream/shared";
 import {
   DEFAULT_AUTOMATION_PARAMS,
@@ -314,7 +313,7 @@ export class AdminService {
   /** Global counts, independent of the students search/pagination above. */
   async studentStats(): Promise<AdminStudentStatsDto> {
     const [total, active] = await this.repo.studentStatsCounts();
-    return { total, active, atRisk: total - active };
+    return { total, active, idle: total - active };
   }
 
   /** Every org and delivery-partner-course membership this student has ever
@@ -571,14 +570,6 @@ export class AdminService {
   ): Promise<PlatformSettingsDto> {
     const s = await this.repo.upsertSettings(SETTINGS_ID, input, { id: SETTINGS_ID, ...input });
     return this.toSettingsDto(s);
-  }
-
-  // ── user management ────────────────────────────────────────────────────────
-  async updateUserStatus(userId: string, input: UpdateUserStatusInput) {
-    const user = await this.repo.findUser(userId);
-    if (!user) throw new NotFoundException("User not found");
-    await this.repo.updateStudentProfileStatus(userId, { status: input.status });
-    return { ok: true as const };
   }
 
   /**

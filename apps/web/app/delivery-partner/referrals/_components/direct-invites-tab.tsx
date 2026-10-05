@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatStrip, Stat } from "@/components/shared/stat-strip";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -150,29 +152,20 @@ export function DirectInvitesTab() {
   // which reflects only currently-active/pending rows.
   const totalInvited = (assignments ?? []).reduce((sum, a) => sum + a.totalInvitesSent, 0);
 
-  const stats = [
-    { icon: Users, label: "Total invited", value: totalInvited },
-    { icon: CheckCircle2, label: "Active", value: members?.length ?? 0 },
-    { icon: Clock, label: "Pending", value: invitations?.length ?? 0 },
-  ];
+  const activeCount = members?.length ?? 0;
+  const pendingCount = invitations?.length ?? 0;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-4">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold leading-none">{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <CollapsibleStats
+        summary={`${totalInvited} invited · ${activeCount} active · ${pendingCount} pending`}
+      >
+        <StatStrip className="grid-cols-3">
+          <Stat icon={Users} label="Total invited" value={totalInvited} tint="var(--tint-indigo)" />
+          <Stat icon={CheckCircle2} label="Active" value={activeCount} tint="var(--tint-emerald)" />
+          <Stat icon={Clock} label="Pending" value={pendingCount} tint="var(--tint-amber)" />
+        </StatStrip>
+      </CollapsibleStats>
 
       <form
         className="flex flex-col gap-2 sm:flex-row"
@@ -260,59 +253,47 @@ export function DirectInvitesTab() {
         <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
       </div>
 
-      <AdminTableCard scrollClassName="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className={stickyHeaderRowClass}>
-              <TableHead className={stickyHeaderCellClass}>Member</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Course</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Status</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Date</TableHead>
-              <TableHead className={stickyHeaderCellClass}></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 5 }).map((__, j) => (
-                    <TableCell key={j}>
-                      <div className="h-4 w-full animate-pulse rounded bg-muted" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                  No members yet — invite someone above.
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                  No members match this search/filter.
-                </TableCell>
-              </TableRow>
-            ) : (
-              paged.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <div className="min-w-0">
-                      {r.name && <div className="truncate font-medium">{r.name}</div>}
+      {isLoading ? (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-14 w-full animate-pulse rounded bg-muted" />
+            ))}
+          </CardContent>
+        </Card>
+      ) : rows.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No members yet — invite someone above.
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No members match this search/filter.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="space-y-3 sm:hidden">
+            {paged.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      {r.name && <div className="truncate text-sm font-medium">{r.name}</div>}
                       <div className="truncate text-xs text-muted-foreground">{r.email}</div>
+                      <div className="truncate text-xs text-muted-foreground">{r.courseTitle}</div>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusStyle[r.status].className}>
+                    <Badge variant="outline" className={`shrink-0 ${statusStyle[r.status].className}`}>
                       {statusStyle[r.status].label}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {r.status === "active" ? `Joined ${relativeDate(r.date)}` : `Invited ${relativeDate(r.date)}`}
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                    <span className="text-xs text-muted-foreground">
+                      {r.status === "active" ? `Joined ${relativeDate(r.date)}` : `Invited ${relativeDate(r.date)}`}
+                    </span>
                     {r.status === "active" ? (
                       <ConfirmDialog
                         trigger={
@@ -340,13 +321,80 @@ export function DirectInvitesTab() {
                         onConfirm={() => revokeMutation.mutate(r.id)}
                       />
                     )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </AdminTableCard>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <AdminTableCard scrollClassName="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className={stickyHeaderRowClass}>
+                    <TableHead className={stickyHeaderCellClass}>Member</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Course</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Status</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Date</TableHead>
+                    <TableHead className={stickyHeaderCellClass}></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <div className="min-w-0">
+                          {r.name && <div className="truncate font-medium">{r.name}</div>}
+                          <div className="truncate text-xs text-muted-foreground">{r.email}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={statusStyle[r.status].className}>
+                          {statusStyle[r.status].label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {r.status === "active" ? `Joined ${relativeDate(r.date)}` : `Invited ${relativeDate(r.date)}`}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {r.status === "active" ? (
+                          <ConfirmDialog
+                            trigger={
+                              <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                                <UserMinus className="h-3 w-3" /> Remove
+                              </Button>
+                            }
+                            title={`Remove ${r.name || r.email}?`}
+                            description="They'll lose access to this course right away. Their seat stays used — it won't free up a spot for someone else."
+                            confirmLabel="Remove"
+                            pending={removeMutation.isPending}
+                            onConfirm={() => removeMutation.mutate(r.id)}
+                          />
+                        ) : (
+                          <ConfirmDialog
+                            trigger={
+                              <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                                <MailX className="h-3 w-3" /> Revoke
+                              </Button>
+                            }
+                            title={`Revoke invitation to ${r.email}?`}
+                            description="They won't be able to accept this invite anymore."
+                            confirmLabel="Revoke"
+                            pending={revokeMutation.isPending}
+                            onConfirm={() => revokeMutation.mutate(r.id)}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AdminTableCard>
+          </div>
+        </>
+      )}
 
       <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} total={filtered.length} itemLabel="member" />
     </div>

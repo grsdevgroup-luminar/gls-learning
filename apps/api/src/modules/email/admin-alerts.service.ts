@@ -8,7 +8,6 @@ import { EmailService } from "./email.service";
 export type AdminAlertKey =
   | "newEnrollment"
   | "dailyRevenue"
-  | "atRiskDigest"
   | "newReview";
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -103,20 +102,6 @@ export class AdminAlertsService {
       order_count: String(orders.length),
       enrollments: String(enrollments),
       signups: String(signups),
-    });
-  }
-
-  /** Learners flagged AT_RISK — the "at-risk student digest" toggle. */
-  async atRiskDigest(): Promise<void> {
-    const admins = await this.recipients("atRiskDigest");
-    if (admins.length === 0) return;
-
-    const students = await this.repo.findAtRiskStudents();
-    if (students.length === 0) return; // nothing to report — stay quiet
-
-    await this.send("atRiskDigest", "admin_alert_at_risk_digest", {
-      student_count: String(students.length),
-      student_list: students.map((s) => `• ${s.user.name} (${s.user.email})`).join("\n"),
     });
   }
 }

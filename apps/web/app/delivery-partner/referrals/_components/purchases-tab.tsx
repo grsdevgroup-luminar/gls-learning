@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useMyPartnerReferrals } from "@/lib/api/delivery-partner-hooks";
 import { formatUsd, relativeDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatStrip, Stat } from "@/components/shared/stat-strip";
+import { CollapsibleStats } from "@/components/shared/collapsible-stats";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -60,30 +62,18 @@ export function PurchasesTab() {
   const confirmed = all.filter((r) => r.status === "CONFIRMED");
   const pending = all.filter((r) => r.status === "PENDING");
 
-  const stats = [
-    { icon: ShoppingCart, label: "Total purchases", value: all.length },
-    { icon: CheckCircle2, label: "Paid", value: paid.length },
-    { icon: TrendingUp, label: "Confirmed", value: confirmed.length },
-    { icon: Clock, label: "Pending", value: pending.length },
-  ];
-
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold leading-none">{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <CollapsibleStats
+        summary={`${all.length} purchases · ${paid.length} paid · ${confirmed.length} confirmed · ${pending.length} pending`}
+      >
+        <StatStrip className="grid-cols-2 lg:grid-cols-4">
+          <Stat icon={ShoppingCart} label="Total purchases" value={all.length} tint="var(--tint-indigo)" />
+          <Stat icon={CheckCircle2} label="Paid" value={paid.length} tint="var(--tint-emerald)" />
+          <Stat icon={TrendingUp} label="Confirmed" value={confirmed.length} tint="var(--tint-sky)" />
+          <Stat icon={Clock} label="Pending" value={pending.length} tint="var(--tint-amber)" />
+        </StatStrip>
+      </CollapsibleStats>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative sm:max-w-sm sm:flex-1">
@@ -98,55 +88,98 @@ export function PurchasesTab() {
         <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
       </div>
 
-      <AdminTableCard scrollClassName="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className={stickyHeaderRowClass}>
-              <TableHead className={stickyHeaderCellClass}>Student</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Course</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Campaign</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Order total</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Commission</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Date</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {all.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                  No purchases yet — share a campaign code to get started.
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                  No purchases match this search.
-                </TableCell>
-              </TableRow>
-            ) : (
-              paged.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.studentName}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
-                  <TableCell className="font-mono text-xs">{r.campaignCode ?? "—"}</TableCell>
-                  <TableCell>{formatUsd(r.orderTotalCents / 100)}</TableCell>
-                  <TableCell className={`font-mono font-medium ${r.reversedCents > 0 ? "text-destructive" : "text-success"}`}>
-                    {r.reversedCents > 0 ? "−" : "+"}
-                    {formatUsd((r.reversedCents > 0 ? r.reversedCents : r.commissionCents) / 100)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusBadge[r.status].cls}>
+      {all.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No purchases yet — share a campaign code to get started.
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No purchases match this search.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="space-y-3 sm:hidden">
+            {paged.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{r.studentName}</div>
+                      <div className="truncate text-xs text-muted-foreground">{r.courseTitle}</div>
+                    </div>
+                    <Badge variant="outline" className={`shrink-0 ${statusBadge[r.status].cls}`}>
                       {statusBadge[r.status].label}
                     </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </AdminTableCard>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Campaign</span>
+                    <span className="font-mono text-xs">{r.campaignCode ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Order total</span>
+                    <span>{formatUsd(r.orderTotalCents / 100)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Commission</span>
+                    <span className={`font-mono font-medium ${r.reversedCents > 0 ? "text-destructive" : "text-success"}`}>
+                      {r.reversedCents > 0 ? "−" : "+"}
+                      {formatUsd((r.reversedCents > 0 ? r.reversedCents : r.commissionCents) / 100)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Date</span>
+                    <span className="text-xs text-muted-foreground">{relativeDate(r.createdAt)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <AdminTableCard scrollClassName="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className={stickyHeaderRowClass}>
+                    <TableHead className={stickyHeaderCellClass}>Student</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Course</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Campaign</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Order total</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Commission</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Date</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.studentName}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.campaignCode ?? "—"}</TableCell>
+                      <TableCell>{formatUsd(r.orderTotalCents / 100)}</TableCell>
+                      <TableCell className={`font-mono font-medium ${r.reversedCents > 0 ? "text-destructive" : "text-success"}`}>
+                        {r.reversedCents > 0 ? "−" : "+"}
+                        {formatUsd((r.reversedCents > 0 ? r.reversedCents : r.commissionCents) / 100)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={statusBadge[r.status].cls}>
+                          {statusBadge[r.status].label}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AdminTableCard>
+          </div>
+        </>
+      )}
 
       <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} total={filtered.length} itemLabel="purchase" />
     </div>

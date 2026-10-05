@@ -11,12 +11,11 @@ import {
 import { Mail, Phone, CalendarDays, Flame, Award, BookOpen } from "lucide-react";
 import { flagFor, formatCountry } from "@/lib/countries";
 
-type StatusKey = "ACTIVE" | "IDLE" | "AT_RISK";
+type StatusKey = "ACTIVE" | "IDLE";
 
 const statusBadge: Record<StatusKey, { label: string; cls: string }> = {
   ACTIVE: { label: "Active", cls: "text-success" },
   IDLE: { label: "Idle", cls: "text-warning" },
-  AT_RISK: { label: "At risk", cls: "text-destructive" },
 };
 
 /**

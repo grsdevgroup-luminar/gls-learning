@@ -131,38 +131,58 @@ export default function PartnerEarnings() {
               }}
             />
           </div>
-          <div className="max-h-[560px] overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className={stickyHeaderRowClass}>
-                <TableHead className={stickyHeaderCellClass}>Student</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Course</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Order</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Commission</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paid.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                    No paid commissions yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                pagedPaid.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.studentName}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
-                    <TableCell>{formatUsd(r.orderTotalCents / 100)}</TableCell>
-                    <TableCell className="font-mono font-medium text-success">+{formatUsd((r.commissionCents - r.reversedCents) / 100)}</TableCell>
-                    <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
+          {paid.length === 0 ? (
+            <p className="px-6 py-10 text-center text-muted-foreground">No paid commissions yet.</p>
+          ) : (
+            <>
+              {/* Mobile card list */}
+              <div className="space-y-3 px-4 sm:hidden">
+                {pagedPaid.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{r.studentName}</div>
+                        <div className="truncate text-xs text-muted-foreground">{r.courseTitle}</div>
+                      </div>
+                      <span className="shrink-0 font-mono font-medium text-success">
+                        +{formatUsd((r.commissionCents - r.reversedCents) / 100)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Order {formatUsd(r.orderTotalCents / 100)}</span>
+                      <span>{relativeDate(r.createdAt)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden max-h-[560px] overflow-auto sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className={stickyHeaderRowClass}>
+                    <TableHead className={stickyHeaderCellClass}>Student</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Course</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Order</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Commission</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Date</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {pagedPaid.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.studentName}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.courseTitle}</TableCell>
+                      <TableCell>{formatUsd(r.orderTotalCents / 100)}</TableCell>
+                      <TableCell className="font-mono font-medium text-success">+{formatUsd((r.commissionCents - r.reversedCents) / 100)}</TableCell>
+                      <TableCell className="text-muted-foreground">{relativeDate(r.createdAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
           <div className="px-6 pb-4">
             <AdminPagination page={paidPage} totalPages={paidTotalPages} onPageChange={setPaidPage} />
           </div>
@@ -179,7 +199,26 @@ export default function PartnerEarnings() {
               These orders were refunded after the commission was earned. A commission already paid out is deducted
               from your next payout instead of reversing the past payment.
             </p>
-            <div className="max-h-[400px] overflow-auto">
+            {/* Mobile card list */}
+            <div className="space-y-3 px-4 sm:hidden">
+              {reversed.map((r) => (
+                <div key={r.id} className="rounded-lg border border-border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{r.studentName}</div>
+                      <div className="truncate text-xs text-muted-foreground">{r.courseTitle}</div>
+                    </div>
+                    <span className="shrink-0 font-mono font-medium text-destructive">
+                      −{formatUsd(r.reversedCents / 100)}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">{relativeDate(r.createdAt)}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden max-h-[400px] overflow-auto sm:block">
               <Table>
                 <TableHeader>
                   <TableRow className={stickyHeaderRowClass}>
@@ -222,7 +261,27 @@ export default function PartnerEarnings() {
                 }}
               />
             </div>
-            <div className="max-h-[560px] overflow-auto">
+            {/* Mobile card list */}
+            <div className="space-y-3 px-4 sm:hidden">
+              {pagedPending.map((r) => (
+                <div key={r.id} className="rounded-lg border border-border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{r.studentName}</div>
+                      <div className="truncate text-xs text-muted-foreground">{r.courseTitle}</div>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-warning">Pending</Badge>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="font-mono font-medium text-warning">+{formatUsd(r.commissionCents / 100)}</span>
+                    <span className="text-muted-foreground">{relativeDate(r.createdAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden max-h-[560px] overflow-auto sm:block">
             <Table>
               <TableHeader>
                 <TableRow className={stickyHeaderRowClass}>

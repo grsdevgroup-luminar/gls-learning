@@ -146,9 +146,9 @@ export default function OrgMembers() {
         <Card>
           <CardContent className="divide-y p-0">
             {(invitations ?? []).map((inv) => (
-              <div key={inv.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                <MailPlus className="h-4 w-4 shrink-0 text-warning" />
-                <div className="min-w-0 flex-1">
+              <div key={inv.id} className="flex items-start gap-3 px-4 py-3 text-sm">
+                <MailPlus className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                <div className="min-w-0 flex-1 break-words">
                   <span className="font-medium">{inv.email}</span>{" "}
                   <span className="text-xs text-muted-foreground">
                     · pending {inv.role.toLowerCase()} invite
@@ -157,7 +157,7 @@ export default function OrgMembers() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="text-muted-foreground hover:text-destructive"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
                   onClick={() => cancelInviteMutation.mutate(inv.id)}
                   aria-label="Cancel invitation"
                 >
@@ -171,90 +171,148 @@ export default function OrgMembers() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Users className="h-6 w-6" />
-                      <span className="text-sm">No members found.</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered?.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="text-xs">{initials(m.name)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="text-sm font-medium">{m.name}</div>
-                          <div className="text-xs text-muted-foreground">{m.email}</div>
-                        </div>
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+              <Users className="h-6 w-6" />
+              <span className="text-sm">No members found.</span>
+            </div>
+          ) : (
+            <>
+              {/* Mobile card list */}
+              <div className="divide-y sm:hidden">
+                {filtered.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 p-4">
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarFallback className="text-xs">{initials(m.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{m.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{m.email}</div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <Badge variant="outline" className={m.role === "ADMIN" ? "text-primary" : "text-muted-foreground"}>
+                          {m.role.toLowerCase()}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{relativeDate(m.joinedAt)}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={m.role === "ADMIN" ? "text-primary" : "text-muted-foreground"}>
-                        {m.role.toLowerCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {relativeDate(m.joinedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {m.userId && m.role !== "ADMIN" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-foreground"
-                            aria-label="View profile"
-                            onClick={() => setSelectedMemberId(m.id)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {m.role !== "ADMIN" && (
-                          <ReasonConfirmDialog
-                            trigger={
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {m.userId && m.role !== "ADMIN" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label="View profile"
+                          onClick={() => setSelectedMemberId(m.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {m.role !== "ADMIN" && (
+                        <ReasonConfirmDialog
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label="Remove member"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          }
+                          title={`Remove ${m.name}?`}
+                          description="They will lose access to this organization's courses. They'll be notified with the reason below."
+                          reasonLabel="Reason for removal"
+                          reasonPlaceholder="e.g. No longer with the company"
+                          confirmLabel="Remove"
+                          pending={removeMutation.isPending}
+                          onConfirm={async (reason) => {
+                            await removeMutation.mutateAsync({ memberId: m.id, reason });
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs">{initials(m.name)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-sm font-medium">{m.name}</div>
+                              <div className="text-xs text-muted-foreground">{m.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={m.role === "ADMIN" ? "text-primary" : "text-muted-foreground"}>
+                            {m.role.toLowerCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {relativeDate(m.joinedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            {m.userId && m.role !== "ADMIN" && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-muted-foreground hover:text-destructive"
-                                aria-label="Remove member"
+                                className="text-muted-foreground hover:text-foreground"
+                                aria-label="View profile"
+                                onClick={() => setSelectedMemberId(m.id)}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
-                            }
-                            title={`Remove ${m.name}?`}
-                            description="They will lose access to this organization's courses. They'll be notified with the reason below."
-                            reasonLabel="Reason for removal"
-                            reasonPlaceholder="e.g. No longer with the company"
-                            confirmLabel="Remove"
-                            pending={removeMutation.isPending}
-                            onConfirm={async (reason) => {
-                              await removeMutation.mutateAsync({ memberId: m.id, reason });
-                            }}
-                          />
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                            )}
+                            {m.role !== "ADMIN" && (
+                              <ReasonConfirmDialog
+                                trigger={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-muted-foreground hover:text-destructive"
+                                    aria-label="Remove member"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                }
+                                title={`Remove ${m.name}?`}
+                                description="They will lose access to this organization's courses. They'll be notified with the reason below."
+                                reasonLabel="Reason for removal"
+                                reasonPlaceholder="e.g. No longer with the company"
+                                confirmLabel="Remove"
+                                pending={removeMutation.isPending}
+                                onConfirm={async (reason) => {
+                                  await removeMutation.mutateAsync({ memberId: m.id, reason });
+                                }}
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -296,16 +296,6 @@ export class AdminRepository {
     });
   }
 
-  updateStudentProfileStatus(
-    userId: string,
-    data: Prisma.StudentProfileUpdateManyMutationInput,
-  ) {
-    return this.prisma.studentProfile.updateMany({
-      where: { userId },
-      data,
-    });
-  }
-
   countOrdersByUser(userId: string) {
     return this.prisma.order.count({ where: { userId } });
   }

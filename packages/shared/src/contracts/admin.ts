@@ -5,7 +5,6 @@ import {
   ReminderChannel,
   ReminderStatus,
   ReminderTrigger,
-  StudentStatus,
 } from "../enums.js";
 import {
   abandonedCartParamsSchema,
@@ -50,7 +49,7 @@ export interface AdminAnalyticsDto {
 export interface AdminStudentStatsDto {
   total: number;
   active: number;
-  atRisk: number;
+  idle: number;
 }
 
 export interface AdminOrderStatsDto {
@@ -254,13 +253,6 @@ export const updatePlatformSettingsSchema = z
 export type UpdatePlatformSettingsInput = z.infer<
   typeof updatePlatformSettingsSchema
 >;
-
-// ── User management ───────────────────────────────────────────────────────────
-
-export const updateUserStatusSchema = z.object({
-  status: z.nativeEnum(StudentStatus),
-});
-export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
 
 // ── Order refunds ─────────────────────────────────────────────────────────────
 

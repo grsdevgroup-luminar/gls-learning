@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { adminApi, type AdminStudentDto } from "@/lib/api/endpoints";
 import { initials, formatUsd } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,9 +12,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Search, Users, UserCheck, AlertTriangle, Eye } from "lucide-react";
+import { Search, Users, UserCheck, Clock, Eye } from "lucide-react";
 import { CollapsibleStats } from "@/components/shared/collapsible-stats";
-import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
 import { flagFor, formatCountry } from "@/lib/countries";
 import { AdminStudentDetailDialog } from "@/components/shared/admin-student-detail-dialog";
@@ -29,12 +28,11 @@ import {
   stickyHeaderRowClass,
 } from "../_components/admin-table";
 
-type StatusKey = "ACTIVE" | "IDLE" | "AT_RISK";
+type StatusKey = "ACTIVE" | "IDLE";
 
 const statusBadge: Record<StatusKey, { label: string; cls: string }> = {
   ACTIVE: { label: "Active", cls: "text-success" },
   IDLE: { label: "Idle", cls: "text-warning" },
-  AT_RISK: { label: "At risk", cls: "text-destructive" },
 };
 
 export default function AdminStudents() {
@@ -43,7 +41,6 @@ export default function AdminStudents() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(ADMIN_PAGE_SIZE_OPTIONS[0]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const qc = useQueryClient();
 
   // Reset to the first page after the debounced query changes.
   useEffect(() => {
@@ -59,18 +56,6 @@ export default function AdminStudents() {
     queryFn: adminApi.studentStats,
   });
 
-  const suspendMutation = useMutation({
-    mutationFn: (id: string) => adminApi.updateUserStatus(id, "AT_RISK"),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "students"] });
-      if (suspendMutation.variables) {
-        qc.invalidateQueries({ queryKey: ["admin", "student-profile", suspendMutation.variables] });
-      }
-      toast.success("Student status updated");
-    },
-    onError: () => toast.error("Failed to update status"),
-  });
-
   const list = studentPage?.items ?? [];
   const totalPages = studentPage?.totalPages ?? 1;
 
@@ -82,7 +67,7 @@ export default function AdminStudents() {
     ? [
         { icon: Users, label: "Total students", value: statsData.total },
         { icon: UserCheck, label: "Active", value: statsData.active },
-        { icon: AlertTriangle, label: "At risk / idle", value: statsData.atRisk },
+        { icon: Clock, label: "Idle", value: statsData.idle },
       ]
     : [];
 
@@ -90,14 +75,14 @@ export default function AdminStudents() {
     <div className="space-y-6 p-6 md:p-8 flex flex-col h-screen lg:overflow-hidden">
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">Students</h1>
-        <p className="text-muted-foreground">Monitor engagement and re-activate at-risk learners.</p>
+        <p className="text-muted-foreground">Monitor student engagement.</p>
       </div>
 
       {/* Stat cards */}
       <CollapsibleStats
         summary={
           statsData
-            ? `${statsData.total} total · ${statsData.active} active · ${statsData.atRisk} at risk`
+            ? `${statsData.total} total · ${statsData.active} active · ${statsData.idle} idle`
             : "Loading stats…"
         }
       >
@@ -187,8 +172,6 @@ export default function AdminStudents() {
                       key={s.id}
                       student={s}
                       onViewProfile={() => setSelectedStudentId(s.id)}
-                      onSuspend={() => suspendMutation.mutate(s.id)}
-                      suspending={suspendMutation.isPending && suspendMutation.variables === s.id}
                     />
                   ))}
             </TableBody>
@@ -216,19 +199,14 @@ export default function AdminStudents() {
 function StudentRow({
   student,
   onViewProfile,
-  onSuspend,
-  suspending,
 }: {
   student: AdminStudentDto;
   onViewProfile: () => void;
-  onSuspend: () => void;
-  suspending: boolean;
 }) {
   const badge = statusBadge[student.status as StatusKey] ?? { label: student.status, cls: "" };
-  const isAtRisk = student.status === "AT_RISK";
 
   return (
-    <TableRow className={isAtRisk ? "bg-destructive/5" : ""}>
+    <TableRow>
       <TableCell className="pl-6">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
@@ -263,11 +241,6 @@ function StudentRow({
           <Button variant="ghost" size="sm" onClick={onViewProfile}>
             <Eye className="h-4 w-4" /> View profile
           </Button>
-          {student.status !== "AT_RISK" && (
-            <Button variant="outline" size="sm" onClick={onSuspend} disabled={suspending}>
-              Flag at risk
-            </Button>
-          )}
         </div>
       </TableCell>
     </TableRow>

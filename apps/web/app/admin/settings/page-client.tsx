@@ -24,7 +24,6 @@ import { ChangePasswordCard } from '@/components/shared/change-password-card';
 const NOTIFICATION_TOGGLES: { key: string; label: string }[] = [
   { key: 'newEnrollment', label: 'New enrollment alerts' },
   { key: 'dailyRevenue', label: 'Daily revenue summary' },
-  { key: 'atRiskDigest', label: 'At-risk student digest' },
   { key: 'newReview', label: 'New review notifications' },
 ];
 

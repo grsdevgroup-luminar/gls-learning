@@ -71,7 +71,6 @@ export type EnrollmentStatus =
 export const StudentStatus = {
   ACTIVE: "ACTIVE",
   IDLE: "IDLE",
-  AT_RISK: "AT_RISK",
 } as const;
 export type StudentStatus = (typeof StudentStatus)[keyof typeof StudentStatus];
 

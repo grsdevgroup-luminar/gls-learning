@@ -274,15 +274,6 @@ export const useAdminStudents = (params: Record<string, string | number | undefi
 export const useAdminOrders = (params: Record<string, string | number | undefined> = {}) =>
   useQuery({ queryKey: qk.adminOrders(params), queryFn: () => api.adminOrders(params) });
 
-export function useUpdateUserStatus() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ userId, status }: { userId: string; status: "ACTIVE" | "IDLE" | "AT_RISK" }) =>
-      api.updateUserStatus(userId, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.adminStudents() }),
-  });
-}
-
 // ── comments ──────────────────────────────────────────────────────────────
 export const useCourseComments = (courseId: string) =>
   useQuery({
