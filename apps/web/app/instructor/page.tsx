@@ -289,17 +289,17 @@ function CourseRow({
 
   return (
     <div
-      className={`flex items-center gap-4 p-3.5 ${index > 0 ? "border-t border-border" : ""}`}
+      className={`flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:gap-4 ${index > 0 ? "border-t border-border" : ""}`}
     >
       <CourseArt
         seed={course.thumbnail}
         title={course.title}
-        className="h-14 w-24 shrink-0 rounded-lg"
+        className="h-14 w-20 shrink-0 rounded-lg sm:w-24"
         iconSize={22}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate font-medium">{course.title}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate font-medium">{course.title}</span>
           <CourseStatusBadge status={course.status} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -315,6 +315,7 @@ function CourseRow({
       <Button
         variant="outline"
         size="sm"
+        className="self-end sm:self-auto"
         render={<Link href={`/instructor/courses/${course.id}/edit`} />}
       >
         <Pencil /> Edit

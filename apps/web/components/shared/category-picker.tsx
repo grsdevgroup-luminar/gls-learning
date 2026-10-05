@@ -141,7 +141,7 @@ export function CategoryPicker({ value, onChange, disabled, canManage = false }:
         </span>
         <ChevronDown className="size-4 text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-72 p-2">
+      <PopoverContent align="start" className="w-[var(--anchor-width)] max-w-[calc(100vw-2rem)] min-w-0 p-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input

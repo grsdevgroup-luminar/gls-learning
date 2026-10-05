@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/endpoints';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { gradientFor } from '@/lib/format';
-import { AlertTriangle, Clock, Play } from 'lucide-react';
+import { AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { clearPosition, readPosition, writePosition } from '@/lib/playback-position';
 
@@ -32,7 +32,6 @@ const MAX_HEARTBEAT_SEC = 30;
 interface StreamPlayer {
   currentTime: number;
   duration: number;
-  play: () => Promise<void>;
   addEventListener: (type: string, listener: () => void) => void;
   removeEventListener: (type: string, listener: () => void) => void;
 }
@@ -87,9 +86,6 @@ export function ProtectedPlayer({
   resume?: boolean;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const streamPlayerRef = useRef<StreamPlayer | null>(null);
-  const [streamReady, setStreamReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: ['playback', lessonId],
     queryFn: () => api.playback(lessonId),
@@ -152,9 +148,7 @@ export function ProtectedPlayer({
 
     const onPlay = () => {
       lastTickAt = null;
-      setIsPlaying(true);
     };
-    const onPause = () => setIsPlaying(false);
     const onTimeUpdate = () => {
       const now = Date.now();
       if (lastTickAt !== null) {
@@ -173,7 +167,6 @@ export function ProtectedPlayer({
       lastTickAt = null;
     };
     const onEnded = () => {
-      setIsPlaying(false);
       clearPosition(lessonId);
       flushWatchTime();
       lastTickAt = null;
@@ -193,11 +186,9 @@ export function ProtectedPlayer({
       .then(() => {
         if (cancelled || !window.Stream) return;
         player = window.Stream(iframe);
-        streamPlayerRef.current = player;
-        setStreamReady(true);
         player.addEventListener('play', onPlay);
         player.addEventListener('timeupdate', onTimeUpdate);
-        player.addEventListener('pause', onPause);
+        player.addEventListener('pause', onPauseOrSeek);
         player.addEventListener('seeked', onPauseOrSeek);
         player.addEventListener('ended', onEnded);
       })
@@ -210,15 +201,13 @@ export function ProtectedPlayer({
 
     return () => {
       cancelled = true;
-      streamPlayerRef.current = null;
-      setStreamReady(false);
       save();
       flushWatchTime(true);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pagehide', onPageHide);
       player?.removeEventListener('play', onPlay);
       player?.removeEventListener('timeupdate', onTimeUpdate);
-      player?.removeEventListener('pause', onPause);
+      player?.removeEventListener('pause', onPauseOrSeek);
       player?.removeEventListener('seeked', onPauseOrSeek);
       player?.removeEventListener('ended', onEnded);
     };
@@ -281,17 +270,6 @@ export function ProtectedPlayer({
           allowFullScreen
         />
       </div>
-
-      {streamReady && !isPlaying && (
-        <button
-          type="button"
-          aria-label="Play video"
-          onClick={() => void streamPlayerRef.current?.play()}
-          className="absolute left-1/2 top-1/2 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-black/75 text-white shadow-[0_0_0_20px_rgba(0,0,0,0.62)] transition hover:scale-105 hover:bg-black/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-black"
-        >
-          <Play className="ml-0.5 h-6 w-6 fill-current" />
-        </button>
-      )}
 
       <Watermark text={watermark} />
     </div>

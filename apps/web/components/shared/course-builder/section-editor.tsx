@@ -73,7 +73,7 @@ export function SectionEditor({ section, index, dragSection, collapsed, lessonTy
                     </div>
 
                     {!collapsed && (
-                      <div className="mt-3 space-y-3 pl-6">
+                      <div className="mt-3 space-y-3 pl-0 sm:pl-6">
                         {section.lessons.map((l) => (
                         <LessonEditor key={l.id} courseId={courseId} sectionId={section.id} lesson={l} lessonTypes={lessonTypes} patchLesson={patchLesson} setLessonType={setLessonType} removeLesson={removeLesson} />
                         ))}

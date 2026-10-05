@@ -39,7 +39,9 @@ export class QuizService {
     );
     if (!enrolled && !lesson.preview && !orgAdminReadOnly)
       throw new ForbiddenException("Enroll to access this quiz");
-    if (enrolled) await this.enrollment.assertLessonAccessible(userId, lessonId);
+    if (enrolled && !orgAdminReadOnly) {
+      await this.enrollment.assertLessonAccessible(userId, lessonId);
+    }
 
     return {
       lessonId,

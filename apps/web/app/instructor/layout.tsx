@@ -58,6 +58,7 @@ export default async function InstructorLayout({ children }: { children: React.R
       items={approved ? items : []}
       badge="Instructor"
       showBackToSite={false}
+      showMobileJumpToTop
       user={{
         name: user.name,
         email: user.email,

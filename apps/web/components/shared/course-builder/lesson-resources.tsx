@@ -155,14 +155,14 @@ export function LessonResources({
           // Uploaded file — filename + size are frozen at upload time.
           <div
             key={i}
-            className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5"
+            className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5"
           >
             <Upload className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <a
               href={r.url}
               target="_blank"
               rel="noreferrer"
-              className="flex-1 truncate text-sm hover:underline"
+              className="min-w-0 flex-1 truncate text-sm hover:underline"
               title={r.name}
             >
               {r.name}
@@ -199,8 +199,9 @@ export function LessonResources({
             />
           </div>
         ) : (
-          <div key={i} className="flex items-center gap-2">
-            <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div key={i} className="flex items-start gap-2 sm:items-center">
+            <Link2 className="mt-2 h-3.5 w-3.5 shrink-0 text-muted-foreground sm:mt-0" />
+            <div className="min-w-0 flex-1 space-y-2 sm:flex sm:items-center sm:gap-2 sm:space-y-0">
             <Input
               value={r.name}
               onChange={(e) => patch(i, { name: e.target.value })}
@@ -212,8 +213,9 @@ export function LessonResources({
               onChange={(e) => patch(i, { url: e.target.value })}
               placeholder="https://…"
               type="url"
-              className="h-8 flex-[2] min-w-0"
+              className="h-8 min-w-0 flex-[2]"
             />
+            </div>
             <ConfirmDialog
               trigger={
                 <Button

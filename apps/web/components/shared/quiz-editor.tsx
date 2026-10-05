@@ -75,11 +75,11 @@ export function QuizEditor({
 
   return (
     <div className="space-y-4 rounded-lg border bg-muted/10 p-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5 text-sm font-medium">
           <HelpCircle className="h-3.5 w-3.5 text-primary" /> Quiz questions
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-start gap-3 sm:justify-end">
           <div className="flex items-center gap-1.5">
             <Label className="text-xs text-muted-foreground">Pass score</Label>
             <Input
@@ -115,7 +115,7 @@ export function QuizEditor({
               value={q.prompt}
               onChange={(e) => patchQuestion(q.id, { prompt: e.target.value })}
               placeholder={`Question ${qi + 1}`}
-              className="h-8"
+              className="h-8 min-w-0 flex-1"
             />
             <ConfirmDialog
               trigger={

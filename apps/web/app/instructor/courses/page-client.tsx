@@ -74,7 +74,7 @@ export default function InstructorCourses() {
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <Card key={i} variant="interactive" className="flex-row items-center gap-4 p-4">
+              <Card key={i} variant="interactive" className="flex-col gap-4 p-4 sm:flex-row sm:items-center">
                 <div className="h-16 w-28 animate-pulse rounded-lg bg-muted" />
                 <div className="flex-1 space-y-2">
                   <div className="h-5 w-48 animate-pulse rounded bg-muted" />
@@ -134,7 +134,7 @@ function CourseCard({
   const lessonCount = course.lessonCount ?? 0;
 
   return (
-    <Card variant="interactive" className="flex-row items-center gap-4 p-4">
+    <Card variant="interactive" className="flex-col gap-4 p-4 sm:flex-row sm:items-center">
       <CourseArt seed={course.thumbnail} title={course.title} className="h-16 w-28 shrink-0 rounded-lg" iconSize={24} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -152,7 +152,7 @@ function CourseCard({
           <span>Updated {relativeDate(course.updatedAt)}</span>
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+      <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
         {course.status === "PUBLISHED" && (
           <Button variant="ghost" size="sm" render={<Link href={`/courses/${course.slug}`} />}>
             <Eye /> View
