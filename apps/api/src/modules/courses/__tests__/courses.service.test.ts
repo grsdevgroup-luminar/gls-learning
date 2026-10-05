@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NotFoundException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { CoursesService } from "../courses.service";
 import type { CoursesRepository } from "../courses.repository";
 import type { EnrollmentService } from "../../enrollment/enrollment.service";
@@ -11,6 +11,7 @@ const admin: RequestUser = { id: "admin_1", email: "a@x.com", role: "ADMIN", mus
 const member: RequestUser = { id: "member_1", email: "m@x.com", role: "STUDENT", mustChangePassword: false };
 const stranger: RequestUser = { id: "stranger_1", email: "s@x.com", role: "STUDENT", mustChangePassword: false };
 const owner: RequestUser = { id: "instr_1", email: "i@x.com", role: "INSTRUCTOR", mustChangePassword: false };
+const orgAdmin: RequestUser = { id: "org_admin_1", email: "org@x.com", role: "ORG_ADMIN", mustChangePassword: false };
 
 function makeCourseRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -50,6 +51,8 @@ function makeService(repoOverrides: Partial<CoursesRepository> = {}) {
     isOrgMemberOfAny: vi.fn().mockResolvedValue(false),
     isPartnerMemberOfCourse: vi.fn().mockResolvedValue(false),
     hasActiveEnrollment: vi.fn().mockResolvedValue(false),
+    assertOrgAdminCourseNotSuspended: vi.fn().mockResolvedValue(undefined),
+    completedLessonIds: vi.fn().mockResolvedValue([]),
   } as unknown as EnrollmentService;
   const categoriesRepo = {} as CategoriesService;
   const storage = {} as StorageDriver;
@@ -64,6 +67,37 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
   it("returns a PUBLIC/PUBLISHED course to an anonymous caller", async () => {
     const { service } = makeService({ findBySlug: vi.fn().mockResolvedValue(makeCourseRow()) });
     await expect(service.bySlug("intro-to-x")).resolves.toMatchObject({ id: "course_1" });
+  });
+
+  it("checks suspended-organization access for an org admin opening an assigned public course", async () => {
+    const { service, enrollment } = makeService({
+      findBySlug: vi.fn().mockResolvedValue(
+        makeCourseRow({ orgAssignments: [{ orgId: "org_1" }] }),
+      ),
+    });
+    vi.mocked(enrollment.assertOrgAdminCourseNotSuspended).mockRejectedValue(
+      new ForbiddenException("Organization suspended"),
+    );
+
+    await expect(service.bySlug("intro-to-x", orgAdmin)).rejects.toThrow(
+      "Organization suspended",
+    );
+    expect(enrollment.assertOrgAdminCourseNotSuspended).toHaveBeenCalledWith(
+      orgAdmin.id,
+      "course_1",
+    );
+  });
+
+  it("checks suspended-organization access on the learner-content endpoint too", async () => {
+    const { service, enrollment } = makeService();
+    vi.mocked(enrollment.assertOrgAdminCourseNotSuspended).mockRejectedValue(
+      new ForbiddenException("Organization suspended"),
+    );
+
+    await expect(service.learning(orgAdmin, "course_1")).rejects.toThrow(
+      "Organization suspended",
+    );
+    expect(enrollment.completedLessonIds).not.toHaveBeenCalled();
   });
 
   it("does not expose preview lesson resource links to an anonymous caller", async () => {

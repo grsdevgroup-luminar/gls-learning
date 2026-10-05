@@ -118,7 +118,7 @@ export default function BillingPage() {
         <p className="text-sm text-muted-foreground md:text-base">Your past purchases and receipts. Cards are handled by Stripe and PayPal at checkout — nothing is stored here.</p>
       </div>
 
-      <Card className="flex h-[calc(100vh-12rem)] min-h-[420px] flex-col overflow-hidden">
+      <Card className="flex min-h-0 flex-col overflow-hidden lg:h-[calc(100vh-12rem)] lg:min-h-[420px]">
         <div className="sticky top-0 z-20 border-b border-border bg-card px-6 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -191,7 +191,90 @@ export default function BillingPage() {
                 {q ? "No orders match your search." : "No purchases yet."}
               </p>
             ) : (
-              <div className="min-w-[980px]">
+              <>
+              <div className="space-y-3 px-4 sm:hidden">
+                {rows.map((o) => {
+                  const badge = STATUS_BADGE[o.status] ?? STATUS_BADGE.PENDING;
+                  const receiptDisabled =
+                    (o.status !== "PAID" &&
+                      o.status !== "REFUNDED" &&
+                      o.status !== "PARTIALLY_REFUNDED") ||
+                    viewing === o.id ||
+                    downloading === o.id;
+                  return (
+                    <div
+                      key={o.id}
+                      role="button"
+                      tabIndex={0}
+                      className="rounded-lg border border-border bg-background p-3 shadow-sm"
+                      onClick={() => setSelectedOrder(o)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedOrder(o);
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {o.items[0]?.title ?? "—"}
+                            {o.items.length > 1 && (
+                              <span className="text-muted-foreground"> +{o.items.length - 1}</span>
+                            )}
+                          </p>
+                          <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                            {o.id}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {new Date(o.createdAt).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })} · {GATEWAY_LABEL[o.gateway] ?? o.gateway}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className={`shrink-0 ${badge.className}`}>
+                          {badge.label}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                        <span className="font-medium">{formatUsd(o.totalCents / 100)}</span>
+                        <div
+                          className="flex shrink-0 items-center gap-1"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`View receipt for order ${o.id}`}
+                            title="View receipt"
+                            disabled={receiptDisabled}
+                            onClick={() => viewReceipt(o.id)}
+                          >
+                            {viewing === o.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`Download receipt for order ${o.id}`}
+                            disabled={receiptDisabled}
+                            onClick={() => downloadReceipt(o.id)}
+                          >
+                            {downloading === o.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      {o.refundedCents > 0 && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Credited back {formatUsd(o.refundedCents / 100)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden min-w-[980px] sm:block">
               <Table>
                 <TableHeader className="sticky top-0 z-[2] bg-card">
                   <TableRow>
@@ -318,6 +401,7 @@ export default function BillingPage() {
                 </TableBody>
                 </Table>
               </div>
+              </>
             )}
           </div>
 

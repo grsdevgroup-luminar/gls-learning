@@ -208,7 +208,7 @@ export default function InstructorOverview() {
           <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm">
             <Rocket className="size-4 shrink-0 text-warning" />
             <span>
-              {inReview} {inReview === 1 ? "course is" : "courses are"} awaiting admin review. We&apos;ll notify you once approved.
+              {inReview} {inReview === 1 ? "course is " : "courses are "} awaiting admin review. We&apos;ll notify you once it has been approved.
             </span>
           </div>
         )}

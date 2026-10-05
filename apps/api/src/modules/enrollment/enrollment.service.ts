@@ -220,6 +220,48 @@ export class EnrollmentService {
     return !!(await this.repo.findAnyOrgMembership(orgIds, userId));
   }
 
+  /** Organization admins do not have learner enrollments, but can follow a
+   *  course link or request a public preview directly. Keep those paths from
+   *  bypassing a locked organization assignment. Multiple org assignments
+   *  remain valid when the admin has another unlocked org path. */
+  async assertOrgAdminCourseNotSuspended(
+    userId: string,
+    courseId: string,
+  ): Promise<void> {
+    const course = await this.repo.findCourseAccess(courseId, userId);
+    if (!course) return;
+
+    const memberOrgs = course.orgAssignments
+      .map(({ org }) => org)
+      .filter((org) => org.members.some((member) => !member.removedAt));
+    if (memberOrgs.length > 0 && memberOrgs.every((org) => isOrgAccessLocked(org))) {
+      throw new ForbiddenException(
+        "This organization's access to the course is currently suspended",
+      );
+    }
+  }
+
+  /** Grants an organization admin read-only access to a course assigned to
+   * one of their active organizations. This deliberately does not create or
+   * modify an enrollment. */
+  async assertOrgAdminAssignedCourseAccess(
+    userId: string,
+    courseId: string,
+  ): Promise<void> {
+    const course = await this.repo.findCourseAccess(courseId, userId);
+    const activeAssignedOrgs = course?.orgAssignments
+      .map(({ org }) => org)
+      .filter((org) => org.members.some((member) => member.role === "ADMIN" && !member.removedAt)) ?? [];
+    if (!course || course.status !== "PUBLISHED" || activeAssignedOrgs.length === 0) {
+      throw new ForbiddenException("This course is not assigned to your organization");
+    }
+    if (activeAssignedOrgs.every((org) => isOrgAccessLocked(org))) {
+      throw new ForbiddenException(
+        "This organization's access to the course is currently suspended",
+      );
+    }
+  }
+
   /** Thin wrapper so CoursesService can check delivery-partner course access
    *  without taking a dependency on the delivery-partner module — mirrors
    *  isOrgMemberOfAny, one level deeper (per course-assignment). */
@@ -411,7 +453,7 @@ export class EnrollmentService {
       // seat-based access — a course can now be shared across several orgs.
       const memberOrgs = course.orgAssignments
         .map((a) => a.org)
-        .filter((org) => org.members.length > 0);
+        .filter((org) => org.members.some((member) => !member.removedAt));
       // Delivery-partner-assigned course: same idea, one level deeper — access
       // is per course-assignment (not per-partner), so only the assignments
       // this user was actually invited to count.

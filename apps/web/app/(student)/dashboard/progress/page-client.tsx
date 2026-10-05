@@ -140,7 +140,7 @@ export default function ProgressPage() {
 
               return (
                 <Card key={enrollment.id} className="p-0">
-                  <CardContent className="flex items-center gap-4 p-4">
+                  <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
                     <CourseArt
                       seed={enrollment.course.thumbnail ?? enrollment.course.slug}
                       title={enrollment.course.title}
@@ -148,8 +148,8 @@ export default function ProgressPage() {
                       iconSize={22}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate font-medium">{enrollment.course.title}</span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate font-medium">{enrollment.course.title}</span>
                         {enrollment.progressPct === 100 && (
                           <Badge variant="secondary" className="text-success">
                             <Award className="mr-1 h-3 w-3" />Done
@@ -161,7 +161,7 @@ export default function ProgressPage() {
                       </p>
                       <Meter value={enrollment.progressPct} height={6} className="mt-2" />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
                       <span className="text-lg font-bold tabular-nums">{enrollment.progressPct}%</span>
                       <Button size="sm" variant="outline" render={<Link href={actionHref} />}>
                         {enrollment.progressPct === 100 ? "Review" : hasStarted ? "Resume" : "Start"}

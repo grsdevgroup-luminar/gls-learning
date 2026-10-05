@@ -120,6 +120,16 @@ export class OrganizationsController {
     return this.orgs.listCourses(user, id);
   }
 
+  @Roles("ORG_ADMIN")
+  @Get("organizations/:id/courses/:courseId/preview")
+  coursePreview(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @Param("courseId") courseId: string,
+  ) {
+    return this.orgs.coursePreview(user, id, courseId);
+  }
+
   @Get("organizations/:id/learning-dashboard")
   learningDashboard(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.orgs.learningDashboard(user, id);

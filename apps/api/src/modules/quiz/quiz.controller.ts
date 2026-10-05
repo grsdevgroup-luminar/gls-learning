@@ -16,7 +16,7 @@ export class QuizController {
     @CurrentUser() user: RequestUser,
     @Param("lessonId") lessonId: string,
   ) {
-    return this.quiz.getForPlay(user.id, lessonId);
+    return this.quiz.getForPlay(user.id, lessonId, user.role);
   }
 
   @Get("result")

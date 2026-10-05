@@ -125,9 +125,9 @@ function OrgCourseList({
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Building2 className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold">{org.name}</h2>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Building2 className="h-4 w-4 shrink-0 text-primary" />
+        <h2 className="min-w-0 flex-1 break-words font-semibold">{org.name}</h2>
         {!org.accessLocked && (
           <Badge variant="secondary" className="text-[10px]">
             {courses?.length ?? 0} courses
@@ -136,7 +136,7 @@ function OrgCourseList({
       </div>
 
       {org.accessLocked ? (
-        <div className="flex items-center gap-2 rounded-lg border border-dashed border-warning/50 bg-warning/5 p-4 text-sm text-muted-foreground">
+        <div className="flex items-start gap-2 rounded-lg border border-dashed border-warning/50 bg-warning/5 p-4 text-sm text-muted-foreground">
           <PauseCircle className="h-4 w-4 shrink-0 text-warning" />
           Your organization&apos;s access is currently paused — contact your
           admin.

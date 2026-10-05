@@ -81,6 +81,6 @@ export class MediaController {
     @Param("lessonId") lessonId: string,
     @Req() req: Request,
   ) {
-    return this.media.getPlayback(user?.id, lessonId, clientIp(req));
+    return this.media.getPlayback(user?.id, lessonId, clientIp(req), user?.role);
   }
 }

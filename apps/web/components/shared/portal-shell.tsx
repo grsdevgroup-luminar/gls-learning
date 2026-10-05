@@ -255,7 +255,7 @@ export function PortalShell({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-0">
         {/* Mobile top bar */}
-        <header className="flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur md:hidden">
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" />}>
               <Menu className="h-5 w-5" />

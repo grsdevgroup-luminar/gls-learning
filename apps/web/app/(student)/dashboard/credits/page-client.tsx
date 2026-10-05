@@ -97,7 +97,37 @@ export default function CreditsPage() {
                 No credit activity yet.
               </p>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="space-y-3 px-4 sm:hidden">
+                {rows.map((e) => {
+                  const positive = e.amountCents >= 0;
+                  return (
+                    <div key={e.id} className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(e.createdAt).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                          <div className="mt-1">
+                            <Badge variant="secondary">{REASON_LABEL[e.reason] ?? e.reason}</Badge>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 font-medium ${positive ? "text-success" : "text-destructive"}`}>
+                          {positive ? "+" : "−"}{formatUsd(Math.abs(e.amountCents) / 100)}
+                        </span>
+                      </div>
+                      <p className="mt-2 break-words text-sm text-muted-foreground">
+                        {e.comment ?? (e.orderId ? `Order ${e.orderId.slice(0, 8)}…` : "—")}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -141,6 +171,7 @@ export default function CreditsPage() {
                   </TableBody>
                 </Table>
               </div>
+              </>
             )}
 
             {!historyLoading && totalPages > 1 && (

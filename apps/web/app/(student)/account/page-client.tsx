@@ -207,14 +207,14 @@ export default function AccountPage() {
             <CardTitle className="text-base">Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-start gap-4">
               <Avatar className="h-16 w-16 transition-transform duration-300 hover:scale-105">
                 {avatar && <AvatarImage src={avatar} alt="" />}
                 <AvatarFallback className="brand-gradient text-lg text-white">
                   {initials(user?.name ?? "?")}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 space-y-2">
+              <div className="min-w-0 flex-1 space-y-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -328,8 +328,8 @@ export default function AccountPage() {
               {REMINDER_TRIGGERS.map((trigger, i) => (
                 <StaggerItem key={trigger} y={10}>
                   {i > 0 && <Separator />}
-                  <div className="grid grid-cols-[1fr_auto] items-center gap-4 py-3 sm:grid-cols-[1fr_80px_80px]">
-                    <div>
+                  <div className="grid gap-3 py-3 sm:grid-cols-[1fr_80px_80px] sm:items-center sm:gap-4">
+                    <div className="min-w-0">
                       <div className="text-sm font-medium">
                         {REMINDER_TRIGGER_COPY[trigger].title}
                       </div>
@@ -337,7 +337,7 @@ export default function AccountPage() {
                         {REMINDER_TRIGGER_COPY[trigger].description}
                       </div>
                     </div>
-                    <div className="flex items-center gap-6 sm:contents">
+                    <div className="grid grid-cols-2 gap-3 sm:contents">
                       <div className="flex items-center gap-2 sm:justify-center">
                         <span className="text-xs text-muted-foreground sm:hidden">
                           Email

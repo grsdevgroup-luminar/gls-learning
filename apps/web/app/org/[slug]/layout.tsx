@@ -3,6 +3,7 @@ import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
 import type { AuthUserDto, OrganizationDto } from "@skillstream/shared";
+import { OrgAccessGate } from "./org-access-gate";
 
 export const metadata: Metadata = {
   title: "Organization Portal",
@@ -35,8 +36,14 @@ export default async function OrgLayout({
   ];
 
   return (
-    <PortalShell items={items} badge="Company Admin" user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}>
-      {children}
-    </PortalShell>
+    <OrgAccessGate
+      slug={slug}
+      enabled={user?.role === "ORG_ADMIN"}
+      initialOrganization={org}
+    >
+      <PortalShell items={items} badge="Company Admin" user={{ name, email, initials: initials(name), avatar: user?.avatar ?? null }}>
+        {children}
+      </PortalShell>
+    </OrgAccessGate>
   );
 }

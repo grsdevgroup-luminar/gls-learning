@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CalendarDays, Mail, Unlink, Users, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Building2, CalendarDays, Mail, Unlink, Users, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCount }: { courseId: string; courseTitle: string; assignmentCount: number }) {
@@ -19,6 +20,7 @@ export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCou
   const [open, setOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<AdminCourseOrganizationDto | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [organizationSearch, setOrganizationSearch] = useState("");
   const { data: organizations = [], isLoading } = useQuery({
     queryKey: ["admin", "course-organizations", courseId],
     queryFn: () => adminApi.courseOrganizations(courseId),
@@ -31,12 +33,19 @@ export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCou
   });
   const assignedIds = new Set(organizations.map((organization) => organization.id));
   const availableOrganizations = allOrganizations.filter((organization) => !assignedIds.has(organization.id));
+  const normalizedOrganizationSearch = organizationSearch.trim().toLocaleLowerCase();
+  const filteredOrganizations = availableOrganizations.filter((organization) =>
+    [organization.name, organization.slug, organization.domain, organization.adminEmail]
+      .filter(Boolean)
+      .some((value) => value!.toLocaleLowerCase().includes(normalizedOrganizationSearch)),
+  );
   const selectedOrganization = allOrganizations.find((organization) => organization.id === selectedOrgId);
   const assignMutation = useMutation({
     mutationFn: (orgId: string) => orgApi.assignCourse(orgId, courseId),
     onSuccess: () => {
       toast.success("Course assigned");
       setSelectedOrgId("");
+      setOrganizationSearch("");
       void qc.invalidateQueries({ queryKey: ["admin", "course-organizations", courseId] });
       void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
       void qc.invalidateQueries({ queryKey: ["admin-organizations"] });
@@ -98,6 +107,17 @@ export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCou
             <div className="mb-2 flex items-center gap-2 text-sm font-medium">
               <Plus className="h-4 w-4 text-primary" /> Assign this course to another organization
             </div>
+            <div className="relative mb-2">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={organizationSearch}
+                onChange={(event) => setOrganizationSearch(event.target.value)}
+                placeholder="Search organizations by name, domain, or admin email…"
+                aria-label="Search organizations to assign this course"
+                className="pl-9"
+                disabled={organizationsLoading || availableOrganizations.length === 0}
+              />
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Select value={selectedOrgId} onValueChange={(value) => value && setSelectedOrgId(value)}>
                 <SelectTrigger className="w-full sm:flex-1">
@@ -106,7 +126,9 @@ export function CourseOrganizationsDialog({ courseId, courseTitle, assignmentCou
                 <SelectContent>
                   {availableOrganizations.length === 0 ? (
                     <SelectItem value="__none__" disabled>No available organizations</SelectItem>
-                  ) : availableOrganizations.map((organization) => (
+                  ) : filteredOrganizations.length === 0 ? (
+                    <SelectItem value="__no_matches__" disabled>No organizations match your search</SelectItem>
+                  ) : filteredOrganizations.map((organization) => (
                     <SelectItem key={organization.id} value={organization.id}>{organization.name}</SelectItem>
                   ))}
                 </SelectContent>

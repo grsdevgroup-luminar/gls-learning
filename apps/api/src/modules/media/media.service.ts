@@ -411,15 +411,24 @@ export class MediaService {
     userId: string | undefined,
     lessonId: string,
     ip: string | undefined,
+    userRole?: string,
   ): Promise<PlaybackDto> {
     const lesson = await this.repo.findLessonForPlayback(lessonId);
     if (!lesson) throw new NotFoundException("Lesson not found");
+
+    if (userId && userRole === "ORG_ADMIN") {
+      await this.enrollment.assertOrgAdminAssignedCourseAccess(
+        userId,
+        lesson.section.courseId,
+      );
+    }
 
     if (!lesson.preview) {
       const enrolled =
         !!userId &&
         (await this.enrollment.isEnrolled(userId, lesson.section.courseId));
-      if (!enrolled) throw new ForbiddenException("Enroll to access this lesson");
+      const orgAdminAccess = userId != null && userRole === "ORG_ADMIN";
+      if (!enrolled && !orgAdminAccess) throw new ForbiddenException("Enroll to access this lesson");
     }
 
     // Preview lessons remain public for visitors, but an enrolled learner is

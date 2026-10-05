@@ -713,6 +713,8 @@ export const orgApi = {
     apiFetch<{ ok: true }>(`/organizations/decline/${token}`, { method: "POST" }),
   courses: (orgId: string) =>
     apiFetch<CourseSummaryDto[]>(`/organizations/${orgId}/courses`),
+  coursePreview: (orgId: string, courseId: string) =>
+    apiFetch<CourseDetailDto>(`/organizations/${orgId}/courses/${courseId}/preview`),
   learningDashboard: (orgId: string) =>
     apiFetch<OrgLearningDashboardDto>(`/organizations/${orgId}/learning-dashboard`),
   assignCourse: (orgId: string, courseId: string) =>

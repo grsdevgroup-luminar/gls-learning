@@ -43,7 +43,7 @@ function courseAccessSelect(userId: string) {
             accessLocksAt: true,
             members: {
               where: { userId },
-              select: { id: true, removedAt: true },
+              select: { id: true, role: true, removedAt: true },
             },
           },
         },
@@ -132,7 +132,11 @@ export class EnrollmentRepository {
               select: {
                 id: true,
                 status: true,
-                members: { where: { userId, removedAt: null }, select: { id: true } },
+                accessLocksAt: true,
+                members: {
+                  where: { userId },
+                  select: { id: true, role: true, removedAt: true },
+                },
               },
             },
           },
