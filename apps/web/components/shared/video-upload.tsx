@@ -604,7 +604,7 @@ export function VideoUpload({
             : "Uploaded — processing will begin shortly";
 
     return (
-      <div className={cn("flex items-center gap-3 rounded-lg border bg-card p-3", compact && "p-2.5")}>
+      <div className={cn("flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3", compact && "p-2.5")}>
         <div className="brand-gradient grid h-12 w-16 shrink-0 place-items-center rounded-md text-white">
           <Film className="h-5 w-5" />
         </div>
@@ -630,7 +630,7 @@ export function VideoUpload({
             <p className="mt-0.5 text-[11px] text-destructive">{error}</p>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={beginReplace}>
+        <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={beginReplace}>
           <RefreshCw className="h-4 w-4" /> Replace
         </Button>
       </div>
@@ -661,14 +661,14 @@ export function VideoUpload({
   if (transport === "uploading" || transport === "retrying" || transport === "paused") {
     return (
       <div className={cn("rounded-lg border bg-card p-3", compact && "p-2.5")}>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           <div className="grid h-12 w-16 shrink-0 place-items-center rounded-md bg-muted">
             <Film className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="truncate text-sm font-medium">{name}</span>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 flex-wrap items-center gap-1">
                 {transport === "paused" ? (
                   <Button variant="ghost" size="sm" onClick={resumeUpload}>
                     <Play className="h-4 w-4" /> Resume
@@ -683,9 +683,9 @@ export function VideoUpload({
                 </Button>
               </div>
             </div>
-            <div className="mt-1.5 flex items-center gap-2">
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <Meter value={progress} height={6} />
-              <span className="w-32 shrink-0 text-right text-xs text-muted-foreground">
+              <span className="w-auto shrink-0 text-right text-xs text-muted-foreground sm:w-32">
                 {Math.round(progress)}% · {transportLabel()}
               </span>
             </div>

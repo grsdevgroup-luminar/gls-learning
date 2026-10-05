@@ -22,7 +22,7 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                             key={lesson.id}
                             className="rounded-lg border bg-card p-3"
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                               <Input
                                 value={lesson.title}
                                 onChange={(e) =>
@@ -44,7 +44,7 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                                   )
                                 }
                               >
-                                <SelectTrigger className="h-8 w-28 shrink-0">
+                                <SelectTrigger className="h-8 w-full shrink-0 sm:w-28">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -55,7 +55,7 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                                   ))}
                                 </SelectContent>
                               </Select>
-                              <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                              <label className="flex shrink-0 items-center justify-between gap-1.5 text-xs text-muted-foreground sm:justify-start">
                                 <Eye className="h-3.5 w-3.5" /> Preview
                                 <Switch
                                   size="sm"
@@ -73,6 +73,7 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                                     size="icon-sm"
                                     variant="ghost"
                                     aria-label="Remove lesson"
+                                    className="self-end sm:self-auto"
                                   >
                                     <Trash2 className="h-4 w-4 text-muted-foreground" />
                                   </Button>
@@ -152,7 +153,7 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                                     })
                                   }
                                   placeholder="Write the article content students will read for this lesson…"
-                                  className="min-h-32 text-sm"
+                                  className="h-48 min-h-48 max-h-48 resize-none overflow-y-auto text-sm"
                                 />
                               )}
                             </div>

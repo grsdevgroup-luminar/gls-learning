@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, Download, FileText, HelpCircle, PlayCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, FileText, HelpCircle, PlayCircle, Presentation } from "lucide-react";
 import type { LessonPublicDto } from "@skillstream/shared";
 import { api, orgApi } from "@/lib/api/endpoints";
 import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { Button } from "@/components/ui/button";
+import { PptxViewer } from "../../../../learn/[slug]/_components/pptx-viewer";
 
 type LessonItem = LessonPublicDto & { sectionTitle: string };
 
@@ -17,6 +18,10 @@ export function OrgCourseViewer() {
   const params = useParams<{ slug: string; courseId: string }>();
   const { user } = useSession();
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [contentSelection, setContentSelection] = useState<{
+    lessonId: string;
+    mode: "video" | "slides";
+  } | null>(null);
   const { data: org } = useQuery({
     queryKey: ["org", params.slug],
     queryFn: () => orgApi.bySlug(params.slug),
@@ -35,6 +40,13 @@ export function OrgCourseViewer() {
     section.lessons.map((lesson) => ({ ...lesson, sectionTitle: section.title })),
   );
   const selected = lessons.find((lesson) => lesson.id === activeLessonId) ?? lessons[0];
+
+  const defaultContentMode = selected?.type === "VIDEO" && !selected.hasVideo && selected.pptx?.url
+    ? "slides"
+    : "video";
+  const contentMode = selected && contentSelection?.lessonId === selected.id
+    ? contentSelection.mode
+    : defaultContentMode;
 
   return (
     <div className="space-y-5 p-4 md:p-8">
@@ -57,7 +69,30 @@ export function OrgCourseViewer() {
                 <p className="text-xs text-muted-foreground">{selected.sectionTitle}</p>
                 <h2 className="text-lg font-semibold">{selected.title}</h2>
               </div>
+              {selected.type === "VIDEO" && selected.pptx?.url && (
+                <div className="flex w-fit items-center gap-1 rounded-full border bg-muted p-1">
+                  <button
+                    type="button"
+                    aria-pressed={contentMode === "video"}
+                    onClick={() => setContentSelection({ lessonId: selected.id, mode: "video" })}
+                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${contentMode === "video" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <span className="flex items-center gap-1.5"><PlayCircle className="h-4 w-4" /> Video</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={contentMode === "slides"}
+                    onClick={() => setContentSelection({ lessonId: selected.id, mode: "slides" })}
+                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${contentMode === "slides" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <span className="flex items-center gap-1.5"><Presentation className="h-4 w-4" /> Slides</span>
+                  </button>
+                </div>
+              )}
               {selected.type === "VIDEO" ? (
+                contentMode === "slides" && selected.pptx?.url ? (
+                  <PptxViewer key={selected.id} url={selected.pptx.url} />
+                ) : (
                 selected.hasVideo ? (
                   <ProtectedPlayer
                     lessonId={selected.id}
@@ -68,6 +103,7 @@ export function OrgCourseViewer() {
                   />
                 ) : (
                   <div className="flex aspect-video items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">Video is not available yet.</div>
+                )
                 )
               ) : selected.type === "ARTICLE" ? (
                 <article className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap rounded-lg border p-5">

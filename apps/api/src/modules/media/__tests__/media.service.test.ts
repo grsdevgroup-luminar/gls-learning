@@ -310,6 +310,30 @@ describe("MediaService.getPlayback", () => {
     expect(uploads.findByCloudflareUid).not.toHaveBeenCalled();
   });
 
+  it("lets an authorized org admin play later lessons without learner sequencing", async () => {
+    const laterLesson = { ...lesson, preview: false };
+    const { service, enrollment } = makeService({
+      repo: { findLessonForPlayback: vi.fn().mockResolvedValue(laterLesson) },
+      uploads: {
+        findByCloudflareUid: vi.fn().mockResolvedValue(makeUpload({
+          status: UploadStatus.READY,
+        })),
+      },
+      enrollment: {
+        isEnrolled: vi.fn().mockResolvedValue(true),
+        assertLessonAccessible: vi.fn().mockRejectedValue(
+          new ForbiddenException("Complete the previous lesson first"),
+        ),
+      },
+    });
+
+    const result = await service.getPlayback("org_admin_1", "lesson_2", undefined, "ORG_ADMIN");
+
+    expect(result.ready).toBe(true);
+    expect(enrollment.assertOrgAdminAssignedCourseAccess).toHaveBeenCalledWith("org_admin_1", "course_1");
+    expect(enrollment.assertLessonAccessible).not.toHaveBeenCalled();
+  });
+
   it("grandfathers lessons with a UID but no Upload row", async () => {
     const { service, repo, uploads } = makeService({
       repo: { findLessonForPlayback: vi.fn().mockResolvedValue(lesson) },

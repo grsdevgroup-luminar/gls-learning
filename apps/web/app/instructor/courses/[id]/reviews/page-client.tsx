@@ -90,13 +90,13 @@ function ReviewRow({ r }: { r: ReviewDto }) {
   return (
     <Card className={r.status === "PENDING" ? "border-warning/30" : undefined}>
       <CardContent className="space-y-2 pt-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Avatar className="h-9 w-9">
               <AvatarFallback className="text-xs">{initials(r.author)}</AvatarFallback>
             </Avatar>
-            <div>
-              <div className="text-sm font-medium">{r.author}</div>
+            <div className="min-w-0">
+              <div className="break-words text-sm font-medium">{r.author}</div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Stars rating={r.rating} size={11} /> · {relativeDate(r.createdAt)}
               </div>
@@ -106,10 +106,10 @@ function ReviewRow({ r }: { r: ReviewDto }) {
             variant="outline"
             className={
               r.status === "PENDING"
-                ? "text-xs text-warning"
+                ? "w-fit text-xs text-warning"
                 : r.status === "HIDDEN"
-                  ? "text-xs text-muted-foreground"
-                  : "text-xs text-success"
+                  ? "w-fit text-xs text-muted-foreground"
+                  : "w-fit text-xs text-success"
             }
           >
             {STATUS_LABELS[r.status]}

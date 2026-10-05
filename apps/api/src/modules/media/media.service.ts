@@ -434,7 +434,14 @@ export class MediaService {
     // Preview lessons remain public for visitors, but an enrolled learner is
     // still bound to the course sequence. This prevents a direct playback
     // request from bypassing the curriculum sidebar lock.
-    if (userId && (await this.enrollment.isEnrolled(userId, lesson.section.courseId))) {
+    // Org admins are authorized through the organization assignment and may
+    // inspect any lesson in the course; learner curriculum sequencing does
+    // not apply to this read-only path.
+    if (
+      userId &&
+      userRole !== "ORG_ADMIN" &&
+      (await this.enrollment.isEnrolled(userId, lesson.section.courseId))
+    ) {
       await this.enrollment.assertLessonAccessible(userId, lessonId);
     }
 

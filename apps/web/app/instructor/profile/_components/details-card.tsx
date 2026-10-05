@@ -149,7 +149,7 @@ export function DetailsCard({
                 maxLength={BIO_MAX_LENGTH}
                 onChange={(e) => onBioChange(e.target.value)}
                 placeholder="Tell learners about your background and what you teach…"
-                className="min-h-32"
+                className="h-32 min-h-32 max-h-32 resize-none overflow-y-auto"
               />
               <div className="mt-1 text-right text-xs text-muted-foreground">
                 {bio.length.toLocaleString()} / {BIO_MAX_LENGTH.toLocaleString()} characters
