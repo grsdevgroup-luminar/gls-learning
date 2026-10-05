@@ -146,28 +146,30 @@ export function ManageMembersDialog({
       </DialogTrigger>
       <DialogContent className="flex h-[min(700px,calc(100vh-2rem))] w-[calc(100vw-2rem)] !max-w-none flex-col sm:w-[min(760px,calc(100vw-3rem))] sm:min-w-0">
         <DialogHeader>
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <DialogTitle className="min-w-0 flex-1 truncate">{assignment.course.title} — members</DialogTitle>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"
-                    aria-label="About members"
-                  />
-                }
-              >
-                <Info className="h-4 w-4" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs text-left leading-relaxed" side="bottom" align="start">
-                Invite people by email to give them free access to this course. They get an email with a
-                claim link and permanently take up a seat once they accept — removing a member later
-                doesn&apos;t free that seat back up. Revoke a pending invitation any time before they
-                accept it.
-              </TooltipContent>
-            </Tooltip>
-            <Badge variant="outline" className="ml-1">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <DialogTitle className="min-w-0 flex-1 truncate">{assignment.course.title} — members</DialogTitle>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+                      aria-label="About members"
+                    />
+                  }
+                >
+                  <Info className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left leading-relaxed" side="bottom" align="start">
+                  Invite people by email to give them free access to this course. They get an email with a
+                  claim link and permanently take up a seat once they accept — removing a member later
+                  doesn&apos;t free that seat back up. Revoke a pending invitation any time before they
+                  accept it.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Badge variant="outline" className="shrink-0 self-start sm:ml-1 sm:self-auto">
               {unlimited ? `${assignment.usedSeats} members · unlimited seats` : `${assignment.usedSeats}/${assignment.memberCap} seats used`}
             </Badge>
           </div>
@@ -221,91 +223,133 @@ export function ManageMembersDialog({
           <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
         </div>
 
-        <AdminTableCard className="min-h-0 flex-1" scrollClassName="h-full max-h-none overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className={stickyHeaderRowClass}>
-                <TableHead className={`pl-4 ${stickyHeaderCellClass}`}>Member</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Status</TableHead>
-                <TableHead className={stickyHeaderCellClass}>Date</TableHead>
-                <TableHead className={`pr-4 ${stickyHeaderCellClass}`}></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 4 }).map((__, j) => (
-                      <TableCell key={j} className={j === 0 ? "pl-4" : j === 3 ? "pr-4" : ""}>
-                        <div className="h-4 w-full animate-pulse rounded bg-muted" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                    No members yet — invite someone above.
-                  </TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                    No members match this search/filter.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paged.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="pl-4">
-                      <div className="min-w-0">
-                        {r.name && <div className="truncate font-medium">{r.name}</div>}
-                        <div className="truncate text-xs text-muted-foreground">{r.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={statusStyle[r.status].className}>
-                        {statusStyle[r.status].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+        {isLoading ? (
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-12 w-full animate-pulse rounded bg-muted" />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">No members yet — invite someone above.</p>
+        ) : filtered.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">No members match this search/filter.</p>
+        ) : (
+          <>
+            {/* Mobile card list */}
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto sm:hidden">
+              {paged.map((r) => (
+                <div key={r.id} className="rounded-lg border border-border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      {r.name && <div className="truncate text-sm font-medium">{r.name}</div>}
+                      <div className="truncate text-xs text-muted-foreground">{r.email}</div>
+                    </div>
+                    <Badge variant="outline" className={`shrink-0 ${statusStyle[r.status].className}`}>
+                      {statusStyle[r.status].label}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 border-t border-border pt-2">
+                    <span className="text-xs text-muted-foreground">
                       {r.status === "active" ? `Joined ${relativeDate(r.date)}` : `Invited ${relativeDate(r.date)}`}
-                    </TableCell>
-                    <TableCell className="pr-4 text-right">
-                      {r.status === "active" ? (
-                        <ConfirmDialog
-                          trigger={
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
-                              <UserMinus className="h-3 w-3" /> Remove
-                            </Button>
-                          }
-                          title={`Remove ${r.name || r.email}?`}
-                          description="They'll lose access to this course right away. Their seat stays used — it won't free up a spot for someone else."
-                          confirmLabel="Remove"
-                          pending={removeMutation.isPending}
-                          onConfirm={() => removeMutation.mutate(r.id)}
-                        />
-                      ) : (
-                        <ConfirmDialog
-                          trigger={
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
-                              <MailX className="h-3 w-3" /> Revoke
-                            </Button>
-                          }
-                          title={`Revoke invitation to ${r.email}?`}
-                          description="They won't be able to accept this invite anymore."
-                          confirmLabel="Revoke"
-                          pending={revokeMutation.isPending}
-                          onConfirm={() => revokeMutation.mutate(r.id)}
-                        />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </AdminTableCard>
+                    </span>
+                    {r.status === "active" ? (
+                      <ConfirmDialog
+                        trigger={
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                            <UserMinus className="h-3 w-3" /> Remove
+                          </Button>
+                        }
+                        title={`Remove ${r.name || r.email}?`}
+                        description="They'll lose access to this course right away. Their seat stays used — it won't free up a spot for someone else."
+                        confirmLabel="Remove"
+                        pending={removeMutation.isPending}
+                        onConfirm={() => removeMutation.mutate(r.id)}
+                      />
+                    ) : (
+                      <ConfirmDialog
+                        trigger={
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                            <MailX className="h-3 w-3" /> Revoke
+                          </Button>
+                        }
+                        title={`Revoke invitation to ${r.email}?`}
+                        description="They won't be able to accept this invite anymore."
+                        confirmLabel="Revoke"
+                        pending={revokeMutation.isPending}
+                        onConfirm={() => revokeMutation.mutate(r.id)}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden min-h-0 flex-1 sm:block">
+              <AdminTableCard className="h-full" scrollClassName="h-full max-h-none overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className={stickyHeaderRowClass}>
+                      <TableHead className={`pl-4 ${stickyHeaderCellClass}`}>Member</TableHead>
+                      <TableHead className={stickyHeaderCellClass}>Status</TableHead>
+                      <TableHead className={stickyHeaderCellClass}>Date</TableHead>
+                      <TableHead className={`pr-4 ${stickyHeaderCellClass}`}></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paged.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="pl-4">
+                          <div className="min-w-0">
+                            {r.name && <div className="truncate font-medium">{r.name}</div>}
+                            <div className="truncate text-xs text-muted-foreground">{r.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusStyle[r.status].className}>
+                            {statusStyle[r.status].label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {r.status === "active" ? `Joined ${relativeDate(r.date)}` : `Invited ${relativeDate(r.date)}`}
+                        </TableCell>
+                        <TableCell className="pr-4 text-right">
+                          {r.status === "active" ? (
+                            <ConfirmDialog
+                              trigger={
+                                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                                  <UserMinus className="h-3 w-3" /> Remove
+                                </Button>
+                              }
+                              title={`Remove ${r.name || r.email}?`}
+                              description="They'll lose access to this course right away. Their seat stays used — it won't free up a spot for someone else."
+                              confirmLabel="Remove"
+                              pending={removeMutation.isPending}
+                              onConfirm={() => removeMutation.mutate(r.id)}
+                            />
+                          ) : (
+                            <ConfirmDialog
+                              trigger={
+                                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">
+                                  <MailX className="h-3 w-3" /> Revoke
+                                </Button>
+                              }
+                              title={`Revoke invitation to ${r.email}?`}
+                              description="They won't be able to accept this invite anymore."
+                              confirmLabel="Revoke"
+                              pending={revokeMutation.isPending}
+                              onConfirm={() => revokeMutation.mutate(r.id)}
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </AdminTableCard>
+            </div>
+          </>
+        )}
 
         <div className="shrink-0">
           <AdminPagination

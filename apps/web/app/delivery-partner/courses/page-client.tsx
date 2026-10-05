@@ -7,6 +7,7 @@ import { useMyDeliveryPartner } from "@/lib/api/delivery-partner-hooks";
 import { PartnerMissingState, PartnerPageLoading, PartnerStatusState } from "../_components/partner-page-state";
 import { CourseArt } from "@/components/shared/course-art";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -91,90 +92,127 @@ export default function PartnerCoursesPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search courses…" className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30" />
         </div>
         <Select value={category} onValueChange={(v) => v && setCategory(v)}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
           <SelectContent alignItemWithTrigger={false}>
             <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => v && setSort(v as SortKey)}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
           <SelectContent alignItemWithTrigger={false}>
             <SelectItem value="recent">Recently assigned</SelectItem>
             <SelectItem value="title">Title (A–Z)</SelectItem>
             <SelectItem value="seats">Most seats used</SelectItem>
           </SelectContent>
         </Select>
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
         </div>
       </div>
 
-      <AdminTableCard scrollClassName="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className={stickyHeaderRowClass}>
-              <TableHead className={stickyHeaderCellClass}>Course</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Visibility</TableHead>
-              <TableHead className={stickyHeaderCellClass}>Members</TableHead>
-              <TableHead className={`text-right ${stickyHeaderCellClass}`}>Manage</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
-                  {all.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <BookOpen className="h-6 w-6" />
-                      No courses assigned yet — an admin assigns courses for you to redistribute.
-                    </div>
-                  ) : (
-                    "No courses match this search/filter."
-                  )}
-                </TableCell>
-              </TableRow>
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            {all.length === 0 ? (
+              <div className="flex flex-col items-center gap-2">
+                <BookOpen className="h-6 w-6" />
+                No courses assigned yet — an admin assigns courses for you to redistribute.
+              </div>
             ) : (
-              paged.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <CourseArt seed={a.course.thumbnail} title={a.course.title} className="h-10 w-10 shrink-0 rounded-lg" />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{a.course.title}</div>
-                        <div className="truncate text-xs text-muted-foreground">{a.course.category} · {a.course.level}</div>
-                      </div>
+              "No courses match this search/filter."
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="space-y-3 sm:hidden">
+            {paged.map((a) => (
+              <Card key={a.id}>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <CourseArt seed={a.course.thumbnail} title={a.course.title} className="h-10 w-10 shrink-0 rounded-lg" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{a.course.title}</div>
+                      <div className="truncate text-xs text-muted-foreground">{a.course.category} · {a.course.level}</div>
                     </div>
-                  </TableCell>
-                  <TableCell>
                     {a.course.visibility === "PRIVATE" ? (
-                      <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
+                      <Badge variant="outline" className="shrink-0 gap-1 border-primary/30 text-primary">
                         <Lock className="h-3 w-3" /> Private
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="gap-1 text-muted-foreground">
+                      <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
                         <Globe className="h-3 w-3" /> Public
                       </Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap}` : `${a.usedSeats} (unlimited)`}
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap} members` : `${a.usedSeats} members (unlimited)`}
+                    </span>
                     <ManageMembersDialog assignment={a} />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </AdminTableCard>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <AdminTableCard scrollClassName="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className={stickyHeaderRowClass}>
+                    <TableHead className={stickyHeaderCellClass}>Course</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Visibility</TableHead>
+                    <TableHead className={stickyHeaderCellClass}>Members</TableHead>
+                    <TableHead className={`text-right ${stickyHeaderCellClass}`}>Manage</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <CourseArt seed={a.course.thumbnail} title={a.course.title} className="h-10 w-10 shrink-0 rounded-lg" />
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{a.course.title}</div>
+                            <div className="truncate text-xs text-muted-foreground">{a.course.category} · {a.course.level}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {a.course.visibility === "PRIVATE" ? (
+                          <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
+                            <Lock className="h-3 w-3" /> Private
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-muted-foreground">
+                            <Globe className="h-3 w-3" /> Public
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {a.memberCap > 0 ? `${a.usedSeats} / ${a.memberCap}` : `${a.usedSeats} (unlimited)`}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ManageMembersDialog assignment={a} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AdminTableCard>
+          </div>
+        </>
+      )}
 
       <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>

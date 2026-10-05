@@ -404,8 +404,6 @@ export const api = {
     apiFetch<AdminCourseStatsDto>("/admin/courses/stats"),
   adminCourseOrganizations: (courseId: string) =>
     apiFetch<AdminCourseOrganizationDto[]>(`/admin/courses/${courseId}/organizations`),
-  updateUserStatus: (userId: string, status: "ACTIVE" | "IDLE" | "AT_RISK") =>
-    apiFetch<{ ok: true }>(`/admin/users/${userId}/status`, { method: "PATCH", body: { status } }),
   deleteUser: (userId: string) =>
     apiFetch<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
   refundOrder: (
@@ -977,7 +975,6 @@ export const adminApi = {
     api.adminCourses(params),
   courseStats: () => api.adminCourseStats(),
   courseOrganizations: (courseId: string) => api.adminCourseOrganizations(courseId),
-  updateUserStatus: api.updateUserStatus,
   deleteUser: api.deleteUser,
   refundOrder: api.refundOrder,
   reviews: (params: Record<string, string | number | undefined> = {}) =>

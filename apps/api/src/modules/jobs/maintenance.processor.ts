@@ -39,7 +39,6 @@ export class MaintenanceProcessor extends WorkerHost {
     if (job.name === "fx-refresh") return this.fx.refresh();
     if (job.name === "admin-digest") {
       await this.alerts.dailyRevenue();
-      await this.alerts.atRiskDigest();
       return { ok: true };
     }
     if (job.name === "org-invite-expiry") {

@@ -262,16 +262,4 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
       v("signups", "New signups that day", "4"),
     ],
   },
-  admin_alert_at_risk_digest: {
-    key: "admin_alert_at_risk_digest",
-    label: "Admin alert — at-risk student digest",
-    category: "admin_alerts",
-    description: "Sent to opted-in admins when learners are flagged at-risk (if the toggle is on).",
-    defaultSubject: "{{student_count}} student(s) at risk",
-    defaultBody: "These learners have stalled and may need a nudge: {{student_list}}",
-    variables: [
-      v("student_count", "Number of at-risk students", "3"),
-      v("student_list", "Bullet lines of name (email)", "• Priya (priya@example.com)"),
-    ],
-  },
 };
