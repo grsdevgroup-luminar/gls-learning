@@ -1,6 +1,6 @@
 import { createHmac, generateKeyPairSync } from "node:crypto";
 import { beforeAll, describe, it, expect, vi } from "vitest";
-import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, ServiceUnavailableException } from "@nestjs/common";
 import { LessonType, UploadStatus, type Upload } from "@prisma/client";
 import type { ConfigService } from "@nestjs/config";
 import { MediaService } from "../media.service";
@@ -97,6 +97,8 @@ function makeService(overrides: {
   const enrollment = {
     isEnrolled: vi.fn().mockResolvedValue(false),
     assertLessonAccessible: vi.fn().mockResolvedValue(undefined),
+    assertOrgAdminCourseNotSuspended: vi.fn().mockResolvedValue(undefined),
+    assertOrgAdminAssignedCourseAccess: vi.fn().mockResolvedValue(undefined),
     ...overrides.enrollment,
   } as unknown as EnrollmentService;
 
@@ -287,6 +289,25 @@ describe("MediaService.getPlayback", () => {
     expect(result.ready).toBe(true);
     expect(result.hlsUrl).toMatch(/^https:\/\/videodelivery\.net\/.+\/manifest\/video\.m3u8$/);
     expect(result.iframeUrl).toMatch(/^https:\/\/iframe\.videodelivery\.net\/.+/);
+  });
+
+  it("blocks a suspended org admin from direct preview playback for an assigned course", async () => {
+    const { service, enrollment, uploads } = makeService({
+      repo: { findLessonForPlayback: vi.fn().mockResolvedValue(lesson) },
+      uploads: {
+        findByCloudflareUid: vi.fn().mockResolvedValue(makeUpload({
+          status: UploadStatus.READY,
+        })),
+      },
+    });
+    vi.mocked(enrollment.assertOrgAdminAssignedCourseAccess).mockRejectedValue(
+      new ForbiddenException("Organization suspended"),
+    );
+
+    await expect(
+      service.getPlayback("org_admin_1", "lesson_1", undefined, "ORG_ADMIN"),
+    ).rejects.toThrow("Organization suspended");
+    expect(uploads.findByCloudflareUid).not.toHaveBeenCalled();
   });
 
   it("grandfathers lessons with a UID but no Upload row", async () => {

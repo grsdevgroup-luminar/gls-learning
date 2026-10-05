@@ -226,8 +226,8 @@ export default function DashboardClient() {
                 {resume.course.instructor.name} · {resume.completedCount}/
                 {resume.lessonCount} lessons complete
               </p>
-              <div className="flex items-center gap-3">
-                <Meter value={resume.progressPct} className="max-w-xs" />
+              <div className="flex min-w-0 items-center gap-3">
+                <Meter value={resume.progressPct} className="min-w-0 max-w-xs flex-1" />
                 <span className="text-sm font-semibold tabular-nums">
                   {resume.progressPct}%
                 </span>
@@ -254,7 +254,7 @@ export default function DashboardClient() {
                 key={e.id}
                 href={`/learn/${e.course.slug}`}
                 className={cn(
-                  "group flex items-center gap-4 p-3.5 transition-colors hover:bg-secondary/50",
+                  "group flex flex-col gap-3 p-3.5 transition-colors hover:bg-secondary/50 sm:flex-row sm:items-center sm:gap-4",
                   i > 0 && "border-t border-border",
                   e.accessRevoked && "opacity-60",
                 )}
@@ -262,7 +262,7 @@ export default function DashboardClient() {
                 <CourseArt
                   seed={e.course.thumbnail}
                   title={e.course.title}
-                  className="h-14 w-24 shrink-0 rounded-lg"
+                  className="h-14 w-20 shrink-0 rounded-lg sm:w-24"
                   iconSize={22}
                 />
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -274,11 +274,11 @@ export default function DashboardClient() {
                       Access revoked
                     </Badge>
                   ) : (
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <Meter
                         value={e.progressPct}
                         height={5}
-                        className="max-w-48"
+                        className="min-w-0 max-w-48 flex-1"
                       />
                       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {e.completedCount}/{e.lessonCount} · {e.progressPct}%
@@ -292,12 +292,12 @@ export default function DashboardClient() {
                     size={32}
                     strokeWidth={3}
                     showLabel={false}
-                    className="shrink-0"
+                    className="shrink-0 self-end sm:self-auto"
                   >
                     <Award className="size-4 text-success" />
                   </CircularProgress>
                 ) : (
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  <ChevronRight className="size-5 shrink-0 self-end text-muted-foreground transition-transform group-hover:translate-x-0.5 sm:self-auto" />
                 )}
               </Link>
             ))}

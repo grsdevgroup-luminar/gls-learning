@@ -30,6 +30,7 @@ import {
 } from "../notifications/notifications.service";
 import { AdminService } from "../admin/admin.service";
 import { toCourseSummary } from "../courses/course.mapper";
+import { CoursesService } from "../courses/courses.service";
 import { STORAGE_DRIVER } from "../storage/storage.constants";
 import type { StorageDriver } from "../storage/storage.driver";
 import {
@@ -68,6 +69,7 @@ export class OrganizationsService {
     @Inject(forwardRef(() => AdminService)) private readonly admin: AdminService,
     private readonly audit: AuditService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
+    private readonly courses: CoursesService,
   ) {}
 
   private toDto(o: OrgRow): OrganizationDto {
@@ -210,7 +212,13 @@ export class OrganizationsService {
 
   async get(user: RequestUser, orgId: string): Promise<OrganizationDto> {
     const row = await this.getRow(orgId);
-    await this.assertOrgAdmin(user, row.id);
+    // Let the authenticated organization admin read the lock state so the
+    // portal can render a suspension screen. Every operational org endpoint
+    // still goes through assertOrgAdmin and remains blocked while locked.
+    if (user.role !== "ADMIN") {
+      const member = await this.repo.findAdminMembership(row.id, user.id);
+      if (!member) throw new ForbiddenException("Not an admin of this organization");
+    }
     return this.toDto(row);
   }
 
@@ -620,6 +628,14 @@ export class OrganizationsService {
     if (!course) throw new NotFoundException("Course is not assigned to this organization");
     await this.repo.unassignCourseFromOrg(courseId, org.id);
     return this.toDto(await this.getRow(org.id));
+  }
+
+  /** Read-only full-content access for an active organization admin. */
+  async coursePreview(user: RequestUser, idOrSlug: string, courseId: string) {
+    const orgId = await this.assertOrgAdmin(user, idOrSlug);
+    const assignment = await this.repo.findCourseInOrg(courseId, orgId);
+    if (!assignment) throw new NotFoundException("Course is not assigned to this organization");
+    return this.courses.organizationPreview(courseId);
   }
 
   // ── invitation management ─────────────────────────────────────────────────

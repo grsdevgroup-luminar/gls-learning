@@ -209,6 +209,9 @@ export class CoursesService {
     if (!row) throw new NotFoundException("Course not found");
     if (row.status !== "PUBLISHED" && user?.role !== "ADMIN")
       throw new NotFoundException("Course not found");
+    if (user?.role === "ORG_ADMIN") {
+      await this.enrollment.assertOrgAdminCourseNotSuspended(user.id, row.id);
+    }
     const isInstructorOwner = !!user && user.id === row.instructor.id;
     if (row.visibility === "PRIVATE" && user?.role !== "ADMIN" && !isInstructorOwner) {
       const orgIds = row.orgAssignments.map((a) => a.orgId);
@@ -245,7 +248,11 @@ export class CoursesService {
   /** Enrolled learner view. Resource links are returned only for lessons the
    * learner has reached; the actual lesson body/video is still protected by
    * the playback and quiz endpoints. */
-  async learning(userId: string, courseId: string): Promise<CourseDetailDto> {
+  async learning(user: RequestUser, courseId: string): Promise<CourseDetailDto> {
+    if (user.role === "ORG_ADMIN") {
+      await this.enrollment.assertOrgAdminCourseNotSuspended(user.id, courseId);
+    }
+    const userId = user.id;
     const completedIds = await this.enrollment.completedLessonIds(userId, courseId);
     if (await this.enrollment.isCourseAccessRevoked(userId, courseId)) {
       throw new ForbiddenException("Access to this course was revoked");
@@ -268,6 +275,19 @@ export class CoursesService {
     });
     // Uploaded resources persist an object key; the URL served to the browser
     // must be a fresh short-lived signed URL, not the one captured at upload.
+    return signCourseResourceUrls(detail, this.storage);
+  }
+
+  /** Full course content for an authorized organization admin. The caller
+   * must validate the org assignment first; this method only maps/signs the
+   * read-only content and never reads or writes enrollment progress. */
+  async organizationPreview(courseId: string): Promise<CourseDetailDto> {
+    const row = await this.repo.findById(courseId);
+    if (!row || row.status !== "PUBLISHED") throw new NotFoundException("Course not found");
+    const detail = toCourseDetail(row, {
+      includeArticleContent: true,
+      includeLessonResources: true,
+    });
     return signCourseResourceUrls(detail, this.storage);
   }
 }

@@ -76,6 +76,7 @@ function makeService(repoOverrides: Partial<OrganizationsRepository> = {}) {
     admin,
     audit,
     { getUrl: vi.fn().mockResolvedValue("") } as never,
+    { organizationPreview: vi.fn().mockResolvedValue({ id: "course_1" }) } as never,
   );
   return { service, repo, email };
 }
@@ -227,13 +228,16 @@ describe("OrganizationsService — lock enforcement", () => {
     accessLocksAt: new Date(Date.now() - 1000),
   });
 
-  it("blocks the org's own admin from the portal once access is locked", async () => {
+  it("lets the org's own admin read lock status so the portal can show the suspension state", async () => {
     const { service, repo } = makeService({
       findAdminMembership: vi.fn().mockResolvedValue({ id: "member_1" }),
     });
     vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(lockedOrg);
 
-    await expect(service.get(orgAdminUser, "org_1")).rejects.toThrow(ForbiddenException);
+    await expect(service.get(orgAdminUser, "org_1")).resolves.toMatchObject({
+      id: "org_1",
+      accessLocked: true,
+    });
   });
 
   it("platform ADMIN still has full access to a locked org", async () => {
@@ -252,6 +256,17 @@ describe("OrganizationsService — lock enforcement", () => {
     await expect(
       service.listCourses({ ...orgAdminUser, role: "STUDENT" }, "org_1"),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("blocks the org admin from learning metrics once access is locked", async () => {
+    const { service, repo } = makeService({
+      findAdminMembership: vi.fn().mockResolvedValue({ id: "member_1" }),
+    });
+    vi.mocked(repo.findOrgBySlugOrId).mockResolvedValue(lockedOrg);
+
+    await expect(service.learningDashboard(orgAdminUser, "org_1")).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
 

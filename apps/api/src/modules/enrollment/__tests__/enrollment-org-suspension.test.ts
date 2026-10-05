@@ -45,6 +45,67 @@ function nonMemberOrg(id: string, status: string) {
 }
 
 describe("EnrollmentService org-suspension gating", () => {
+  describe("assertOrgAdminAssignedCourseAccess", () => {
+    it("allows an active organization admin without requiring an enrollment", async () => {
+      const service = makeService({
+        findCourseAccess: vi.fn().mockResolvedValue({
+          status: "PUBLISHED",
+          orgAssignments: [{ org: { id: "org_1", status: "ACTIVE", accessLocksAt: null, members: [{ id: "member_1", role: "ADMIN", removedAt: null }] } }],
+        }),
+      });
+      await expect(service.assertOrgAdminAssignedCourseAccess(userId, courseId)).resolves.toBeUndefined();
+    });
+
+    it("rejects users without an active admin membership on an assigned organization", async () => {
+      const service = makeService({
+        findCourseAccess: vi.fn().mockResolvedValue({
+          status: "PUBLISHED",
+          orgAssignments: [{ org: { id: "org_1", status: "ACTIVE", accessLocksAt: null, members: [{ id: "member_1", role: "MEMBER", removedAt: null }] } }],
+        }),
+      });
+      await expect(service.assertOrgAdminAssignedCourseAccess(userId, courseId)).rejects.toThrow("not assigned to your organization");
+    });
+
+    it("rejects access when the assigned organization is suspended", async () => {
+      const service = makeService({
+        findCourseAccess: vi.fn().mockResolvedValue({
+          status: "PUBLISHED",
+          orgAssignments: [{ org: { id: "org_1", status: "SUSPENDED", accessLocksAt: new Date(Date.now() - 1000), members: [{ id: "member_1", role: "ADMIN", removedAt: null }] } }],
+        }),
+      });
+      await expect(service.assertOrgAdminAssignedCourseAccess(userId, courseId)).rejects.toThrow("suspended");
+    });
+  });
+
+  describe("assertOrgAdminCourseNotSuspended", () => {
+    it("blocks an org admin when every organization assignment they belong to is locked", async () => {
+      const service = makeService({
+        findCourseAccess: vi.fn().mockResolvedValue({
+          orgAssignments: [memberOrg("org_1", "SUSPENDED", new Date(Date.now() - 1000))],
+        }),
+      });
+
+      await expect(
+        service.assertOrgAdminCourseNotSuspended(userId, courseId),
+      ).rejects.toThrow("organization's access to the course is currently suspended");
+    });
+
+    it("allows an org admin if another assigned organization still grants access", async () => {
+      const service = makeService({
+        findCourseAccess: vi.fn().mockResolvedValue({
+          orgAssignments: [
+            memberOrg("org_locked", "SUSPENDED", new Date(Date.now() - 1000)),
+            memberOrg("org_active", "ACTIVE"),
+          ],
+        }),
+      });
+
+      await expect(
+        service.assertOrgAdminCourseNotSuspended(userId, courseId),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   describe("enrollFree", () => {
     it("rejects enrollment while an instructor or delivery-partner application is pending", async () => {
       const findUserRole = vi.fn();

@@ -70,7 +70,7 @@ export default function OrgCourses() {
                     )}
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="w-full" render={<Link href={`/courses/${c.slug}`} />}>
+                <Button variant="outline" size="sm" className="w-full" render={<Link href={`/org/${params.slug}/courses/${c.id}`} />}>
                   <Eye className="h-4 w-4" /> View course
                 </Button>
               </CardContent>

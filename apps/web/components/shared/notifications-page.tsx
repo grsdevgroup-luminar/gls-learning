@@ -47,7 +47,7 @@ function Row({ n }: { n: NotificationDto }) {
             {formatTimestamp(n.createdAt)}
           </span>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>
+        <p className="mt-1 break-words text-sm text-muted-foreground">{n.body}</p>
       </div>
     </div>
   );

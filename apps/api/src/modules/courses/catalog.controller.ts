@@ -48,6 +48,6 @@ export class CatalogController {
     @CurrentUser() user: RequestUser,
     @Param("courseId") courseId: string,
   ) {
-    return this.courses.learning(user.id, courseId);
+    return this.courses.learning(user, courseId);
   }
 }

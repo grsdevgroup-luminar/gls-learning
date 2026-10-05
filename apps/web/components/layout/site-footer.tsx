@@ -11,8 +11,7 @@ const cols = [
       ['Browse courses', '/courses'],
       ['Teach on GRS Learning', '/teach'],
       ['Become a delivery partner', '/partner'],
-      ['Student dashboard', '/dashboard'],
-      ['Admin panel', '/admin'],
+      ['Student dashboard', '/dashboard']
     ],
   },
   {

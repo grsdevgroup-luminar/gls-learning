@@ -21,16 +21,23 @@ export class QuizService {
   ) {}
 
   /** Quiz questions for the player — correctness is intentionally stripped. */
-  async getForPlay(userId: string, lessonId: string): Promise<QuizPlayDto> {
+  async getForPlay(userId: string, lessonId: string, userRole?: string): Promise<QuizPlayDto> {
     const lesson = await this.repo.findLessonContext(lessonId);
     if (!lesson || !lesson.quiz)
       throw new NotFoundException("No quiz for this lesson");
 
+    const orgAdminReadOnly = userRole === "ORG_ADMIN";
+    if (orgAdminReadOnly) {
+      await this.enrollment.assertOrgAdminAssignedCourseAccess(
+        userId,
+        lesson.section.courseId,
+      );
+    }
     const enrolled = await this.enrollment.isEnrolled(
       userId,
       lesson.section.courseId,
     );
-    if (!enrolled && !lesson.preview)
+    if (!enrolled && !lesson.preview && !orgAdminReadOnly)
       throw new ForbiddenException("Enroll to access this quiz");
     if (enrolled) await this.enrollment.assertLessonAccessible(userId, lessonId);
 
