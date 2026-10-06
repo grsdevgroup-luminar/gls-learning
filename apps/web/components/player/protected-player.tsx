@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/endpoints';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { gradientFor } from '@/lib/format';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { AlertTriangle, Clock, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { clearPosition, readPosition, writePosition } from '@/lib/playback-position';
 
@@ -90,6 +90,19 @@ export function ProtectedPlayer({
     queryKey: ['playback', lessonId],
     queryFn: () => api.playback(lessonId),
   });
+
+  // Cloudflare's own pre-play poster button isn't ours to resize (it renders
+  // inside their cross-origin iframe). Instead we don't mount the iframe at
+  // all until the learner clicks our own play button, then load it with
+  // autoplay so exactly one click is still all it takes to start watching.
+  const [started, setStarted] = useState(false);
+  // Reset during render (not an effect) when the lesson changes — React's
+  // documented pattern for adjusting state in response to a prop change.
+  const [startedForLesson, setStartedForLesson] = useState(lessonId);
+  if (lessonId !== startedForLesson) {
+    setStartedForLesson(lessonId);
+    setStarted(false);
+  }
 
   // Nothing prefetches the playback query, so `ready` is only ever true after a
   // client-side fetch — which keeps this localStorage read out of SSR and out of
@@ -211,7 +224,7 @@ export function ProtectedPlayer({
       player?.removeEventListener('seeked', onPauseOrSeek);
       player?.removeEventListener('ended', onEnded);
     };
-  }, [courseId, lessonId, data?.iframeUrl]);
+  }, [courseId, lessonId, data?.iframeUrl, started]);
 
   if (isLoading) {
     return (
@@ -260,15 +273,29 @@ export function ProtectedPlayer({
   return (
     <div className="group relative w-full overflow-hidden rounded-xl bg-black">
       <div className="aspect-video">
-        <iframe
-          key={lessonId}
-          ref={iframeRef}
-          src={src}
-          title={title}
-          className="h-full w-full border-0"
-          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
+        {started ? (
+          <iframe
+            key={lessonId}
+            ref={iframeRef}
+            src={`${src}&autoplay=true`}
+            title={title}
+            className="h-full w-full border-0"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setStarted(true)}
+            aria-label={`Play ${title}`}
+            className="absolute inset-0 flex h-full w-full items-center justify-center bg-black/40"
+            style={{ backgroundImage: gradientFor(seed) }}
+          >
+            <span className="flex size-[50px] shrink-0 items-center justify-center rounded-full bg-black/50 transition-transform group-hover:scale-110">
+              <Play className="size-[25px] fill-primary text-primary" />
+            </span>
+          </button>
+        )}
       </div>
 
       <Watermark text={watermark} />
