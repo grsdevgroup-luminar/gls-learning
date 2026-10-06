@@ -45,14 +45,22 @@ export const useCourses = (params: Record<string, string | string[] | number | u
 
 /** The full published catalog at once — used wherever a page needs to look up
  *  courses by id/slug from an already-fetched list (store, cart) rather than
- *  paginated browsing (that's `useCourses`). One query key so every caller
- *  shares the same cache entry instead of each re-fetching independently. */
-export const useCatalog = () =>
-  useQuery({
-    queryKey: qk.catalog,
-    queryFn: () => api.courses({ pageSize: MAX_PAGE_SIZE }),
+ *  paginated browsing (that's `useCourses`). The cache is shared per viewer so
+ *  authenticated organization members receive their assigned private courses. */
+export const useCatalog = () => {
+  const { user, isLoading: sessionLoading } = useSession();
+  const params = { pageSize: MAX_PAGE_SIZE };
+
+  return useQuery({
+    // Organization-assigned private courses are viewer-specific. Keeping the
+    // viewer in the key prevents an anonymous catalog from being reused after
+    // a learner signs in.
+    queryKey: qk.courses(params, user?.id ?? "public"),
+    queryFn: () => api.courses(params),
+    enabled: !sessionLoading,
     staleTime: 60_000,
   });
+};
 
 export const useCourse = (slug: string) =>
   useQuery({ queryKey: qk.course(slug), queryFn: () => api.course(slug) });

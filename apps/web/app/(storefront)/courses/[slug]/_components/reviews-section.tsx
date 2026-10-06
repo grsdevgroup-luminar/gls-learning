@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import type { CourseDetailDto, ReviewDto } from "@skillstream/shared";
 import { useStore } from "@/lib/context/store";
 import { useSession } from "@/lib/api/session";
+import { api } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { RatingBars } from "./rating-bars";
 import { ReviewDialog } from "./review-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Stars } from "@/components/shared/stars";
 import { ThumbsUp } from "lucide-react";
 import { compactNumber, initials, relativeDate } from "@/lib/format";
+import { toast } from "sonner";
 
 /** The review list is server-fetched (passed in as `initialReviews`) so it's
  *  part of the page's first paint; only the "is this viewer enrolled / did
@@ -26,6 +30,17 @@ export function ReviewsSection({
   const router = useRouter();
   const { isEnrolled, getMyReview, submitReview, mounted } = useStore();
   const { user } = useSession();
+  const [helpfulState, setHelpfulState] = useState<Record<string, { count: number; voted: boolean }>>({});
+  const helpfulVote = useMutation({
+    mutationFn: (reviewId: string) => api.markReviewHelpful(reviewId),
+    onSuccess: (result, reviewId) => {
+      setHelpfulState((current) => ({
+        ...current,
+        [reviewId]: { count: result.helpful, voted: result.helpfulByMe },
+      }));
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
 
   useEffect(() => {
     function handleReviewUpdate(event: StorageEvent) {
@@ -117,8 +132,26 @@ export function ReviewsSection({
               </div>
             </div>
             {r.body && <p className="mt-1 text-sm text-muted-foreground">{r.body}</p>}
-            <button className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ThumbsUp className="h-3.5 w-3.5" /> Helpful ({r.helpful})
+            <button
+              type="button"
+              disabled={
+                r.id.startsWith("mine:") ||
+                (!!myReview?.id && r.id === myReview.id) ||
+                r.helpfulByMe === true ||
+                helpfulState[r.id]?.voted ||
+                (helpfulVote.isPending && helpfulVote.variables === r.id)
+              }
+              onClick={() => {
+                if (!user) {
+                  toast.info("Log in to mark a review helpful.");
+                  return;
+                }
+                helpfulVote.mutate(r.id);
+              }}
+              className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:cursor-default disabled:opacity-70"
+              aria-pressed={r.helpfulByMe === true || helpfulState[r.id]?.voted === true}
+            >
+              <ThumbsUp className="h-3.5 w-3.5" /> Helpful ({helpfulState[r.id]?.count ?? r.helpful})
             </button>
           </div>
         ))}

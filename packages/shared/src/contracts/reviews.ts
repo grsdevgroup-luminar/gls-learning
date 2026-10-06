@@ -48,6 +48,7 @@ export interface ReviewDto {
   body: string;
   status: ReviewStatus;
   helpful: number;
+  helpfulByMe?: boolean;
   createdAt: string;
   /** Course this review belongs to — the moderation queue spans all courses. */
   courseTitle: string;

@@ -52,6 +52,7 @@ export function SiteHeader() {
   const urlQ = pathname === "/courses" ? (searchParams.get("q") ?? "") : "";
   const [q, setQ] = useState(urlQ);
   const [syncedQ, setSyncedQ] = useState(urlQ);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const debouncedQ = useDebouncedSearch(q);
   // Tracks URL changes initiated by this input, so a stale debounced value
   // cannot overwrite a newer value the user has already typed.
@@ -145,7 +146,7 @@ export function SiteHeader() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--aurora-2)_60%,transparent),color-mix(in_oklch,var(--aurora-3)_50%,transparent),transparent)] opacity-60"
       />
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
+      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center gap-4 px-4">
         <Logo />
         <nav className="hidden items-center gap-1 md:flex">
           {!isInstructor && (
@@ -216,6 +217,16 @@ export function SiteHeader() {
           </div>
 
           <div className="flex items-center gap-1 sm:hidden">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={mobileSearchOpen ? "Close search" : "Search courses"}
+              aria-expanded={mobileSearchOpen}
+              onClick={() => setMobileSearchOpen((open) => !open)}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
             <ThemeToggle />
             {isAuthed && <NotificationBell />}
             {canUseCart && (
@@ -350,6 +361,32 @@ export function SiteHeader() {
             </>
           )}
         </div>
+        {mobileSearchOpen && (
+          <form onSubmit={submitSearch} className="order-last basis-full pb-3 sm:hidden">
+            <label className="sr-only" htmlFor="mobile-course-search">
+              Search courses
+            </label>
+            <div className="relative">
+              <button
+                type="submit"
+                aria-label="Submit course search"
+                className="absolute left-0 top-0 z-10 flex h-10 w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+              <Input
+                id="mobile-course-search"
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search courses, topics, or skills"
+                className="search-input h-10 border-input bg-background pl-10 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
+                minLength={2}
+                autoFocus
+              />
+            </div>
+          </form>
+        )}
       </div>
     </header>
   );

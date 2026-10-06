@@ -4,6 +4,10 @@ import { PrismaService } from "../../prisma/prisma.service";
 
 export const COMMENT_INCLUDE = {
   user: { select: { name: true, avatar: true } },
+  replies: {
+    orderBy: { createdAt: "asc" },
+    include: { user: { select: { name: true, avatar: true } } },
+  },
 } satisfies Prisma.CommentInclude;
 
 export type CommentRow = Prisma.CommentGetPayload<{
@@ -26,7 +30,7 @@ export class CommentsRepository {
     skip: number,
     take: number,
   ) {
-    const where: Prisma.CommentWhereInput = { courseId };
+    const where: Prisma.CommentWhereInput = { courseId, parentId: null };
     return this.prisma.$transaction([
       this.prisma.comment.findMany({
         where,
@@ -39,9 +43,16 @@ export class CommentsRepository {
     ]);
   }
 
-  createComment(userId: string, courseId: string, body: string) {
+  findCommentParent(parentId: string) {
+    return this.prisma.comment.findUnique({
+      where: { id: parentId },
+      select: { id: true, courseId: true, parentId: true },
+    });
+  }
+
+  createComment(userId: string, courseId: string, body: string, parentId?: string) {
     return this.prisma.comment.create({
-      data: { courseId, userId, body },
+      data: { courseId, userId, body, parentId },
       include: COMMENT_INCLUDE,
     });
   }

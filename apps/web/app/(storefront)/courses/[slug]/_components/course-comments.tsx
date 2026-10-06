@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Reply as ReplyIcon } from "lucide-react";
 import { useCourseComments, usePostComment } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -22,6 +22,8 @@ export function CourseComments({ courseId }: { courseId: string }) {
   const { data, isLoading } = useCourseComments(courseId);
   const post = usePostComment(courseId);
   const [body, setBody] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
 
   const comments = data?.items ?? [];
 
@@ -41,6 +43,21 @@ export function CourseComments({ courseId }: { courseId: string }) {
       { body: trimmed },
       {
         onSuccess: () => setBody(""),
+        onError: (e) => toast.error(getApiErrorMessage(e)),
+      },
+    );
+  }
+
+  function submitReply(parentId: string) {
+    const trimmed = replyBody.trim();
+    if (!trimmed) return;
+    post.mutate(
+      { body: trimmed, parentId },
+      {
+        onSuccess: () => {
+          setReplyBody("");
+          setReplyingTo(null);
+        },
         onError: (e) => toast.error(getApiErrorMessage(e)),
       },
     );
@@ -102,16 +119,62 @@ export function CourseComments({ courseId }: { courseId: string }) {
                 {c.avatar && <AvatarImage src={c.avatar} alt="" />}
                 <AvatarFallback>{initials(c.author)}</AvatarFallback>
               </Avatar>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="font-medium">{c.author}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {relativeDate(c.createdAt)}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{relativeDate(c.createdAt)}</span>
                 </div>
-                <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                  {c.body}
-                </p>
+                <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{c.body}</p>
+                {user && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 h-7 px-2 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setReplyingTo((current) => current === c.id ? null : c.id);
+                      setReplyBody("");
+                    }}
+                  >
+                    <ReplyIcon className="mr-1 h-3.5 w-3.5" /> Reply
+                  </Button>
+                )}
+                {replyingTo === c.id && (
+                  <div className="mt-2 space-y-2">
+                    <Textarea
+                      value={replyBody}
+                      onChange={(event) => setReplyBody(event.target.value.slice(0, MAX))}
+                      placeholder={`Reply to ${c.author}…`}
+                      rows={2}
+                      aria-label={`Reply to ${c.author}`}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setReplyingTo(null)}>Cancel</Button>
+                      <Button type="button" size="sm" disabled={!replyBody.trim() || post.isPending} onClick={() => submitReply(c.id)}>
+                        {post.isPending ? "Replying…" : "Post reply"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {(c.replies?.length ?? 0) > 0 && (
+                  <ul className="mt-3 space-y-3 border-l-2 pl-4">
+                    {c.replies?.map((reply) => (
+                      <li key={reply.id} className="flex gap-2.5">
+                        <Avatar className="h-7 w-7 shrink-0">
+                          {reply.avatar && <AvatarImage src={reply.avatar} alt="" />}
+                          <AvatarFallback>{initials(reply.author)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-medium">{reply.author}</span>
+                            <span className="text-xs text-muted-foreground">{relativeDate(reply.createdAt)}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{reply.body}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </li>
           ))}
