@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CourseCard } from "./_components/course-card";
 import { PersonalizedRecommendations } from "./_components/personalized-recommendations";
 import { HeroShowcase } from "./_components/hero-showcase";
@@ -14,9 +15,10 @@ import {
   Parallax,
   Magnetic,
 } from "@/components/shared/motion";
-import { serverApi } from "@/lib/api/server";
+import { serverApi, serverApiOptional } from "@/lib/api/server";
 import { MAX_PAGE_SIZE } from "@skillstream/shared";
 import type {
+  AuthUserDto,
   CourseSummaryDto,
   InstructorRosterDto,
   Paginated,
@@ -74,6 +76,10 @@ async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
 }
 
 export default async function HomePage() {
+  // SSR fail-closed backstop for the proxy's edge redirect — see proxy.ts.
+  const user = await serverApiOptional<AuthUserDto>("/auth/me");
+  if (user?.role === "DELIVERY_PARTNER") redirect("/delivery-partner");
+
   // Server-fetched so the landing page ships real, indexable content.
   const [coursePage, bestsellers, instructors, categories, testimonials] = await Promise.all([
     safe(serverApi<Paginated<CourseSummaryDto>>(`/courses?pageSize=${MAX_PAGE_SIZE}`), {

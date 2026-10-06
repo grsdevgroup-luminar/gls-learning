@@ -52,6 +52,12 @@ function roleFromToken(token: string | undefined): Role | null {
   }
 }
 
+// Storefront browsing/shopping routes a DELIVERY_PARTNER must never reach, even by
+// direct URL. /partner is deliberately excluded: it already renders an
+// "you're already a delivery partner, go to dashboard" status card for that role
+// (see (storefront)/partner/page.tsx) rather than storefront content.
+const DELIVERY_PARTNER_BLOCKED_PREFIXES = ["/courses", "/instructors", "/teach"];
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const role = roleFromToken(request.cookies.get("access_token")?.value);
@@ -64,12 +70,24 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
-  // Keep instructors out of the public storefront while preserving the root URL.
-  // This is an internal rewrite, so there is no visible URL redirect.
+  // Keep instructors and delivery partners out of the public storefront while
+  // preserving the root URL. The instructor case is an internal rewrite (no
+  // visible URL change); the delivery-partner case is a real redirect since
+  // their home portal is a different path entirely.
   if (pathname === "/") {
     if (role === "INSTRUCTOR") {
       return NextResponse.rewrite(new URL("/instructor", request.url));
     }
+    if (role === "DELIVERY_PARTNER") {
+      return NextResponse.redirect(new URL("/delivery-partner", request.url));
+    }
+  }
+
+  if (
+    role === "DELIVERY_PARTNER" &&
+    DELIVERY_PARTNER_BLOCKED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  ) {
+    return NextResponse.redirect(new URL("/delivery-partner", request.url));
   }
 
   const needsAuth = PROTECTED_PREFIXES.some(
@@ -111,5 +129,8 @@ export const config = {
     "/org/:path*",
     "/cart/:path*",
     "/checkout/:path*",
+    "/courses/:path*",
+    "/instructors/:path*",
+    "/teach/:path*",
   ],
 };

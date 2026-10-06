@@ -58,6 +58,7 @@ export default async function DeliveryPartnerLayout({ children }: { children: Re
       items={approved ? items : []}
       badge="Delivery Partner"
       user={{ name, email, initials: initials(name), avatar: user.avatar ?? null }}
+      showBackToSite={false}
     >
       {children}
     </PortalShell>
