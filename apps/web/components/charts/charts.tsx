@@ -29,7 +29,15 @@ export function AreaTrend({
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-        <XAxis dataKey={xKey} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+        <XAxis
+          dataKey={xKey}
+          tickLine={false}
+          axisLine={false}
+          fontSize={12}
+          minTickGap={16}
+          interval="preserveStartEnd"
+          stroke="var(--muted-foreground)"
+        />
         <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" tickFormatter={(v) => `${prefix}${v >= 1000 ? `${v / 1000}k` : v}`} />
         <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${prefix}${Number(v).toLocaleString()}`, ""]} />
         <Area type="monotone" dataKey={yKey} stroke={color} strokeWidth={2.5} fill={`url(#g-${yKey})`} />
@@ -45,7 +53,7 @@ export function BarTrend({
 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ left: horizontal ? 8 : -16, right: 8, top: 8, bottom: 0 }}>
+      <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ left: horizontal ? 0 : -16, right: 8, top: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         {horizontal ? (
           <>
@@ -54,7 +62,7 @@ export function BarTrend({
           </>
         ) : (
           <>
-            <XAxis dataKey={xKey} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+            <XAxis dataKey={xKey} tickLine={false} axisLine={false} fontSize={12} minTickGap={16} interval="preserveStartEnd" stroke="var(--muted-foreground)" />
             <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" tickFormatter={(v) => `${prefix}${v >= 1000 ? `${v / 1000}k` : v}`} />
           </>
         )}

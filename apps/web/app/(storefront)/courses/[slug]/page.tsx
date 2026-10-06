@@ -5,7 +5,7 @@ import type {
   Paginated,
   ReviewDto,
 } from "@skillstream/shared";
-import { serverApiOptional, serverApiCached } from "@/lib/api/server";
+import { serverApiOptional, serverApi } from "@/lib/api/server";
 import { CourseDetail } from "./_components/course-detail";
 
 // Course details are fetched per request so authenticated organization members can
@@ -45,12 +45,9 @@ export default async function CoursePage({
   const dto = await fetchCourse(slug);
   if (!dto) notFound();
 
-  const reviewPage = await serverApiCached<Paginated<ReviewDto>>(
-    `/courses/${dto.id}/reviews`,
-    revalidate,
-    {},
-    ["course-reviews"],
-  );
+  // Helpful-vote state is viewer-specific, so fetch with the session cookie
+  // and avoid sharing a cached anonymous response across signed-in learners.
+  const reviewPage = await serverApi<Paginated<ReviewDto>>(`/courses/${dto.id}/reviews`);
 
   const reviews = reviewPage?.items ?? [];
 

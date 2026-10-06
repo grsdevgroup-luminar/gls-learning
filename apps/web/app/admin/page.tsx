@@ -74,7 +74,7 @@ export default function AdminOverview() {
     : [];
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
         <p className="text-muted-foreground">How your course business is performing.</p>
@@ -96,7 +96,7 @@ export default function AdminOverview() {
           {kpiCards.map((k) => (
             <div
               key={k.label}
-              className="group bg-card p-5"
+              className="group bg-card p-3 sm:p-5"
               style={{ ["--tile" as string]: k.tint }}
             >
               <div className="flex items-center justify-between gap-2">

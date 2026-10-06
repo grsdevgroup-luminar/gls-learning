@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   CommentDto,
   CreateCommentInput,
@@ -19,6 +19,16 @@ export class CommentsService {
       avatar: c.user.avatar,
       body: c.body,
       createdAt: c.createdAt.toISOString(),
+      parentId: c.parentId,
+      replies: c.replies.map((reply) => ({
+        id: reply.id,
+        courseId: reply.courseId,
+        author: reply.user.name,
+        avatar: reply.user.avatar,
+        body: reply.body,
+        createdAt: reply.createdAt.toISOString(),
+        parentId: reply.parentId,
+      })),
     };
   }
 
@@ -54,7 +64,13 @@ export class CommentsService {
     input: CreateCommentInput,
   ): Promise<CommentDto> {
     await this.assertCourseExists(courseId);
-    const comment = await this.repo.createComment(userId, courseId, input.body);
+    if (input.parentId) {
+      const parent = await this.repo.findCommentParent(input.parentId);
+      if (!parent || parent.courseId !== courseId || parent.parentId !== null) {
+        throw new BadRequestException("Replies must target an existing top-level comment in this course");
+      }
+    }
+    const comment = await this.repo.createComment(userId, courseId, input.body, input.parentId);
     return this.toDto(comment);
   }
 }

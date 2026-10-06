@@ -16,18 +16,53 @@ export class ReviewsRepository {
   findManyAndCountForCourse(
     courseId: string,
     page: { page: number; pageSize: number },
+    viewerUserId?: string,
   ) {
     const where: Prisma.ReviewWhereInput = { courseId, status: "APPROVED" };
+    const include = {
+      ...reviewInclude,
+      helpfulVotes: {
+        where: { userId: viewerUserId ?? "__anonymous_viewer__" },
+        select: { userId: true },
+      },
+    } satisfies Prisma.ReviewInclude;
     return this.prisma.$transaction([
       this.prisma.review.findMany({
         where,
-        include: reviewInclude,
+        include,
         orderBy: { createdAt: "desc" },
         skip: (page.page - 1) * page.pageSize,
         take: page.pageSize,
       }),
       this.prisma.review.count({ where }),
     ]);
+  }
+
+  findHelpfulVoteContext(reviewId: string) {
+    return this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { id: true, userId: true, status: true },
+    });
+  }
+
+  async markHelpful(reviewId: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const inserted = await tx.reviewHelpful.createMany({
+        data: [{ reviewId, userId }],
+        skipDuplicates: true,
+      });
+      if (inserted.count > 0) {
+        await tx.review.update({
+          where: { id: reviewId },
+          data: { helpful: { increment: 1 } },
+        });
+      }
+      const review = await tx.review.findUnique({
+        where: { id: reviewId },
+        select: { helpful: true },
+      });
+      return { helpful: review?.helpful ?? 0, helpfulByMe: true };
+    });
   }
 
   findFeatured(limit: number) {
