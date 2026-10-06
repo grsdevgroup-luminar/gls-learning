@@ -24,10 +24,20 @@ export class ReviewsController {
   @Public()
   @Get("courses/:courseId/reviews")
   list(
+    @CurrentUser() user: RequestUser | undefined,
     @Param("courseId") courseId: string,
     @ZodQuery(paginationQuerySchema) page: PaginationQuery,
   ) {
-    return this.reviews.listForCourse(courseId, page);
+    return this.reviews.listForCourse(courseId, page, user?.id);
+  }
+
+  @ApiBearerAuth()
+  @Post("reviews/:reviewId/helpful")
+  markHelpful(
+    @CurrentUser() user: RequestUser,
+    @Param("reviewId") reviewId: string,
+  ) {
+    return this.reviews.markHelpful(reviewId, user.id);
   }
 
   @ApiBearerAuth()

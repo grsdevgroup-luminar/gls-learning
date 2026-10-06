@@ -294,6 +294,7 @@ model User {
   quizAttempts               QuizAttempt[]
   reviews                    Review[]
   comments                   Comment[]
+  helpfulReviewVotes         ReviewHelpful[]
   orders                     Order[]
   reminderLogs               ReminderLog[]
   couponRedemptions          CouponRedemption[]
@@ -793,6 +794,7 @@ model Review {
   statusBeforeHidden ReviewStatus?
   helpful            Int           @default(0)
   createdAt          DateTime      @default(now())
+  helpfulVotes       ReviewHelpful[]
 
   @@unique([courseId, userId])
   @@index([courseId, status])
@@ -800,18 +802,33 @@ model Review {
 
 // ─── Commerce ─────────────────────────────────────────────────────────────────
 
-/// Flat (non-threaded) course discussion. No moderation state by design --
-/// any logged-in user may post, and comments are read publicly.
+/// Course discussion. Replies are one level deep; comments are publicly
+/// readable and any logged-in user may post or reply.
 model Comment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([courseId, createdAt])
+  @@index([parentId, createdAt])
+}
+
+model ReviewHelpful {
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([reviewId, userId])
+  @@index([userId])
 }
 
 model Order {

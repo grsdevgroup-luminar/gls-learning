@@ -47,15 +47,28 @@ export class ReviewsService {
   async listForCourse(
     courseId: string,
     page: PaginationQuery,
+    viewerUserId?: string,
   ): Promise<Paginated<ReviewDto>> {
-    const [rows, total] = await this.repo.findManyAndCountForCourse(courseId, page);
+    const [rows, total] = await this.repo.findManyAndCountForCourse(courseId, page, viewerUserId);
     return {
-      items: rows.map((r) => this.toDto(r)),
+      items: rows.map((r) => ({ ...this.toDto(r), helpfulByMe: r.helpfulVotes.length > 0 })),
       page: page.page,
       pageSize: page.pageSize,
       total,
       totalPages: Math.ceil(total / page.pageSize),
     };
+  }
+
+  async markHelpful(reviewId: string, userId: string): Promise<{ helpful: number; helpfulByMe: true }> {
+    const review = await this.repo.findHelpfulVoteContext(reviewId);
+    if (!review || review.status !== "APPROVED") {
+      throw new NotFoundException("Review not found");
+    }
+    if (review.userId === userId) {
+      throw new ForbiddenException("You cannot mark your own review as helpful");
+    }
+    const result = await this.repo.markHelpful(reviewId, userId);
+    return { ...result, helpfulByMe: true as const };
   }
 
   /** Platform-wide highlights for marketing surfaces (landing page, etc.):

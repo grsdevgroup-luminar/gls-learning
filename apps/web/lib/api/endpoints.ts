@@ -305,12 +305,14 @@ export const api = {
   // reviews
   courseReviews: (courseId: string, page = 1) =>
     apiFetch<Paginated<ReviewDto>>(`/courses/${courseId}/reviews${qs({ page })}`),
+  markReviewHelpful: (reviewId: string) =>
+    apiFetch<{ helpful: number; helpfulByMe: boolean }>(`/reviews/${reviewId}/helpful`, { method: "POST" }),
   myReview: (courseId: string) =>
     apiFetch<ReviewDto | null>(`/me/courses/${courseId}/review`),
   submitReview: (courseId: string, body: CreateReviewInput) =>
     apiFetch<ReviewDto>(`/courses/${courseId}/reviews`, { method: "POST", body }),
 
-  // comments — flat course discussion, public read / logged-in write
+  // comments — threaded course discussion, public read / logged-in write
   courseComments: (courseId: string, page = 1) =>
     apiFetch<Paginated<CommentDto>>(`/courses/${courseId}/comments${qs({ page })}`),
   postComment: (courseId: string, body: CreateCommentInput) =>

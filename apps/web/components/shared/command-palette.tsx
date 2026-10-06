@@ -54,7 +54,10 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
         id: c.id,
         label: c.title,
         hint: "Open course",
-        href: `/learn/${c.slug}`,
+        // Search results are browse destinations. Learners may be allowed to
+        // see an organization-assigned course before enrolling; sending them
+        // directly to /learn would call the enrollment-only learning endpoint.
+        href: `/courses/${c.slug}`,
         icon: GraduationCap,
         group: "Courses",
         keywords: ["course", "learning", "class", "lesson"],
