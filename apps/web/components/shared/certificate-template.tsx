@@ -1,3 +1,9 @@
+import { QRCodeSVG } from "qrcode.react";
+import {
+  CERTIFICATE_CONTACT_EMAIL,
+  CERTIFICATE_WEBSITE,
+} from "@/lib/certificate-config";
+
 export type CertificateTemplateData = {
   studentName: string;
   courseName: string;
@@ -30,6 +36,14 @@ export function CertificateTemplate({ data, variant = "preview" }: CertificateTe
       </div>
       <span className="certificate-template__logo-divider-mask" aria-hidden="true" />
       <span className="certificate-template__logo-divider" aria-hidden="true" />
+      <div className="certificate-template__contact-overlay" aria-label="GRS Learning contact and verification information">
+        <strong>GRS Learning</strong>
+        <span>{CERTIFICATE_WEBSITE} · {CERTIFICATE_CONTACT_EMAIL}</span>
+        <span>Verify this certificate online: {data.verificationUrl}</span>
+      </div>
+      <div className="certificate-template__qr" aria-label="Scan to verify this certificate">
+        <QRCodeSVG value={data.verificationUrl} size={200} includeMargin bgColor="#ffffff" fgColor="#111111" />
+      </div>
       <main className="certificate-template__content">
         <h1><span>Achievement</span> <strong>Certificate</strong></h1>
         <p className="certificate-template__intro">This is to certify that:</p>

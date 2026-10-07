@@ -369,8 +369,14 @@ function ReviewBody({ r }: { r: ReviewDto }) {
             </div>
           </div>
         </div>
-        <div className="flex min-w-0 shrink-0 items-center gap-2">
-          <Badge variant="outline" className="max-w-[160px] truncate text-xs">{r.courseTitle}</Badge>
+        <div className="flex min-w-0 max-w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:max-w-[28rem]">
+          <Badge
+            variant="outline"
+            title={r.courseTitle}
+            className="h-auto max-w-full whitespace-normal break-words text-right text-xs leading-4"
+          >
+            {r.courseTitle}
+          </Badge>
           <Badge
             variant="outline"
             className={

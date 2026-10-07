@@ -102,6 +102,11 @@
 .certificate-template__logo-replacement img { display: block; width: 48mm; height: auto; }
 .certificate-template__logo-divider-mask { position: absolute; z-index: 1; top: 11.8mm; left: 66.8mm; width: 1.8mm; height: 28mm; background: #e9e9e9; }
 .certificate-template__logo-divider { position: absolute; z-index: 1; top: 12.3mm; left: 67.3mm; width: 0.8mm; height: 27mm; background: var(--primary); }
+.certificate-template__contact-overlay { position: absolute; z-index: 3; left: 18mm; bottom: 7.2mm; width: 151mm; height: 14.5mm; display: flex; flex-direction: column; justify-content: center; gap: 0.8mm; overflow: hidden; background: #e9e9e9; color: #303030; font-size: 2.55mm; line-height: 1.08; white-space: nowrap; }
+.certificate-template__contact-overlay strong { font-weight: 700; }
+.certificate-template__contact-overlay span:last-child { font-size: 2.35mm; }
+.certificate-template__qr { position: absolute; z-index: 4; right: 14.5mm; bottom: 8.2mm; width: 24mm; height: 24mm; padding: 1mm; overflow: hidden; background: #fff; }
+.certificate-template__qr svg { display: block; width: 100%; height: 100%; }
 .certificate-template__content { position: absolute; inset: 0; z-index: 2; text-align: left; }
 .certificate-template h1 { position: absolute; top: 61.6mm; left: 18mm; margin: 0; color: #303030; font-family: "Times New Roman", serif; font-size: 9.86mm; font-weight: 400; line-height: 1; white-space: nowrap; }
 .certificate-template h1 span { font-weight: 700; }
