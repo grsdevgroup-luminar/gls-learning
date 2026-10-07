@@ -138,7 +138,7 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplateDefinition> = {
     description: "Sent when a user requests a password reset link.",
     defaultSubject: "Reset your GRS Learning password",
     defaultBody:
-      "Hi {{first_name}}, we received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour — if you didn't request this, you can safely ignore this email.",
+      "Hi {{first_name}}, we received a request to reset your password. Click the button below to choose a new one. This link expires in 5 minutes — if you didn't request this, you can safely ignore this email.",
     ctaLabel: "Reset password",
     variables: [
       v("first_name", "The account holder's first name", "Priya"),

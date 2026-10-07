@@ -149,14 +149,14 @@ export class TokenService {
     await this.repo.deleteRefreshTokensByHash(tokenHash);
   }
 
-  /** Issues an opaque, single-use password-reset token (1h TTL). Only its hash
+  /** Issues an opaque, single-use password-reset token (5m TTL). Only its hash
    *  is persisted, matching the refresh-token pattern. */
   async issuePasswordResetToken(userId: string): Promise<string> {
     const raw = randomBytes(32).toString("base64url");
     await this.repo.createPasswordResetToken({
       userId,
       tokenHash: this.hash(raw),
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
     return raw;
   }
