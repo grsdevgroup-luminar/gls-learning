@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { CertificateVerificationDto } from '@skillstream/shared';
 import { serverApiOptional } from '@/lib/api/server';
+import { certificateVerificationUrl } from '@/lib/certificate-config';
 import { Button } from '@/components/ui/button';
 import { CertificateTemplate } from '@/components/shared/certificate-template';
 import { CertificatePrintActions, CertificatePrintClient } from './print-client';
@@ -81,7 +82,7 @@ export default async function CertificatePrintPage({
             courseStartDate: formatDate(cert.courseStartDate),
             courseEndDate: formatDate(cert.courseEndDate),
             issueDate: formatDate(cert.issuedAt),
-            verificationUrl: cert.verificationUrl,
+            verificationUrl: certificateVerificationUrl(cert.serial),
             isoStandard: cert.isoStandard,
           }}
         />

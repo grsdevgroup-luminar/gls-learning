@@ -51,7 +51,7 @@ export default function CertificatesPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 p-6 md:p-8">
+      <div className="min-w-0 space-y-8 p-6 md:p-8">
         <div className="space-y-2">
           <Skeleton className="h-7 w-40" />
           <Skeleton className="h-4 w-56" />
@@ -67,7 +67,7 @@ export default function CertificatesPage() {
 
   if (isError) {
     return (
-      <div className="space-y-8 p-6 md:p-8">
+      <div className="min-w-0 space-y-8 p-6 md:p-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
         </div>
@@ -154,7 +154,7 @@ export default function CertificatesPage() {
   };
 
   return (
-    <div className="space-y-8 p-6 md:p-8">
+    <div className="min-w-0 space-y-8 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
         <p className="text-muted-foreground">
@@ -164,13 +164,13 @@ export default function CertificatesPage() {
       </div>
 
       {earned.length > 0 && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="min-w-0 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {earned.map((cert) => (
             <Card
               key={cert.serial}
-              className="overflow-hidden p-0 transition-all hover:-translate-y-1 hover:shadow-lg"
+              className="min-w-0 overflow-hidden p-0 transition-all hover:-translate-y-1 hover:shadow-lg"
             >
-              <CardContent className="p-0">
+              <CardContent className="min-w-0 p-0">
                 <button
                   type="button"
                   onClick={() => setActive(cert)}
@@ -179,16 +179,17 @@ export default function CertificatesPage() {
                 >
                   <CertificateCardPreview cert={cert} />
                 </button>
-                <div className="flex items-center justify-between p-3">
-                  <span className="truncate text-sm font-medium">{cert.courseTitle}</span>
+                <div className="flex min-w-0 items-center justify-between gap-2 p-3">
+                  <span className="min-w-0 truncate text-sm font-medium">{cert.courseTitle}</span>
                   <Badge variant="secondary" className="shrink-0 text-success">
                     <Award className="mr-1 h-3 w-3" />
                   </Badge>
                 </div>
-                <div className="flex gap-2 border-t border-border px-3 py-2">
+                <div className="flex min-w-0 flex-wrap gap-2 border-t border-border px-3 py-2">
                   <Button
                     size="sm"
                     variant="outline"
+                    className="shrink-0"
                     onClick={() => copyVerificationLink(cert)}
                     aria-label="Copy verification link"
                     title="Copy the public link used to verify this certificate"
@@ -198,12 +199,12 @@ export default function CertificatesPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="flex-1"
+                    className="min-w-0 flex-1 overflow-hidden whitespace-nowrap"
                     onClick={() => downloadCertificate(cert)}
                     disabled={downloading === cert.serial}
                   >
                     <Download className="mr-1 h-3.5 w-3.5" />
-                    {downloading === cert.serial ? 'Downloading...' : 'Download PDF'}
+                    <span className="truncate">{downloading === cert.serial ? 'Downloading...' : 'Download PDF'}</span>
                   </Button>
                 </div>
               </CardContent>

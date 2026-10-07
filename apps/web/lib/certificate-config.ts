@@ -5,10 +5,11 @@
  * approved.
  */
 const configuredBaseUrl =
-  process.env.NEXT_PUBLIC_CERTIFICATE_BASE_URL?.trim() ||
-  process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  process.env.NEXT_PUBLIC_CERTIFICATE_BASE_URL?.trim();
+const configuredWebsite =
+  process.env.NEXT_PUBLIC_CERTIFICATE_WEBSITE?.trim();
 
-export const CERTIFICATE_WEBSITE = configuredBaseUrl || "https://grslearning.com";
+export const CERTIFICATE_WEBSITE = configuredWebsite || "https://www.grslearning.com";
 export const CERTIFICATE_CONTACT_EMAIL =
   process.env.NEXT_PUBLIC_CERTIFICATE_CONTACT_EMAIL?.trim() ||
   "training@grslearning.com";
