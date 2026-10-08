@@ -1,3 +1,9 @@
+import { QRCodeSVG } from "qrcode.react";
+import {
+  CERTIFICATE_CONTACT_EMAIL,
+  CERTIFICATE_WEBSITE,
+} from "@/lib/certificate-config";
+
 export type CertificateTemplateData = {
   studentName: string;
   courseName: string;
@@ -21,21 +27,37 @@ type CertificateTemplateProps = {
  * overlaid at the source PDF's measured coordinates. */
 export function CertificateTemplate({ data, variant = "preview" }: CertificateTemplateProps) {
   const courseDates = formatCourseDates(data.courseStartDate, data.courseEndDate);
+  const hasIsoStandard = Boolean(data.isoStandard?.trim());
+  const websiteLabel = CERTIFICATE_WEBSITE
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
 
   return (
-    <article className={`certificate-template certificate-template--${variant}`} aria-label="Achievement Certificate">
-      <img className="certificate-template__background" src="/certificate/client-background.jpg" alt="" aria-hidden="true" />
-      <div className="certificate-template__logo-replacement" aria-hidden="true">
-        <img src="/GRS-Mark.svg" alt="" />
+    <article
+      className={`certificate-template certificate-template--${variant}${hasIsoStandard ? "" : " certificate-template--without-iso"}`}
+      aria-label="Achievement Certificate"
+    >
+      <img className="certificate-template__background" src="/certificate/certificate-background-clean.png" alt="" aria-hidden="true" />
+      <div className="certificate-template__footer" aria-label="Certificate issuer and verification details">
+        <span>Issued by:</span>
+        <span>GRS Learning</span>
+        <span>Head Office: Suite 34, Benson House, 2 Benson Street, Toowong, QLD 4066, Australia,</span>
+        <span className="certificate-template__footer-contact">
+          Phone: (+61) 1300 007 477 | Email: <strong>{CERTIFICATE_CONTACT_EMAIL}</strong> | Web: <strong>{websiteLabel}</strong>
+        </span>
+        <span>Verification of this certificate can be found visiting the public link.</span>
       </div>
-      <span className="certificate-template__logo-divider-mask" aria-hidden="true" />
-      <span className="certificate-template__logo-divider" aria-hidden="true" />
+      <div className="certificate-template__qr" aria-label="Scan to verify this certificate">
+        <QRCodeSVG value={data.verificationUrl} size={200} includeMargin bgColor="#ffffff" fgColor="#111111" />
+      </div>
       <main className="certificate-template__content">
         <h1><span>Achievement</span> <strong>Certificate</strong></h1>
         <p className="certificate-template__intro">This is to certify that:</p>
         <p className="certificate-template__student" style={{ fontSize: fittedFontSize(data.studentName, 8.12, 5.6, 32) }}>{data.studentName}</p>
         <p className="certificate-template__completion">has successfully completed the course assessment and examination for the:</p>
-        <p className="certificate-template__iso" style={{ fontSize: fittedFontSize(data.isoStandard || "ISO Standard not specified", 11.3, 6.4, 22) }}>{data.isoStandard || "ISO Standard not specified"}</p>
+        {hasIsoStandard ? (
+          <p className="certificate-template__iso" style={{ fontSize: fittedFontSize(data.isoStandard!, 11.3, 6.4, 22) }}>{data.isoStandard}</p>
+        ) : null}
         <h2 style={{ fontSize: fittedFontSize(data.courseName, 11.3, 6.4, 28) }}>{data.courseName}</h2>
         <p className="certificate-template__certification">
           This Course is certified by <strong>Exemplar Global</strong> for Training of<br />

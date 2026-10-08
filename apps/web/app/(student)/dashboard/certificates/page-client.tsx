@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiFetch, downloadFile } from '@/lib/api/client';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { certificateVerificationUrl } from '@/lib/certificate-config';
 import { CertificateTemplate } from '@/components/shared/certificate-template';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,7 @@ export default function CertificatesPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 p-6 md:p-8">
+      <div className="min-w-0 space-y-8 p-6 md:p-8">
         <div className="space-y-2">
           <Skeleton className="h-7 w-40" />
           <Skeleton className="h-4 w-56" />
@@ -66,7 +67,7 @@ export default function CertificatesPage() {
 
   if (isError) {
     return (
-      <div className="space-y-8 p-6 md:p-8">
+      <div className="min-w-0 space-y-8 p-6 md:p-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
         </div>
@@ -81,16 +82,33 @@ export default function CertificatesPage() {
 
   const earned = certs ?? [];
 
+  const verificationUrl = (cert: CertificateDto) =>
+    certificateVerificationUrl(cert.serial);
+
+  const copyVerificationLink = async (cert: CertificateDto) => {
+    const url = verificationUrl(cert);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Verification link copied', {
+          description: 'Send this link to an employer or anyone who needs to verify your certificate.',
+        });
+        return;
+      } catch {
+        toast.error('Could not copy verification link');
+        return;
+      }
+    }
+    toast.error('Copying is not available in this browser');
+  };
+
   // Shares the public verification page — a link anyone can open, unlike the
   // dashboard route it used to point at.
   const share = async (cert: CertificateDto) => {
-    const url =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}/verify/${cert.serial}`
-        : '';
+    const url = verificationUrl(cert);
     const data = {
       title: `${cert.courseTitle} — Certificate of Completion`,
-      text: `I just completed "${cert.courseTitle}" on GRS Learning 🎓`,
+      text: `I just completed "${cert.courseTitle}" on GRS Learning 🎓 Verify my certificate using this link.`,
       url,
     };
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -105,10 +123,12 @@ export default function CertificatesPage() {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(url);
-        toast.success('Certificate link copied');
+        toast.success('Verification link copied', {
+          description: 'Send this link to an employer or anyone who needs to verify your certificate.',
+        });
         return;
       } catch {
-        toast.error('Could not copy certificate link');
+        toast.error('Could not copy verification link');
         return;
       }
     }
@@ -134,7 +154,7 @@ export default function CertificatesPage() {
   };
 
   return (
-    <div className="space-y-8 p-6 md:p-8">
+    <div className="min-w-0 space-y-8 p-6 md:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Certificates</h1>
         <p className="text-muted-foreground">
@@ -144,13 +164,13 @@ export default function CertificatesPage() {
       </div>
 
       {earned.length > 0 && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="min-w-0 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {earned.map((cert) => (
             <Card
               key={cert.serial}
-              className="overflow-hidden p-0 transition-all hover:-translate-y-1 hover:shadow-lg"
+              className="min-w-0 overflow-hidden p-0 transition-all hover:-translate-y-1 hover:shadow-lg"
             >
-              <CardContent className="p-0">
+              <CardContent className="min-w-0 p-0">
                 <button
                   type="button"
                   onClick={() => setActive(cert)}
@@ -159,24 +179,32 @@ export default function CertificatesPage() {
                 >
                   <CertificateCardPreview cert={cert} />
                 </button>
-                <div className="flex items-center justify-between p-3">
-                  <span className="truncate text-sm font-medium">{cert.courseTitle}</span>
+                <div className="flex min-w-0 items-center justify-between gap-2 p-3">
+                  <span className="min-w-0 truncate text-sm font-medium">{cert.courseTitle}</span>
                   <Badge variant="secondary" className="shrink-0 text-success">
                     <Award className="mr-1 h-3 w-3" />
                   </Badge>
                 </div>
-                <div className="flex gap-2 border-t border-border px-3 py-2">
-                  <Button size="sm" variant="outline" onClick={() => share(cert)}>
+                <div className="flex min-w-0 flex-wrap gap-2 border-t border-border px-3 py-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => copyVerificationLink(cert)}
+                    aria-label="Copy verification link"
+                    title="Copy the public link used to verify this certificate"
+                  >
                     <Share2 className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:ml-1">Copy link</span>
                   </Button>
                   <Button
                     size="sm"
-                    className="flex-1"
+                    className="min-w-0 flex-1 overflow-hidden whitespace-nowrap"
                     onClick={() => downloadCertificate(cert)}
                     disabled={downloading === cert.serial}
                   >
                     <Download className="mr-1 h-3.5 w-3.5" />
-                    {downloading === cert.serial ? 'Downloading...' : 'Download PDF'}
+                    <span className="truncate">{downloading === cert.serial ? 'Downloading...' : 'Download PDF'}</span>
                   </Button>
                 </div>
               </CardContent>
@@ -207,6 +235,23 @@ export default function CertificatesPage() {
             <div className="certificate-dialog-scroll w-full">
               <div className="certificate-dialog-preview w-full sm:w-[210mm]">
                 <CertificateDialogPreview cert={active} />
+                <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                  <p className="font-semibold">Share this certificate for verification</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Anyone with this link can verify that this certificate was issued by GRS Learning.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <code className="min-w-0 flex-1 break-all rounded-md border border-border bg-background px-3 py-2 text-xs">
+                      {verificationUrl(active)}
+                    </code>
+                    <Button variant="outline" onClick={() => copyVerificationLink(active)}>
+                      Copy verification link
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Send this link to an employer, client, or anyone who needs to verify your certificate.
+                  </p>
+                </div>
                 <div className="flex flex-wrap justify-end gap-2">
                   <Button
                     variant="outline"
@@ -308,7 +353,7 @@ function templateData(cert: CertificateDto) {
     courseStartDate: formatDate(cert.courseStartDate),
     courseEndDate: formatDate(cert.courseEndDate),
     issueDate: formatDate(cert.issuedAt),
-    verificationUrl: `/verify/${encodeURIComponent(cert.serial)}`,
+    verificationUrl: certificateVerificationUrl(cert.serial),
   };
 }
 

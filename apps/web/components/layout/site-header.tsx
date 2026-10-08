@@ -146,8 +146,8 @@ export function SiteHeader() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--aurora-2)_60%,transparent),color-mix(in_oklch,var(--aurora-3)_50%,transparent),transparent)] opacity-60"
       />
-      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center gap-4 px-4">
-        <Logo />
+      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center gap-2 px-3 sm:gap-4 sm:px-4">
+        <Logo className="max-[360px]:[&>img]:!w-16" />
         <nav className="hidden items-center gap-1 md:flex">
           {!isInstructor && (
             <Button render={<Link href="/courses" />} variant="ghost" size="sm">
@@ -188,7 +188,7 @@ export function SiteHeader() {
           />
         </form>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-3 max-[360px]:min-w-0 max-[360px]:flex-1 max-[360px]:gap-1">
           <div className="hidden items-center gap-0.5 rounded-full border border-border bg-muted/40 p-1 sm:flex">
             <ThemeToggle size="icon-sm" className="rounded-full" />
             {isAuthed && (
@@ -216,28 +216,28 @@ export function SiteHeader() {
             )}
           </div>
 
-          <div className="flex items-center gap-1 sm:hidden">
+          <div className="flex items-center gap-1 max-[360px]:gap-0 sm:hidden">
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              size="icon-sm"
               aria-label={mobileSearchOpen ? "Close search" : "Search courses"}
               aria-expanded={mobileSearchOpen}
               onClick={() => setMobileSearchOpen((open) => !open)}
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" />
             </Button>
-            <ThemeToggle />
-            {isAuthed && <NotificationBell />}
+            <ThemeToggle size="icon-sm" />
+            {isAuthed && <NotificationBell size="icon-sm" />}
             {canUseCart && (
               <Button
                 render={<Link href="/cart" />}
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 className="relative"
                 aria-label="Cart"
               >
-                <ShoppingCart className="h-5 w-5" />
+                <ShoppingCart className="h-4 w-4" />
                 {mounted && cart.length > 0 && (
                   <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
                     {cart.length}
@@ -247,6 +247,7 @@ export function SiteHeader() {
             )}
           </div>
 
+          <div className="flex items-center gap-1 max-[360px]:basis-full max-[360px]:justify-end">
           {isLoading ? null : isAuthed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -352,14 +353,15 @@ export function SiteHeader() {
             </DropdownMenu>
           ) : (
             <>
-              <Button render={<Link href="/login" />} variant="ghost" size="sm">
+              <Button render={<Link href="/login" />} variant="ghost" size="sm" className="max-[360px]:h-6 max-[360px]:px-1.5 max-[360px]:text-[10px]">
                 Log in
               </Button>
-              <Button render={<Link href="/signup" />} size="sm">
+              <Button render={<Link href="/signup" />} size="sm" className="max-[360px]:h-6 max-[360px]:px-1.5 max-[360px]:text-[10px]">
                 Sign up
               </Button>
             </>
           )}
+          </div>
         </div>
         {mobileSearchOpen && (
           <form onSubmit={submitSearch} className="order-last basis-full pb-3 sm:hidden">
