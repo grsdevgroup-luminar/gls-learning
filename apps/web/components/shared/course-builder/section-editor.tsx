@@ -30,13 +30,13 @@ export function SectionEditor({ section, index, dragSection, collapsed, lessonTy
   return (                  <div
                     key={section.id}
                     className={cn(
-                      "rounded-xl border bg-muted/20 p-3",
+                      "min-w-0 max-w-full rounded-xl border bg-muted/20 p-3",
                       dragSection === index && "opacity-50",
                     )}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={onDrop}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <span
                         draggable
                         onDragStart={onDragStart}

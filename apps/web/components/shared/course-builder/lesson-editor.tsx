@@ -20,7 +20,7 @@ type LessonTypeOption = { value: BuilderLessonType; label: string };
 export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLesson, setLessonType, removeLesson }: { courseId?: string; sectionId: string; lesson: BLesson; lessonTypes: LessonTypeOption[]; patchLesson: (sectionId: string, lessonId: string, patch: Partial<BLesson>) => void; setLessonType: (sectionId: string, lessonId: string, type: BuilderLessonType) => void; removeLesson: (sectionId: string, lessonId: string) => void; }) {
   return (                          <div
                             key={lesson.id}
-                            className="rounded-lg border bg-card p-3"
+                            className="min-w-0 max-w-full rounded-lg border bg-card p-3"
                           >
                             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                               <Input

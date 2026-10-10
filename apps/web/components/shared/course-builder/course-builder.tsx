@@ -69,7 +69,7 @@ export function CourseBuilder({
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col lg:absolute lg:inset-0 lg:h-full lg:max-h-full lg:min-h-0 lg:overflow-hidden">
+    <div className="flex min-h-screen w-full min-w-0 flex-col overflow-x-clip lg:absolute lg:inset-0 lg:h-full lg:max-h-full lg:min-h-0 lg:overflow-hidden">
       <CourseBuilderHeader
         courseId={courseId}
         mode={mode}
@@ -86,11 +86,11 @@ export function CourseBuilder({
       />
 
       {/* CONTENT WRAPPER: Takes up remaining height */}
-      <div className="min-h-0 flex-1 p-6 md:p-8 lg:overflow-hidden lg:pb-0">
+      <div className="min-h-0 w-full min-w-0 flex-1 p-6 md:p-8 lg:overflow-hidden lg:pb-0">
         {/* GRID: Extends to full height on desktop */}
-        <div className="grid min-h-0 gap-6 lg:h-full lg:grid-cols-[1fr_320px]">
+        <div className="grid min-h-0 w-full min-w-0 gap-6 lg:h-full lg:grid-cols-[1fr_320px]">
           {/* LEFT COLUMN: Independently scrollable */}
-          <div className="min-h-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4">
+          <div className="min-h-0 min-w-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4">
             <CourseDetailsForm
               title={title}
               subtitle={subtitle}
@@ -134,7 +134,7 @@ addSection={addSection}
           </div>
 
           {/* RIGHT COLUMN: Independently scrollable */}
-          <div className="min-h-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4">
+          <div className="min-h-0 min-w-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-4">
             {mode === "instructor" ? (
               <Card>
                 <CardHeader>

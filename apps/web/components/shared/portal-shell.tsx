@@ -243,7 +243,7 @@ export function PortalShell({
   return (
     <div
       className={cn(
-        "flex min-h-screen bg-background",
+        "flex min-h-screen w-full min-w-0 overflow-x-clip bg-background",
         isCourseBuilderRoute &&
           "lg:h-screen lg:max-h-screen lg:overflow-hidden",
       )}
@@ -253,7 +253,7 @@ export function PortalShell({
         {SidebarInner}
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-0">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col lg:min-h-0">
         {/* Mobile top bar */}
         <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
@@ -274,7 +274,7 @@ export function PortalShell({
 
         <main
           className={cn(
-            "relative min-h-0 flex-1",
+            "relative min-h-0 w-full min-w-0 flex-1",
             isCourseBuilderRoute && "lg:h-screen lg:max-h-screen lg:overflow-hidden",
           )}
         >

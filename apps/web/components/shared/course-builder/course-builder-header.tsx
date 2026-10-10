@@ -20,7 +20,7 @@ export function CourseBuilderHeader({ courseId, mode, totalLessons, sectionCount
   approving?: boolean;
 }) {
   return (
-    <div className="sticky top-0 z-50 flex shrink-0 flex-col gap-3 border-b bg-background px-4 py-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4 md:px-8 lg:static">
+    <div className="sticky top-0 z-50 flex min-w-0 shrink-0 flex-col gap-3 border-b bg-background px-4 py-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4 md:px-8 lg:static">
       <div className="flex min-w-0 items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
         <div>
@@ -28,7 +28,7 @@ export function CourseBuilderHeader({ courseId, mode, totalLessons, sectionCount
           <p className="text-sm text-muted-foreground">{totalLessons} lessons · {sectionCount} sections</p>
         </div>
       </div>
-      <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+      <div className="flex min-w-0 w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
         {mode === "instructor" ? (
           <>
             <Button type="button" variant="outline" onClick={() => onSave("draft")} disabled={saving}>

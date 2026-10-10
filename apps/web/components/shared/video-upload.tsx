@@ -704,7 +704,7 @@ export function VideoUpload({
   if (transport === "error") {
     return (
       <div className={cn("rounded-lg border border-destructive/40 bg-destructive/5 p-3", compact && "p-2.5")}>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div className="grid h-12 w-16 shrink-0 place-items-center rounded-md bg-destructive/10">
             <AlertCircle className="h-5 w-5 text-destructive" />
           </div>
@@ -712,7 +712,7 @@ export function VideoUpload({
             <span className="truncate text-sm font-medium">{name}</span>
             <p className="mt-0.5 text-xs text-destructive">{error}</p>
           </div>
-          <div className="flex shrink-0 gap-1">
+          <div className="flex w-full shrink-0 flex-wrap gap-1 sm:w-auto">
             <Button variant="ghost" size="sm" onClick={() => inputRef.current?.click()}>
               <RefreshCw className="h-4 w-4" /> Retry
             </Button>

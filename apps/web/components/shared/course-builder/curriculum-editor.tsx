@@ -12,11 +12,11 @@ export function CurriculumEditor({ courseId, sections, dragSection, collapsedSec
   courseId?: string; sections: BSection[]; dragSection: number | null; collapsedSections: Set<string>; lessonTypes: LessonTypeOption[]; addSection: () => void; moveSection: (to: number) => void; setDragSection: (value: number | null) => void; patchSection: (id: string, patch: Partial<BSection>) => void; removeSection: (id: string) => void; addLesson: (sectionId: string) => void; patchLesson: (sectionId: string, lessonId: string, patch: Partial<BLesson>) => void; setLessonType: (sectionId: string, lessonId: string, type: BuilderLessonType) => void; removeLesson: (sectionId: string, lessonId: string) => void;
 }) {
   return (
-            <Card>
+            <Card className="min-w-0 max-w-full">
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base">Curriculum</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="min-w-0 max-w-full space-y-4">
                 {sections?.map((s, si) => (
                   <SectionEditor
                     key={s.id}
