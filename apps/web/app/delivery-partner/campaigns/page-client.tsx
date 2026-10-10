@@ -64,7 +64,12 @@ const statusStyle: Record<CampaignStatus, { label: string; className: string }> 
 
 export default function PartnerCampaigns() {
   const { data: partner, isLoading } = useMyDeliveryPartner();
-  const { data: campaigns } = useMyPartnerCampaigns();
+  const {
+    data: campaigns,
+    isLoading: isCampaignsLoading,
+    isError: campaignsFailed,
+    refetch: refetchCampaigns,
+  } = useMyPartnerCampaigns();
   const [qInput, setQInput] = useState("");
   const q = useDebouncedSearch(qInput);
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | "all">("all");
@@ -74,7 +79,14 @@ export default function PartnerCampaigns() {
   const all = campaigns ?? [];
   const filtered = all
     .filter((c) => statusFilter === "all" || c.status === statusFilter)
-    .filter((c) => !q || c.code.toLowerCase().includes(q.toLowerCase()));
+    .filter((c) => {
+      if (!q) return true;
+      const keyword = q.toLowerCase();
+      return (
+        c.code.toLowerCase().includes(keyword) ||
+        c.courses.some((course) => course.title.toLowerCase().includes(keyword))
+      );
+    });
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -128,7 +140,7 @@ export default function PartnerCampaigns() {
             <Input
               value={qInput}
               onChange={(e) => setQInput(e.target.value)}
-              placeholder="Search by code…"
+              placeholder="Search by code or course…"
               className="search-input border-input bg-background pl-9 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 dark:bg-input/30"
             />
           </div>
@@ -149,7 +161,22 @@ export default function PartnerCampaigns() {
         <AdminRowsPerPage value={pageSize} onChange={setPageSize} />
       </div>
 
-      {all.length === 0 ? (
+      {campaignsFailed ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <p className="text-sm text-destructive">Unable to load campaigns.</p>
+            <Button variant="outline" size="sm" onClick={() => void refetchCampaigns()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      ) : isCampaignsLoading ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Loading campaigns…
+          </CardContent>
+        </Card>
+      ) : all.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             No campaigns yet — ask an admin to set one up for you.

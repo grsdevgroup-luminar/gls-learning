@@ -5,6 +5,28 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
+function FunnelAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: unknown };
+}) {
+  const words = String(payload?.value ?? "").split(/\s+/).filter(Boolean);
+  const lines = words.length > 1 ? [words[0], words.slice(1).join(" ")] : words;
+  return (
+    <text x={x - 70} y={y} textAnchor="start" fill="var(--muted-foreground)" fontSize={12}>
+      {lines.map((line, index) => (
+        <tspan key={`${line}-${index}`} x={x - 70} dy={index === 0 ? 0 : 12}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
 const tooltipStyle = {
   background: "var(--popover)",
   border: "1px solid var(--border)",
@@ -58,7 +80,7 @@ export function BarTrend({
         {horizontal ? (
           <>
             <XAxis type="number" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" tickFormatter={(v) => `${prefix}${v >= 1000 ? `${v / 1000}k` : v}`} />
-            <YAxis type="category" dataKey={xKey} tickLine={false} axisLine={false} fontSize={12} width={110} stroke="var(--muted-foreground)" />
+            <YAxis type="category" dataKey={xKey} tickLine={false} axisLine={false} width={110} stroke="var(--muted-foreground)" tick={<FunnelAxisTick />} />
           </>
         ) : (
           <>

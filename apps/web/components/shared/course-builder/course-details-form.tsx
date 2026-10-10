@@ -63,14 +63,14 @@ export function CourseDetailsForm({
   onDescriptionChange: (value: string) => void;
 }) {
   return (
-            <Card>
+            <Card className="min-w-0 max-w-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <BookOpen className="h-4 w-4 text-primary" /> Course details
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">Fields marked with <span className="font-semibold text-destructive" aria-hidden="true">*</span> are required.</p>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="min-w-0 max-w-full space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
                     <Label htmlFor="course-title">Title <span className="text-destructive" aria-hidden="true">*</span></Label>
@@ -172,7 +172,7 @@ export function CourseDetailsForm({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="course-iso-standard">ISO Standard <span className="text-destructive" aria-hidden="true">*</span></Label>
+                  <Label htmlFor="course-iso-standard">Standard <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <Select
                     value={isoStandard}
                     onValueChange={(value) => {
@@ -182,7 +182,7 @@ export function CourseDetailsForm({
                     }}
                   >
                     <SelectTrigger id="course-iso-standard" className="w-full" aria-required="true">
-                      <SelectValue placeholder="Select an ISO standard" />
+                      <SelectValue placeholder="Select a standard" />
                     </SelectTrigger>
                     <SelectContent>
                       {ISO_STANDARD_OPTIONS.map((standard) => (
@@ -199,7 +199,7 @@ export function CourseDetailsForm({
                       onChange={(event) =>
                         onCustomIsoStandardChange(event.target.value)
                       }
-                      placeholder="Enter ISO standard"
+                      placeholder="Enter a standard"
                       required
                       aria-required="true"
                       maxLength={200}
@@ -226,7 +226,7 @@ export function CourseDetailsForm({
                     required
                     aria-required="true"
                     placeholder="What will students learn?"
-                    className="min-h-28"
+                    className="h-40 min-h-40 max-h-40 resize-none overflow-y-auto"
                     aria-invalid={descriptionTooLong}
                     aria-describedby={
                       descriptionTooLong
