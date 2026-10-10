@@ -162,6 +162,17 @@ export class TokenService {
   }
 
   /**
+   * Checks whether a password-reset token is still usable, without consuming
+   * it — lets the reset-password page show an expired/invalid state up front
+   * instead of only failing once the user submits a new password.
+   */
+  async isPasswordResetTokenValid(raw: string): Promise<boolean> {
+    const tokenHash = this.hash(raw);
+    const record = await this.repo.findPasswordResetTokenByHash(tokenHash);
+    return !!record && record.usedAt === null && record.expiresAt > new Date();
+  }
+
+  /**
    * Validates a password-reset token and immediately marks it used so it
    * cannot be replayed, even if intercepted. Returns the userId or null.
    */

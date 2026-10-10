@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { authApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/errors";
 import { passwordSchema } from "@skillstream/shared";
@@ -27,17 +27,46 @@ function ResetPasswordForm() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [done, setDone] = useState(false);
+  const [tokenStatus, setTokenStatus] = useState<"checking" | "valid" | "invalid">(
+    token ? "checking" : "invalid",
+  );
 
-  if (!token) {
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    authApi
+      .checkResetToken(token)
+      .then((res) => {
+        if (!cancelled) setTokenStatus(res.valid ? "valid" : "invalid");
+      })
+      .catch(() => {
+        if (!cancelled) setTokenStatus("invalid");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  if (tokenStatus === "checking") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">Checking your reset link…</p>
+      </div>
+    );
+  }
+
+  if (tokenStatus === "invalid") {
     return (
       <div className="flex flex-col items-center gap-4 py-4 text-center">
         <div className="grid h-14 w-14 place-items-center rounded-full bg-destructive/10 text-destructive">
           <AlertTriangle className="h-7 w-7" />
         </div>
         <div>
-          <h1 className="text-xl font-bold">Invalid link</h1>
+          <h1 className="text-xl font-bold">Invalid or expired link</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            This password reset link is missing or malformed.
+            {token
+              ? "This password reset link is invalid or has expired."
+              : "This password reset link is missing or malformed."}
           </p>
         </div>
         <Link href="/forgot-password" className="text-sm text-primary hover:underline">

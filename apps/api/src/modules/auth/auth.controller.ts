@@ -31,6 +31,7 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  resetTokenQuerySchema,
   updateProfileSchema,
   type AuthTokensDto,
   type ChangePasswordInput,
@@ -41,9 +42,10 @@ import {
   type LoginInput,
   type RegisterInput,
   type ResetPasswordInput,
+  type ResetTokenQuery,
   type UpdateProfileInput,
 } from "@skillstream/shared";
-import { ZodBody } from "../../common/utils/swagger";
+import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import {
   AllowPendingPasswordChange,
   CurrentUser,
@@ -215,6 +217,13 @@ export class AuthController {
     @ZodBody(forgotPasswordSchema) body: ForgotPasswordInput,
   ) {
     return this.auth.forgotPassword(body);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get("reset-password/check")
+  checkResetToken(@ZodQuery(resetTokenQuerySchema) query: ResetTokenQuery) {
+    return this.auth.checkResetToken(query.token);
   }
 
   @Public()

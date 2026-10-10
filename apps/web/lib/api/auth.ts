@@ -30,6 +30,9 @@ export const authApi = {
   forgotPassword: (email: string) =>
     apiFetch<{ ok: true }>("/auth/forgot-password", { method: "POST", body: { email } }),
 
+  checkResetToken: (token: string) =>
+    apiFetch<{ valid: boolean }>(`/auth/reset-password/check?token=${encodeURIComponent(token)}`),
+
   resetPassword: (token: string, password: string) =>
     apiFetch<{ ok: true }>("/auth/reset-password", { method: "POST", body: { token, password } }),
 

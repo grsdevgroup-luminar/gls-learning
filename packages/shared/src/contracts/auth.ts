@@ -73,6 +73,11 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+export const resetTokenQuerySchema = z.object({
+  token: z.string().min(1),
+});
+export type ResetTokenQuery = z.infer<typeof resetTokenQuerySchema>;
+
 export const forcePasswordChangeSchema = z.object({
   newPassword: passwordSchema,
 });
