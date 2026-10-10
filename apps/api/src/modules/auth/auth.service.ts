@@ -198,6 +198,10 @@ export class AuthService {
     return { ok: true };
   }
 
+  async checkResetToken(token: string): Promise<{ valid: boolean }> {
+    return { valid: await this.tokens.isPasswordResetTokenValid(token) };
+  }
+
   async resetPassword(input: ResetPasswordInput): Promise<{ ok: true }> {
     // Single-use, DB-backed token: consuming it here means a captured/replayed
     // link can never reset the password a second time, unlike a stateless JWT.
