@@ -36,10 +36,13 @@ function emptyQuestion(): BuilderQuizQuestion {
   return {
     id: base,
     prompt: "",
-    options: [0, 1, 2, 3].map((i) => ({ id: `${base}o${i}`, text: "" })),
+    options: [0, 1].map((i) => ({ id: `${base}o${i}`, text: "" })),
     correctOptionId: `${base}o0`,
   };
 }
+
+const MIN_OPTIONS = 2;
+const MAX_OPTIONS = 8;
 
 export function emptyQuiz(): BuilderQuiz {
   return { passScore: 70, minutesPerQuestion: 1, questions: [emptyQuestion()] };
@@ -68,6 +71,39 @@ export function QuizEditor({
   }
   function addQuestion() {
     onChange({ ...quiz, questions: [...quiz.questions, emptyQuestion()] });
+  }
+  function addOption(qId: string) {
+    onChange({
+      ...quiz,
+      questions: quiz.questions?.map((q) =>
+        q.id === qId && q.options.length < MAX_OPTIONS
+          ? {
+              ...q,
+              options: [
+                ...q.options,
+                { id: `${q.id}o${Date.now()}`, text: "" },
+              ],
+            }
+          : q,
+      ) ?? [],
+    });
+  }
+  function removeOption(qId: string, optionId: string) {
+    onChange({
+      ...quiz,
+      questions: quiz.questions?.map((q) => {
+        if (q.id !== qId || q.options.length <= MIN_OPTIONS) return q;
+        const options = q.options.filter((o) => o.id !== optionId);
+        return {
+          ...q,
+          options,
+          correctOptionId:
+            q.correctOptionId === optionId
+              ? options[0]?.id ?? ""
+              : q.correctOptionId,
+        };
+      }) ?? [],
+    });
   }
   function removeQuestion(qId: string) {
     onChange({ ...quiz, questions: quiz.questions?.filter((q) => q.id !== qId) ?? [] });
@@ -140,18 +176,39 @@ export function QuizEditor({
             onValueChange={(v) => patchQuestion(q.id, { correctOptionId: v as string })}
           >
             {q.options?.map((o, oi) => (
-              <div key={o.id} className="flex items-center gap-2">
+              <div key={o.id} className="flex min-w-0 items-center gap-2">
                 <RadioGroupItem value={o.id} aria-label={`Mark option ${oi + 1} correct`} />
                 <Input
                   value={o.text}
                   onChange={(e) => patchOption(q.id, o.id, e.target.value)}
                   placeholder={`Option ${oi + 1}`}
-                  className="h-7 flex-1 text-sm"
+                  className="h-7 min-w-0 flex-1 text-sm"
                 />
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={`Remove option ${oi + 1}`}
+                  disabled={q.options.length <= MIN_OPTIONS}
+                  onClick={() => removeOption(q.id, o.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
               </div>
             ))}
           </RadioGroup>
-          <p className="mt-1.5 text-xs text-muted-foreground">Select the radio next to the correct option.</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">Select the radio next to the correct option.</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={q.options.length >= MAX_OPTIONS}
+              onClick={() => addOption(q.id)}
+            >
+              <Plus /> Add option
+            </Button>
+          </div>
         </div>
       ))}
 
