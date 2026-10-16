@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import { MAX_PAGE_SIZE } from "@grslearning/shared";
 import { useStore } from "@/lib/context/store";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";

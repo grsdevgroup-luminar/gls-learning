@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { OrderDto } from "@skillstream/shared";
+import type { OrderDto } from "@grslearning/shared";
 import { useMyOrders, useMyOrderStats } from "@/lib/api/hooks";
 import { downloadFile, fetchFile } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";

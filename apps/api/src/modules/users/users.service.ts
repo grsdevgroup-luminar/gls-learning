@@ -4,7 +4,7 @@ import {
   type LearningPreferencesDto,
   type NotificationPreferencesDto,
   type UpdateNotificationPreferencesInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { NotificationPreferencesService } from "../notifications/notification-preferences.service";
 import { UsersRepository } from "./users.repository";
 import { CategoriesService } from "../categories/categories.service";

@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "NotificationEvent" ADD VALUE 'COURSE_UPDATED_BY_ADMIN';

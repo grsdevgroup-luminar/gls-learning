@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { CertificateVerificationDto } from "@skillstream/shared";
+import type { CertificateVerificationDto } from "@grslearning/shared";
 import { CertificatesRepository } from "./certificates.repository";
 import { apiBaseUrl, certificateVerifyUrl } from "../../common/utils/urls";
 import type { Env } from "../../config/env";

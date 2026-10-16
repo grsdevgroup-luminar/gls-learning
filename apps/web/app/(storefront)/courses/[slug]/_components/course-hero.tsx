@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CourseDetailDto } from "@skillstream/shared";
+import type { CourseDetailDto } from "@grslearning/shared";
 import { Stars } from "@/components/shared/stars";
 import { BestsellerBadge, HighestRatedBadge, isHighestRated } from "@/components/shared/bestseller-badge";
 import { Badge } from "@/components/ui/badge";

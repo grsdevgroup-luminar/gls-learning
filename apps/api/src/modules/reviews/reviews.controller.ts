@@ -5,7 +5,7 @@ import {
   paginationQuerySchema,
   type CreateReviewInput,
   type PaginationQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { ReviewsService } from "./reviews.service";

@@ -32,7 +32,7 @@ vi.mock("node:fs", async (importOriginal) => {
   };
 });
 
-const createDirectory = () => mkdtemp(join(tmpdir(), "skillstream-logs-"));
+const createDirectory = () => mkdtemp(join(tmpdir(), "grslearning-logs-"));
 
 describe("createFileDestination", () => {
   it("writes JSON lines to logger-YYYY-MM-DD.log", async () => {

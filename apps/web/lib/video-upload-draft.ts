@@ -8,7 +8,7 @@ export interface VideoUploadDraft {
 }
 
 function draftKey(courseId: string | undefined, lessonId: string): string {
-  return `skillstream:upload-draft:${courseId ?? "new"}:${lessonId}`;
+  return `grslearning:upload-draft:${courseId ?? "new"}:${lessonId}`;
 }
 
 export function readVideoUploadDraft(

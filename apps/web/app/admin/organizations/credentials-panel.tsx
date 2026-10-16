@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CreateOrganizationResultDto } from "@skillstream/shared";
+import type { CreateOrganizationResultDto } from "@grslearning/shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Copy, CheckCircle2, AlertTriangle, Check } from "lucide-react";

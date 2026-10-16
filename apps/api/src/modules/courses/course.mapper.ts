@@ -1,12 +1,12 @@
 import { Prisma } from "@prisma/client";
-import { parseLessonResources } from "@skillstream/shared";
+import { parseLessonResources } from "@grslearning/shared";
 import type {
   CourseDetailDto,
   CourseSummaryDto,
   InstructorSummaryDto,
   SectionDto,
   LessonPptxDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
 // Prisma payload shapes (with the relations the mappers require).
 const summaryInclude = {

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Payout, PayoutStatus, Prisma } from "@prisma/client";
-import type { AdminPayoutQuery, PayoutAccountInput } from "@skillstream/shared";
+import type { AdminPayoutQuery, PayoutAccountInput } from "@grslearning/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { Db } from "../../common/types";
 

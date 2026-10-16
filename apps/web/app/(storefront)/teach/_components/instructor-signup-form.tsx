@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { instructorSignupSchema } from "@skillstream/shared";
+import { instructorSignupSchema } from "@grslearning/shared";
 import { ApplySocialLinks, type SocialLinkField } from "./apply-social-links";
 import { PasswordRequirements } from "@/components/shared/password-requirements";
 

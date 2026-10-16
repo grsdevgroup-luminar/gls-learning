@@ -5,7 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import type { UserRole } from "@skillstream/shared";
+import type { UserRole } from "@grslearning/shared";
 import { ROLES_KEY, type RequestUser } from "../decorators/decorators";
 
 /** Enforces @Roles(...) on a route. Runs after JwtAuthGuard. */

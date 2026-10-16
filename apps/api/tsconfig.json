@@ -1,5 +1,5 @@
 {
-  "extends": "@skillstream/config/tsconfig.nest.json",
+  "extends": "@grslearning/config/tsconfig.nest.json",
   "compilerOptions": {
     "outDir": "./dist",
     "baseUrl": "./",

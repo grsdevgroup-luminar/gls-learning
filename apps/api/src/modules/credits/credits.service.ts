@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import type { CreditBalanceDto, CreditLedgerEntryDto, Paginated, PaginationQuery } from "@skillstream/shared";
+import type { CreditBalanceDto, CreditLedgerEntryDto, Paginated, PaginationQuery } from "@grslearning/shared";
 import type { Db } from "../../common/types";
 import { CreditsRepository } from "./credits.repository";
 

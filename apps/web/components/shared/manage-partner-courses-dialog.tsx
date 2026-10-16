@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import { MAX_PAGE_SIZE } from "@grslearning/shared";
 import { adminApi, type InstructorCourseDto } from "@/lib/api/endpoints";
 import { useCategories } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";

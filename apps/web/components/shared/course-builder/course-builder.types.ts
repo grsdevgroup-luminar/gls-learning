@@ -1,4 +1,4 @@
-import type { LessonResourceDto } from "@skillstream/shared";
+import type { LessonResourceDto } from "@grslearning/shared";
 import type { BuilderQuiz } from "@/components/shared/quiz-editor";
 
 export const MAX_SUBTITLE_LENGTH = 240;

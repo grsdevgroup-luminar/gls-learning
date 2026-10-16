@@ -1,1 +1,0 @@
-CREATE INDEX "Enrollment_enrolledAt_courseId_idx" ON "Enrollment"("enrolledAt", "courseId");

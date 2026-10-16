@@ -1,4 +1,4 @@
-import type { InstructorPublicProfileDto } from "@skillstream/shared";
+import type { InstructorPublicProfileDto } from "@grslearning/shared";
 import { Stars } from "@/components/shared/stars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { compactNumber, initials } from "@/lib/format";

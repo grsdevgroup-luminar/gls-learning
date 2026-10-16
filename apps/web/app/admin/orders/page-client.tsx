@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CollapsibleStats } from "@/components/shared/collapsible-stats";
-import { OrderStatus } from "@skillstream/shared";
+import { OrderStatus } from "@grslearning/shared";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";

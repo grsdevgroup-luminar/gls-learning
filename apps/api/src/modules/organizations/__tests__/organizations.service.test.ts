@@ -11,7 +11,7 @@ import type { OrganizationsRepository, OrgRow } from "../organizations.repositor
 
 const platformAdmin: RequestUser = {
   id: "admin_1",
-  email: "admin@skillstream.dev",
+  email: "admin@grslearning.dev",
   role: "ADMIN",
   mustChangePassword: false,
 };

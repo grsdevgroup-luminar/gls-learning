@@ -51,7 +51,7 @@
 
 ### Verification
 
-- Passed `pnpm --filter @skillstream/web typecheck`.
+- Passed `pnpm --filter @grslearning/web typecheck`.
 
 ## 2026-09-07 — Admin Panel Search Improvements
 
@@ -76,7 +76,7 @@
 
 ### Verification
 
-- Passed `pnpm --filter @skillstream/web typecheck`.
+- Passed `pnpm --filter @grslearning/web typecheck`.
 - Passed `git diff --check` for the search changes.
 
 ## 2026-09-07 — Recommended Course Review Authorization Changes
@@ -121,8 +121,8 @@
 
 ### Verification
 
-- Run `pnpm --filter @skillstream/api build`.
-- Run `pnpm --filter @skillstream/web typecheck`.
+- Run `pnpm --filter @grslearning/api build`.
+- Run `pnpm --filter @grslearning/web typecheck`.
 - Run the API review authorization tests.
 - Manually verify both the hidden UI state and direct API rejection for a non-enrolled student.
 
@@ -179,9 +179,9 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/shared test`
-  - `pnpm --filter @skillstream/shared build`
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/shared test`
+  - `pnpm --filter @grslearning/shared build`
+  - `pnpm --filter @grslearning/web typecheck`
   - `git diff --check`
 
 ## 2026-09-06
@@ -345,10 +345,10 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/shared build`
-  - `pnpm --filter @skillstream/api typecheck`
-  - `pnpm --filter @skillstream/api build`
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/shared build`
+  - `pnpm --filter @grslearning/api typecheck`
+  - `pnpm --filter @grslearning/api build`
+  - `pnpm --filter @grslearning/web typecheck`
   - `git diff --check`
 
 ## 2026-08-28
@@ -370,8 +370,8 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
-  - `pnpm --filter @skillstream/shared typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
+  - `pnpm --filter @grslearning/shared typecheck`
 
 ## 2026-08-28
 
@@ -392,8 +392,8 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
-  - `pnpm --filter @skillstream/shared typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
+  - `pnpm --filter @grslearning/shared typecheck`
 
 ## 2026-08-28
 
@@ -411,7 +411,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -429,7 +429,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -468,9 +468,9 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/shared typecheck`
-  - `pnpm --filter @skillstream/api typecheck`
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/shared typecheck`
+  - `pnpm --filter @grslearning/api typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -487,7 +487,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -505,7 +505,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -522,7 +522,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -539,7 +539,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-28
 
@@ -570,9 +570,9 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/shared build`
-  - `pnpm --filter @skillstream/shared typecheck`
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/shared build`
+  - `pnpm --filter @grslearning/shared typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-25
 
@@ -589,7 +589,7 @@
 
 ### Verification
 
-- Passed: `pnpm --filter @skillstream/web typecheck`
+- Passed: `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-23
 
@@ -677,7 +677,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 
 
@@ -769,7 +769,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-21
 
@@ -816,7 +816,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-20
 
@@ -836,7 +836,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-20
 
@@ -860,7 +860,7 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-19
 
@@ -903,11 +903,11 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
   - `git diff --check`
 
 - Note:
-  - `pnpm --filter @skillstream/web lint` still reports pre-existing `react-hooks/set-state-in-effect` errors in billing, admin list pages, and the store context; the skeleton changes introduced no lint errors.
+  - `pnpm --filter @grslearning/web lint` still reports pre-existing `react-hooks/set-state-in-effect` errors in billing, admin list pages, and the store context; the skeleton changes introduced no lint errors.
 
 ### Notes
 
@@ -983,14 +983,14 @@
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web exec eslint "app/learn/[slug]/_components/learn-client.tsx"`
-  - `pnpm --filter @skillstream/web typecheck`
-  - `pnpm --filter @skillstream/web exec eslint "app/admin/page.tsx" "components/charts/charts.tsx"`
-  - `pnpm --filter @skillstream/api typecheck`
-  - `pnpm --filter @skillstream/api build`
-  - `pnpm --filter @skillstream/api test`
-  - `pnpm --filter @skillstream/shared typecheck`
-  - `pnpm --filter @skillstream/shared test`
+  - `pnpm --filter @grslearning/web exec eslint "app/learn/[slug]/_components/learn-client.tsx"`
+  - `pnpm --filter @grslearning/web typecheck`
+  - `pnpm --filter @grslearning/web exec eslint "app/admin/page.tsx" "components/charts/charts.tsx"`
+  - `pnpm --filter @grslearning/api typecheck`
+  - `pnpm --filter @grslearning/api build`
+  - `pnpm --filter @grslearning/api test`
+  - `pnpm --filter @grslearning/shared typecheck`
+  - `pnpm --filter @grslearning/shared test`
 
 - Note:
   - The full web lint command still reports six pre-existing `react-hooks/set-state-in-effect` errors in unrelated dashboard pages.
@@ -1053,10 +1053,10 @@ ext` paths.
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/shared test`
-  - `pnpm --filter @skillstream/shared typecheck`
-  - `pnpm --filter @skillstream/api typecheck`
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/shared test`
+  - `pnpm --filter @grslearning/shared typecheck`
+  - `pnpm --filter @grslearning/api typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ### Fixed
 
@@ -1100,7 +1100,7 @@ ext` paths.
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 ## 2026-08-11
 
@@ -1129,11 +1129,11 @@ ext` paths.
   - Added right padding to the password input so typed text does not overlap the button.
 
 - `apps/web/components/shared/logo.tsx`
-  - Replaced the inline SkillStream SVG mark with the provided `/GLS-Learning.svg` asset.
+  - Replaced the inline GRS Learning SVG mark with the provided `/GLS-Learning.svg` asset.
   - Updated visible logo text and accessibility labels to `GLS Learning`.
 
 - Frontend brand copy
-  - Updated visible website references from `SkillStream`/`GLS Learning` to `GLS Learning` across metadata, footer, signup, checkout, instructor, teach, account, certificate, verification, course metadata, and video watermark surfaces.
+  - Updated visible website references from `GRS Learning`/`GLS Learning` to `GLS Learning` across metadata, footer, signup, checkout, instructor, teach, account, certificate, verification, course metadata, and video watermark surfaces.
 
 - `apps/web/app/(storefront)/(auth)/signup/page.tsx`
   - Added `showPassword` state for the signup password input.
@@ -1181,9 +1181,9 @@ ext` paths.
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
-  - `pnpm --filter @skillstream/api typecheck`
-  - `pnpm --filter @skillstream/api test src/common/__tests__/pdf.test.ts`
+  - `pnpm --filter @grslearning/web typecheck`
+  - `pnpm --filter @grslearning/api typecheck`
+  - `pnpm --filter @grslearning/api test src/common/__tests__/pdf.test.ts`
 
 ## 2026-08-06
 
@@ -1266,10 +1266,10 @@ avIcons` registry for supported Lucide icons.
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 - Lint status:
-  - `pnpm --filter @skillstream/web lint` completed and failed because of an existing unrelated issue in `apps/web/app/admin/students/page.tsx`.
+  - `pnpm --filter @grslearning/web lint` completed and failed because of an existing unrelated issue in `apps/web/app/admin/students/page.tsx`.
   - The reported lint error is `react-hooks/set-state-in-effect` at line 37 and was not introduced by this navigation fix.
 
 ## 2026-08-26
@@ -1310,8 +1310,8 @@ avIcons` registry for supported Lucide icons.
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
-  - `pnpm --filter @skillstream/web build`
+  - `pnpm --filter @grslearning/web typecheck`
+  - `pnpm --filter @grslearning/web build`
 
 ## 2026-08-26
 
@@ -1344,7 +1344,7 @@ avIcons` registry for supported Lucide icons.
 ### Verification
 
 - Passed:
-  - `pnpm --filter @skillstream/web typecheck`
+  - `pnpm --filter @grslearning/web typecheck`
 
 
 ## 2026-09-01

@@ -11,7 +11,7 @@ import {
   type InviteOrgMemberInput,
   type RemoveOrgMemberInput,
   type UpdateOrganizationInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { OrganizationsService } from "./organizations.service";

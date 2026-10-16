@@ -1,5 +1,5 @@
 {
-  "name": "@skillstream/api",
+  "name": "@grslearning/api",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,7 +16,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:backfill-uploads": "tsx prisma/scripts/backfill-uploads.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "admin:create": "tsx prisma/scripts/create-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -37,7 +38,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.2.1",
     "@sentry/node": "^8.47.0",
-    "@skillstream/shared": "workspace:*",
+    "@grslearning/shared": "workspace:*",
     "@types/pdfkit": "^0.17.6",
     "argon2": "^0.41.1",
     "bullmq": "^5.34.0",
@@ -64,7 +65,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
-    "@skillstream/config": "workspace:*",
+    "@grslearning/config": "workspace:*",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.0",
     "@types/multer": "^2.2.0",

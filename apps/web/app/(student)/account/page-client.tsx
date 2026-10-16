@@ -9,7 +9,7 @@ import {
   isIsoCountryCode,
   isValidPhone,
   type ReminderTrigger,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { api } from "@/lib/api/endpoints";
 import { useSession, SESSION_QUERY_KEY } from "@/lib/api/session";
 import { apiFetch, apiFetchMultipart } from "@/lib/api/client";

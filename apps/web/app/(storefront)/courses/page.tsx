@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import type { CourseSummaryDto, Paginated } from "@skillstream/shared";
-import { activeCourseSearchQuery } from "@skillstream/shared";
+import type { CourseSummaryDto, Paginated } from "@grslearning/shared";
+import { activeCourseSearchQuery } from "@grslearning/shared";
 import { getQueryClient } from "@/lib/api/query-client";
 import { serverApiCached } from "@/lib/api/server";
 import { qs } from "@/lib/api/endpoints";

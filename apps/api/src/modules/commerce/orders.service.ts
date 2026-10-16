@@ -9,7 +9,7 @@ import type {
   OrderDto,
   Paginated,
   SearchQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { receiptPdf } from "../../common/utils/pdf";
 import { EmailService } from "../email/email.service";

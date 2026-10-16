@@ -131,7 +131,7 @@ async function logoutFlow() {
 // ─────────────────────────── 3. ADMIN LOGIN ───────────────────────────
 async function adminLogin() {
   G("auth");
-  const r = await req("POST", "/auth/login", { body: { email: "admin@skillstream.dev", password: "admin12345" } });
+  const r = await req("POST", "/auth/login", { body: { email: "admin@grslearning.dev", password: "admin12345" } });
   check("seeded admin can log in", r.status === 200, `${r.status} ${msg(r)}`);
   state.admin = { token: r.json?.accessToken };
   const me = await req("GET", "/auth/me", { token: state.admin.token });

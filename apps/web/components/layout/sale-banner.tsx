@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tag } from "lucide-react";
-import type { CouponType } from "@skillstream/shared";
+import type { CouponType } from "@grslearning/shared";
 import { useFeaturedCoupon } from "@/lib/api/hooks";
 
 /** Ticks once a second toward `iso`, or null until mounted so the server and

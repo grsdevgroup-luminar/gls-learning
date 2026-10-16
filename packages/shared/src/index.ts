@@ -1,4 +1,4 @@
-// @skillstream/shared — single source of truth for domain enums, money/pricing/
+// @grslearning/shared — single source of truth for domain enums, money/pricing/
 // coupon/progress logic, and API contracts (Zod schemas + DTO types) consumed
 // by both the NestJS API and the Next.js web app.
 

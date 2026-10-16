@@ -8,7 +8,7 @@ import {
   isLessonSequentiallyAccessible,
   type CourseDetailDto,
   type LessonPublicDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { useStore } from "@/lib/context/store";
 import { courseLessonCount } from "@/lib/course-stats";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

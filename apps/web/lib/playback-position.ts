@@ -5,7 +5,7 @@
  * logged-out visitors on preview lessons.
  */
 
-const KEY_PREFIX = "skillstream_pos_v1:";
+const KEY_PREFIX = "grslearning_pos_v1:";
 
 /** Entries older than this are dropped on read, so the store can't grow
  *  unbounded as a learner moves through a large catalog. */

@@ -13,14 +13,17 @@
       ]
     },
     "build": {
-      "inputs": [{ "step": "install" }],
+      "inputs": [
+        {
+          "step": "install"
+        }
+      ],
       "commands": [
-        "pnpm --filter @skillstream/shared build",
-        "pnpm --filter @skillstream/web build"
+        "pnpm build:web"
       ]
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter @skillstream/web start"
+    "startCommand": "pnpm start:web"
   }
 }

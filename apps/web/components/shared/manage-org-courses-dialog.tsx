@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import { MAX_PAGE_SIZE } from "@grslearning/shared";
 import { adminApi, orgApi, type InstructorCourseDto } from "@/lib/api/endpoints";
 import { useCategories } from "@/lib/api/hooks";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -46,7 +46,7 @@ async function fetchAllMatching(params: {
 }
 
 /**
- * Platform-admin-only: which courses a company gets is a SkillStream
+ * Platform-admin-only: which courses a company gets is a GRS Learning
  * decision (OrganizationsService.assertPlatformAdmin rejects an org's own
  * admin), so this is the one place assignment happens — the org portal's own
  * Courses page is read-only. Lists what's assigned (with remove) and lets the

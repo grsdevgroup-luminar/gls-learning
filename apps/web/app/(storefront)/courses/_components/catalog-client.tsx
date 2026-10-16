@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SlidersHorizontal } from "lucide-react";
-import { rawPriceCentsForRegionalBound, type CourseLevel, type CourseSort } from "@skillstream/shared";
+import { rawPriceCentsForRegionalBound, type CourseLevel, type CourseSort } from "@grslearning/shared";
 
 const SORT_TO_API: Record<string, CourseSort> = {
   popular: "popular",

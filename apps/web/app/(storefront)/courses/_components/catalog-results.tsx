@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SortSelect } from "./sort-select";
 import { CourseGridSkeleton } from "@/components/shared/loading-skeletons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Paginated, CourseSummaryDto } from "@skillstream/shared";
+import type { Paginated, CourseSummaryDto } from "@grslearning/shared";
 
 export function CatalogResults({
   coursePage,

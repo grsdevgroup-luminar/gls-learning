@@ -44,7 +44,7 @@ import {
   type ResetPasswordInput,
   type ResetTokenQuery,
   type UpdateProfileInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import {
   AllowPendingPasswordChange,

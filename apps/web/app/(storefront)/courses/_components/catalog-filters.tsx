@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
-import { CourseLevel, MIN_COURSE_SEARCH_LENGTH } from "@skillstream/shared";
+import { CourseLevel, MIN_COURSE_SEARCH_LENGTH } from "@grslearning/shared";
 import { levelLabel } from "@/lib/format";
 
 export const LEVELS: CourseLevel[] = [

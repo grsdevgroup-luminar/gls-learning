@@ -1,4 +1,6 @@
 /** Seeds the admin account, pricing, and automation rules. */
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 
@@ -20,7 +22,7 @@ async function main() {
     where: { email: "admin@grslearning.dev" },
     update: {},
     create: {
-      email: "admin@skillstream.dev",
+      email: "admin@grslearning.dev",
       name: "Platform Admin",
       passwordHash: await argon2.hash("admin12345", { type: argon2.argon2id }),
       role: "ADMIN",

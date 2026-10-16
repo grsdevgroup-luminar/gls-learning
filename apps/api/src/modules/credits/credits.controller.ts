@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   paginationQuerySchema,
   type PaginationQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
 import { ZodQuery } from "../../common/utils/swagger";
 import { CreditsService } from "./credits.service";

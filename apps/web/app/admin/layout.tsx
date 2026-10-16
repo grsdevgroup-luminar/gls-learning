@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { AuthUserDto, InstructorApplicationStatsDto } from "@skillstream/shared";
+import type { AuthUserDto, InstructorApplicationStatsDto } from "@grslearning/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";

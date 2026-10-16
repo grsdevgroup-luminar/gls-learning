@@ -9,7 +9,7 @@ The dashboard certificate preview and downloaded PDF now use the same certificat
 - The endpoint is throttled to 10 requests per minute.
 - The API uses Playwright/Chromium to load `/certificates/:serial/print`, which renders the shared `CertificateTemplate`.
 - The PDF is generated as a single A4 portrait page with print backgrounds enabled.
-- The browser downloads the returned PDF as `skillstream-certificate-<serial>.pdf`.
+- The browser downloads the returned PDF as `grslearning-certificate-<serial>.pdf`.
 
 ## Frontend files involved
 
@@ -33,7 +33,7 @@ The dashboard certificate preview and downloaded PDF now use the same certificat
 
 Local development requires the Playwright Chromium binary:
 
-- `pnpm --filter @skillstream/api exec playwright install chromium`
+- `pnpm --filter @grslearning/api exec playwright install chromium`
 - `FRONTEND_URL` must point to the running web app.
 - `API_ORIGIN` must be configured for the web server when the API is not at `http://localhost:4000`.
 

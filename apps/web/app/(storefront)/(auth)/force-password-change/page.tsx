@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/lib/api/auth";
 import { SESSION_QUERY_KEY } from "@/lib/api/session";
 import { ApiError } from "@/lib/api/errors";
-import { passwordSchema } from "@skillstream/shared";
+import { passwordSchema } from "@grslearning/shared";
 import { destinationFor } from "@/lib/auth/destination";
 import { Logo } from "@/components/shared/logo";
 import { Reveal, Stagger, Magnetic } from "@/components/shared/motion";

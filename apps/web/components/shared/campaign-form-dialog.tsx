@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DeliveryPartnerCampaignDto, DeliveryPartnerCampaignScope } from "@skillstream/shared";
+import type { DeliveryPartnerCampaignDto, DeliveryPartnerCampaignScope } from "@grslearning/shared";
 import { adminApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { CourseMultiSelect } from "@/components/shared/course-multi-select";

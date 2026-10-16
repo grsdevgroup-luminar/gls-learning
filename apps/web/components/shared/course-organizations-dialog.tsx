@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdminCourseOrganizationDto, OrganizationDto } from "@skillstream/shared";
+import type { AdminCourseOrganizationDto, OrganizationDto } from "@grslearning/shared";
 import { adminApi, orgApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Badge } from "@/components/ui/badge";

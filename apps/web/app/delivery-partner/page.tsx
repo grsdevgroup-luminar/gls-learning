@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { DeliveryPartnerDto } from "@skillstream/shared";
+import type { DeliveryPartnerDto } from "@grslearning/shared";
 import {
   useMyDeliveryPartner, useMyPartnerReferrals, useMyPartnerCampaigns,
 } from "@/lib/api/delivery-partner-hooks";

@@ -1,4 +1,4 @@
-import type { CourseDetailDto, ReviewDto } from "@skillstream/shared";
+import type { CourseDetailDto, ReviewDto } from "@grslearning/shared";
 import { CourseComments } from "./course-comments";
 import { CourseHero } from "./course-hero";
 import { CourseCurriculum } from "./course-curriculum";

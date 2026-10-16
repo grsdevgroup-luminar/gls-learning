@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { partnerApi } from "@/lib/api/endpoints";
-import type { DeliveryPartnerCourseAssignmentDto } from "@skillstream/shared";
+import type { DeliveryPartnerCourseAssignmentDto } from "@grslearning/shared";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { relativeDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";

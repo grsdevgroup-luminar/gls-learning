@@ -3,7 +3,7 @@ import {
   ExecutionContext,
   SetMetadata,
 } from "@nestjs/common";
-import type { UserRole } from "@skillstream/shared";
+import type { UserRole } from "@grslearning/shared";
 
 /** Authenticated request user attached by JwtStrategy.validate(). */
 export interface RequestUser {

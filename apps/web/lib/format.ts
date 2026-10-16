@@ -1,4 +1,4 @@
-import type { CourseLevel } from "@skillstream/shared";
+import type { CourseLevel } from "@grslearning/shared";
 
 const LEVEL_LABELS: Record<CourseLevel, string> = {
   BEGINNER: "Beginner",

@@ -8,7 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import type { PayeeType } from "@prisma/client";
 import Stripe from "stripe";
-import type { PayoutStripeStatusDto, StripeOnboardLinkDto } from "@skillstream/shared";
+import type { PayoutStripeStatusDto, StripeOnboardLinkDto } from "@grslearning/shared";
 import type { Env } from "../../config/env";
 
 /**

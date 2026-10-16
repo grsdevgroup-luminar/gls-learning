@@ -4,7 +4,7 @@
 
 ## Goal
 
-SkillStream has real notification infrastructure — a BullMQ-backed reminder worker
+GRS Learning has real notification infrastructure — a BullMQ-backed reminder worker
 (`apps/api/src/modules/jobs/`), Resend-backed email delivery, and per-user opt-in
 preferences — but it only covers students, only pushes outward (email/SMS), and has
 **no in-app inbox for any role**. Instructors, delivery partners, and org admins get zero
@@ -28,7 +28,7 @@ Knock etc.).
   (password resets, reminder emails). Self-hosting mail transport is a separate,
   much larger project and was never in scope here.
 - **Product scope**: in-app bell/inbox only. No browser/OS push notifications — a
-  user only sees something when they actually have SkillStream open. No push
+  user only sees something when they actually have GRS Learning open. No push
   permissions, no service worker, no push infrastructure to maintain.
 - **SMS**: not built now, but the schema stays SMS-ready by construction (see
   Data model). `NotificationChannel` stays a real enum (`IN_APP | EMAIL | SMS`), and

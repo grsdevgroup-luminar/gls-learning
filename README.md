@@ -1,4 +1,4 @@
-# SkillStream — Course Platform
+# GRS Learning — Course Platform
 
 A full course-selling platform: a student-facing **storefront**, a complete **student
 learning portal**, an **instructor** program, a **B2B organizations** (seat-based)

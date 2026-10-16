@@ -1,5 +1,5 @@
 {
-  "extends": "@skillstream/config/tsconfig.base.json",
+  "extends": "@grslearning/config/tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",

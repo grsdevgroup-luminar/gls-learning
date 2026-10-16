@@ -1,4 +1,4 @@
-import { SUPPORTED_VIDEO_EXTENSIONS } from "@skillstream/shared";
+import { SUPPORTED_VIDEO_EXTENSIONS } from "@grslearning/shared";
 
 /** Stable resume key without hashing the full file contents. */
 export function videoFileFingerprint(file: File): string {

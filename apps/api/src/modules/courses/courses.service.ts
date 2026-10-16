@@ -8,7 +8,7 @@ import {
   type Paginated,
   LEARNING_CATEGORIES,
   compactCourseSearchQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { toCourseDetail, toCourseSummary } from "./course.mapper";
 import { CoursesRepository } from "./courses.repository";
 import type { RequestUser } from "../../common/decorators/decorators";

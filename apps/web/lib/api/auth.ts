@@ -7,7 +7,7 @@ import type {
   LoginInput,
   RegisterInput,
   UpdateProfileInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { apiFetch } from "./client";
 
 export const authApi = {

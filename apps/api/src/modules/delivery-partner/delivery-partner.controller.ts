@@ -34,7 +34,7 @@ import {
   type UpdatePartnerCampaignInput,
   type UpdatePartnerCourseAssignmentInput,
   type UpdatePartnerInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { PARTNER_DOC_MAX_BYTES } from "../storage/storage.constants";

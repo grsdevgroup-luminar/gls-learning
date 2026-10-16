@@ -3,7 +3,7 @@
 import {
   MAX_COURSE_DESCRIPTION_LENGTH,
   ISO_STANDARD_OPTIONS,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CategoryPicker } from "@/components/shared/category-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

@@ -4,7 +4,7 @@ import type {
   CategoryProposalInput,
   CreateCategoryInput,
   UpdateCategoryInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { CategoriesRepository } from "./categories.repository";
 

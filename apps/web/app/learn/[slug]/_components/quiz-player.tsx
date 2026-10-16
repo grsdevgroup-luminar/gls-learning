@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QuizAttemptResultDto } from "@skillstream/shared";
+import type { QuizAttemptResultDto } from "@grslearning/shared";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";

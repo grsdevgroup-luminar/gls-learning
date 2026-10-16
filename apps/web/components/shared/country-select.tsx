@@ -44,7 +44,7 @@ export function CountrySelect({
     return (
       <p className="text-sm text-destructive">
         Country list unavailable. Rebuild shared:{" "}
-        <code className="text-xs">pnpm --filter @skillstream/shared build</code>
+        <code className="text-xs">pnpm --filter @grslearning/shared build</code>
       </p>
     );
   }

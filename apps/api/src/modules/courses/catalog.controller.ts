@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { courseListQuerySchema, type CourseListQuery } from "@skillstream/shared";
+import { courseListQuerySchema, type CourseListQuery } from "@grslearning/shared";
 import { CurrentUser, Public, type RequestUser } from "../../common/decorators/decorators";
 import { ZodQuery } from "../../common/utils/swagger";
 import { CoursesService } from "./courses.service";

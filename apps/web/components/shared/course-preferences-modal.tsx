@@ -15,7 +15,7 @@ import {
   Palette,
 } from "lucide-react";
 import { toast } from "sonner";
-import { type LearningCategory } from "@skillstream/shared";
+import { type LearningCategory } from "@grslearning/shared";
 import { ApiError } from "@/lib/api/errors";
 import { useCategories, useSaveCoursePreferences } from "@/lib/api/hooks";
 import { useSession } from "@/lib/api/session";

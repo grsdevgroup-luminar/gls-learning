@@ -3,7 +3,7 @@ import {
   activeCourseSearchQuery,
   compactCourseSearchQuery,
   normalizeCourseSearchQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { toast } from "sonner";
 
 export {

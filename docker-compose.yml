@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: skillstream-postgres
+    container_name: grslearning-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: skillstream
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: skillstream-redis
+    container_name: grslearning-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -31,7 +31,7 @@ services:
   # API at it with EMAIL_DRIVER=smtp, SMTP_HOST=localhost, SMTP_PORT=1025.
   mailpit:
     image: axllent/mailpit:latest
-    container_name: skillstream-mailpit
+    container_name: grslearning-mailpit
     restart: unless-stopped
     ports:
       - "1025:1025" # SMTP

@@ -27,7 +27,7 @@ root cause behind most of what follows:
 | 4 | [77% of files are Client Components](#5-use-client-placement) (90/117 in `app`+`components`) | Medium — larger bundles, slower hydration, gratuitous `"use client"` on layouts | Medium |
 | 5 | [No `loading.tsx` / `error.tsx` / `not-found.tsx` anywhere](#6-missing-route-level-boundaries) | Medium — no streaming, ad-hoc error handling per component instead of framework-level | Low |
 | 6 | [Monolithic page/component files (300–650 lines)](#7-file-size--component-organization) | Medium — hard to review, hard to test, hides the above problems | Medium |
-| 7 | [Parallel "legacy" type system + adapter layer](#8-the-legacy-type-adapter-layer) duplicating `@skillstream/shared` | Medium — defeats the "one schema, shared by api and web" design the README describes | High (if fully removed) |
+| 7 | [Parallel "legacy" type system + adapter layer](#8-the-legacy-type-adapter-layer) duplicating `@grslearning/shared` | Medium — defeats the "one schema, shared by api and web" design the README describes | High (if fully removed) |
 | 8 | [`next/image` essentially unused](#9-images) (1 usage in 117 files), no `remotePatterns` configured | Low–Medium | Low |
 | 9 | [Duplicated inline queries instead of shared hooks](#10-duplicated-data-fetching-logic) | Low — works, but drifts over time | Low |
 | 10 | [Flat `components/` split by *portal*, not by *feature*](#11-proposed-file-structure) | Low today, compounding — this is the one to fix before the codebase gets bigger | Medium (mechanical) |
@@ -155,7 +155,7 @@ Confirmed gaps, project-wide:
 - **No `generateMetadata`** anywhere except a hardcoded `export const metadata` in the root
   layout (`app/layout.tsx:24-28`) and one static one on `verify/[serial]`. Every course
   page, every category filter, `/teach`, `/login` — all share the site-wide title/description.
-  Search results for a specific course currently show "SkillStream — Learn anything,
+  Search results for a specific course currently show "GRS Learning — Learn anything,
   anywhere" instead of the course title.
 - **No `app/sitemap.ts`** — Next.js's built-in sitemap generation API isn't used, so course
   pages have no discovery path for crawlers beyond internal links.
@@ -179,7 +179,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const dto = await serverApi<CourseDetailDto>(`/courses/${slug}`);
   return {
-    title: `${dto.title} | SkillStream`,
+    title: `${dto.title} | GRS Learning`,
     description: dto.subtitle,
     openGraph: { title: dto.title, description: dto.subtitle, images: [dto.thumbnail] },
   };
@@ -300,7 +300,7 @@ status" confirms *nothing* still reads from `lib/mock/*`. Keeping the adapter la
 permanently means:
 
 - Two parallel type systems to keep in sync by hand (`CourseLevel` enum in
-  `@skillstream/shared` ↔ `Level` string union in `@/types`, cents-as-integer ↔
+  `@grslearning/shared` ↔ `Level` string union in `@/types`, cents-as-integer ↔
   dollars-as-float, `UPPER_CASE` status ↔ `lowercase` status).
 - Every new field added to a Prisma model + DTO needs a matching edit in `adapters.ts` and
   `types/index.ts` before any component can see it — an easy step to forget, and the kind
@@ -314,7 +314,7 @@ permanently means:
 **Recommended fix** (this is the one I'd want explicit sign-off on before starting — see
 §8 open questions below, it's a bigger and riskier change than the others): retire
 `apps/web/types/index.ts` and `lib/api/adapters.ts`, have components consume
-`CourseSummaryDto`/`CourseDetailDto`/etc. from `@skillstream/shared` directly, and delete
+`CourseSummaryDto`/`CourseDetailDto`/etc. from `@grslearning/shared` directly, and delete
 `lib/mock/*`. This is mechanical but touches every storefront/student/instructor/admin
 component that currently imports `@/types` — worth doing as its own dedicated pass, not
 bundled into the rendering-strategy work.
@@ -443,7 +443,7 @@ lib/
   ...
 
 types/                             # retired per §8, pending sign-off — DTOs come from
-                                    # @skillstream/shared instead
+                                    # @grslearning/shared instead
 ```
 
 **What moves where, concretely, for the storefront:**
@@ -504,7 +504,7 @@ than assume:
    or does pricing/seat-availability need to be request-fresh on every load? This decides
    between `generateStaticParams` + ISR vs. `dynamic = "force-dynamic"` for §2/§4.
 2. **Legacy type system (§8)** — full removal (`@/types` + `adapters.ts` + `lib/mock/*`
-   deleted, components consume `@skillstream/shared` DTOs directly) touches nearly every
+   deleted, components consume `@grslearning/shared` DTOs directly) touches nearly every
    component in every portal. Do you want that as one dedicated pass, or would you rather
    phase it per-portal alongside the file-structure migration so each portal only changes
    once instead of twice?

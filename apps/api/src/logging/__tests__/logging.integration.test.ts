@@ -18,7 +18,7 @@ const base = {
 const temporaryDirectories: string[] = [];
 
 const createTemporaryDirectory = async (): Promise<string> => {
-  const directory = await mkdtemp(join(tmpdir(), "skillstream-logging-"));
+  const directory = await mkdtemp(join(tmpdir(), "grslearning-logging-"));
   temporaryDirectories.push(directory);
   return directory;
 };

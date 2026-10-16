@@ -52,7 +52,7 @@ export async function createLoggingRuntime(
   const rootLogger = pino(
     {
       level: env.LOG_LEVEL,
-      base: { service: "@skillstream/api", environment: env.NODE_ENV },
+      base: { service: "@grslearning/api", environment: env.NODE_ENV },
       redact: { paths: [...REDACT_PATHS], censor: "[Redacted]" },
       serializers: { err: pino.stdSerializers.err },
       timestamp: pino.stdTimeFunctions.isoTime,
