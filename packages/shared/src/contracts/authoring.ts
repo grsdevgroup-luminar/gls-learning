@@ -193,6 +193,7 @@ export const updateQuizSchema = z.object({
 export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
 
 export const createQuizQuestionSchema = z.object({
+  scenario: z.string().max(4000).optional(),
   prompt: z.string().min(1).max(1000),
   explanation: z.string().max(2000).optional(),
   order: z.number().int().min(0).optional(),
@@ -201,6 +202,7 @@ export const createQuizQuestionSchema = z.object({
 export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
 
 export const updateQuizQuestionSchema = z.object({
+  scenario: z.string().max(4000).nullable().optional(),
   prompt: z.string().min(1).max(1000).optional(),
   explanation: z.string().max(2000).nullable().optional(),
   order: z.number().int().min(0).optional(),

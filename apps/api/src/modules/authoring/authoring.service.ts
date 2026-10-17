@@ -39,6 +39,10 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { randomUUID } from "node:crypto";
 
 type CourseAccess = Awaited<ReturnType<AuthoringRepository["findCourseInstructor"]>>;
+// `instructorId` is selected by findCourseInstructor and is present at
+// runtime. Keep it explicit here so the service remains type-safe when the
+// generated Prisma client is one schema generation behind.
+type CourseAccessWithOwner = CourseAccess & { instructorId: string };
 
 /** Maps the fields the course-details form actually submits (see
  *  CourseBuilder's `handleSave`) to the label used in the instructor's
@@ -296,6 +300,7 @@ export class AuthoringService {
                         passScore: lesson.quiz.passScore,
                         questions: {
                           create: lesson.quiz.questions.map((question) => ({
+                            scenario: question.scenario,
                             prompt: question.prompt,
                             explanation: question.explanation,
                             order: question.order,
@@ -553,6 +558,7 @@ export class AuthoringService {
               await tx.quizQuestion.create({
                 data: {
                   quizId: quiz.id,
+                  scenario: question.scenario,
                   prompt: question.prompt,
                   explanation: question.explanation,
                   order: question.order,
@@ -747,10 +753,18 @@ export class AuthoringService {
       throw new BadRequestException("Approve this revision request instead of publishing the private copy");
     }
 
-    // Drafts are visible to admins for monitoring, but only the instructor
-    // can submit one for review. This prevents an admin UI action or a direct
-    // API request from bypassing the instructor review gate.
-    if (user.role === "ADMIN" && course.status === "DRAFT" && status !== "DRAFT") {
+    // Drafts owned by an instructor must go through instructor review before
+    // an admin can approve them. An admin-created course is owned by that
+    // admin, so the admin must be able to publish it directly.
+    const isAdminOwnedCourse =
+      user.role === "ADMIN" &&
+      (course as CourseAccessWithOwner).instructorId === user.id;
+    if (
+      user.role === "ADMIN" &&
+      !isAdminOwnedCourse &&
+      course.status === "DRAFT" &&
+      status !== "DRAFT"
+    ) {
       throw new BadRequestException(
         "The instructor must submit this course for review before admin approval",
       );
@@ -758,7 +772,12 @@ export class AuthoringService {
 
     // Publishing is only valid after the instructor has submitted the course
     // for review. Re-publishing an already published course remains allowed.
-    if (status === "PUBLISHED" && course.status !== "REVIEW" && course.status !== "PUBLISHED") {
+    if (
+      status === "PUBLISHED" &&
+      !isAdminOwnedCourse &&
+      course.status !== "REVIEW" &&
+      course.status !== "PUBLISHED"
+    ) {
       throw new BadRequestException(
         "The instructor must submit this course for review before it can be published",
       );
@@ -1358,6 +1377,7 @@ export class AuthoringService {
     const count = await this.repo.countQuestions(quizId);
     await this.repo.createQuestion({
       quiz: { connect: { id: quizId } },
+      scenario: input.scenario ?? null,
       prompt: input.prompt,
       explanation: input.explanation ?? null,
       order: input.order ?? count,
@@ -1388,6 +1408,7 @@ export class AuthoringService {
     await this.repo.updateQuestionWithOptions(
       questionId,
       {
+        scenario: input.scenario ?? undefined,
         prompt: input.prompt,
         explanation: input.explanation ?? undefined,
         order: input.order,

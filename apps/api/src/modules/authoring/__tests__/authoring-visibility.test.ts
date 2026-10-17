@@ -160,6 +160,18 @@ describe("AuthoringService.update — visibility gating", () => {
     expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
   });
 
+  it("allows an admin to publish a DRAFT course they created", async () => {
+    const { service, repo } = makeService({
+      findCourseInstructor: vi.fn().mockResolvedValue(
+        makeCourseInstructorRow({ instructorId: "admin_1", status: "DRAFT" }),
+      ),
+      findCoursePriorStatus: vi.fn().mockResolvedValue({ publishedAt: null, instructorId: "admin_1" }),
+    });
+
+    await service.setStatus(admin, "course_1", { status: "PUBLISHED" });
+    expect(repo.setCourseStatusWithInstructorBump).toHaveBeenCalled();
+  });
+
   it("allows an admin to publish a course already submitted for review", async () => {
     const { service, repo } = makeService({
       findCourseInstructor: vi.fn().mockResolvedValue(makeCourseInstructorRow({ status: "REVIEW" })),
