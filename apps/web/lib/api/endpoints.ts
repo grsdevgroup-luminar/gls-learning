@@ -793,6 +793,7 @@ export const pricingAdminApi = {
 
 export interface AuthoringQuizQuestionDto {
   id: string;
+  scenario: string | null;
   prompt: string;
   explanation: string | null;
   order: number;
@@ -902,6 +903,7 @@ export const authoringApi = {
   addQuizQuestion: (
     quizId: string,
     body: {
+      scenario?: string;
       prompt: string;
       explanation?: string;
       order?: number;
