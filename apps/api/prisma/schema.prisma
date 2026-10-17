@@ -654,6 +654,7 @@ model QuizQuestion {
   id          String       @id @default(cuid())
   quizId      String
   quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  scenario    String?
   prompt      String
   explanation String?
   order       Int          @default(0)

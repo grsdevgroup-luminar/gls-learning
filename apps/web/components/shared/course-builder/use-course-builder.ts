@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH } from "@grslearning/shared";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { emptyQuiz } from "@/components/shared/quiz-editor";
+import { emptyQuiz, flattenQuizQuestions } from "@/components/shared/quiz-editor";
 import { toast } from "sonner";
 import {
   articleDurationSec, isTemp, nid, quizDurationSec, readImageFile, sectionsFromDetail,
@@ -148,18 +148,20 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                                   ),
                                 )
                               : 1,
-                          questions: qz.questions.map((q) => ({
-                            id: q.id,
-                            prompt: q.prompt,
-                            explanation: q.explanation ?? undefined,
-                            options:
-                              q.options?.map((o) => ({
-                                id: o.id,
-                                text: o.text,
-                              })) ?? [],
-                            correctOptionId:
-                              q.options?.find((o) => o.isCorrect)?.id ?? "",
-                          })),
+                          groups: qz.questions.reduce<import("@/components/shared/quiz-editor").BuilderQuizGroup[]>((groups, q) => {
+                            const scenario = q.scenario ?? "";
+                            const question = {
+                              id: q.id,
+                              prompt: q.prompt,
+                              explanation: q.explanation ?? undefined,
+                              options: q.options?.map((o) => ({ id: o.id, text: o.text })) ?? [],
+                              correctOptionId: q.options?.find((o) => o.isCorrect)?.id ?? "",
+                            };
+                            const last = groups[groups.length - 1];
+                            if (last && last.scenario === scenario) last.questions.push(question);
+                            else groups.push({ id: `loaded-${q.id}`, scenario, questions: [question] });
+                            return groups;
+                          }, []),
                         },
                       }
                     : pl,
@@ -303,9 +305,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
       return;
     }
     if (action === "publish" || action === "review") {
-      const incomplete = sections
-        .flatMap((section) => section.lessons)
-        .filter((lesson) => {
+      const incomplete = (
+        await Promise.all(
+          sections.flatMap((section) => section.lessons).map(async (lesson) => {
           const hasResource =
             lesson.resources.some(
               (resource) => resource.name.trim() && resource.url.trim(),
@@ -313,20 +315,36 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
           if (lesson.type === "video")
             return !lesson.cfVideoUid && !lesson.hasVideo;
           if (lesson.type === "quiz") {
-            return !lesson.quiz?.questions.some(
+            // Existing quiz content loads asynchronously after the course
+            // detail. Read it directly if that request has not finished yet,
+            // so a valid quiz is not reported as an empty lesson. Scenario is
+            // intentionally not part of this check; it is optional.
+            const quiz = lesson.quiz ??
+              (!isTemp(lesson.id) ? await authoringApi.quiz(lesson.id) : null);
+            if (!quiz) return true;
+            if ("groups" in quiz) {
+              return !quiz.groups.some((group) =>
+                group.questions.some(
+                  (question) =>
+                    question.prompt.trim() &&
+                    question.options.filter((option) => option.text.trim()).length >= 2 &&
+                    question.options.some(
+                      (option) => option.text.trim() && option.id === question.correctOptionId,
+                    ),
+                ),
+              );
+            }
+            return !quiz.questions.some(
               (question) =>
                 question.prompt.trim() &&
-                question.options.filter((option) => option.text.trim())
-                  .length >= 2 &&
-                question.options.some(
-                  (option) =>
-                    option.text.trim() &&
-                    option.id === question.correctOptionId,
-                ),
+                question.options.filter((option) => option.text.trim()).length >= 2 &&
+                question.options.some((option) => option.text.trim() && option.isCorrect),
             );
           }
           return !lesson.articleContent.trim() && !hasResource;
-        });
+          }),
+        )
+      ).filter(Boolean);
       if (incomplete.length > 0) {
         toast.error(
           `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
@@ -394,12 +412,19 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
         thumbnail,
         basePriceCents: priceCents,
       };
+      // Admin Save edits the existing course without requesting a status
+      // transition. This is important for REVIEW courses: turning Save into
+      // REVIEW -> DRAFT would incorrectly invoke the instructor review gate.
+      // A new course has no detail yet, so it remains a DRAFT until the admin
+      // explicitly enables publishing.
       const targetStatus =
-        action === "publish"
-          ? "PUBLISHED"
-          : action === "review"
-            ? "REVIEW"
-            : "DRAFT";
+        mode === "admin" && action === "draft" && detail?.status
+          ? detail.status
+          : action === "publish"
+            ? "PUBLISHED"
+            : action === "review"
+              ? "REVIEW"
+              : "DRAFT";
 
       // Validate before any existing-course writes. The status endpoint still
       // validates when it commits, but this prevents partial saves when an
@@ -512,7 +537,8 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
             for (const q of quiz.questions) {
               await authoringApi.deleteQuizQuestion(q.id);
             }
-            for (const [qi, q] of l.quiz.questions.entries()) {
+            for (const [qi, item] of flattenQuizQuestions(l.quiz).entries()) {
+              const { question: q, scenario } = item;
               const options = q.options
                 .filter((o) => o.text.trim())
                 .map((o, oi) => ({
@@ -522,6 +548,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                 }));
               if (!q.prompt.trim() || options.length < 2) continue;
               await authoringApi.addQuizQuestion(quiz.id, {
+                scenario: scenario || undefined,
                 prompt: q.prompt,
                 explanation: q.explanation || undefined,
                 order: qi,

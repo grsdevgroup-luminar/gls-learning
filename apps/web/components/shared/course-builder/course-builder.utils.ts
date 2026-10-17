@@ -51,9 +51,10 @@ export function articleDurationSec(content: string): number {
 }
 
 export function quizDurationSec(
-  quiz: Pick<BuilderQuiz, "questions" | "minutesPerQuestion">,
+  quiz: Pick<BuilderQuiz, "groups" | "minutesPerQuestion">,
 ): number {
-  return quiz.questions.length * quiz.minutesPerQuestion * 60;
+  const questionCount = quiz.groups.reduce((count, group) => count + group.questions.length, 0);
+  return questionCount * quiz.minutesPerQuestion * 60;
 }
 
 export const thumbSeeds = [

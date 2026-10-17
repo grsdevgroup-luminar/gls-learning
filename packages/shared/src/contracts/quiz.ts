@@ -7,6 +7,7 @@ export interface QuizOptionPublicDto {
 }
 export interface QuizQuestionPublicDto {
   id: string;
+  scenario: string | null;
   prompt: string;
   order: number;
   options: QuizOptionPublicDto[];

@@ -48,6 +48,7 @@ export class QuizService {
       passScore: lesson.quiz.passScore,
       questions: lesson.quiz.questions.map((q) => ({
         id: q.id,
+        scenario: q.scenario,
         prompt: q.prompt,
         order: q.order,
         options: q.options.map((o) => ({ id: o.id, text: o.text })),

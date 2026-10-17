@@ -64,6 +64,7 @@ export class AuthoringRepository {
           select: {
             questions: {
               select: {
+                scenario: true,
                 prompt: true,
                 options: { select: { text: true, isCorrect: true } },
               },

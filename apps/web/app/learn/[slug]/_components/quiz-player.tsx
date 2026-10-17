@@ -115,6 +115,11 @@ export function QuizPlayer({
                     <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                   )}
                   <div className="flex-1">
+                    {q.scenario && (i === 0 || q.scenario !== quiz.questions[i - 1]?.scenario) && (
+                      <p className="mb-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs leading-relaxed text-muted-foreground">
+                        {q.scenario}
+                      </p>
+                    )}
                     <p className="text-sm font-medium">
                       {i + 1}. {q.prompt}
                     </p>
@@ -159,6 +164,11 @@ export function QuizPlayer({
       <div className="mt-6 space-y-6">
         {quiz.questions?.map((q, i) => (
           <div key={q.id}>
+            {q.scenario && (i === 0 || q.scenario !== quiz.questions[i - 1]?.scenario) && (
+              <p className="mb-2 whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-muted-foreground">
+                {q.scenario}
+              </p>
+            )}
             <p className="text-sm font-medium">
               {i + 1}. {q.prompt}
             </p>
