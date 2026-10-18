@@ -1335,7 +1335,13 @@ export class AuthoringService {
   }
 
   private quizDetail(quizId: string) {
-    return this.repo.findQuizDetailOrThrow(quizId);
+    return this.repo.findQuizDetailOrThrow(quizId).then((quiz) => ({
+      ...quiz,
+      questions: quiz.questions.map((question) => ({
+        ...question,
+        multipleAnswers: question.options.filter((option) => option.isCorrect).length > 1,
+      })),
+    }));
   }
 
   /** Owner-gated quiz content (with answers) for the course builder. */

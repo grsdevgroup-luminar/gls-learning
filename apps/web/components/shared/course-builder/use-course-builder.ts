@@ -155,7 +155,8 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                               prompt: q.prompt,
                               explanation: q.explanation ?? undefined,
                               options: q.options?.map((o) => ({ id: o.id, text: o.text })) ?? [],
-                              correctOptionId: q.options?.find((o) => o.isCorrect)?.id ?? "",
+                              correctOptionIds: q.options?.filter((o) => o.isCorrect).map((o) => o.id) ?? [],
+                              multipleAnswers: q.multipleAnswers,
                             };
                             const last = groups[groups.length - 1];
                             if (last && last.scenario === scenario) last.questions.push(question);
@@ -329,7 +330,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                     question.prompt.trim() &&
                     question.options.filter((option) => option.text.trim()).length >= 2 &&
                     question.options.some(
-                      (option) => option.text.trim() && option.id === question.correctOptionId,
+                      (option) => option.text.trim() && question.correctOptionIds.includes(option.id),
                     ),
                 ),
               );
@@ -543,7 +544,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                 .filter((o) => o.text.trim())
                 .map((o, oi) => ({
                   text: o.text,
-                  isCorrect: o.id === q.correctOptionId,
+                  isCorrect: q.correctOptionIds.includes(o.id),
                   order: oi,
                 }));
               if (!q.prompt.trim() || options.length < 2) continue;

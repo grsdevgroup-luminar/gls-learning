@@ -797,6 +797,7 @@ export interface AuthoringQuizQuestionDto {
   prompt: string;
   explanation: string | null;
   order: number;
+  multipleAnswers: boolean;
   options: { id: string; text: string; isCorrect: boolean; order: number }[];
 }
 export interface AuthoringQuizDto {

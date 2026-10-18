@@ -3,8 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, HelpCircle } from "lucide-react";
 
 export interface BuilderQuizOption { id: string; text: string; }
@@ -12,7 +12,8 @@ export interface BuilderQuizQuestion {
   id: string;
   prompt: string;
   options: BuilderQuizOption[];
-  correctOptionId: string;
+  correctOptionIds: string[];
+  multipleAnswers: boolean;
   explanation?: string;
 }
 export interface BuilderQuizGroup {
@@ -34,7 +35,13 @@ const nextId = (prefix: string) => `${prefix}${idSeed++}`;
 
 export function emptyQuestion(): BuilderQuizQuestion {
   const base = nextId("q");
-  return { id: base, prompt: "", options: [0, 1].map((i) => ({ id: `${base}o${i}`, text: "" })), correctOptionId: `${base}o0` };
+  return {
+    id: base,
+    prompt: "",
+    options: [0, 1].map((i) => ({ id: `${base}o${i}`, text: "" })),
+    correctOptionIds: [`${base}o0`],
+    multipleAnswers: false,
+  };
 }
 
 export function emptyQuiz(): BuilderQuiz {
@@ -57,6 +64,48 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
   function patchOption(groupId: string, questionId: string, optionId: string, text: string) {
     onChange({ ...quiz, groups: quiz.groups.map((g) => g.id === groupId ? { ...g, questions: g.questions.map((q) => q.id === questionId ? { ...q, options: q.options.map((o) => o.id === optionId ? { ...o, text } : o) } : q) } : g) });
   }
+  function setAnswerMode(groupId: string, questionId: string, multipleAnswers: boolean) {
+    onChange({
+      ...quiz,
+      groups: quiz.groups.map((g) =>
+        g.id === groupId
+          ? {
+              ...g,
+              questions: g.questions.map((q) =>
+                q.id === questionId
+                  ? {
+                      ...q,
+                      multipleAnswers,
+                      correctOptionIds: q.correctOptionIds.slice(0, 1),
+                    }
+                  : q,
+              ),
+            }
+          : g,
+      ),
+    });
+  }
+  function setCorrectOption(groupId: string, questionId: string, optionId: string, checked: boolean, multipleAnswers: boolean) {
+    onChange({
+      ...quiz,
+      groups: quiz.groups.map((g) =>
+        g.id === groupId
+          ? {
+              ...g,
+              questions: g.questions.map((q) => {
+                if (q.id !== questionId) return q;
+                const next = multipleAnswers
+                  ? checked
+                    ? [...new Set([...q.correctOptionIds, optionId])]
+                    : q.correctOptionIds.filter((id) => id !== optionId)
+                  : [optionId];
+                return { ...q, correctOptionIds: next };
+              }),
+            }
+          : g,
+      ),
+    });
+  }
   function addQuestion(groupId: string) {
     onChange({ ...quiz, groups: quiz.groups.map((g) => g.id === groupId ? { ...g, questions: [...g.questions, emptyQuestion()] } : g) });
   }
@@ -78,7 +127,13 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
     onChange({ ...quiz, groups: quiz.groups.map((g) => g.id === groupId ? { ...g, questions: g.questions.map((q) => {
       if (q.id !== questionId || q.options.length <= MIN_OPTIONS) return q;
       const options = q.options.filter((o) => o.id !== optionId);
-      return { ...q, options, correctOptionId: q.correctOptionId === optionId ? options[0].id : q.correctOptionId };
+      return {
+        ...q,
+        options,
+        correctOptionIds: q.correctOptionIds.includes(optionId)
+          ? [options[0].id]
+          : q.correctOptionIds,
+      };
     }) } : g) });
   }
 
@@ -100,10 +155,18 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
             {group.questions.map((q, questionIndex) => (
               <div key={q.id} className="rounded-md border bg-background p-3">
                 <div className="flex items-center gap-2"><Input value={q.prompt} onChange={(e) => patchQuestion(group.id, q.id, { prompt: e.target.value })} placeholder={`Question ${questionIndex + 1}`} className="h-8 min-w-0 flex-1" /><Button type="button" size="icon-sm" variant="ghost" aria-label="Remove question" disabled={totalQuestions <= 1} onClick={() => removeQuestion(group.id, q.id)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button></div>
-                <RadioGroup className="mt-2" value={q.correctOptionId} onValueChange={(v) => patchQuestion(group.id, q.id, { correctOptionId: v as string })}>
-                  {q.options.map((o, optionIndex) => <div key={o.id} className="flex min-w-0 items-center gap-2"><RadioGroupItem value={o.id} aria-label={`Mark option ${optionIndex + 1} correct`} /><Input value={o.text} onChange={(e) => patchOption(group.id, q.id, o.id, e.target.value)} placeholder={`Option ${optionIndex + 1}`} className="h-7 min-w-0 flex-1 text-sm" /><Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove option ${optionIndex + 1}`} disabled={q.options.length <= MIN_OPTIONS} onClick={() => removeOption(group.id, q.id, o.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button></div>)}
-                </RadioGroup>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">Select the radio next to the correct option.</p><Button type="button" size="sm" variant="outline" disabled={q.options.length >= MAX_OPTIONS} onClick={() => addOption(group.id, q.id)}><Plus /> Add option</Button></div>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-1.5"><Label htmlFor={`multiple-${q.id}`} className="text-xs text-muted-foreground">Allow multiple answers</Label><Switch id={`multiple-${q.id}`} checked={q.multipleAnswers} onCheckedChange={(checked) => setAnswerMode(group.id, q.id, checked)} /></div>
+                <div className="mt-2 space-y-2">
+                  {q.options.map((o, optionIndex) => <div key={o.id} className="flex min-w-0 items-center gap-2">
+                    {q.multipleAnswers ? (
+                      <input type="checkbox" checked={q.correctOptionIds.includes(o.id)} onChange={(e) => setCorrectOption(group.id, q.id, o.id, e.target.checked, true)} aria-label={`Mark option ${optionIndex + 1} correct`} className="size-4 shrink-0 accent-primary" />
+                    ) : (
+                      <input type="radio" name={`correct-${q.id}`} checked={q.correctOptionIds[0] === o.id} onChange={() => setCorrectOption(group.id, q.id, o.id, true, false)} aria-label={`Mark option ${optionIndex + 1} correct`} className="size-4 shrink-0 accent-primary" />
+                    )}
+                    <Input value={o.text} onChange={(e) => patchOption(group.id, q.id, o.id, e.target.value)} placeholder={`Option ${optionIndex + 1}`} className="h-7 min-w-0 flex-1 text-sm" /><Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove option ${optionIndex + 1}`} disabled={q.options.length <= MIN_OPTIONS} onClick={() => removeOption(group.id, q.id, o.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                  </div>)}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{q.multipleAnswers ? "Select all correct options." : "Select the correct option."}</p><Button type="button" size="sm" variant="outline" disabled={q.options.length >= MAX_OPTIONS} onClick={() => addOption(group.id, q.id)}><Plus /> Add option</Button></div>
               </div>
             ))}
           </div>
