@@ -51,6 +51,7 @@ export class QuizService {
         scenario: q.scenario,
         prompt: q.prompt,
         order: q.order,
+        multipleAnswers: q.options.filter((o) => o.isCorrect).length > 1,
         options: q.options.map((o) => ({ id: o.id, text: o.text })),
       })),
     };
@@ -71,17 +72,25 @@ export class QuizService {
     await this.enrollment.assertLessonAccessible(userId, lessonId);
 
     const answerByQuestion = new Map(
-      input.answers.map((a) => [a.questionId, a.optionId]),
+      input.answers.map((a) => [
+        a.questionId,
+        [...new Set(a.optionIds ?? (a.optionId ? [a.optionId] : []))],
+      ]),
     );
 
     const results = lesson.quiz.questions.map((q) => {
-      const correctOption = q.options.find((o) => o.isCorrect);
-      const selectedOptionId = answerByQuestion.get(q.id) ?? null;
+      const correctOptionIds = q.options.filter((o) => o.isCorrect).map((o) => o.id);
+      const selectedOptionIds = answerByQuestion.get(q.id) ?? [];
+      const correct =
+        selectedOptionIds.length === correctOptionIds.length &&
+        selectedOptionIds.every((id) => correctOptionIds.includes(id));
       return {
         questionId: q.id,
-        selectedOptionId,
-        correctOptionId: correctOption?.id ?? "",
-        correct: selectedOptionId != null && selectedOptionId === correctOption?.id,
+        selectedOptionIds,
+        correctOptionIds,
+        selectedOptionId: selectedOptionIds[0] ?? null,
+        correctOptionId: correctOptionIds[0] ?? "",
+        correct,
         explanation: q.explanation ?? undefined,
       };
     });
