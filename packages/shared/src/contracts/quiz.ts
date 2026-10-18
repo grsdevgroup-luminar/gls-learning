@@ -10,6 +10,7 @@ export interface QuizQuestionPublicDto {
   scenario: string | null;
   prompt: string;
   order: number;
+  multipleAnswers: boolean;
   options: QuizOptionPublicDto[];
 }
 export interface QuizPlayDto {
@@ -23,7 +24,10 @@ export const quizAttemptSchema = z.object({
     .array(
       z.object({
         questionId: z.string().min(1),
-        optionId: z.string().min(1),
+        optionId: z.string().min(1).optional(),
+        optionIds: z.array(z.string().min(1)).min(1).optional(),
+      }).refine((answer) => !!answer.optionId || !!answer.optionIds?.length, {
+        message: "Select at least one answer",
       }),
     )
     .min(1),
@@ -33,6 +37,9 @@ export type QuizAttemptInput = z.infer<typeof quizAttemptSchema>;
 // Per-question feedback returned AFTER grading (now safe to reveal answers).
 export interface QuizQuestionResultDto {
   questionId: string;
+  selectedOptionIds: string[];
+  correctOptionIds: string[];
+  /** Legacy single-answer fields retained for existing consumers. */
   selectedOptionId: string | null;
   correctOptionId: string;
   correct: boolean;

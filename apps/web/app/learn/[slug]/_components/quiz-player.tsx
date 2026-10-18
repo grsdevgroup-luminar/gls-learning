@@ -6,7 +6,6 @@ import type { QuizAttemptResultDto } from "@skillstream/shared";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, RotateCcw, PartyPopper, HelpCircle, Loader2 } from "lucide-react";
@@ -23,7 +22,7 @@ export function QuizPlayer({
   onPassed?: () => void;
 }) {
   const qc = useQueryClient();
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [attempt, setAttempt] = useState<QuizAttemptResultDto | null>(null);
 
   const { data: quiz, isLoading } = useQuery({
@@ -38,9 +37,9 @@ export function QuizPlayer({
   const submitMutation = useMutation({
     mutationFn: () =>
       api.submitQuiz(lessonId, {
-        answers: Object.entries(answers).map(([questionId, optionId]) => ({
+        answers: Object.entries(answers).map(([questionId, optionIds]) => ({
           questionId,
-          optionId,
+          optionIds,
         })),
       }),
     onSuccess: (result) => {
@@ -81,7 +80,7 @@ export function QuizPlayer({
     );
   }
 
-  const allAnswered = quiz.questions?.every((q) => answers[q.id]) ?? false;
+  const allAnswered = quiz.questions?.every((q) => (answers[q.id]?.length ?? 0) > 0) ?? false;
 
   if (attempt) {
     const passed = attempt.passed;
@@ -125,7 +124,10 @@ export function QuizPlayer({
                     </p>
                     {!correct && fb && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Correct answer: {q.options?.find((o) => o.id === fb.correctOptionId)?.text}
+                        Correct answer: {q.options
+                          ?.filter((o) => fb.correctOptionIds.includes(o.id))
+                          .map((o) => o.text)
+                          .join(", ")}
                       </p>
                     )}
                     {fb?.explanation && (
@@ -172,21 +174,39 @@ export function QuizPlayer({
             <p className="text-sm font-medium">
               {i + 1}. {q.prompt}
             </p>
-            <RadioGroup
-              className="mt-3"
-              value={answers[q.id] ?? ""}
-              onValueChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v as string }))}
-            >
-              {q.options?.map((o) => (
-                <Label
-                  key={o.id}
-                  className="flex items-center gap-2.5 rounded-lg border p-3 text-sm font-normal hover:bg-secondary/40"
-                >
-                  <RadioGroupItem value={o.id} />
-                  {o.text}
-                </Label>
-              ))}
-            </RadioGroup>
+            <div className="mt-3 space-y-2">
+              {q.multipleAnswers && (
+                <p className="text-xs text-muted-foreground">Select all that apply.</p>
+              )}
+              {q.options?.map((o) => {
+                const selected = answers[q.id]?.includes(o.id) ?? false;
+                return (
+                  <Label
+                    key={o.id}
+                    className="flex items-center gap-2.5 rounded-lg border p-3 text-sm font-normal hover:bg-secondary/40"
+                  >
+                    <input
+                      type={q.multipleAnswers ? "checkbox" : "radio"}
+                      name={`answer-${q.id}`}
+                      checked={selected}
+                      onChange={() =>
+                        setAnswers((current) => {
+                          const existing = current[q.id] ?? [];
+                          const next = q.multipleAnswers
+                            ? selected
+                              ? existing.filter((id) => id !== o.id)
+                              : [...existing, o.id]
+                            : [o.id];
+                          return { ...current, [q.id]: next };
+                        })
+                      }
+                      className="size-4 shrink-0 accent-primary"
+                    />
+                    {o.text}
+                  </Label>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>
