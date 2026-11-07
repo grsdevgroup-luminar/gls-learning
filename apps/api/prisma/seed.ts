@@ -1,6 +1,4 @@
 /** Seeds the admin account, pricing, and automation rules. */
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 

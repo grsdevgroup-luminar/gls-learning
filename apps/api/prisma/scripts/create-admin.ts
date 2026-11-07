@@ -6,8 +6,6 @@
  *
  * Refuses to touch an existing account.
  */
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 

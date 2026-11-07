@@ -38,7 +38,7 @@ export class S3Driver implements StorageDriver {
     const accessKeyId = config.get("S3_ACCESS_KEY_ID", { infer: true })!;
     const secretAccessKey = config.get("S3_SECRET_ACCESS_KEY", { infer: true })!;
     const forcePathStyle =
-      config.get("S3_FORCE_PATH_STYLE", { infer: true }) ?? false;
+      config.get("S3_FORCE_PATH_STYLE", { infer: true }) ?? true;
 
     this.client = new S3Client({
       endpoint,
