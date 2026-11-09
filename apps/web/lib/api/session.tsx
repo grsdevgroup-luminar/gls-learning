@@ -13,7 +13,7 @@ import type {
   LoginInput,
   RegisterInput,
   UserRole,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { authApi } from "./auth";
 import { ApiError } from "./errors";
 

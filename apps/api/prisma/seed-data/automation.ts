@@ -1,5 +1,5 @@
 import type { AutomationRule, ReminderLogEntry } from "./legacy-types";
-import { DEFAULT_AUTOMATION_PARAMS } from "@skillstream/shared";
+import { DEFAULT_AUTOMATION_PARAMS } from "@grslearning/shared";
 
 export const automationRules: AutomationRule[] = [
   {

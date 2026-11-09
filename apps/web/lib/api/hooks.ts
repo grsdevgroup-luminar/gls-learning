@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { MAX_PAGE_SIZE } from "@skillstream/shared";
+import { MAX_PAGE_SIZE } from "@grslearning/shared";
 import type {
   AutomationRuleDto,
   CheckoutQuoteInput,
@@ -19,7 +19,7 @@ import type {
   UpsertEmailTemplateInput,
   PreviewEmailTemplateInput,
   UpdateLearningPreferencesInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { api, partnerApi } from "./endpoints";
 import { cleanParams, qk } from "./query-keys";
 import { useSession } from "./session";

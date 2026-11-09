@@ -34,7 +34,7 @@ import {
   type RejectApplicationInput,
   type ReviewApplicationInput,
   type UpdateInstructorProfileInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import {
   CurrentUser,
   Public,

@@ -6,7 +6,7 @@ export const deliveryPartners: DeliveryPartner[] = [
   {
     id: "partner_james",
     name: "James Whitfield",
-    email: "james@skillstream.dev",
+    email: "james@grslearning.dev",
     avatar: "",
     phone: "+1 (555) 301-4482",
     region: "North America",
@@ -22,7 +22,7 @@ export const deliveryPartners: DeliveryPartner[] = [
   {
     id: "partner_priya",
     name: "Priya Ramachandran",
-    email: "priya@skillstream.dev",
+    email: "priya@grslearning.dev",
     avatar: "",
     phone: "+44 7700 900432",
     region: "Europe & UK",
@@ -38,7 +38,7 @@ export const deliveryPartners: DeliveryPartner[] = [
   {
     id: "partner_tariq",
     name: "Tariq Hassan",
-    email: "tariq@skillstream.dev",
+    email: "tariq@grslearning.dev",
     avatar: "",
     phone: "+971 50 123 4567",
     region: "MENA",
@@ -54,7 +54,7 @@ export const deliveryPartners: DeliveryPartner[] = [
   {
     id: "partner_elena",
     name: "Elena Petrova",
-    email: "elena@skillstream.dev",
+    email: "elena@grslearning.dev",
     avatar: "",
     region: "Eastern Europe",
     campaignCode: "ELENA12",

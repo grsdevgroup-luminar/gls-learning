@@ -106,7 +106,7 @@ const seedInstructors: Instructor[] = [
 // Every seeded instructor is already approved and has a contact email.
 export const instructors: Instructor[] = seedInstructors.map((i) => ({
   status: "approved" as const,
-  email: i.email ?? `${i.name.split(" ")[0].toLowerCase()}@skillstream.com`,
+  email: i.email ?? `${i.name.split(" ")[0].toLowerCase()}@grslearning.com`,
   ...i,
 }));
 

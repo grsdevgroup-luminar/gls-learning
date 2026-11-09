@@ -10,7 +10,7 @@ import { CourseArt } from "@/components/shared/course-art";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { OrganizationDto } from "@skillstream/shared";
+import type { OrganizationDto } from "@grslearning/shared";
 import {
   Building2,
   BookOpen,

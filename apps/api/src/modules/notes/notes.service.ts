@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { LessonNoteDto } from "@skillstream/shared";
+import type { LessonNoteDto } from "@grslearning/shared";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { NotesRepository } from "./notes.repository";
 

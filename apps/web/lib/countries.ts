@@ -5,18 +5,18 @@ import {
   nameFor as sharedNameFor,
   flagFor as sharedFlagFor,
   tenderFor as sharedTenderFor,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
-export type { Country } from "@skillstream/shared";
+export type { Country } from "@grslearning/shared";
 
-/** UI + API country list — requires a built `@skillstream/shared` dist. */
+/** UI + API country list — requires a built `@grslearning/shared` dist. */
 export const COUNTRIES = sharedCountries ?? [];
 
 export { ISO_COUNTRY_CODES, isIsoCountryCode };
 
 if (COUNTRIES.length === 0 && process.env.NODE_ENV !== "production") {
   console.error(
-    "[countries] COUNTRIES is empty — run `pnpm --filter @skillstream/shared build`",
+    "[countries] COUNTRIES is empty — run `pnpm --filter @grslearning/shared build`",
   );
 }
 

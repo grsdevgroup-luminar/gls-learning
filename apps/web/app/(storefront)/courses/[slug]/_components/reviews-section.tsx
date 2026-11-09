@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import type { CourseDetailDto, ReviewDto } from "@skillstream/shared";
+import type { CourseDetailDto, ReviewDto } from "@grslearning/shared";
 import { useStore } from "@/lib/context/store";
 import { useSession } from "@/lib/api/session";
 import { api } from "@/lib/api/endpoints";

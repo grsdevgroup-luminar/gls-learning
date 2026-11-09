@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, X, Mail, Globe2, Calendar, FileText, Download, Eye } from "lucide-react";
 import { initials } from "@/lib/format";
-import { flagFor, nameFor } from "@skillstream/shared";
+import { flagFor, nameFor } from "@grslearning/shared";
 import type { DeliveryPartnerApplicationDto } from "@/lib/api/endpoints";
 import { shortDate, statusBadge } from "./application-status";
 

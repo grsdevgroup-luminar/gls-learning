@@ -18,7 +18,7 @@ import {
   type PayoutStripeStatusDto,
   type RequestPayoutInput,
   type StripeOnboardLinkDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import type { Db } from "../../common/types";
 import type { Env } from "../../config/env";

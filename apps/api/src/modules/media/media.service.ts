@@ -17,8 +17,8 @@ import type {
   TusUploadDto,
   UploadCompleteDto,
   UploadStatusDto,
-} from "@skillstream/shared";
-import { MAX_VIDEO_BYTES } from "@skillstream/shared";
+} from "@grslearning/shared";
+import { MAX_VIDEO_BYTES } from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import type { Db } from "../../common/types";
 import { EnrollmentService } from "../enrollment/enrollment.service";

@@ -7,7 +7,7 @@ import type {
   ReminderLogDto,
   ReminderTrigger,
   UpsertAutomationRuleInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import {
   REMINDER_TRIGGERS,
   MIN_AUTOMATION_COOLDOWN_HOURS,
@@ -19,7 +19,7 @@ import {
   almostDoneParamsSchema,
   newContentParamsSchema,
   upsertAutomationRuleSchema,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import {
   ruleToInput,
   useAutomationRules,

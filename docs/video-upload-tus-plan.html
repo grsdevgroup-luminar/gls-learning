@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillStream — Resumable Video Upload Architecture</title>
+  <title>GRS Learning — Resumable Video Upload Architecture</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -163,7 +163,7 @@
 <body>
   <div class="wrap">
     <h1>Resumable Video Upload Architecture</h1>
-    <p class="subtitle">SkillStream · Cloudflare Stream tus migration · Decision log &amp; flow reference · 2026-08-25</p>
+    <p class="subtitle">GRS Learning · Cloudflare Stream tus migration · Decision log &amp; flow reference · 2026-08-25</p>
 
     <div class="card">
       <h3>Summary</h3>
@@ -434,7 +434,7 @@ Response:
 
     <h2 id="resume">Resume &amp; remount recovery</h2>
     <div class="card">
-      <p><strong style="color:var(--text)">Draft storage key:</strong> <code>skillstream:upload-draft:{courseId|new}:{lessonId}</code></p>
+      <p><strong style="color:var(--text)">Draft storage key:</strong> <code>grslearning:upload-draft:{courseId|new}:{lessonId}</code></p>
       <p>Stored JSON: <code>{ uploadId, uploadUrl, uid, fileFingerprint, expiresAt }</code></p>
     </div>
     <div class="flow">On file select:
@@ -533,7 +533,7 @@ Browser close:
     <ol class="phase-list">
       <li>
         <strong>Phase 1 — Upload schema &amp; ownership</strong>
-        Prisma model + migration + backfill script for existing <code>cfVideoUid</code>. <code>UploadRepository</code>. <code>assertAttachableUpload()</code> wired into authoring. Shared contracts in <code>@skillstream/shared</code>.
+        Prisma model + migration + backfill script for existing <code>cfVideoUid</code>. <code>UploadRepository</code>. <code>assertAttachableUpload()</code> wired into authoring. Shared contracts in <code>@grslearning/shared</code>.
       </li>
       <li>
         <strong>Phase 2 — Tus initiation &amp; completion</strong>

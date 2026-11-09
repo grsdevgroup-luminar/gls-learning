@@ -1,4 +1,4 @@
-import type { ProblemDetail } from "@skillstream/shared";
+import type { ProblemDetail } from "@grslearning/shared";
 
 /** Thrown by the API client on non-2xx responses. Carries the parsed problem
  *  detail so UI can show field/server messages. */

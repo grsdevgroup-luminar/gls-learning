@@ -1,4 +1,4 @@
-import type { CourseDetailDto } from "@skillstream/shared";
+import type { CourseDetailDto } from "@grslearning/shared";
 import type { BuilderQuiz } from "@/components/shared/quiz-editor";
 import type { BSection } from "./course-builder.types";
 import { TYPE_FROM_API } from "./course-builder.types";

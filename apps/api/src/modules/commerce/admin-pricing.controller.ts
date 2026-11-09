@@ -18,7 +18,7 @@ import {
   type PatchRegionInput,
   type PatchTierInput,
   type UpsertTierInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { Roles } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { AdminPricingService } from "./admin-pricing.service";

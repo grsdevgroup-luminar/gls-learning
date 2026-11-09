@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRegisterDeliveryPartner } from "@/lib/api/session";
 import { api } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { DeliveryPartnerSignupSchema, type PartnerCustomField } from "@skillstream/shared";
+import { DeliveryPartnerSignupSchema, type PartnerCustomField } from "@grslearning/shared";
 import { Reveal, Stagger } from "@/components/shared/motion";
 import { FormField } from "@/components/shared/form-field";
 import { CountryField } from "@/components/shared/country-field";

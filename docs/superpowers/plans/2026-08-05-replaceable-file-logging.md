@@ -122,7 +122,7 @@ describe("logging environment", () => {
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/logging-env.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/logging-env.test.ts
 ```
 
 Expected: FAIL because the four logging properties do not exist.
@@ -189,8 +189,8 @@ LOG_RETENTION_DAYS=14
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/logging-env.test.ts
-pnpm --filter @skillstream/api typecheck
+pnpm --filter @grslearning/api test -- src/logging/__tests__/logging-env.test.ts
+pnpm --filter @grslearning/api typecheck
 ```
 
 Expected: both commands exit 0.
@@ -284,7 +284,7 @@ Assert an unusable path rejects initialization.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/file.destination.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/file.destination.test.ts
 ```
 
 Expected: FAIL because the destination files and exports do not exist.
@@ -321,7 +321,7 @@ Cleanup must:
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/file.destination.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/file.destination.test.ts
 ```
 
 Expected: all file destination tests pass.
@@ -376,8 +376,8 @@ logs/
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/file.destination.test.ts src/logging/__tests__/destination.factory.test.ts
-pnpm --filter @skillstream/api typecheck
+pnpm --filter @grslearning/api test -- src/logging/__tests__/file.destination.test.ts src/logging/__tests__/destination.factory.test.ts
+pnpm --filter @grslearning/api typecheck
 ```
 
 Expected: both commands exit 0.
@@ -432,8 +432,8 @@ export function createLoggingRuntime(env: Env): Promise<LoggingRuntime>;
 Run:
 
 ```bash
-pnpm --filter @skillstream/api add pino
-pnpm --filter @skillstream/api add pino-pretty
+pnpm --filter @grslearning/api add pino
+pnpm --filter @grslearning/api add pino-pretty
 ```
 
 Do not add `nestjs-pino` or `pino-http`; the application-owned Nest adapter and
@@ -472,7 +472,7 @@ expect(record).toMatchObject({
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/nest-pino.logger.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/nest-pino.logger.test.ts
 ```
 
 Expected: FAIL because adapter and redaction modules do not exist.
@@ -533,7 +533,7 @@ Create the Pino root with:
 pino(
   {
     level: env.LOG_LEVEL,
-    base: { service: "@skillstream/api", environment: env.NODE_ENV },
+    base: { service: "@grslearning/api", environment: env.NODE_ENV },
     redact: { paths: [...REDACT_PATHS], censor: "[Redacted]" },
     serializers: { err: pino.stdSerializers.err },
     timestamp: pino.stdTimeFunctions.isoTime,
@@ -552,8 +552,8 @@ closing the destination.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/nest-pino.logger.test.ts src/logging/__tests__/logging.runtime.test.ts
-pnpm --filter @skillstream/api typecheck
+pnpm --filter @grslearning/api test -- src/logging/__tests__/nest-pino.logger.test.ts src/logging/__tests__/logging.runtime.test.ts
+pnpm --filter @grslearning/api typecheck
 ```
 
 Expected: both commands exit 0.
@@ -607,7 +607,7 @@ globally without importing logging internals into a feature module.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/logging.module.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/logging.module.test.ts
 ```
 
 Expected: FAIL because `LoggingModule` and `APP_LOGGER` do not exist.
@@ -650,8 +650,8 @@ so they flow through the adapter.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/logging.module.test.ts src/common/__tests__/all-exceptions.filter.test.ts
-pnpm --filter @skillstream/api typecheck
+pnpm --filter @grslearning/api test -- src/logging/__tests__/logging.module.test.ts src/common/__tests__/all-exceptions.filter.test.ts
+pnpm --filter @grslearning/api typecheck
 ```
 
 Expected: all tests pass and typecheck exits 0.
@@ -709,7 +709,7 @@ testable helpers or constructor options so duration and IDs are deterministic.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/request-logging.middleware.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/request-logging.middleware.test.ts
 ```
 
 Expected: FAIL because the middleware does not exist.
@@ -741,8 +741,8 @@ middleware independent of logging destinations.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/request-logging.middleware.test.ts src/common/__tests__
-pnpm --filter @skillstream/api typecheck
+pnpm --filter @grslearning/api test -- src/logging/__tests__/request-logging.middleware.test.ts src/common/__tests__
+pnpm --filter @grslearning/api typecheck
 ```
 
 Expected: tests and typecheck exit 0.
@@ -811,7 +811,7 @@ reads the last record after `close()` to prove flushing.
 Run:
 
 ```bash
-pnpm --filter @skillstream/api test -- src/logging/__tests__/logging.integration.test.ts
+pnpm --filter @grslearning/api test -- src/logging/__tests__/logging.integration.test.ts
 ```
 
 Expected: PASS. If a test fails, make the smallest correction in the owning
@@ -847,10 +847,10 @@ Document all four environment variables and the production restriction.
 Run fresh commands:
 
 ```bash
-pnpm --filter @skillstream/api test
-pnpm --filter @skillstream/api typecheck
-pnpm --filter @skillstream/api lint
-pnpm --filter @skillstream/api build
+pnpm --filter @grslearning/api test
+pnpm --filter @grslearning/api typecheck
+pnpm --filter @grslearning/api lint
+pnpm --filter @grslearning/api build
 git diff --check
 ```
 

@@ -18,7 +18,7 @@ import {
 import { Check, X, Eye, Search, FileText, Globe2 } from "lucide-react";
 import { toast } from "sonner";
 import { initials } from "@/lib/format";
-import { flagFor } from "@skillstream/shared";
+import { flagFor } from "@grslearning/shared";
 import {
   AdminPagination,
   AdminRowsPerPage,

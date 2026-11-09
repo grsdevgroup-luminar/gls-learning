@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { OrganizationDto } from "@skillstream/shared";
+import type { OrganizationDto } from "@grslearning/shared";
 import { orgApi } from "@/lib/api/endpoints";
 import { Button } from "@/components/ui/button";
 import { LockKeyhole } from "lucide-react";

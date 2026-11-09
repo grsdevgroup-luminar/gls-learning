@@ -60,14 +60,14 @@ describe("certificatePdf", () => {
       courseTitle: "Advanced TypeScript",
       issuedAt: new Date("2026-03-04T12:00:00Z"),
       serial: "CERT-9F2C71A0B4D3",
-      verifyUrl: "https://skillstream.dev/verify/CERT-9F2C71A0B4D3",
+      verifyUrl: "https://grslearning.dev/verify/CERT-9F2C71A0B4D3",
     }).toString("latin1");
 
     expect(pdf).toContain("(Ada Lovelace)");
     expect(pdf).toContain("(Advanced TypeScript)");
     expect(pdf).toContain("(Serial CERT-9F2C71A0B4D3)");
     expect(pdf).toContain("(Issued March 4, 2026)");
-    expect(pdf).toContain("skillstream.dev/verify/CERT-9F2C71A0B4D3");
+    expect(pdf).toContain("grslearning.dev/verify/CERT-9F2C71A0B4D3");
   });
 });
 

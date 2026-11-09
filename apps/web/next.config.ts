@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@skillstream/shared"],
+  transpilePackages: ["@grslearning/shared"],
 };
 
 export default nextConfig;

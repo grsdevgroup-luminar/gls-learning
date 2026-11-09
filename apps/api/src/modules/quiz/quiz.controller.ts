@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { quizAttemptSchema, type QuizAttemptInput } from "@skillstream/shared";
+import { quizAttemptSchema, type QuizAttemptInput } from "@grslearning/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { QuizService } from "./quiz.service";

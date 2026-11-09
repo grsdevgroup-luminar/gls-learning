@@ -24,12 +24,12 @@ import type {
   RefundOrderInput,
   UpsertAutomationRuleInput,
   UpsertCouponInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import {
   DEFAULT_AUTOMATION_PARAMS,
   automationConditionFromParams,
   parseAutomationRuleParams,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import type { Db } from "../../common/types";
 import { toCourseSummary } from "../courses/course.mapper";
 import { CreditsService } from "../credits/credits.service";

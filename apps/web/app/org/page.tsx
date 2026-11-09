@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import type { OrganizationDto } from "@skillstream/shared";
+import type { OrganizationDto } from "@grslearning/shared";
 import { serverApiOptional } from "@/lib/api/server";
 
 export const metadata: Metadata = {

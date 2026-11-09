@@ -1,6 +1,6 @@
 // Region pricing for the storefront. The region rows themselves come from the
 // API (`GET /pricing/regions` via the store) so admin edits and the daily FX
-// refresh reach customers; the math lives in `@skillstream/shared` so preview
+// refresh reach customers; the math lives in `@grslearning/shared` so preview
 // here and the authoritative re-price at checkout can't drift apart.
 //
 // Shared works in integer cents; the legacy storefront types carry dollars.
@@ -12,9 +12,9 @@ import {
   toCents,
   toDollars,
   type RegionRow,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
-export { DEFAULT_REGION, type RegionRow } from "@skillstream/shared";
+export { DEFAULT_REGION, type RegionRow } from "@grslearning/shared";
 
 /**
  * Region used before the API responds, and if it's unreachable. Full price in

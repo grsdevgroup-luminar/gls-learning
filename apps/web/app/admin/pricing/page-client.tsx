@@ -8,7 +8,7 @@ import {
   type AdminPricingDto,
   type AdminRegionDto,
   type AdminTierDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { pricingAdminApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatUsd, relativeDate } from "@/lib/format";
