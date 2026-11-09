@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH } from "@skillstream/shared";
+import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH, type CourseResourceDto } from "@skillstream/shared";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { emptyQuiz, flattenQuizQuestions } from "@/components/shared/quiz-editor";
@@ -48,6 +48,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
   const descriptionTooLong = description.length > MAX_COURSE_DESCRIPTION_LENGTH;
   const [published, setPublished] = useState(false);
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
+  const [courseResources, setCourseResources] = useState<CourseResourceDto[]>([]);
+  const [pendingCourseResourceFiles, setPendingCourseResourceFiles] = useState<File[]>([]);
+  const [removedCourseResourceIds, setRemovedCourseResourceIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [savingAction, setSavingAction] = useState<
     "draft" | "publish" | "review" | null
@@ -108,6 +111,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     setThumbnail(detail.thumbnail || "course");
     setPublished(detail.status === "PUBLISHED");
     setVisibility(detail.visibility);
+    setCourseResources(detail.courseResources ?? []);
+    setPendingCourseResourceFiles([]);
+    setRemovedCourseResourceIds(new Set());
     setSections(sectionsFromDetail(detail));
   }
 
@@ -189,16 +195,18 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     setDragSection(null);
   }
 
-  function addSection() {
-    setSections((s) => [
-      ...s,
-      {
+  function addSection(insertAt?: number) {
+    setSections((s) => {
+      const index = Math.max(0, Math.min(insertAt ?? s.length, s.length));
+      const next = [...s];
+      next.splice(index, 0, {
         id: nid("s"),
         isNew: true,
-        title: `Section ${s.length + 1}`,
+        title: `Section ${index + 1}`,
         lessons: [],
-      },
-    ]);
+      });
+      return next;
+    });
   }
   function patchSection(id: string, p: Partial<BSection>) {
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -413,14 +421,14 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
         thumbnail,
         basePriceCents: priceCents,
       };
-      // Admin Save edits the existing course without requesting a status
-      // transition. This is important for REVIEW courses: turning Save into
-      // REVIEW -> DRAFT would incorrectly invoke the instructor review gate.
-      // A new course has no detail yet, so it remains a DRAFT until the admin
-      // explicitly enables publishing.
+      // Admin Save normally edits the existing course without requesting a
+      // status transition. This is important for REVIEW courses: turning Save
+      // into REVIEW -> DRAFT would incorrectly discard the review state. A
+      // published course is different: when the admin turns the Publish
+      // switch off, Save must explicitly transition it to DRAFT.
       const targetStatus =
-        mode === "admin" && action === "draft" && detail?.status
-          ? detail.status
+        mode === "admin" && action === "draft" && detail?.status === "REVIEW"
+          ? "REVIEW"
           : action === "publish"
             ? "PUBLISHED"
             : action === "review"
@@ -560,6 +568,13 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
         }
       }
 
+      for (const resourceId of removedCourseResourceIds) {
+        await authoringApi.deleteCourseResource(id, resourceId);
+      }
+      for (const file of pendingCourseResourceFiles) {
+        await authoringApi.uploadCourseResource(id, file);
+      }
+
       // Status transition.
       if (saved.status !== targetStatus) {
         await authoringApi.setCourseStatus(id, targetStatus);
@@ -617,9 +632,17 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     isoStandard, setIsoStandard, customIsoStandard, setCustomIsoStandard, level, setLevel,
     description, setDescription, price, setPrice, thumbnail, setThumbnail, thumbDrag, setThumbDrag,
     thumbError, setThumbError, thumbInputRef, categoryValue, titleTooLong, subtitleTooLong,
-    descriptionTooLong, published, setPublished, visibility, setVisibility, saving, savingAction,
+    descriptionTooLong, published, setPublished, visibility, setVisibility, courseResources,
+    pendingCourseResourceFiles, saving, savingAction,
     dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
-    handleThumbnailFile, save, onBack: () => router.push(backHref), toggleSectionCollapsed,
+    handleThumbnailFile,
+    addCourseResourceFiles: (files: File[]) => setPendingCourseResourceFiles((current) => [...current, ...files]),
+    removeCourseResource: (id: string) => {
+      setCourseResources((current) => current.filter((resource) => resource.id !== id));
+      setRemovedCourseResourceIds((current) => new Set(current).add(id));
+    },
+    removePendingCourseResource: (index: number) => setPendingCourseResourceFiles((current) => current.filter((_, i) => i !== index)),
+    save, onBack: () => router.push(backHref), toggleSectionCollapsed,
   };
 }

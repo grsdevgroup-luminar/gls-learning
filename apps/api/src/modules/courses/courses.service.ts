@@ -213,20 +213,22 @@ export class CoursesService {
       await this.enrollment.assertOrgAdminCourseNotSuspended(user.id, row.id);
     }
     const isInstructorOwner = !!user && user.id === row.instructor.id;
+    const orgIds = row.orgAssignments.map((assignment) => assignment.orgId);
+    const isOrgMember = user
+      ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id)
+      : false;
+    const isPartnerMember = user
+      ? await this.enrollment.isPartnerMemberOfCourse(row.id, user.id)
+      : false;
+    const isAlreadyEnrolled = user
+      ? await this.enrollment.hasActiveEnrollment(user.id, row.id)
+      : false;
     if (row.visibility === "PRIVATE" && user?.role !== "ADMIN" && !isInstructorOwner) {
-      const orgIds = row.orgAssignments.map((a) => a.orgId);
-      const isOrgMember = user ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id) : false;
       // Delivery-partner course assignment is the other path to a PRIVATE
       // course (see DELIVERY_PARTNER_MEMBER_FLOW_PLAN.md §6.3) — same as
       // enrollFree/assertLessonAccessible already check.
-      const isPartnerMember = user
-        ? await this.enrollment.isPartnerMemberOfCourse(row.id, user.id)
-        : false;
       // Existing learners retain course-page access after an admin makes the
       // course private. This does not grant new enrollments or catalog access.
-      const isAlreadyEnrolled = user
-        ? await this.enrollment.hasActiveEnrollment(user.id, row.id)
-        : false;
       if (!isOrgMember && !isPartnerMember && !isAlreadyEnrolled)
         throw new NotFoundException("Course not found");
     }
@@ -240,6 +242,7 @@ export class CoursesService {
     const detail = toCourseDetail(row, {
       canEnrollForOrganization,
       includeLessonResources: canManageCourse,
+      includeCourseResources: canManageCourse || isOrgMember || isPartnerMember || isAlreadyEnrolled,
     });
     // Public catalog callers do not receive attachment or resource-link URLs.
     return signCourseResourceUrls(detail, this.storage);
@@ -272,6 +275,7 @@ export class CoursesService {
     const detail = toCourseDetail(row, {
       includeLessonResources: true,
       accessibleLessonIds,
+      includeCourseResources: true,
     });
     // Uploaded resources persist an object key; the URL served to the browser
     // must be a fresh short-lived signed URL, not the one captured at upload.
@@ -287,6 +291,7 @@ export class CoursesService {
     const detail = toCourseDetail(row, {
       includeArticleContent: true,
       includeLessonResources: true,
+      includeCourseResources: true,
     });
     return signCourseResourceUrls(detail, this.storage);
   }

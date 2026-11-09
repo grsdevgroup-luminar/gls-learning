@@ -546,12 +546,31 @@ model Course {
   revisionOf                 Course? @relation("CourseRevisions", fields: [revisionOfId], references: [id], onDelete: Cascade)
   revisions                  Course[] @relation("CourseRevisions")
   editRequest                CourseRevisionRequest? @relation("RevisionEditRequest")
+  courseResources            CourseResource[]
 
   @@index([revisionOfId])
   @@index([status])
   @@index([instructorId])
   @@index([category])
   @@index([visibility])
+}
+
+/// Optional course-level downloads. These are not lessons and therefore never
+/// participate in sequential lesson access or course completion validation.
+model CourseResource {
+  id         String   @id @default(cuid())
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name       String
+  storageKey String
+  mimeType   String
+  sizeBytes  BigInt
+  sizeLabel  String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([courseId, order])
 }
 
 /// A course made available to a company account. Many-to-many: one course can

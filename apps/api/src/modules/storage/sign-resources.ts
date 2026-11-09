@@ -1,4 +1,4 @@
-import type { CourseDetailDto, LessonResourceDto } from "@skillstream/shared";
+import type { CourseDetailDto, CourseResourceDto, LessonResourceDto } from "@skillstream/shared";
 import type { StorageDriver } from "./storage.driver";
 
 /**
@@ -28,7 +28,29 @@ export async function signCourseResourceUrls(
       }),
     ),
   );
+  if (detail.courseResources) {
+    detail.courseResources = (
+      await Promise.all(detail.courseResources.map((resource) => signCourseResource(resource, storage)))
+    ).filter((resource): resource is CourseResourceDto => resource !== null);
+  }
   return detail;
+}
+
+async function signCourseResource(
+  resource: CourseResourceDto,
+  storage: StorageDriver,
+): Promise<CourseResourceDto | null> {
+  if (!resource.storageKey) return resource;
+  try {
+    const url = await storage.getUrl(resource.storageKey, {
+      disposition: "attachment",
+      fileName: resource.name,
+    });
+    const { storageKey: _storageKey, ...publicResource } = resource;
+    return { ...publicResource, url };
+  } catch {
+    return null;
+  }
 }
 
 async function signOne(

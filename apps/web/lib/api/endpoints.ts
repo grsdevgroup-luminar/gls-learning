@@ -19,6 +19,7 @@ import type {
   CourseDeletionRequestDto,
   CourseRevisionRequestDto,
   CourseDetailDto,
+  CourseResourceDto,
   CourseSummaryDto,
   CreateCommentInput,
   CreateReviewInput,
@@ -951,6 +952,19 @@ export const authoringApi = {
   deleteLessonResource: (lessonId: string, storageKey: string) =>
     apiFetch<{ ok: true }>(
       `/authoring/lessons/${lessonId}/resources?storageKey=${encodeURIComponent(storageKey)}`,
+      { method: "DELETE" },
+    ),
+  uploadCourseResource: (courseId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return apiFetchMultipart<CourseResourceDto>(
+      `/authoring/courses/${courseId}/resources`,
+      form,
+    );
+  },
+  deleteCourseResource: (courseId: string, resourceId: string) =>
+    apiFetch<{ ok: true }>(
+      `/authoring/courses/${courseId}/resources/${resourceId}`,
       { method: "DELETE" },
     ),
 };

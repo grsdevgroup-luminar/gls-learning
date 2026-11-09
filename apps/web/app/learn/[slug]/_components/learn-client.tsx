@@ -21,6 +21,7 @@ import { PptxViewer } from "./pptx-viewer";
 import { CircularProgress } from "@/components/shared/circular-progress";
 import { StarRatingInput } from "@/components/shared/star-rating-input";
 import { Logo } from "@/components/shared/logo";
+import { CourseResourceList } from "@/components/shared/course-resource-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -305,6 +306,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
               </TabsContent>
             </Tabs> : <LockedLessonDetails />}
           </div>
+          <CourseResourceList resources={course.courseResources ?? []} />
         </div>
 
         {/* Curriculum sidebar */}

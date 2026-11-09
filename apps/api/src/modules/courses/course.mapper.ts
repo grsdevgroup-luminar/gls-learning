@@ -6,6 +6,7 @@ import type {
   InstructorSummaryDto,
   SectionDto,
   LessonPptxDto,
+  CourseResourceDto,
 } from "@skillstream/shared";
 
 // Prisma payload shapes (with the relations the mappers require).
@@ -24,6 +25,7 @@ const detailInclude = {
   // "is this caller a member of any org this PRIVATE course is assigned to"
   // check. Never mapped into CourseDetailDto (admin-only concern).
   orgAssignments: { select: { orgId: true } },
+  courseResources: { orderBy: { order: "asc" } },
   sections: {
     where: { archivedAt: null },
     orderBy: { order: "asc" },
@@ -106,6 +108,7 @@ export function toCourseDetail(
   opts?: {
     includeArticleContent?: boolean;
     includeLessonResources?: boolean;
+    includeCourseResources?: boolean;
     accessibleLessonIds?: ReadonlySet<string>;
     canEnrollForOrganization?: boolean;
   },
@@ -150,6 +153,17 @@ export function toCourseDetail(
       };
     }),
   }));
+  const courseResources = opts?.includeCourseResources
+    ? row.courseResources.map((resource) => ({
+        id: resource.id,
+        name: resource.name,
+        url: resource.storageKey,
+        mimeType: resource.mimeType,
+        sizeLabel: resource.sizeLabel,
+        order: resource.order,
+        storageKey: resource.storageKey,
+      } satisfies CourseResourceDto))
+    : undefined;
 
   return {
     id: row.id,
@@ -183,5 +197,6 @@ export function toCourseDetail(
     requirements: row.requirements,
     updatedAt: row.updatedAt.toISOString(),
     sections,
+    ...(courseResources ? { courseResources } : {}),
   };
 }

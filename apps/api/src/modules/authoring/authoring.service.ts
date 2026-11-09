@@ -208,6 +208,7 @@ export class AuthoringService {
         toCourseDetail(row, {
           includeArticleContent: true,
           includeLessonResources: true,
+          includeCourseResources: true,
         }),
       )
       // Owner builder needs working download links to preview attachments,

@@ -37,8 +37,11 @@ export class S3Driver implements StorageDriver {
     const region = config.get("S3_REGION", { infer: true });
     const accessKeyId = config.get("S3_ACCESS_KEY_ID", { infer: true })!;
     const secretAccessKey = config.get("S3_SECRET_ACCESS_KEY", { infer: true })!;
+    // Current Railway Buckets use virtual-hosted-style URLs. Older S3
+    // compatible buckets can still opt into path-style signing explicitly
+    // with S3_FORCE_PATH_STYLE=true.
     const forcePathStyle =
-      config.get("S3_FORCE_PATH_STYLE", { infer: true }) ?? true;
+      config.get("S3_FORCE_PATH_STYLE", { infer: true }) ?? false;
 
     this.client = new S3Client({
       endpoint,
