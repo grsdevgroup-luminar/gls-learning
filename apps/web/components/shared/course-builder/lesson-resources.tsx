@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { LessonResourceDto } from "@skillstream/shared";
+import type { LessonResourceDto } from "@grslearning/shared";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatBytes } from "@/lib/format";

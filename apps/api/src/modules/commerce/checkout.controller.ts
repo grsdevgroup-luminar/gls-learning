@@ -25,7 +25,7 @@ import {
   type CheckoutQuoteInput,
   type CheckoutSessionInput,
   type SearchQuery,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, Public, Roles, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody, ZodQuery } from "../../common/utils/swagger";
 import { clientIp } from "../../common/utils/client-ip";
@@ -162,7 +162,7 @@ export class CheckoutController {
     const pdf = await this.orders.receiptPdf(user.id, orderId);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="skillstream-receipt-${orderId}.pdf"`,
+      `attachment; filename="grslearning-receipt-${orderId}.pdf"`,
     );
     return new StreamableFile(pdf);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import type { PartnerCustomField } from "@skillstream/shared";
+import type { PartnerCustomField } from "@grslearning/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, X } from "lucide-react";

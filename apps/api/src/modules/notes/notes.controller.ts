@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   saveLessonNoteSchema,
   type SaveLessonNoteInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CurrentUser, type RequestUser } from "../../common/decorators/decorators";
 import { ZodBody } from "../../common/utils/swagger";
 import { NotesService } from "./notes.service";

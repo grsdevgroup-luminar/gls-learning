@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ReviewStatus } from "@skillstream/shared";
+import { ReviewStatus } from "@grslearning/shared";
 import { instructorApi, type ReviewDto } from "@/lib/api/endpoints";
 import { initials, relativeDate } from "@/lib/format";
 import { Stars } from "@/components/shared/stars";

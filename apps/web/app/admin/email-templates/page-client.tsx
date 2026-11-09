@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { EmailTemplateCategory, EmailTemplateDto } from "@skillstream/shared";
+import type { EmailTemplateCategory, EmailTemplateDto } from "@grslearning/shared";
 import { useEmailTemplates, useReminderLogs } from "@/lib/api/hooks";
 import { relativeDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";

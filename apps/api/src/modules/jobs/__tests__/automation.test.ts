@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { AutomationRule } from "@prisma/client";
 import type { Queue } from "bullmq";
-import { DEFAULT_AUTOMATION_PARAMS } from "@skillstream/shared";
+import { DEFAULT_AUTOMATION_PARAMS } from "@grslearning/shared";
 import { AutomationService, renderTemplate } from "../automation.service";
 import type { AutomationRepository } from "../automation.repository";
 

@@ -20,7 +20,7 @@ async function main() {
     where: { email: "admin@grslearning.dev" },
     update: {},
     create: {
-      email: "admin@skillstream.dev",
+      email: "admin@grslearning.dev",
       name: "Platform Admin",
       passwordHash: await argon2.hash("admin12345", { type: argon2.argon2id }),
       role: "ADMIN",

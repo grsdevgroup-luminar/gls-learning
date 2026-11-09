@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
 import { ArrowRight, Bell, BellOff, CheckCheck, ChevronRight } from "lucide-react";
-import type { NotificationDto } from "@skillstream/shared";
+import type { NotificationDto } from "@grslearning/shared";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,

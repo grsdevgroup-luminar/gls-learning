@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api/endpoints";
-import type { PayeeType, PayoutDto, PayoutStatus } from "@skillstream/shared";
+import type { PayeeType, PayoutDto, PayoutStatus } from "@grslearning/shared";
 import { formatUsd, relativeDate, initials } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

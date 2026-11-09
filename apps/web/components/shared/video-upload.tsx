@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils";
 import { authoringApi } from "@/lib/api/endpoints";
 import { ApiError, getApiErrorMessage } from "@/lib/api/errors";
 import { toast } from "sonner";
-import { MAX_VIDEO_BYTES } from "@skillstream/shared";
-import type { UploadStatus } from "@skillstream/shared";
+import { MAX_VIDEO_BYTES } from "@grslearning/shared";
+import type { UploadStatus } from "@grslearning/shared";
 import {
   clearVideoUploadDraft,
   readVideoUploadDraft,
@@ -346,7 +346,7 @@ export function VideoUpload({
         retryDelays: [...RETRY_DELAYS],
         storeFingerprintForResuming: true,
         removeFingerprintOnSuccess: true,
-        fingerprint: async () => `skillstream:${courseId ?? "new"}:${lessonId}:${fingerprint}`,
+        fingerprint: async () => `grslearning:${courseId ?? "new"}:${lessonId}:${fingerprint}`,
         metadata: {
           filename: file.name,
           filetype: file.type || "video/mp4",

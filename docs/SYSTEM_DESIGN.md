@@ -1,4 +1,4 @@
-# SkillStream — System Design
+# GRS Learning — System Design
 
 > Companion to [`FEATURE_FLOWS.md`](./FEATURE_FLOWS.md) (every role/feature as a
 > step-by-step flow). This document is the architecture map: how the pieces fit
@@ -25,7 +25,7 @@
   read/write goes through the NestJS API (`lib/api` is the one typed fetch client).
   The one exception is video *bytes*: the browser uploads the raw file straight to
   Cloudflare Stream via tus after the API creates a resumable upload reservation,
-  so large media never transits the SkillStream server.
+  so large media never transits the GRS Learning server.
 - **`apps/api`** is the only thing that talks to the database, the payment
   gateways, and Cloudflare's management API. It is the single source of truth and
   the only place authorization is actually enforced (see §3).

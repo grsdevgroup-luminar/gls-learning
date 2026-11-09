@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH, type CourseResourceDto } from "@skillstream/shared";
+import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH } from "@grslearning/shared";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { emptyQuiz, flattenQuizQuestions } from "@/components/shared/quiz-editor";

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import {
   parseLessonResources,
   type LessonResourceInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { COURSE_DETAIL_INCLUDE, COURSE_SUMMARY_INCLUDE } from "../courses/course.mapper";
 import type { Db } from "../../common/types";

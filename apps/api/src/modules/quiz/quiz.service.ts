@@ -9,7 +9,7 @@ import {
   type QuizAttemptResultDto,
   type QuizPlayDto,
   type QuizResultDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { QuizRepository } from "./quiz.repository";
 

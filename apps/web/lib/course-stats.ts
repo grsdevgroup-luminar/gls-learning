@@ -2,7 +2,7 @@
 // lessonCount directly on every course (summary or detail), so these never
 // need to fall back to walking `sections` — only summaries used to omit them
 // in the old mock data, which is gone now.
-import type { CourseDetailDto, CourseSummaryDto } from "@skillstream/shared";
+import type { CourseDetailDto, CourseSummaryDto } from "@grslearning/shared";
 
 export function courseLessonCount(course: CourseSummaryDto) {
   return course.lessonCount;

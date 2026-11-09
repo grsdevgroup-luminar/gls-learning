@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Download, FileText, HelpCircle, PlayCircle, Presentation } from "lucide-react";
-import type { LessonPublicDto } from "@skillstream/shared";
+import type { LessonPublicDto } from "@grslearning/shared";
 import { api, orgApi } from "@/lib/api/endpoints";
 import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";

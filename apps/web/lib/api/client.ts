@@ -1,4 +1,4 @@
-import type { ProblemDetail } from "@skillstream/shared";
+import type { ProblemDetail } from "@grslearning/shared";
 import { ApiError } from "./errors";
 
 const BROWSER_BASE = "/api";

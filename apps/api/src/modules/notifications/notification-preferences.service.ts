@@ -5,7 +5,7 @@ import {
   type ChannelPrefs,
   type NotificationPreferencesDto,
   type UpdateNotificationPreferencesInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { NotificationPreferencesRepository } from "./notification-preferences.repository";
 
 /**

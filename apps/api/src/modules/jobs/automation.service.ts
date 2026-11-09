@@ -2,7 +2,7 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
 import { AutomationRule, ReminderTrigger } from "@prisma/client";
 import { Queue } from "bullmq";
-import { completionPct, parseAutomationRuleParams } from "@skillstream/shared";
+import { completionPct, parseAutomationRuleParams } from "@grslearning/shared";
 import { firstName } from "../../common/utils/text";
 import { NOTIFICATIONS_QUEUE } from "./jobs.constants";
 import type { ReminderJobData } from "./notifications.processor";

@@ -1,14 +1,14 @@
 # Local development startup fix
 
 Use this guide when local-only changes cannot be committed or pushed. The fix
-prevents `@skillstream/shared` declaration files from disappearing while the
+prevents `@grslearning/shared` declaration files from disappearing while the
 Nest API starts.
 
 ## Why this is needed
 
-Two processes previously rebuilt `@skillstream/shared` during startup:
+Two processes previously rebuilt `@grslearning/shared` during startup:
 
-- Turbo runs `@skillstream/shared#build` before starting the API and web apps.
+- Turbo runs `@grslearning/shared#build` before starting the API and web apps.
 - The web package's `predev` script started another full shared build while the
   API was compiling.
 
@@ -23,7 +23,7 @@ Run this from the repository root. It applies the patch only when the old
 ```bash
 cd ~/Glide/gls-learning
 
-if rg -q '"predev": "pnpm --filter @skillstream/shared build"' apps/web/package.json; then
+if rg -q '"predev": "pnpm --filter @grslearning/shared build"' apps/web/package.json; then
   git apply <<'PATCH'
 diff --git a/apps/web/package.json b/apps/web/package.json
 --- a/apps/web/package.json
@@ -32,7 +32,7 @@ diff --git a/apps/web/package.json b/apps/web/package.json
    "version": "0.1.0",
    "private": true,
    "scripts": {
--    "predev": "pnpm --filter @skillstream/shared build",
+-    "predev": "pnpm --filter @grslearning/shared build",
      "dev": "next dev --webpack -p 3001",
      "build": "next build",
      "start": "next start",
@@ -73,9 +73,9 @@ else
   echo "OK: the redundant web predev build is absent"
 fi
 
-pnpm --filter @skillstream/shared build
-pnpm --filter @skillstream/api typecheck
-pnpm --filter @skillstream/web typecheck
+pnpm --filter @grslearning/shared build
+pnpm --filter @grslearning/api typecheck
+pnpm --filter @grslearning/web typecheck
 ```
 
 All three commands must exit successfully. The first `rg` command should show

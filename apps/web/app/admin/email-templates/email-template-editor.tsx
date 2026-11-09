@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { EmailTemplateDto } from "@skillstream/shared";
+import type { EmailTemplateDto } from "@grslearning/shared";
 import {
   useResetEmailTemplate,
   usePreviewEmailTemplate,

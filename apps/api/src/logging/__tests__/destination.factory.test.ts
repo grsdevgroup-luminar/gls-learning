@@ -25,7 +25,7 @@ const pathExists = async (path: string): Promise<boolean> => {
 
 describe("createLogDestination", () => {
   it("returns stdout without creating LOG_DIR", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillstream-logs-"));
+    const root = await mkdtemp(join(tmpdir(), "grslearning-logs-"));
     const directory = join(root, "logs");
     const env = validEnv({
       NODE_ENV: "production",
@@ -41,7 +41,7 @@ describe("createLogDestination", () => {
   });
 
   it("creates the file destination in development", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillstream-logs-"));
+    const root = await mkdtemp(join(tmpdir(), "grslearning-logs-"));
     const directory = join(root, "logs");
     const env = validEnv({
       NODE_ENV: "development",

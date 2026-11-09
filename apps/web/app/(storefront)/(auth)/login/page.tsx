@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { loginSchema } from "@skillstream/shared";
+import { loginSchema } from "@grslearning/shared";
 import { destinationFor } from "@/lib/auth/destination";
 
 function LoginForm() {

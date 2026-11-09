@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import type { AuthUserDto, OrganizationDto } from "@skillstream/shared";
+import type { AuthUserDto, OrganizationDto } from "@grslearning/shared";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";

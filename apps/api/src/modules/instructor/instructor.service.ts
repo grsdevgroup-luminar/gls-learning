@@ -25,7 +25,7 @@ import type {
   InstructorSignupInput,
   Paginated,
   UpdateInstructorProfileInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { ulid } from "ulid";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { PrismaService } from "../../prisma/prisma.service";

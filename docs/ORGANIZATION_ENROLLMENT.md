@@ -1,6 +1,6 @@
 # Organization (B2B) Enrollment
 
-How a company account gets onto SkillStream, how its admin and members are
+How a company account gets onto GRS Learning, how its admin and members are
 provisioned, how a company's private courses are managed, and what happens
 when a company account is suspended. Written for two audiences: a **plain-
 language walkthrough** of each journey (for a client or non-technical
@@ -92,7 +92,7 @@ the repo) has the original design discussion and research notes if deeper
 2. They type only the company name, an optional email domain, the admin's
    email, and a seat count. There is no "URL slug" field to fill in — the
    system generates a unique one from the company name automatically.
-3. On save, SkillStream immediately creates:
+3. On save, GRS Learning immediately creates:
    - the organization record,
    - a real login account for that admin email, with role "Org Admin",
    - a **temporary password**.
@@ -105,7 +105,7 @@ the repo) has the original design discussion and research notes if deeper
 
 ### Journey B — The company's admin logs in for the first time
 1. The org admin receives the email (subject: *"Your `<Company>` organization
-   is ready on SkillStream"*) with their email, the temporary password, and a
+   is ready on GRS Learning"*) with their email, the temporary password, and a
    link to the normal login page — there is no special invite link, they log
    in exactly like anyone else.
 2. On successful login with the temp password, they are **forced** straight
@@ -130,7 +130,7 @@ the repo) has the original design discussion and research notes if deeper
   ordinary team members (via an email link they click to set up their own
   account — the temp-password flow is only used for the very first admin
   account, not for regular members). Their **Courses** page is **read-only**
-  — they can see exactly which courses SkillStream selected for their
+  — they can see exactly which courses GRS Learning selected for their
   company (each labeled Public or Private), but cannot add or remove any
   themselves. This is deliberate: which courses a company gets is a
   commercial decision, not something a customer should be able to grant
@@ -177,7 +177,7 @@ suspend, via the same "Plan" dialog used for seats/status:
 
 **Certificates already earned are never affected, in either mode.** A
 learner who finished a course before (or during) a suspension keeps their
-certificate, and it stays downloadable and verifiable — SkillStream never
+certificate, and it stays downloadable and verifiable — GRS Learning never
 revokes an earned credential, matching how every LMS we looked at (Docebo,
 TalentLMS, Microsoft 365 seat suspension) treats this.
 
@@ -450,7 +450,7 @@ environment on 2026-09-05/06):
   invite-link flow (not a temp password) — this matches how Slack/GitHub/
   Vercel handle bulk team invites and needed no changes.
 - **Existing-email collision** on org creation (the chosen admin email
-  already has a SkillStream account) is rejected outright for now, rather
+  already has a GRS Learning account) is rejected outright for now, rather
   than merging into that account. Revisit if this comes up often in practice.
 - **"Resend credentials"** (if an admin never completes their first login and
   the platform admin wants a fresh temp password) is not built — a

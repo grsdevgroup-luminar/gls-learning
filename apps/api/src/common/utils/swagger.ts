@@ -6,7 +6,7 @@ import * as zodToJsonSchemaModule from "zod-to-json-schema";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 
 /**
- * The Zod contracts in @skillstream/shared are the single source of truth for
+ * The Zod contracts in @grslearning/shared are the single source of truth for
  * both validation and docs. Request types are `z.infer<>` aliases, which erase
  * at runtime — so Swagger sees nothing unless the schema is handed to it
  * explicitly. These decorators do the validation and the OpenAPI registration

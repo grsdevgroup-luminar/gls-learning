@@ -9,7 +9,7 @@ import {
 import * as argon2 from "argon2";
 import { UserRole } from "@prisma/client";
 import { ulid } from "ulid";
-import { normalizeEmail } from "@skillstream/shared";
+import { normalizeEmail } from "@grslearning/shared";
 import type {
   AuthUserDto,
   ChangePasswordInput,
@@ -21,7 +21,7 @@ import type {
   RegisterInput,
   ResetPasswordInput,
   UpdateProfileInput,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { UsersService } from "../users/users.service";
 import { TokenService } from "./token.service";
 import { AuthRepository } from "./auth.repository";

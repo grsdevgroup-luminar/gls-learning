@@ -2,7 +2,7 @@
 
 ## Summary
 
-SkillStream API will use Pino as its structured logging engine behind Nest's
+GRS Learning API will use Pino as its structured logging engine behind Nest's
 `LoggerService` contract. Application modules and services will continue to use
 Nest's `Logger` and must not import Pino or destination-specific APIs.
 

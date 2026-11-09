@@ -16,7 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CoursePreferencesModal } from '@/components/shared/course-preferences-modal';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { registerSchema } from '@skillstream/shared';
+import { registerSchema } from '@grslearning/shared';
 import { PasswordRequirements } from '@/components/shared/password-requirements';
 
 const perks = [

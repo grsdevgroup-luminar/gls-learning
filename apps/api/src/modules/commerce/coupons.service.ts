@@ -8,7 +8,7 @@ import {
   type CouponLike,
   type CouponResult,
   type FeaturedCouponDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { CouponsRepository } from "./coupons.repository";
 
 @Injectable()

@@ -153,7 +153,7 @@ export class EmailService {
     const total = `${order.currency} ${(order.totalCents / 100).toFixed(2)}`;
     const attachments: MailAttachment[] = [
       {
-        filename: `skillstream-receipt-${order.id}.pdf`,
+        filename: `grslearning-receipt-${order.id}.pdf`,
         contentBase64: pdf.toString("base64"),
         contentType: "application/pdf",
       },

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PortalShell, type NavItem } from "@/components/shared/portal-shell";
 import { serverApiOptional } from "@/lib/api/server";
 import { initials } from "@/lib/format";
-import type { AuthUserDto, OrganizationDto } from "@skillstream/shared";
+import type { AuthUserDto, OrganizationDto } from "@grslearning/shared";
 import { OrgAccessGate } from "./org-access-gate";
 
 export const metadata: Metadata = {

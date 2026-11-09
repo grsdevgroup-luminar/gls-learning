@@ -1,7 +1,7 @@
 import {
   SUPPORTED_VIDEO_EXTENSIONS,
   type TusInitiationMetadata,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 
 export type { TusInitiationMetadata };
 

@@ -13,7 +13,7 @@ import type {
   PaymentGatewayAvailabilityDto,
   QuoteDto,
   QuoteLineDto,
-} from "@skillstream/shared";
+} from "@grslearning/shared";
 import { UsersService } from "../users/users.service";
 import { GeoIpService } from "../geoip/geoip.service";
 import { PricingService } from "./pricing.service";
