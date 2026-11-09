@@ -6,6 +6,7 @@ import type {
   InstructorSummaryDto,
   SectionDto,
   LessonPptxDto,
+  CourseResourceDto,
 } from "@grslearning/shared";
 
 // Prisma payload shapes (with the relations the mappers require).

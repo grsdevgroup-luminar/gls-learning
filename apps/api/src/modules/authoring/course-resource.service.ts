@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { CourseResourceDto } from "@skillstream/shared";
+import type { CourseResourceDto } from "@grslearning/shared";
 import { ulid } from "ulid";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { AuthoringRepository } from "./authoring.repository";

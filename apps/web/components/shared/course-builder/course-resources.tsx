@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import type { CourseResourceDto } from "@skillstream/shared";
+import type { CourseResourceDto } from "@grslearning/shared";
 import { FileText, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

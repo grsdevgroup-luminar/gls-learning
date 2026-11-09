@@ -1,6 +1,6 @@
 "use client";
 
-import type { CourseResourceDto } from "@skillstream/shared";
+import type { CourseResourceDto } from "@grslearning/shared";
 import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
