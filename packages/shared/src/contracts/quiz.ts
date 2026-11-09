@@ -8,10 +8,19 @@ export interface QuizOptionPublicDto {
 export interface QuizQuestionPublicDto {
   id: string;
   scenario: string | null;
+  group: QuizGroupPublicDto | null;
   prompt: string;
   order: number;
   multipleAnswers: boolean;
   options: QuizOptionPublicDto[];
+}
+export interface QuizGroupPublicDto {
+  id: string;
+  label: string;
+  title: string | null;
+  scenario: string | null;
+  marks: number | null;
+  order: number;
 }
 export interface QuizPlayDto {
   lessonId: string;

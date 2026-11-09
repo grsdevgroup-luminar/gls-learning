@@ -105,6 +105,8 @@ export function QuizPlayer({
           {quiz.questions?.map((q, i) => {
             const fb = feedbackByQuestion.get(q.id);
             const correct = !!fb?.correct;
+            const previous = quiz.questions[i - 1];
+            const startsGroup = !!q.group && q.group.id !== previous?.group?.id;
             return (
               <div key={q.id} className="rounded-lg border p-3">
                 <div className="flex items-start gap-2">
@@ -114,9 +116,14 @@ export function QuizPlayer({
                     <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                   )}
                   <div className="flex-1">
-                    {q.scenario && (i === 0 || q.scenario !== quiz.questions[i - 1]?.scenario) && (
+                    {startsGroup && q.group?.label && (
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                        {q.group.label}{q.group.title ? ` · ${q.group.title}` : ""}{q.group.marks != null ? ` · ${q.group.marks} marks` : ""}
+                      </p>
+                    )}
+                    {(q.group?.scenario || q.scenario) && (startsGroup || !q.group) && (
                       <p className="mb-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs leading-relaxed text-muted-foreground">
-                        {q.scenario}
+                        {q.group?.scenario || q.scenario}
                       </p>
                     )}
                     <p className="text-sm font-medium">
@@ -166,9 +173,14 @@ export function QuizPlayer({
       <div className="mt-6 space-y-6">
         {quiz.questions?.map((q, i) => (
           <div key={q.id}>
-            {q.scenario && (i === 0 || q.scenario !== quiz.questions[i - 1]?.scenario) && (
+            {q.group?.id !== quiz.questions[i - 1]?.group?.id && q.group?.label && (
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                {q.group.label}{q.group.title ? ` · ${q.group.title}` : ""}{q.group.marks != null ? ` · ${q.group.marks} marks` : ""}
+              </p>
+            )}
+            {(q.group?.scenario || q.scenario) && (q.group?.id !== quiz.questions[i - 1]?.group?.id || !q.group) && (
               <p className="mb-2 whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-muted-foreground">
-                {q.scenario}
+                {q.group?.scenario || q.scenario}
               </p>
             )}
             <p className="text-sm font-medium">

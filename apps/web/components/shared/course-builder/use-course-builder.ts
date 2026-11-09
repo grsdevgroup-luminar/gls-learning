@@ -155,7 +155,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                                 )
                               : 1,
                           groups: qz.questions.reduce<import("@/components/shared/quiz-editor").BuilderQuizGroup[]>((groups, q) => {
-                            const scenario = q.scenario ?? "";
+                            const scenario = q.group?.scenario ?? q.scenario ?? "";
                             const question = {
                               id: q.id,
                               prompt: q.prompt,
@@ -165,8 +165,8 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                               multipleAnswers: q.multipleAnswers,
                             };
                             const last = groups[groups.length - 1];
-                            if (last && last.scenario === scenario) last.questions.push(question);
-                            else groups.push({ id: `loaded-${q.id}`, scenario, questions: [question] });
+                            if (last && last.scenario === scenario && last.label === (q.group?.label ?? "")) last.questions.push(question);
+                            else groups.push({ id: `loaded-${q.id}`, label: q.group?.label ?? "", title: q.group?.title ?? "", scenario, marks: q.group?.marks ?? undefined, questions: [question] });
                             return groups;
                           }, []),
                         },
@@ -546,8 +546,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
             for (const q of quiz.questions) {
               await authoringApi.deleteQuizQuestion(q.id);
             }
+            await authoringApi.clearQuizGroups(quiz.id);
             for (const [qi, item] of flattenQuizQuestions(l.quiz).entries()) {
-              const { question: q, scenario } = item;
+              const { question: q, scenario, groupLabel, groupTitle, groupScenario, groupMarks, groupOrder } = item;
               const options = q.options
                 .filter((o) => o.text.trim())
                 .map((o, oi) => ({
@@ -558,6 +559,11 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
               if (!q.prompt.trim() || options.length < 2) continue;
               await authoringApi.addQuizQuestion(quiz.id, {
                 scenario: scenario || undefined,
+                groupLabel: groupLabel || undefined,
+                groupTitle: groupTitle || undefined,
+                groupScenario: groupScenario || undefined,
+                groupMarks,
+                groupOrder,
                 prompt: q.prompt,
                 explanation: q.explanation || undefined,
                 order: qi,

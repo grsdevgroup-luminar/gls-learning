@@ -194,6 +194,11 @@ export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
 
 export const createQuizQuestionSchema = z.object({
   scenario: z.string().max(4000).optional(),
+  groupLabel: z.string().trim().min(1).max(80).optional(),
+  groupTitle: z.string().trim().max(200).optional(),
+  groupScenario: z.string().max(4000).optional(),
+  groupMarks: z.number().int().min(0).max(10000).optional(),
+  groupOrder: z.number().int().min(0).optional(),
   prompt: z.string().min(1).max(1000),
   explanation: z.string().max(2000).optional(),
   order: z.number().int().min(0).optional(),
@@ -203,6 +208,11 @@ export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
 
 export const updateQuizQuestionSchema = z.object({
   scenario: z.string().max(4000).nullable().optional(),
+  groupLabel: z.string().trim().min(1).max(80).nullable().optional(),
+  groupTitle: z.string().trim().max(200).nullable().optional(),
+  groupScenario: z.string().max(4000).nullable().optional(),
+  groupMarks: z.number().int().min(0).max(10000).nullable().optional(),
+  groupOrder: z.number().int().min(0).optional(),
   prompt: z.string().min(1).max(1000).optional(),
   explanation: z.string().max(2000).nullable().optional(),
   order: z.number().int().min(0).optional(),

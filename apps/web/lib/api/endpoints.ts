@@ -799,6 +799,7 @@ export interface AuthoringQuizQuestionDto {
   explanation: string | null;
   order: number;
   multipleAnswers: boolean;
+  group: { id: string; label: string; title: string | null; scenario: string | null; marks: number | null; order: number } | null;
   options: { id: string; text: string; isCorrect: boolean; order: number }[];
 }
 export interface AuthoringQuizDto {
@@ -906,6 +907,11 @@ export const authoringApi = {
     quizId: string,
     body: {
       scenario?: string;
+      groupLabel?: string;
+      groupTitle?: string;
+      groupScenario?: string;
+      groupMarks?: number;
+      groupOrder?: number;
       prompt: string;
       explanation?: string;
       order?: number;
@@ -920,6 +926,8 @@ export const authoringApi = {
     apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
       method: "DELETE",
     }),
+  clearQuizGroups: (quizId: string) =>
+    apiFetch<AuthoringQuizDto>(`/quizzes/${quizId}/groups`, { method: "DELETE" }),
   createTusUpload: (body: CreateTusUploadInput) =>
     apiFetch<TusUploadDto>("/media/tus", { method: "POST", body }),
 

@@ -240,7 +240,10 @@ export class AuthoringService {
               orderBy: { order: "asc" },
               include: {
                 quiz: {
-                  include: { questions: { orderBy: { order: "asc" }, include: { options: { orderBy: { order: "asc" } } } } },
+                  include: {
+                    questions: { orderBy: { order: "asc" }, include: { options: { orderBy: { order: "asc" } }, group: true } },
+                    groups: { orderBy: { order: "asc" }, include: { questions: { orderBy: { order: "asc" }, include: { options: { orderBy: { order: "asc" } } } } } },
+                  },
                 },
               },
             },
@@ -430,6 +433,7 @@ export class AuthoringService {
                         questions: {
                           include: { options: true },
                         },
+                        groups: true,
                       },
                     },
                   },
@@ -555,10 +559,27 @@ export class AuthoringService {
               },
             });
             await tx.quizQuestion.deleteMany({ where: { quizId: quiz.id } });
+            const groupIds = new Map<string, string>();
+            for (const group of revisionLesson.quiz.groups) {
+              const createdGroup = await tx.quizGroup.create({
+                data: {
+                  quizId: quiz.id,
+                  label: group.label,
+                  title: group.title,
+                  scenario: group.scenario,
+                  marks: group.marks,
+                  order: group.order,
+                },
+              });
+              groupIds.set(group.id, createdGroup.id);
+            }
             for (const question of revisionLesson.quiz.questions) {
               await tx.quizQuestion.create({
                 data: {
                   quizId: quiz.id,
+                  ...(question.groupId && groupIds.has(question.groupId)
+                    ? { groupId: groupIds.get(question.groupId) }
+                    : {}),
                   scenario: question.scenario,
                   prompt: question.prompt,
                   explanation: question.explanation,
@@ -1382,8 +1403,18 @@ export class AuthoringService {
   async addQuestion(user: RequestUser, quizId: string, input: CreateQuizQuestionInput) {
     const { course, courseId } = await this.assertQuizAccess(quizId, user, true);
     const count = await this.repo.countQuestions(quizId);
+    const group = input.groupLabel
+      ? await this.repo.upsertQuizGroup(quizId, {
+          label: input.groupLabel,
+          title: input.groupTitle || null,
+          scenario: input.groupScenario || null,
+          marks: input.groupMarks ?? null,
+          order: input.groupOrder ?? 0,
+        })
+      : null;
     await this.repo.createQuestion({
       quiz: { connect: { id: quizId } },
+      ...(group ? { group: { connect: { id: group.id } } } : {}),
       scenario: input.scenario ?? null,
       prompt: input.prompt,
       explanation: input.explanation ?? null,
@@ -1449,6 +1480,15 @@ export class AuthoringService {
     await this.repo.reorderQuestions(ids);
     if (this.isAdminEditingOthersCourse(user, course)) {
       this.notifyInstructorOfAdminChange(course, courseId, "reordered quiz questions");
+    }
+    return this.quizDetail(quizId);
+  }
+
+  async clearQuizGroups(user: RequestUser, quizId: string) {
+    const { course, courseId } = await this.assertQuizAccess(quizId, user, true);
+    await this.repo.clearQuizGroups(quizId);
+    if (this.isAdminEditingOthersCourse(user, course)) {
+      this.notifyInstructorOfAdminChange(course, courseId, "reset quiz sections");
     }
     return this.quizDetail(quizId);
   }

@@ -666,13 +666,33 @@ model Quiz {
   lessonId  String         @unique
   lesson    Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   passScore Int            @default(70)
+  groups    QuizGroup[]
   questions QuizQuestion[]
+}
+
+/// Optional presentation groups for structured assessments. A quiz can keep
+/// using only questions; groups are only created when an author opts in.
+model QuizGroup {
+  id        String         @id @default(cuid())
+  quizId    String
+  quiz      Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  label     String
+  title     String?
+  scenario  String?
+  marks     Int?
+  order     Int            @default(0)
+  questions QuizQuestion[]
+
+  @@unique([quizId, label])
+  @@index([quizId, order])
 }
 
 model QuizQuestion {
   id          String       @id @default(cuid())
   quizId      String
   quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  groupId     String?
+  group       QuizGroup?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   scenario    String?
   prompt      String
   explanation String?
