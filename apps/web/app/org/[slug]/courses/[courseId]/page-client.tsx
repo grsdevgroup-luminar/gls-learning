@@ -11,6 +11,7 @@ import { useSession } from "@/lib/api/session";
 import { ProtectedPlayer } from "@/components/player/protected-player";
 import { Button } from "@/components/ui/button";
 import { PptxViewer } from "../../../../learn/[slug]/_components/pptx-viewer";
+import { CourseResourceList } from "@/components/shared/course-resource-list";
 
 type LessonItem = LessonPublicDto & { sectionTitle: string };
 
@@ -122,6 +123,7 @@ export function OrgCourseViewer() {
                   ))}
                 </section>
               )}
+              <CourseResourceList resources={course.courseResources ?? []} />
             </>
           )}
         </main>

@@ -21,7 +21,7 @@ export class QuizRepository {
           include: {
             questions: {
               orderBy: { order: "asc" },
-              include: { options: { orderBy: { order: "asc" } } },
+              include: { options: { orderBy: { order: "asc" } }, group: true },
             },
           },
         },

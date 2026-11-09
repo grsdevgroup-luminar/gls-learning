@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH } from "@grslearning/shared";
+import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH, type CourseResourceDto } from "@grslearning/shared";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { emptyQuiz, flattenQuizQuestions } from "@/components/shared/quiz-editor";
@@ -48,6 +48,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
   const descriptionTooLong = description.length > MAX_COURSE_DESCRIPTION_LENGTH;
   const [published, setPublished] = useState(false);
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
+  const [courseResources, setCourseResources] = useState<CourseResourceDto[]>([]);
+  const [pendingCourseResourceFiles, setPendingCourseResourceFiles] = useState<File[]>([]);
+  const [removedCourseResourceIds, setRemovedCourseResourceIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [savingAction, setSavingAction] = useState<
     "draft" | "publish" | "review" | null
@@ -108,6 +111,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     setThumbnail(detail.thumbnail || "course");
     setPublished(detail.status === "PUBLISHED");
     setVisibility(detail.visibility);
+    setCourseResources(detail.courseResources ?? []);
+    setPendingCourseResourceFiles([]);
+    setRemovedCourseResourceIds(new Set());
     setSections(sectionsFromDetail(detail));
   }
 
@@ -149,7 +155,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                                 )
                               : 1,
                           groups: qz.questions.reduce<import("@/components/shared/quiz-editor").BuilderQuizGroup[]>((groups, q) => {
-                            const scenario = q.scenario ?? "";
+                            const scenario = q.group?.scenario ?? q.scenario ?? "";
                             const question = {
                               id: q.id,
                               prompt: q.prompt,
@@ -159,8 +165,8 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                               multipleAnswers: q.multipleAnswers,
                             };
                             const last = groups[groups.length - 1];
-                            if (last && last.scenario === scenario) last.questions.push(question);
-                            else groups.push({ id: `loaded-${q.id}`, scenario, questions: [question] });
+                            if (last && last.scenario === scenario && last.label === (q.group?.label ?? "")) last.questions.push(question);
+                            else groups.push({ id: `loaded-${q.id}`, label: q.group?.label ?? "", title: q.group?.title ?? "", scenario, marks: q.group?.marks ?? undefined, questions: [question] });
                             return groups;
                           }, []),
                         },
@@ -189,16 +195,18 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     setDragSection(null);
   }
 
-  function addSection() {
-    setSections((s) => [
-      ...s,
-      {
+  function addSection(insertAt?: number) {
+    setSections((s) => {
+      const index = Math.max(0, Math.min(insertAt ?? s.length, s.length));
+      const next = [...s];
+      next.splice(index, 0, {
         id: nid("s"),
         isNew: true,
-        title: `Section ${s.length + 1}`,
+        title: `Section ${index + 1}`,
         lessons: [],
-      },
-    ]);
+      });
+      return next;
+    });
   }
   function patchSection(id: string, p: Partial<BSection>) {
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -413,14 +421,14 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
         thumbnail,
         basePriceCents: priceCents,
       };
-      // Admin Save edits the existing course without requesting a status
-      // transition. This is important for REVIEW courses: turning Save into
-      // REVIEW -> DRAFT would incorrectly invoke the instructor review gate.
-      // A new course has no detail yet, so it remains a DRAFT until the admin
-      // explicitly enables publishing.
+      // Admin Save normally edits the existing course without requesting a
+      // status transition. This is important for REVIEW courses: turning Save
+      // into REVIEW -> DRAFT would incorrectly discard the review state. A
+      // published course is different: when the admin turns the Publish
+      // switch off, Save must explicitly transition it to DRAFT.
       const targetStatus =
-        mode === "admin" && action === "draft" && detail?.status
-          ? detail.status
+        mode === "admin" && action === "draft" && detail?.status === "REVIEW"
+          ? "REVIEW"
           : action === "publish"
             ? "PUBLISHED"
             : action === "review"
@@ -538,8 +546,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
             for (const q of quiz.questions) {
               await authoringApi.deleteQuizQuestion(q.id);
             }
+            await authoringApi.clearQuizGroups(quiz.id);
             for (const [qi, item] of flattenQuizQuestions(l.quiz).entries()) {
-              const { question: q, scenario } = item;
+              const { question: q, scenario, groupLabel, groupTitle, groupScenario, groupMarks, groupOrder } = item;
               const options = q.options
                 .filter((o) => o.text.trim())
                 .map((o, oi) => ({
@@ -550,6 +559,11 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
               if (!q.prompt.trim() || options.length < 2) continue;
               await authoringApi.addQuizQuestion(quiz.id, {
                 scenario: scenario || undefined,
+                groupLabel: groupLabel || undefined,
+                groupTitle: groupTitle || undefined,
+                groupScenario: groupScenario || undefined,
+                groupMarks,
+                groupOrder,
                 prompt: q.prompt,
                 explanation: q.explanation || undefined,
                 order: qi,
@@ -558,6 +572,13 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
             }
           }
         }
+      }
+
+      for (const resourceId of removedCourseResourceIds) {
+        await authoringApi.deleteCourseResource(id, resourceId);
+      }
+      for (const file of pendingCourseResourceFiles) {
+        await authoringApi.uploadCourseResource(id, file);
       }
 
       // Status transition.
@@ -617,9 +638,17 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     isoStandard, setIsoStandard, customIsoStandard, setCustomIsoStandard, level, setLevel,
     description, setDescription, price, setPrice, thumbnail, setThumbnail, thumbDrag, setThumbDrag,
     thumbError, setThumbError, thumbInputRef, categoryValue, titleTooLong, subtitleTooLong,
-    descriptionTooLong, published, setPublished, visibility, setVisibility, saving, savingAction,
+    descriptionTooLong, published, setPublished, visibility, setVisibility, courseResources,
+    pendingCourseResourceFiles, saving, savingAction,
     dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
-    handleThumbnailFile, save, onBack: () => router.push(backHref), toggleSectionCollapsed,
+    handleThumbnailFile,
+    addCourseResourceFiles: (files: File[]) => setPendingCourseResourceFiles((current) => [...current, ...files]),
+    removeCourseResource: (id: string) => {
+      setCourseResources((current) => current.filter((resource) => resource.id !== id));
+      setRemovedCourseResourceIds((current) => new Set(current).add(id));
+    },
+    removePendingCourseResource: (index: number) => setPendingCourseResourceFiles((current) => current.filter((_, i) => i !== index)),
+    save, onBack: () => router.push(backHref), toggleSectionCollapsed,
   };
 }

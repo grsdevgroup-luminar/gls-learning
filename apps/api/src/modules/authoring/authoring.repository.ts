@@ -40,6 +40,34 @@ export class AuthoringRepository {
     });
   }
 
+  countCourseResources(courseId: string) {
+    return this.prisma.courseResource.count({ where: { courseId } });
+  }
+
+  createCourseResource(data: {
+    courseId: string;
+    name: string;
+    storageKey: string;
+    mimeType: string;
+    sizeBytes: bigint;
+    sizeLabel: string;
+    order: number;
+  }) {
+    return this.prisma.courseResource.create({ data });
+  }
+
+  findCourseResource(courseId: string, resourceId: string) {
+    return this.prisma.courseResource.findFirst({
+      where: { id: resourceId, courseId },
+    });
+  }
+
+  deleteCourseResource(courseId: string, resourceId: string) {
+    return this.prisma.courseResource.delete({
+      where: { id: resourceId, courseId },
+    });
+  }
+
   /** How many orgs a course is currently assigned to — used to block
    *  unpublishing or un-privatizing a course that's actively in use by an org. */
   countOrgAssignments(courseId: string) {
@@ -446,7 +474,7 @@ export class AuthoringRepository {
       include: {
         questions: {
           orderBy: { order: "asc" },
-          include: { options: { orderBy: { order: "asc" } } },
+          include: { options: { orderBy: { order: "asc" } }, group: true },
         },
       },
     });
@@ -480,6 +508,21 @@ export class AuthoringRepository {
 
   countQuestions(quizId: string) {
     return this.prisma.quizQuestion.count({ where: { quizId } });
+  }
+
+  upsertQuizGroup(
+    quizId: string,
+    data: { label: string; title?: string | null; scenario?: string | null; marks?: number | null; order: number },
+  ) {
+    return this.prisma.quizGroup.upsert({
+      where: { quizId_label: { quizId, label: data.label } },
+      update: data,
+      create: { quizId, ...data },
+    });
+  }
+
+  clearQuizGroups(quizId: string) {
+    return this.prisma.quizGroup.deleteMany({ where: { quizId } });
   }
 
   createQuestion(data: Prisma.QuizQuestionCreateInput) {

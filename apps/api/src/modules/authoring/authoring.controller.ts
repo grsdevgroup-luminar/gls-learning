@@ -294,6 +294,14 @@ export class AuthoringController {
     return this.authoring.addQuestion(user, quizId, body);
   }
 
+  @Delete("quizzes/:quizId/groups")
+  clearQuizGroups(
+    @CurrentUser() user: RequestUser,
+    @Param("quizId") quizId: string,
+  ) {
+    return this.authoring.clearQuizGroups(user, quizId);
+  }
+
   @Patch("quiz-questions/:questionId")
   updateQuestion(
     @CurrentUser() user: RequestUser,

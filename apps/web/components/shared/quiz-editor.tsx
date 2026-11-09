@@ -18,7 +18,10 @@ export interface BuilderQuizQuestion {
 }
 export interface BuilderQuizGroup {
   id: string;
+  label: string;
+  title: string;
   scenario: string;
+  marks?: number;
   questions: BuilderQuizQuestion[];
 }
 export interface BuilderQuiz {
@@ -45,11 +48,19 @@ export function emptyQuestion(): BuilderQuizQuestion {
 }
 
 export function emptyQuiz(): BuilderQuiz {
-  return { passScore: 70, minutesPerQuestion: 1, groups: [{ id: nextId("g"), scenario: "", questions: [emptyQuestion()] }] };
+  return { passScore: 70, minutesPerQuestion: 1, groups: [{ id: nextId("g"), label: "", title: "", scenario: "", questions: [emptyQuestion()] }] };
 }
 
 export function flattenQuizQuestions(quiz: BuilderQuiz) {
-  return quiz.groups.flatMap((group) => group.questions.map((question) => ({ question, scenario: group.scenario.trim() })));
+  return quiz.groups.flatMap((group, groupOrder) => group.questions.map((question) => ({
+    question,
+    scenario: group.scenario.trim(),
+    groupLabel: group.label.trim(),
+    groupTitle: group.title.trim(),
+    groupScenario: group.scenario.trim(),
+    groupMarks: group.marks,
+    groupOrder,
+  })));
 }
 
 export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (next: BuilderQuiz) => void }) {
@@ -110,7 +121,7 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
     onChange({ ...quiz, groups: quiz.groups.map((g) => g.id === groupId ? { ...g, questions: [...g.questions, emptyQuestion()] } : g) });
   }
   function addScenarioGroup() {
-    onChange({ ...quiz, groups: [...quiz.groups, { id: nextId("g"), scenario: "", questions: [emptyQuestion()] }] });
+    onChange({ ...quiz, groups: [...quiz.groups, { id: nextId("g"), label: "", title: "", scenario: "", questions: [emptyQuestion()] }] });
   }
   function removeQuestion(groupId: string, questionId: string) {
     if (totalQuestions <= 1) return;
@@ -149,8 +160,13 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
 
       {quiz.groups.map((group, groupIndex) => (
         <div key={group.id} className="min-w-0 rounded-md border bg-card p-3">
-          <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.scenario.trim() ? `Scenario ${groupIndex + 1}` : `Question group ${groupIndex + 1}`}</p>{quiz.groups.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ ...quiz, groups: quiz.groups.filter((g) => g.id !== group.id) })}><Trash2 /> Remove group</Button>}</div>
-          <Textarea value={group.scenario} onChange={(e) => patchGroup(group.id, { scenario: e.target.value })} placeholder="Optional scenario or case study for these questions" aria-label={`Scenario for group ${groupIndex + 1}`} className="mb-3 min-h-20 resize-y text-sm" />
+          <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label.trim() || (group.scenario.trim() ? `Scenario ${groupIndex + 1}` : `Question group ${groupIndex + 1}`)}</p>{quiz.groups.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ ...quiz, groups: quiz.groups.filter((g) => g.id !== group.id) })}><Trash2 /> Remove group</Button>}</div>
+          <div className="mb-3 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_7rem]">
+            <Input value={group.label} onChange={(e) => patchGroup(group.id, { label: e.target.value })} placeholder="Optional section / subsection (e.g. 4.1)" aria-label={`Section label for group ${groupIndex + 1}`} />
+            <Input value={group.title} onChange={(e) => patchGroup(group.id, { title: e.target.value })} placeholder="Optional section title" aria-label={`Section title for group ${groupIndex + 1}`} />
+            <Input type="number" min={0} value={group.marks ?? ""} onChange={(e) => patchGroup(group.id, { marks: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })} placeholder="Marks" aria-label={`Marks for group ${groupIndex + 1}`} />
+          </div>
+          <Textarea value={group.scenario} onChange={(e) => patchGroup(group.id, { scenario: e.target.value })} placeholder="Optional instructions, scenario, or case study for these questions" aria-label={`Instructions for group ${groupIndex + 1}`} className="mb-3 min-h-20 resize-y text-sm" />
           <div className="space-y-4">
             {group.questions.map((q, questionIndex) => (
               <div key={q.id} className="rounded-md border bg-background p-3">
@@ -173,7 +189,7 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
           <Button type="button" size="sm" variant="ghost" className="mt-3 text-muted-foreground" onClick={() => addQuestion(group.id)}><Plus /> Add question to this group</Button>
         </div>
       ))}
-      <Button type="button" size="sm" variant="outline" onClick={addScenarioGroup}><Plus /> Add scenario group</Button>
+      <Button type="button" size="sm" variant="outline" onClick={addScenarioGroup}><Plus /> Add section / subsection</Button>
     </div>
   );
 }

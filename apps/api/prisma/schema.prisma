@@ -546,12 +546,31 @@ model Course {
   revisionOf                 Course? @relation("CourseRevisions", fields: [revisionOfId], references: [id], onDelete: Cascade)
   revisions                  Course[] @relation("CourseRevisions")
   editRequest                CourseRevisionRequest? @relation("RevisionEditRequest")
+  courseResources            CourseResource[]
 
   @@index([revisionOfId])
   @@index([status])
   @@index([instructorId])
   @@index([category])
   @@index([visibility])
+}
+
+/// Optional course-level downloads. These are not lessons and therefore never
+/// participate in sequential lesson access or course completion validation.
+model CourseResource {
+  id         String   @id @default(cuid())
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name       String
+  storageKey String
+  mimeType   String
+  sizeBytes  BigInt
+  sizeLabel  String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([courseId, order])
 }
 
 /// A course made available to a company account. Many-to-many: one course can
@@ -647,13 +666,33 @@ model Quiz {
   lessonId  String         @unique
   lesson    Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   passScore Int            @default(70)
+  groups    QuizGroup[]
   questions QuizQuestion[]
+}
+
+/// Optional presentation groups for structured assessments. A quiz can keep
+/// using only questions; groups are only created when an author opts in.
+model QuizGroup {
+  id        String         @id @default(cuid())
+  quizId    String
+  quiz      Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  label     String
+  title     String?
+  scenario  String?
+  marks     Int?
+  order     Int            @default(0)
+  questions QuizQuestion[]
+
+  @@unique([quizId, label])
+  @@index([quizId, order])
 }
 
 model QuizQuestion {
   id          String       @id @default(cuid())
   quizId      String
   quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  groupId     String?
+  group       QuizGroup?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   scenario    String?
   prompt      String
   explanation String?

@@ -19,6 +19,7 @@ import type {
   CourseDeletionRequestDto,
   CourseRevisionRequestDto,
   CourseDetailDto,
+  CourseResourceDto,
   CourseSummaryDto,
   CreateCommentInput,
   CreateReviewInput,
@@ -798,6 +799,7 @@ export interface AuthoringQuizQuestionDto {
   explanation: string | null;
   order: number;
   multipleAnswers: boolean;
+  group: { id: string; label: string; title: string | null; scenario: string | null; marks: number | null; order: number } | null;
   options: { id: string; text: string; isCorrect: boolean; order: number }[];
 }
 export interface AuthoringQuizDto {
@@ -905,6 +907,11 @@ export const authoringApi = {
     quizId: string,
     body: {
       scenario?: string;
+      groupLabel?: string;
+      groupTitle?: string;
+      groupScenario?: string;
+      groupMarks?: number;
+      groupOrder?: number;
       prompt: string;
       explanation?: string;
       order?: number;
@@ -919,6 +926,8 @@ export const authoringApi = {
     apiFetch<AuthoringQuizDto>(`/quiz-questions/${questionId}`, {
       method: "DELETE",
     }),
+  clearQuizGroups: (quizId: string) =>
+    apiFetch<AuthoringQuizDto>(`/quizzes/${quizId}/groups`, { method: "DELETE" }),
   createTusUpload: (body: CreateTusUploadInput) =>
     apiFetch<TusUploadDto>("/media/tus", { method: "POST", body }),
 
@@ -951,6 +960,19 @@ export const authoringApi = {
   deleteLessonResource: (lessonId: string, storageKey: string) =>
     apiFetch<{ ok: true }>(
       `/authoring/lessons/${lessonId}/resources?storageKey=${encodeURIComponent(storageKey)}`,
+      { method: "DELETE" },
+    ),
+  uploadCourseResource: (courseId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return apiFetchMultipart<CourseResourceDto>(
+      `/authoring/courses/${courseId}/resources`,
+      form,
+    );
+  },
+  deleteCourseResource: (courseId: string, resourceId: string) =>
+    apiFetch<{ ok: true }>(
+      `/authoring/courses/${courseId}/resources/${resourceId}`,
       { method: "DELETE" },
     ),
 };

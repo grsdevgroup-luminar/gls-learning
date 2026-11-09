@@ -4,6 +4,7 @@ import { CourseArt, isImageThumbnail } from "@/components/shared/course-art";
 import { CourseBuilderHeader } from "./course-builder-header";
 import { CourseDetailsForm } from "./course-details-form";
 import { CurriculumEditor } from "./curriculum-editor";
+import { CourseResources } from "./course-resources";
 import { useCourseBuilder } from "./use-course-builder";
 import { CourseStatusBadge } from "@/components/shared/course-status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -46,7 +47,9 @@ export function CourseBuilder({
     isoStandard, setIsoStandard, customIsoStandard, setCustomIsoStandard, level, setLevel,
     description, setDescription, price, setPrice, thumbnail, setThumbnail, thumbDrag, setThumbDrag,
     thumbError, thumbInputRef, categoryValue, titleTooLong, subtitleTooLong,
-    descriptionTooLong, published, setPublished, visibility, setVisibility, saving, savingAction,
+    descriptionTooLong, published, setPublished, visibility, setVisibility, courseResources,
+    pendingCourseResourceFiles, addCourseResourceFiles, removeCourseResource,
+    removePendingCourseResource, saving, savingAction,
     dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
     handleThumbnailFile, save, onBack,
@@ -130,6 +133,13 @@ addSection={addSection}
               patchLesson={patchLesson}
               setLessonType={setLessonType}
               removeLesson={removeLesson}
+            />
+            <CourseResources
+              resources={courseResources}
+              pendingFiles={pendingCourseResourceFiles}
+              onAddFiles={addCourseResourceFiles}
+              onRemoveResource={removeCourseResource}
+              onRemovePending={removePendingCourseResource}
             />
           </div>
 

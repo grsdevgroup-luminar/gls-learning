@@ -109,6 +109,18 @@ export interface LessonPptxDto {
   storageKey?: string;
 }
 
+/** A course-level downloadable resource. These are available independently
+ * of lesson completion and are only returned on authorized course views. */
+export interface CourseResourceDto {
+  id: string;
+  name: string;
+  url: string;
+  sizeLabel?: string;
+  mimeType: string;
+  order: number;
+  storageKey?: string;
+}
+
 export interface LessonPublicDto {
   id: string;
   title: string;
@@ -172,4 +184,6 @@ export interface CourseDetailDto extends CourseSummaryDto {
   requirements: string[];
   updatedAt: string;
   sections: SectionDto[];
+  /** Optional resource library; omitted from public/preview responses. */
+  courseResources?: CourseResourceDto[];
 }

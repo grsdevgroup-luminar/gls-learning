@@ -49,6 +49,7 @@ export class QuizService {
       questions: lesson.quiz.questions.map((q) => ({
         id: q.id,
         scenario: q.scenario,
+        group: q.group,
         prompt: q.prompt,
         order: q.order,
         multipleAnswers: q.options.filter((o) => o.isCorrect).length > 1,
