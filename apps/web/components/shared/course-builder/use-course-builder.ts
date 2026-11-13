@@ -654,7 +654,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
     handleThumbnailFile,
-    addCourseResourceFiles: (files: File[]) => setPendingCourseResourceFiles((current) => [...current, ...files]),
+    addCourseResourceFiles: (files: File[]) => {
+      if (files.length > 0) setPendingCourseResourceFiles((current) => [...current, ...files]);
+    },
     removeCourseResource: (id: string) => {
       setCourseResources((current) => current.filter((resource) => resource.id !== id));
       setRemovedCourseResourceIds((current) => new Set(current).add(id));
