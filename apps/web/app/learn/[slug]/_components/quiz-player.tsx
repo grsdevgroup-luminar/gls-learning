@@ -23,6 +23,7 @@ export function QuizPlayer({
 }) {
   const qc = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [writtenAnswers, setWrittenAnswers] = useState<Record<string, string>>({});
   const [attempt, setAttempt] = useState<QuizAttemptResultDto | null>(null);
 
   const { data: quiz, isLoading } = useQuery({
@@ -37,10 +38,9 @@ export function QuizPlayer({
   const submitMutation = useMutation({
     mutationFn: () =>
       api.submitQuiz(lessonId, {
-        answers: Object.entries(answers).map(([questionId, optionIds]) => ({
-          questionId,
-          optionIds,
-        })),
+        answers: quiz!.questions.map((question) => question.questionType === "WRITTEN"
+          ? { questionId: question.id, writtenAnswer: writtenAnswers[question.id] ?? "" }
+          : { questionId: question.id, optionIds: answers[question.id] ?? [] }),
       }),
     onSuccess: (result) => {
       setAttempt(result);
@@ -61,6 +61,7 @@ export function QuizPlayer({
 
   function retake() {
     setAnswers({});
+    setWrittenAnswers({});
     setAttempt(null);
   }
 
@@ -80,7 +81,7 @@ export function QuizPlayer({
     );
   }
 
-  const allAnswered = quiz.questions?.every((q) => (answers[q.id]?.length ?? 0) > 0) ?? false;
+  const allAnswered = quiz.questions?.every((q) => q.questionType === "WRITTEN" ? !!writtenAnswers[q.id]?.trim() : (answers[q.id]?.length ?? 0) > 0) ?? false;
 
   if (attempt) {
     const passed = attempt.passed;
@@ -186,7 +187,13 @@ export function QuizPlayer({
             <p className="text-sm font-medium">
               {i + 1}. {q.prompt}
             </p>
-            <div className="mt-3 space-y-2">
+            {q.questionType === "WRITTEN" && (
+              <div className="mt-3">
+                <textarea value={q.id in writtenAnswers ? writtenAnswers[q.id] : ""} onChange={(e) => setWrittenAnswers((current) => ({ ...current, [q.id]: e.target.value }))} placeholder="Write your answer here..." className="min-h-32 w-full rounded-lg border bg-background p-3 text-sm" />
+                <p className="mt-1 text-xs text-muted-foreground">{writtenAnswers[q.id]?.trim().split(/\s+/).filter(Boolean).length ?? 0} words</p>
+              </div>
+            )}
+            {q.questionType === "MCQ" && <div className="mt-3 space-y-2">
               {q.multipleAnswers && (
                 <p className="text-xs text-muted-foreground">Select all that apply.</p>
               )}
@@ -218,7 +225,7 @@ export function QuizPlayer({
                   </Label>
                 );
               })}
-            </div>
+            </div>}
           </div>
         ))}
       </div>

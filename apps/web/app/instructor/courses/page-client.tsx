@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatUsd, compactNumber, relativeDate } from "@/lib/format";
-import { Plus, Users, Pencil, Eye, Sparkles, Trash2, Clock } from "lucide-react";
+import { Plus, Users, Pencil, Eye, Sparkles, Trash2, Clock, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export default function InstructorCourses() {
@@ -158,6 +158,9 @@ function CourseCard({
             <Eye /> View
           </Button>
         )}
+        <Button variant="outline" size="sm" render={<Link href={`/instructor/courses/${course.id}/quiz-submissions`} />}>
+          <ClipboardCheck /> Quiz/Final Exam submissions
+        </Button>
         <Button variant="outline" size="sm" render={<Link href={`/instructor/courses/${course.id}/edit`} />}>
           <Pencil /> Edit
         </Button>

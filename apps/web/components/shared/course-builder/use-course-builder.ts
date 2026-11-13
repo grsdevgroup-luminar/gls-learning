@@ -158,6 +158,12 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                             const scenario = q.group?.scenario ?? q.scenario ?? "";
                             const question = {
                               id: q.id,
+                              questionType: q.questionType,
+                              marks: q.marks,
+                              wordLimitMin: q.wordLimitMin ?? undefined,
+                              wordLimitMax: q.wordLimitMax ?? undefined,
+                              modelAnswer: q.modelAnswer ?? undefined,
+                              gradingRubric: q.gradingRubric ?? undefined,
                               prompt: q.prompt,
                               explanation: q.explanation ?? undefined,
                               options: q.options?.map((o) => ({ id: o.id, text: o.text })) ?? [],
@@ -556,8 +562,13 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                   isCorrect: q.correctOptionIds.includes(o.id),
                   order: oi,
                 }));
-              if (!q.prompt.trim() || options.length < 2) continue;
+              if (!q.prompt.trim() || (q.questionType === "MCQ" && options.length < 2)) continue;
               await authoringApi.addQuizQuestion(quiz.id, {
+                questionType: q.questionType,
+                marks: q.marks,
+                wordLimitMin: q.wordLimitMin,
+                wordLimitMax: q.wordLimitMax,
+                gradingRubric: q.gradingRubric || undefined,
                 scenario: scenario || undefined,
                 groupLabel: groupLabel || undefined,
                 groupTitle: groupTitle || undefined,
@@ -567,7 +578,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
                 prompt: q.prompt,
                 explanation: q.explanation || undefined,
                 order: qi,
-                options,
+                options: q.questionType === "MCQ" ? options : [],
               });
             }
           }
