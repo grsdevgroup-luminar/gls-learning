@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,7 +10,11 @@ import {
   type QuizAttemptResultDto,
   type QuizPlayDto,
   type QuizResultDto,
+  type QuizSubmissionDetailDto,
+  type QuizSubmissionSummaryDto,
+  type GradeWrittenAnswerInput,
 } from "@grslearning/shared";
+import type { RequestUser } from "../../common/decorators/decorators";
 import { EnrollmentService } from "../enrollment/enrollment.service";
 import { QuizRepository } from "./quiz.repository";
 
@@ -50,6 +55,8 @@ export class QuizService {
         id: q.id,
         scenario: q.scenario,
         group: q.group,
+        questionType: q.questionType,
+        marks: q.marks,
         prompt: q.prompt,
         order: q.order,
         multipleAnswers: q.options.filter((o) => o.isCorrect).length > 1,
@@ -72,19 +79,21 @@ export class QuizService {
     if (!enrolled) throw new ForbiddenException("Enroll to submit this quiz");
     await this.enrollment.assertLessonAccessible(userId, lessonId);
 
-    const answerByQuestion = new Map(
-      input.answers.map((a) => [
-        a.questionId,
-        [...new Set(a.optionIds ?? (a.optionId ? [a.optionId] : []))],
-      ]),
-    );
+    const answerByQuestion = new Map(input.answers.map((a) => [a.questionId, a]));
+    for (const question of lesson.quiz.questions) {
+      const answer = answerByQuestion.get(question.id);
+      if (!answer || (question.questionType === "WRITTEN" ? !answer.writtenAnswer?.trim() : !(answer.optionIds?.length || answer.optionId))) {
+        throw new BadRequestException("Answer every quiz question before submitting");
+      }
+    }
+    const writtenQuestions = lesson.quiz.questions.filter((q) => q.questionType === "WRITTEN");
+    const totalMarks = lesson.quiz.questions.reduce((sum, q) => sum + q.marks, 0);
 
     const results = lesson.quiz.questions.map((q) => {
+      const answer = answerByQuestion.get(q.id);
       const correctOptionIds = q.options.filter((o) => o.isCorrect).map((o) => o.id);
-      const selectedOptionIds = answerByQuestion.get(q.id) ?? [];
-      const correct =
-        selectedOptionIds.length === correctOptionIds.length &&
-        selectedOptionIds.every((id) => correctOptionIds.includes(id));
+      const selectedOptionIds = [...new Set(answer?.optionIds ?? (answer?.optionId ? [answer.optionId] : []))];
+      const correct = q.questionType === "MCQ" && selectedOptionIds.length === correctOptionIds.length && selectedOptionIds.every((id) => correctOptionIds.includes(id));
       return {
         questionId: q.id,
         selectedOptionIds,
@@ -93,18 +102,23 @@ export class QuizService {
         correctOptionId: correctOptionIds[0] ?? "",
         correct,
         explanation: q.explanation ?? undefined,
+        questionType: q.questionType,
+        writtenAnswer: answer?.writtenAnswer,
+        pendingReview: q.questionType === "WRITTEN",
       };
     });
 
-    const correctCount = results.filter((r) => r.correct).length;
-    const score = Math.round((correctCount / results.length) * 100);
-    const passed = quizPassed(score, lesson.quiz.passScore);
+    const earnedMarks = lesson.quiz.questions.reduce((sum, q, i) => sum + (results[i].correct ? q.marks : 0), 0);
+    const hasWritten = writtenQuestions.length > 0;
+    const score = totalMarks ? Math.round((earnedMarks / totalMarks) * 100) : 0;
+    const passed = !hasWritten && quizPassed(score, lesson.quiz.passScore);
 
     const prev = await this.repo.findQuizResult(userId, lessonId);
-    const bestScore = Math.max(prev?.bestScore ?? 0, score);
+    // Written answers have not been graded yet, so this is only a provisional score.
+    const bestScore = hasWritten ? (prev?.bestScore ?? 0) : Math.max(prev?.bestScore ?? 0, score);
     const attempts = (prev?.attempts ?? 0) + 1;
 
-    await this.repo.saveAttempt(
+    const attempt = await this.repo.saveAttempt(
       userId,
       lessonId,
       score,
@@ -112,6 +126,12 @@ export class QuizService {
       bestScore,
       attempts,
       prev?.passed ?? false,
+      {
+        reviewStatus: hasWritten ? "PENDING_REVIEW" : "AUTO_GRADED",
+        earnedMarks,
+        totalMarks,
+        writtenAnswers: writtenQuestions.map((q) => ({ questionId: q.id, answer: answerByQuestion.get(q.id)?.writtenAnswer?.trim() ?? "" })),
+      },
     );
 
     let progressPct: number | undefined;
@@ -122,6 +142,7 @@ export class QuizService {
     }
 
     return {
+      attemptId: attempt.id,
       lessonId,
       score,
       passed,
@@ -129,6 +150,7 @@ export class QuizService {
       attempts,
       results,
       progressPct,
+      reviewStatus: hasWritten ? "PENDING_REVIEW" : "AUTO_GRADED",
     };
   }
 
@@ -138,13 +160,94 @@ export class QuizService {
   ): Promise<QuizResultDto | null> {
     const r = await this.repo.findQuizResult(userId, lessonId);
     if (!r) return null;
+    const latest = await this.repo.findLatestStudentAttempt(userId, lessonId);
     return {
       lessonId,
       bestScore: r.bestScore,
-      lastScore: r.lastScore,
+      lastScore: latest?.score ?? r.lastScore,
       attempts: r.attempts,
       passed: r.passed,
-      lastAttemptAt: r.lastAttemptAt.toISOString(),
+      lastAttemptAt: (latest?.createdAt ?? r.lastAttemptAt).toISOString(),
+      reviewStatus: latest?.reviewStatus ?? r.reviewStatus,
+      latestAttempt: latest ? {
+        id: latest.id,
+        score: latest.score,
+        passed: latest.passed,
+        reviewStatus: latest.reviewStatus,
+        writtenReviews: latest.writtenAnswers
+          .map((answer) => ({
+            questionId: answer.questionId,
+            prompt: answer.question.prompt,
+            answer: answer.answer,
+            score: answer.score,
+            marks: answer.question.marks,
+            feedback: answer.feedback,
+            order: answer.question.order,
+          }))
+          .sort((a, b) => a.order - b.order)
+          .map(({ order, ...answer }) => answer),
+      } : undefined,
     };
+  }
+
+  private async assertReviewer(user: RequestUser, courseId: string) {
+    const course = await this.repo.findCourseReviewerContext(courseId);
+    if (!course) throw new NotFoundException("Course not found");
+    if (user.role !== "ADMIN" && course.instructorId !== user.id) throw new ForbiddenException("Not your course");
+    return course;
+  }
+
+  async listSubmissions(user: RequestUser, courseId: string): Promise<QuizSubmissionSummaryDto[]> {
+    await this.assertReviewer(user, courseId);
+    const rows = await this.repo.findQuizSubmissions(courseId);
+    return rows.map((row) => ({
+      id: row.id, studentName: row.user.name, studentEmail: row.user.email,
+      courseId, courseTitle: row.lesson.section.course.title, lessonId: row.lesson.id,
+      quizTitle: row.lesson.title, score: row.score, passed: row.passed,
+      reviewStatus: row.reviewStatus, writtenAnswerCount: row.writtenAnswers.length,
+      pendingAnswerCount: row.writtenAnswers.filter((a) => a.score == null).length,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  async getSubmission(user: RequestUser, attemptId: string): Promise<QuizSubmissionDetailDto> {
+    const row = await this.repo.findQuizSubmission(attemptId);
+    if (!row) throw new NotFoundException("Quiz submission not found");
+    const course = await this.assertReviewer(user, row.lesson.section.course.id);
+    return {
+      id: row.id, studentName: row.user.name, studentEmail: row.user.email,
+      courseId: course.id, courseTitle: course.title, lessonId: row.lesson.id,
+      quizTitle: row.lesson.title, score: row.score, passed: row.passed,
+      reviewStatus: row.reviewStatus, writtenAnswerCount: row.writtenAnswers.length,
+      pendingAnswerCount: row.writtenAnswers.filter((a) => a.score == null).length,
+      createdAt: row.createdAt.toISOString(),
+      answers: row.writtenAnswers.map((a) => ({ id: a.id, questionId: a.questionId, prompt: a.question.prompt, questionType: a.question.questionType, marks: a.question.marks, studentAnswer: a.answer, score: a.score, feedback: a.feedback, status: a.score == null ? "PENDING_REVIEW" : "GRADED", gradedBy: a.gradedBy?.name ?? null, gradedAt: a.gradedAt?.toISOString() ?? null })),
+    };
+  }
+
+  async gradeWrittenAnswer(user: RequestUser, attemptId: string, answerId: string, input: GradeWrittenAnswerInput) {
+    const row = await this.repo.findQuizSubmission(attemptId);
+    if (!row) throw new NotFoundException("Quiz submission not found");
+    await this.assertReviewer(user, row.lesson.section.course.id);
+    const answer = row.writtenAnswers.find((item) => item.id === answerId);
+    if (!answer) throw new NotFoundException("Written answer not found");
+    if (input.score > answer.question.marks) throw new BadRequestException(`Score cannot exceed ${answer.question.marks}`);
+    const previouslyGradedWritten = row.reviewStatus === "GRADED"
+      ? row.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0)
+      : 0;
+    await this.repo.gradeWrittenAnswer(answerId, user.id, input.score, input.feedback?.trim() || null);
+    const refreshed = await this.repo.findQuizSubmission(attemptId);
+    if (refreshed && refreshed.writtenAnswers.every((item) => item.score != null)) {
+      const earnedWritten = refreshed.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0);
+      const earnedMarks = (refreshed.earnedMarks ?? 0) - previouslyGradedWritten + earnedWritten;
+      const totalMarks = refreshed.totalMarks ?? earnedMarks;
+      const score = totalMarks ? Math.round((earnedMarks / totalMarks) * 100) : 0;
+      const passed = quizPassed(score, (await this.repo.findLessonContext(refreshed.lessonId))?.quiz?.passScore ?? 70);
+      await this.repo.finalizeAttempt(attemptId, score, passed, earnedMarks, totalMarks);
+      if (passed) {
+        await this.enrollment.markLessonComplete(refreshed.userId, refreshed.lesson.section.course.id, refreshed.lessonId);
+      }
+    }
+    return this.getSubmission(user, attemptId);
   }
 }

@@ -24,7 +24,7 @@ import { DeletionRequestsTab } from "./_components/deletion-requests-tab";
 import { RevisionRequestsTab } from "./_components/revision-requests-tab";
 import { formatUsd, compactNumber, relativeDate } from "@/lib/format";
 import {
-  Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe,
+  Plus, Search, MoreHorizontal, Pencil, Eye, Trash2, Rocket, Lock, Globe, ClipboardCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedSearch } from "@/lib/use-debounced-value";
@@ -278,6 +278,7 @@ export default function AdminCourses() {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem render={<Link href={`/admin/courses/${c.id}/edit`} />}><Pencil /> Edit</DropdownMenuItem>
+                        <DropdownMenuItem render={<Link href={`/admin/courses/${c.id}/quiz-submissions`} />}><ClipboardCheck /> Quiz/Final Exam submissions</DropdownMenuItem>
                         <DropdownMenuItem render={<Link href={`/courses/${c.slug}`} />}><Eye /> View</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 /> Delete</DropdownMenuItem>
                       </DropdownMenuContent>

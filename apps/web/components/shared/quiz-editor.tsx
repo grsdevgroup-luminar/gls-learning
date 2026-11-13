@@ -10,6 +10,12 @@ import { Plus, Trash2, HelpCircle } from "lucide-react";
 export interface BuilderQuizOption { id: string; text: string; }
 export interface BuilderQuizQuestion {
   id: string;
+  questionType: "MCQ" | "WRITTEN";
+  marks: number;
+  wordLimitMin?: number;
+  wordLimitMax?: number;
+  modelAnswer?: string;
+  gradingRubric?: string;
   prompt: string;
   options: BuilderQuizOption[];
   correctOptionIds: string[];
@@ -40,6 +46,8 @@ export function emptyQuestion(): BuilderQuizQuestion {
   const base = nextId("q");
   return {
     id: base,
+    questionType: "MCQ",
+    marks: 1,
     prompt: "",
     options: [0, 1].map((i) => ({ id: `${base}o${i}`, text: "" })),
     correctOptionIds: [`${base}o0`],
@@ -170,9 +178,14 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
           <div className="space-y-4">
             {group.questions.map((q, questionIndex) => (
               <div key={q.id} className="rounded-md border bg-background p-3">
-                <div className="flex items-center gap-2"><Input value={q.prompt} onChange={(e) => patchQuestion(group.id, q.id, { prompt: e.target.value })} placeholder={`Question ${questionIndex + 1}`} className="h-8 min-w-0 flex-1" /><Button type="button" size="icon-sm" variant="ghost" aria-label="Remove question" disabled={totalQuestions <= 1} onClick={() => removeQuestion(group.id, q.id)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button></div>
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-1.5"><Label htmlFor={`multiple-${q.id}`} className="text-xs text-muted-foreground">Allow multiple answers</Label><Switch id={`multiple-${q.id}`} checked={q.multipleAnswers} onCheckedChange={(checked) => setAnswerMode(group.id, q.id, checked)} /></div>
-                <div className="mt-2 space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><Input value={q.prompt} onChange={(e) => patchQuestion(group.id, q.id, { prompt: e.target.value })} placeholder={`Question ${questionIndex + 1}`} className="h-8 min-w-0 flex-1" /><select value={q.questionType} onChange={(e) => patchQuestion(group.id, q.id, { questionType: e.target.value as "MCQ" | "WRITTEN" })} className="h-8 rounded-md border bg-background px-2 text-xs sm:w-36"><option value="MCQ">Multiple choice</option><option value="WRITTEN">Written answer</option></select><Button type="button" size="icon-sm" variant="ghost" aria-label="Remove question" disabled={totalQuestions <= 1} onClick={() => removeQuestion(group.id, q.id)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button></div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-muted/30 px-2 py-1.5"><Label className="text-xs text-muted-foreground">Marks</Label><Input type="number" min={1} value={q.marks} onChange={(e) => patchQuestion(group.id, q.id, { marks: Math.max(1, Number(e.target.value) || 1) })} className="h-7 w-16" />{q.questionType === "MCQ" && <><Label htmlFor={`multiple-${q.id}`} className="ml-auto text-xs text-muted-foreground">Allow multiple answers</Label><Switch id={`multiple-${q.id}`} checked={q.multipleAnswers} onCheckedChange={(checked) => setAnswerMode(group.id, q.id, checked)} /></>}</div>
+                {q.questionType === "WRITTEN" ? (
+                  <div className="mt-2 space-y-2">
+                    <div className="grid gap-2 sm:grid-cols-2"><Input type="number" min={0} value={q.wordLimitMin ?? ""} onChange={(e) => patchQuestion(group.id, q.id, { wordLimitMin: e.target.value === "" ? undefined : Number(e.target.value) })} placeholder="Minimum words (optional)" /><Input type="number" min={1} value={q.wordLimitMax ?? ""} onChange={(e) => patchQuestion(group.id, q.id, { wordLimitMax: e.target.value === "" ? undefined : Number(e.target.value) })} placeholder="Maximum words (optional)" /></div>
+                    <Textarea value={q.gradingRubric ?? ""} onChange={(e) => patchQuestion(group.id, q.id, { gradingRubric: e.target.value })} placeholder="Optional grading rubric for the instructor" className="min-h-16 text-sm" />
+                  </div>
+                ) : <div className="mt-2 space-y-2">
                   {q.options.map((o, optionIndex) => <div key={o.id} className="flex min-w-0 items-center gap-2">
                     {q.multipleAnswers ? (
                       <input type="checkbox" checked={q.correctOptionIds.includes(o.id)} onChange={(e) => setCorrectOption(group.id, q.id, o.id, e.target.checked, true)} aria-label={`Mark option ${optionIndex + 1} correct`} className="size-4 shrink-0 accent-primary" />
@@ -181,8 +194,8 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
                     )}
                     <Input value={o.text} onChange={(e) => patchOption(group.id, q.id, o.id, e.target.value)} placeholder={`Option ${optionIndex + 1}`} className="h-7 min-w-0 flex-1 text-sm" /><Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove option ${optionIndex + 1}`} disabled={q.options.length <= MIN_OPTIONS} onClick={() => removeOption(group.id, q.id, o.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                   </div>)}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{q.multipleAnswers ? "Select all correct options." : "Select the correct option."}</p><Button type="button" size="sm" variant="outline" disabled={q.options.length >= MAX_OPTIONS} onClick={() => addOption(group.id, q.id)}><Plus /> Add option</Button></div>
+                </div>}
+                {q.questionType === "MCQ" && <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{q.multipleAnswers ? "Select all correct options." : "Select the correct option."}</p><Button type="button" size="sm" variant="outline" disabled={q.options.length >= MAX_OPTIONS} onClick={() => addOption(group.id, q.id)}><Plus /> Add option</Button></div>}
               </div>
             ))}
           </div>

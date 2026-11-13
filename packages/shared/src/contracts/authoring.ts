@@ -193,6 +193,12 @@ export const updateQuizSchema = z.object({
 export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
 
 export const createQuizQuestionSchema = z.object({
+  questionType: z.enum(["MCQ", "WRITTEN"]).default("MCQ"),
+  marks: z.number().int().min(1).max(10000).default(1),
+  wordLimitMin: z.number().int().min(0).max(20000).optional(),
+  wordLimitMax: z.number().int().min(1).max(20000).optional(),
+  modelAnswer: z.string().max(10000).optional(),
+  gradingRubric: z.string().max(10000).optional(),
   scenario: z.string().max(4000).optional(),
   groupLabel: z.string().trim().min(1).max(80).optional(),
   groupTitle: z.string().trim().max(200).optional(),
@@ -202,11 +208,21 @@ export const createQuizQuestionSchema = z.object({
   prompt: z.string().min(1).max(1000),
   explanation: z.string().max(2000).optional(),
   order: z.number().int().min(0).optional(),
-  options: z.array(quizOptionInputSchema).min(2).max(8),
+  options: z.array(quizOptionInputSchema).max(8),
+}).superRefine((value, ctx) => {
+  if (value.questionType === "MCQ" && value.options.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["options"], message: "MCQ questions require at least two options" });
+  }
 });
 export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
 
 export const updateQuizQuestionSchema = z.object({
+  questionType: z.enum(["MCQ", "WRITTEN"]).optional(),
+  marks: z.number().int().min(1).max(10000).optional(),
+  wordLimitMin: z.number().int().min(0).max(20000).nullable().optional(),
+  wordLimitMax: z.number().int().min(1).max(20000).nullable().optional(),
+  modelAnswer: z.string().max(10000).nullable().optional(),
+  gradingRubric: z.string().max(10000).nullable().optional(),
   scenario: z.string().max(4000).nullable().optional(),
   groupLabel: z.string().trim().min(1).max(80).nullable().optional(),
   groupTitle: z.string().trim().max(200).nullable().optional(),
@@ -216,7 +232,7 @@ export const updateQuizQuestionSchema = z.object({
   prompt: z.string().min(1).max(1000).optional(),
   explanation: z.string().max(2000).nullable().optional(),
   order: z.number().int().min(0).optional(),
-  options: z.array(quizOptionInputSchema).min(2).max(8).optional(),
+  options: z.array(quizOptionInputSchema).max(8).optional(),
 });
 export type UpdateQuizQuestionInput = z.infer<typeof updateQuizQuestionSchema>;
 

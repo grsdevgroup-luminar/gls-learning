@@ -31,20 +31,22 @@ export function CourseResources({
             Available to enrolled students separately from lesson progress.
           </p>
         </div>
-        <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept={ACCEPTED}
+          className="hidden"
+          onChange={(event) => {
+            const files = Array.from(event.currentTarget.files ?? []);
+            event.currentTarget.value = "";
+            if (files.length === 0) return;
+            onAddFiles(files);
+          }}
+        />
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => inputRef.current?.click()}>
           <Upload className="h-4 w-4" /> Add files
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept={ACCEPTED}
-            className="sr-only"
-            onChange={(event) => {
-              onAddFiles(Array.from(event.target.files ?? []));
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
+        </Button>
       </CardHeader>
       <CardContent className="space-y-2">
         {resources.map((resource) => (

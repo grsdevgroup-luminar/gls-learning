@@ -95,6 +95,17 @@ enum PayoutStatus {
   REJECTED
 }
 
+enum QuizQuestionType {
+  MCQ
+  WRITTEN
+}
+
+enum QuizAttemptReviewStatus {
+  AUTO_GRADED
+  PENDING_REVIEW
+  GRADED
+}
+
 enum CourseLevel {
   BEGINNER
   INTERMEDIATE
@@ -292,6 +303,7 @@ model User {
   quizResults                QuizResult[]
   lessonNotes                LessonNote[]
   quizAttempts               QuizAttempt[]
+  gradedWrittenAnswers       WrittenAnswerSubmission[] @relation("WrittenAnswerGrader")
   reviews                    Review[]
   comments                   Comment[]
   helpfulReviewVotes         ReviewHelpful[]
@@ -693,13 +705,21 @@ model QuizQuestion {
   quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
   groupId     String?
   group       QuizGroup?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  questionType QuizQuestionType @default(MCQ)
+  marks       Int          @default(1)
+  wordLimitMin Int?
+  wordLimitMax Int?
+  modelAnswer String?
+  gradingRubric String?
   scenario    String?
   prompt      String
   explanation String?
   order       Int          @default(0)
   options     QuizOption[]
+  writtenAnswers WrittenAnswerSubmission[]
 
   @@index([quizId])
+  @@index([groupId])
 }
 
 model QuizOption {
@@ -780,6 +800,7 @@ model QuizResult {
   lastScore     Int      @default(0)
   attempts      Int      @default(0)
   passed        Boolean  @default(false)
+  reviewStatus  QuizAttemptReviewStatus @default(AUTO_GRADED)
   lastAttemptAt DateTime @default(now())
 
   @@unique([userId, lessonId])
@@ -794,9 +815,34 @@ model QuizAttempt {
   lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   score     Int
   passed    Boolean
+  reviewStatus QuizAttemptReviewStatus @default(AUTO_GRADED)
+  earnedMarks Int?
+  totalMarks Int?
   createdAt DateTime @default(now())
 
+  writtenAnswers WrittenAnswerSubmission[]
+
   @@index([userId, lessonId])
+}
+
+model WrittenAnswerSubmission {
+  id          String   @id @default(cuid())
+  attemptId   String
+  attempt     QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer      String
+  score       Int?
+  feedback    String?
+  gradedById  String?
+  gradedBy    User?    @relation("WrittenAnswerGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+  gradedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
+  @@index([gradedById])
 }
 
 model Certificate {

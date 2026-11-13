@@ -59,6 +59,8 @@ import type {
   QuizAttemptResultDto,
   QuizPlayDto,
   QuizResultDto,
+  QuizSubmissionSummaryDto,
+  QuizSubmissionDetailDto,
   QuoteDto,
   RegionRow,
   ReminderLogDto,
@@ -794,6 +796,12 @@ export const pricingAdminApi = {
 
 export interface AuthoringQuizQuestionDto {
   id: string;
+  questionType: "MCQ" | "WRITTEN";
+  marks: number;
+  wordLimitMin: number | null;
+  wordLimitMax: number | null;
+  modelAnswer: string | null;
+  gradingRubric: string | null;
   scenario: string | null;
   prompt: string;
   explanation: string | null;
@@ -907,6 +915,12 @@ export const authoringApi = {
     quizId: string,
     body: {
       scenario?: string;
+      questionType?: "MCQ" | "WRITTEN";
+      marks?: number;
+      wordLimitMin?: number;
+      wordLimitMax?: number;
+      modelAnswer?: string;
+      gradingRubric?: string;
       groupLabel?: string;
       groupTitle?: string;
       groupScenario?: string;
@@ -1068,4 +1082,10 @@ export const instructorApi = {
   ) => api.instructorCourseReviews(courseId, params),
   requestCourseDeletion: authoringApi.requestCourseDeletion,
   myCourseDeletionRequests: authoringApi.myCourseDeletionRequests,
+  quizSubmissions: (courseId: string) =>
+    apiFetch<QuizSubmissionSummaryDto[]>(`/instructor/courses/${courseId}/quiz-submissions`),
+  quizSubmission: (attemptId: string) =>
+    apiFetch<QuizSubmissionDetailDto>(`/instructor/quiz-submissions/${attemptId}`),
+  gradeWrittenAnswer: (attemptId: string, answerId: string, body: { score: number; feedback?: string }) =>
+    apiFetch<QuizSubmissionDetailDto>(`/instructor/quiz-submissions/${attemptId}/answers/${answerId}`, { method: "PATCH", body }),
 };

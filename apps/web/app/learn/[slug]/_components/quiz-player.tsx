@@ -8,7 +8,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, RotateCcw, PartyPopper, HelpCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, PartyPopper, HelpCircle, Loader2, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 
 /** Server-graded quiz: questions come without answers; grading, best-score
@@ -23,7 +23,9 @@ export function QuizPlayer({
 }) {
   const qc = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [writtenAnswers, setWrittenAnswers] = useState<Record<string, string>>({});
   const [attempt, setAttempt] = useState<QuizAttemptResultDto | null>(null);
+  const [showRetake, setShowRetake] = useState(false);
 
   const { data: quiz, isLoading } = useQuery({
     queryKey: ["quiz", lessonId],
@@ -32,22 +34,27 @@ export function QuizPlayer({
   const { data: existing } = useQuery({
     queryKey: ["quiz-result", lessonId],
     queryFn: () => api.quizResult(lessonId),
+    refetchInterval: (query) => query.state.data?.reviewStatus === "PENDING_REVIEW" ? 15_000 : false,
   });
 
   const submitMutation = useMutation({
     mutationFn: () =>
       api.submitQuiz(lessonId, {
-        answers: Object.entries(answers).map(([questionId, optionIds]) => ({
-          questionId,
-          optionIds,
-        })),
+        answers: quiz!.questions.map((question) => question.questionType === "WRITTEN"
+          ? { questionId: question.id, writtenAnswer: writtenAnswers[question.id] ?? "" }
+          : { questionId: question.id, optionIds: answers[question.id] ?? [] }),
       }),
     onSuccess: (result) => {
       setAttempt(result);
+      setShowRetake(false);
       void qc.invalidateQueries({ queryKey: ["quiz-result", lessonId] });
       // Passing may auto-complete the lesson (and even finish the course).
       void qc.invalidateQueries({ queryKey: ["enrollments"] });
-      if (result.passed) {
+      if (result.reviewStatus === "PENDING_REVIEW") {
+        toast.info("Quiz submitted for review", {
+          description: "Your written answer will be graded by an instructor or admin.",
+        });
+      } else if (result.passed) {
         toast.success("Quiz passed!", { description: `Scored ${result.score}%` });
         onPassed?.();
       } else {
@@ -61,7 +68,9 @@ export function QuizPlayer({
 
   function retake() {
     setAnswers({});
+    setWrittenAnswers({});
     setAttempt(null);
+    setShowRetake(true);
   }
 
   if (isLoading) {
@@ -80,26 +89,75 @@ export function QuizPlayer({
     );
   }
 
-  const allAnswered = quiz.questions?.every((q) => (answers[q.id]?.length ?? 0) > 0) ?? false;
+  const allAnswered = quiz.questions?.every((q) => q.questionType === "WRITTEN" ? !!writtenAnswers[q.id]?.trim() : (answers[q.id]?.length ?? 0) > 0) ?? false;
+
+  const reviewedAttempt = existing?.latestAttempt;
+  if (
+    !showRetake &&
+    reviewedAttempt?.reviewStatus === "GRADED" &&
+    reviewedAttempt.writtenReviews.length > 0 &&
+    (!attempt || attempt.attemptId === reviewedAttempt.id)
+  ) {
+    return (
+      <div className="mx-auto w-full max-w-2xl p-6">
+        <div className="text-center">
+          {reviewedAttempt.passed ? <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success" /> : <XCircle className="mx-auto mb-3 h-10 w-10 text-destructive" />}
+          <h2 className="text-xl font-bold">{reviewedAttempt.passed ? "Quiz passed" : "Quiz reviewed"}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Final score: {reviewedAttempt.score}% · Passing score: {quiz.passScore}%
+          </p>
+        </div>
+        <div className="mt-6 space-y-3">
+          {reviewedAttempt.writtenReviews.map((review, index) => (
+            <div key={review.questionId} className="rounded-lg border p-4">
+              <p className="font-medium">{index + 1}. {review.prompt}</p>
+              <p className="mt-2 text-xs text-muted-foreground">Your answer</p>
+              <p className="mt-1 whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-sm">{review.answer}</p>
+              <p className="mt-3 text-sm font-medium">Marks: {review.score ?? "Pending"}/{review.marks}</p>
+              {review.feedback ? (
+                <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-xs font-semibold text-primary">Instructor feedback</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm">{review.feedback}</p>
+                </div>
+              ) : <p className="mt-2 text-xs text-muted-foreground">No written feedback was left for this answer.</p>}
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 text-center">
+          <Button variant={reviewedAttempt.passed ? "outline" : "default"} onClick={retake}>
+            <RotateCcw /> Retake quiz
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (attempt) {
     const passed = attempt.passed;
-  const correctCount = attempt.results?.filter((r) => r.correct).length ?? 0;
-  const feedbackByQuestion = new Map(attempt.results?.map((r) => [r.questionId, r]) ?? []);
+    const pendingReview = attempt.reviewStatus === "PENDING_REVIEW";
+    const mcqQuestions = quiz.questions.filter((q) => q.questionType === "MCQ");
+    const correctCount = attempt.results?.filter((r) => r.questionType === "MCQ" && r.correct).length ?? 0;
+    const feedbackByQuestion = new Map(attempt.results?.map((r) => [r.questionId, r]) ?? []);
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
         <div
           className={`mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full ${
-            passed ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+            pendingReview ? "bg-primary/10 text-primary" : passed ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
           }`}
         >
-          {passed ? <PartyPopper className="h-8 w-8" /> : <XCircle className="h-8 w-8" />}
+          {pendingReview ? <Clock3 className="h-8 w-8" /> : passed ? <PartyPopper className="h-8 w-8" /> : <XCircle className="h-8 w-8" />}
         </div>
-        <h2 className="text-xl font-bold">{passed ? "You passed!" : "Almost there"}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You scored {attempt.score}% ({correctCount}/{quiz.questions.length} correct) — passing
-          score is {quiz.passScore}%.
-        </p>
+        <h2 className="text-xl font-bold">{pendingReview ? "Submitted for review" : passed ? "You passed!" : "Almost there"}</h2>
+        {pendingReview ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {mcqQuestions.length > 0 && <>MCQ: {correctCount}/{mcqQuestions.length} correct. </>}
+            Written answers are awaiting instructor or admin grading. Your final score and pass result will appear after review.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-muted-foreground">
+            You scored {attempt.score}%{mcqQuestions.length > 0 ? ` (${correctCount}/${mcqQuestions.length} MCQs correct)` : ""} — passing score is {quiz.passScore}%.
+          </p>
+        )}
 
         <div className="mt-6 space-y-3 text-left">
           {quiz.questions?.map((q, i) => {
@@ -110,7 +168,9 @@ export function QuizPlayer({
             return (
               <div key={q.id} className="rounded-lg border p-3">
                 <div className="flex items-start gap-2">
-                  {correct ? (
+                  {q.questionType === "WRITTEN" ? (
+                    <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  ) : correct ? (
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   ) : (
                     <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
@@ -129,7 +189,12 @@ export function QuizPlayer({
                     <p className="text-sm font-medium">
                       {i + 1}. {q.prompt}
                     </p>
-                    {!correct && fb && (
+                    {q.questionType === "WRITTEN" ? (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="font-medium">Your answer · Awaiting review</span>
+                        <p className="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2">{fb?.writtenAnswer}</p>
+                      </div>
+                    ) : !correct && fb && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         Correct answer: {q.options
                           ?.filter((o) => fb.correctOptionIds.includes(o.id))
@@ -137,7 +202,7 @@ export function QuizPlayer({
                           .join(", ")}
                       </p>
                     )}
-                    {fb?.explanation && (
+                    {q.questionType === "MCQ" && fb?.explanation && (
                       <p className="mt-1 text-xs text-muted-foreground">{fb.explanation}</p>
                     )}
                   </div>
@@ -147,9 +212,23 @@ export function QuizPlayer({
           })}
         </div>
 
-        <Button className="mt-6" variant={passed ? "outline" : "default"} onClick={retake}>
-          <RotateCcw /> Retake quiz
-        </Button>
+        {!pendingReview && (
+          <Button className="mt-6" variant={passed ? "outline" : "default"} onClick={retake}>
+            <RotateCcw /> Retake quiz
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  if (existing?.reviewStatus === "PENDING_REVIEW") {
+    return (
+      <div className="mx-auto w-full max-w-2xl p-6 text-center">
+        <Clock3 className="mx-auto mb-4 h-10 w-10 text-primary" />
+        <h2 className="text-xl font-bold">Submitted for review</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your written answers are awaiting instructor or admin grading. Your final score and pass result will appear after review.
+        </p>
       </div>
     );
   }
@@ -186,7 +265,13 @@ export function QuizPlayer({
             <p className="text-sm font-medium">
               {i + 1}. {q.prompt}
             </p>
-            <div className="mt-3 space-y-2">
+            {q.questionType === "WRITTEN" && (
+              <div className="mt-3">
+                <textarea value={q.id in writtenAnswers ? writtenAnswers[q.id] : ""} onChange={(e) => setWrittenAnswers((current) => ({ ...current, [q.id]: e.target.value }))} placeholder="Write your answer here..." className="min-h-32 w-full rounded-lg border bg-background p-3 text-sm" />
+                <p className="mt-1 text-xs text-muted-foreground">{writtenAnswers[q.id]?.trim().split(/\s+/).filter(Boolean).length ?? 0} words</p>
+              </div>
+            )}
+            {q.questionType === "MCQ" && <div className="mt-3 space-y-2">
               {q.multipleAnswers && (
                 <p className="text-xs text-muted-foreground">Select all that apply.</p>
               )}
@@ -218,7 +303,7 @@ export function QuizPlayer({
                   </Label>
                 );
               })}
-            </div>
+            </div>}
           </div>
         ))}
       </div>
