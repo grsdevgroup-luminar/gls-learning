@@ -25,6 +25,7 @@ function makeCourseRow(overrides: Record<string, unknown> = {}) {
     status: "PUBLISHED",
     visibility: "PUBLIC",
     orgAssignments: [] as { orgId: string }[],
+    courseResources: [],
     bestseller: false,
     language: "en",
     basePriceCents: 0,
@@ -55,7 +56,7 @@ function makeService(repoOverrides: Partial<CoursesRepository> = {}) {
     completedLessonIds: vi.fn().mockResolvedValue([]),
   } as unknown as EnrollmentService;
   const categoriesRepo = {} as CategoriesService;
-  const storage = {} as StorageDriver;
+  const storage = { getUrl: vi.fn().mockResolvedValue("https://files.example/notes.pdf") } as unknown as StorageDriver;
 
   const service = new CoursesService(repo, enrollment, categoriesRepo, storage);
   return { service, repo, enrollment };
@@ -171,6 +172,24 @@ describe("CoursesService.bySlug — visibility & status gating", () => {
     await expect(service.bySlug("intro-to-x", member)).resolves.toMatchObject({
       canEnrollForOrganization: true,
     });
+  });
+
+  it("hides course downloads until enrollment, including for assigned organization members", async () => {
+    const resource = { id: "resource_1", name: "notes.pdf", storageKey: "courses/notes.pdf", mimeType: "application/pdf", sizeLabel: "1 KB", order: 0 };
+    const { service, enrollment } = makeService({
+      findBySlug: vi.fn().mockResolvedValue(makeCourseRow({
+        orgAssignments: [{ orgId: "org_1" }],
+        courseResources: [resource],
+      })),
+    });
+    vi.mocked(enrollment.isOrgMemberOfAny).mockResolvedValue(true);
+
+    const beforeEnrollment = await service.bySlug("intro-to-x", member);
+    expect(beforeEnrollment.courseResources).toBeUndefined();
+
+    vi.mocked(enrollment.hasActiveEnrollment).mockResolvedValue(true);
+    const afterEnrollment = await service.bySlug("intro-to-x", member);
+    expect(afterEnrollment.courseResources).toMatchObject([{ id: "resource_1", url: "https://files.example/notes.pdf" }]);
   });
 
   it("returns a PRIVATE course assigned to multiple orgs to a member of any one of them", async () => {

@@ -213,14 +213,15 @@ export class CoursesService {
       await this.enrollment.assertOrgAdminCourseNotSuspended(user.id, row.id);
     }
     const isInstructorOwner = !!user && user.id === row.instructor.id;
+    const canManageCourse = user?.role === "ADMIN" || isInstructorOwner;
     const orgIds = row.orgAssignments.map((assignment) => assignment.orgId);
     const isOrgMember = user
       ? await this.enrollment.isOrgMemberOfAny(orgIds, user.id)
       : false;
-    const isPartnerMember = user
+    const isPartnerMember = user && !canManageCourse
       ? await this.enrollment.isPartnerMemberOfCourse(row.id, user.id)
       : false;
-    const isAlreadyEnrolled = user
+    const isAlreadyEnrolled = user && !canManageCourse
       ? await this.enrollment.hasActiveEnrollment(user.id, row.id)
       : false;
     if (row.visibility === "PRIVATE" && user?.role !== "ADMIN" && !isInstructorOwner) {
@@ -232,17 +233,11 @@ export class CoursesService {
       if (!isOrgMember && !isPartnerMember && !isAlreadyEnrolled)
         throw new NotFoundException("Course not found");
     }
-    const canEnrollForOrganization = user
-      ? await this.enrollment.isOrgMemberOfAny(
-          row.orgAssignments.map((assignment) => assignment.orgId),
-          user.id,
-        )
-      : false;
-    const canManageCourse = user?.role === "ADMIN" || isInstructorOwner;
+    const canEnrollForOrganization = isOrgMember;
     const detail = toCourseDetail(row, {
       canEnrollForOrganization,
       includeLessonResources: canManageCourse,
-      includeCourseResources: canManageCourse || isOrgMember || isPartnerMember || isAlreadyEnrolled,
+      includeCourseResources: canManageCourse || isAlreadyEnrolled,
     });
     // Public catalog callers do not receive attachment or resource-link URLs.
     return signCourseResourceUrls(detail, this.storage);
