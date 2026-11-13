@@ -218,7 +218,9 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                 ) : (
                   <span className="text-sm text-muted-foreground">
                     {quizResult
-                      ? `Best score so far: ${quizResult.bestScore}%`
+                      ? quizResult.reviewStatus === "PENDING_REVIEW"
+                        ? "Written answers awaiting review"
+                        : `Best score so far: ${quizResult.bestScore}%`
                       : "Pass the quiz to mark this lesson complete"}
                   </span>
                 )

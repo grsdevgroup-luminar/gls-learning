@@ -114,7 +114,8 @@ export class QuizService {
     const passed = !hasWritten && quizPassed(score, lesson.quiz.passScore);
 
     const prev = await this.repo.findQuizResult(userId, lessonId);
-    const bestScore = Math.max(prev?.bestScore ?? 0, score);
+    // Written answers have not been graded yet, so this is only a provisional score.
+    const bestScore = hasWritten ? (prev?.bestScore ?? 0) : Math.max(prev?.bestScore ?? 0, score);
     const attempts = (prev?.attempts ?? 0) + 1;
 
     const attempt = await this.repo.saveAttempt(
@@ -141,6 +142,7 @@ export class QuizService {
     }
 
     return {
+      attemptId: attempt.id,
       lessonId,
       score,
       passed,
@@ -158,14 +160,33 @@ export class QuizService {
   ): Promise<QuizResultDto | null> {
     const r = await this.repo.findQuizResult(userId, lessonId);
     if (!r) return null;
+    const latest = await this.repo.findLatestStudentAttempt(userId, lessonId);
     return {
       lessonId,
       bestScore: r.bestScore,
-      lastScore: r.lastScore,
+      lastScore: latest?.score ?? r.lastScore,
       attempts: r.attempts,
       passed: r.passed,
-      lastAttemptAt: r.lastAttemptAt.toISOString(),
-      reviewStatus: r.reviewStatus,
+      lastAttemptAt: (latest?.createdAt ?? r.lastAttemptAt).toISOString(),
+      reviewStatus: latest?.reviewStatus ?? r.reviewStatus,
+      latestAttempt: latest ? {
+        id: latest.id,
+        score: latest.score,
+        passed: latest.passed,
+        reviewStatus: latest.reviewStatus,
+        writtenReviews: latest.writtenAnswers
+          .map((answer) => ({
+            questionId: answer.questionId,
+            prompt: answer.question.prompt,
+            answer: answer.answer,
+            score: answer.score,
+            marks: answer.question.marks,
+            feedback: answer.feedback,
+            order: answer.question.order,
+          }))
+          .sort((a, b) => a.order - b.order)
+          .map(({ order, ...answer }) => answer),
+      } : undefined,
     };
   }
 
@@ -211,11 +232,14 @@ export class QuizService {
     const answer = row.writtenAnswers.find((item) => item.id === answerId);
     if (!answer) throw new NotFoundException("Written answer not found");
     if (input.score > answer.question.marks) throw new BadRequestException(`Score cannot exceed ${answer.question.marks}`);
+    const previouslyGradedWritten = row.reviewStatus === "GRADED"
+      ? row.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0)
+      : 0;
     await this.repo.gradeWrittenAnswer(answerId, user.id, input.score, input.feedback?.trim() || null);
     const refreshed = await this.repo.findQuizSubmission(attemptId);
     if (refreshed && refreshed.writtenAnswers.every((item) => item.score != null)) {
       const earnedWritten = refreshed.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0);
-      const earnedMarks = (refreshed.earnedMarks ?? 0) + earnedWritten;
+      const earnedMarks = (refreshed.earnedMarks ?? 0) - previouslyGradedWritten + earnedWritten;
       const totalMarks = refreshed.totalMarks ?? earnedMarks;
       const score = totalMarks ? Math.round((earnedMarks / totalMarks) * 100) : 0;
       const passed = quizPassed(score, (await this.repo.findLessonContext(refreshed.lessonId))?.quiz?.passScore ?? 70);

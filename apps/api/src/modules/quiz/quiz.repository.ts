@@ -36,6 +36,29 @@ export class QuizRepository {
     });
   }
 
+  findLatestStudentAttempt(userId: string, lessonId: string) {
+    return this.prisma.quizAttempt.findFirst({
+      where: { userId, lessonId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: {
+        id: true,
+        score: true,
+        passed: true,
+        reviewStatus: true,
+        createdAt: true,
+        writtenAnswers: {
+          select: {
+            questionId: true,
+            answer: true,
+            score: true,
+            feedback: true,
+            question: { select: { prompt: true, marks: true, order: true } },
+          },
+        },
+      },
+    });
+  }
+
   saveAttempt(
     userId: string,
     lessonId: string,

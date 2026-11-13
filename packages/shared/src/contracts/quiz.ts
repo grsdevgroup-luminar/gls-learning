@@ -66,6 +66,7 @@ export interface QuizQuestionResultDto {
   pendingReview?: boolean;
 }
 export interface QuizAttemptResultDto {
+  attemptId: string;
   lessonId: string;
   score: number; // percent
   passed: boolean;
@@ -85,6 +86,20 @@ export interface QuizResultDto {
   passed: boolean;
   lastAttemptAt: string;
   reviewStatus?: "AUTO_GRADED" | "PENDING_REVIEW" | "GRADED";
+  latestAttempt?: {
+    id: string;
+    score: number;
+    passed: boolean;
+    reviewStatus: "AUTO_GRADED" | "PENDING_REVIEW" | "GRADED";
+    writtenReviews: Array<{
+      questionId: string;
+      prompt: string;
+      answer: string;
+      score: number | null;
+      marks: number;
+      feedback: string | null;
+    }>;
+  };
 }
 
 export interface QuizSubmissionSummaryDto {

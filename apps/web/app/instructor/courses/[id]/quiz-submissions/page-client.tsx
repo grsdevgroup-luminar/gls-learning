@@ -11,22 +11,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { relativeDate } from "@/lib/format";
 
-export default function QuizSubmissionsClient() {
+export default function QuizSubmissionsClient({ admin = false }: { admin?: boolean }) {
   const { id } = useParams<{ id: string }>();
-  const { data: courses } = useQuery({ queryKey: ["instructor", "courses"], queryFn: instructorApi.courses });
+  const { data: courses } = useQuery({ queryKey: ["instructor", "courses"], queryFn: instructorApi.courses, enabled: !admin });
   const { data: submissions, isLoading, error } = useQuery({
     queryKey: ["instructor", "quiz-submissions", id],
     queryFn: () => instructorApi.quizSubmissions(id),
   });
-  const course = courses?.find((item) => item.id === id);
+  const courseTitle = courses?.find((item) => item.id === id)?.title ?? submissions?.[0]?.courseTitle ?? "Course";
 
-  return (
-    <ApprovalGate>
+  const content = (
       <div className="space-y-6 p-6 md:p-8">
-        <Button variant="ghost" size="sm" render={<Link href="/instructor/courses" />}><ArrowLeft /> Back to courses</Button>
+        <Button variant="ghost" size="sm" render={<Link href={admin ? "/admin/courses" : "/instructor/courses"} />}><ArrowLeft /> Back to courses</Button>
         <header>
           <h1 className="font-heading text-2xl font-bold tracking-tight">Quiz/Final Exam submissions</h1>
-          <p className="text-sm text-muted-foreground">{course?.title ?? "Course"} · Review written answers and final scores.</p>
+          <p className="text-sm text-muted-foreground">{courseTitle} · Review written answers and final scores.</p>
         </header>
         {error && <p className="text-sm text-destructive">Failed to load quiz submissions.</p>}
         {isLoading ? <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading submissions…</CardContent></Card> : !submissions?.length ? <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No quiz submissions yet.</CardContent></Card> : (
@@ -39,15 +38,15 @@ export default function QuizSubmissionsClient() {
                     <p className="mt-1 break-words text-sm text-muted-foreground">{submission.quizTitle} · {submission.studentEmail}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{submission.pendingAnswerCount} pending of {submission.writtenAnswerCount} written answers · Submitted {relativeDate(submission.createdAt)}</p>
                   </div>
-                  <Button className="shrink-0" render={<Link href={`/instructor/quiz-submissions/${submission.id}`} />}><ClipboardCheck /> Review submission</Button>
+                  <Button className="shrink-0" render={<Link href={admin ? `/admin/quiz-submissions/${submission.id}` : `/instructor/quiz-submissions/${submission.id}`} />}><ClipboardCheck /> Review submission</Button>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
       </div>
-    </ApprovalGate>
   );
+  return admin ? content : <ApprovalGate>{content}</ApprovalGate>;
 }
 
 function StatusBadge({ status }: { status: string }) {

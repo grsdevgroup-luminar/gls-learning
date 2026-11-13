@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-export default function QuizSubmissionClient() {
+export default function QuizSubmissionClient({ admin = false }: { admin?: boolean }) {
   const { attemptId } = useParams<{ attemptId: string }>();
   const qc = useQueryClient();
   const { data: submission, isLoading, error } = useQuery({ queryKey: ["instructor", "quiz-submission", attemptId], queryFn: () => instructorApi.quizSubmission(attemptId) });
@@ -25,13 +25,14 @@ export default function QuizSubmissionClient() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
-  return <ApprovalGate><div className="space-y-6 p-6 md:p-8">
-    <Button variant="ghost" size="sm" render={<Link href={submission ? `/instructor/courses/${submission.courseId}/quiz-submissions` : "/instructor/courses"} />}><ArrowLeft /> Back to submissions</Button>
+  const content = <div className="space-y-6 p-6 md:p-8">
+    <Button variant="ghost" size="sm" render={<Link href={submission ? `${admin ? "/admin" : "/instructor"}/courses/${submission.courseId}/quiz-submissions` : admin ? "/admin/courses" : "/instructor/courses"} />}><ArrowLeft /> Back to submissions</Button>
     {isLoading ? <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading submission…</CardContent></Card> : error || !submission ? <p className="text-sm text-destructive">Failed to load this submission.</p> : <>
-      <header><h1 className="font-heading text-2xl font-bold tracking-tight">Review submission</h1><p className="text-sm text-muted-foreground">{submission.studentName} · {submission.quizTitle}</p><div className="mt-2 flex flex-wrap gap-2"><Badge variant="outline">Current score: {submission.score}%</Badge><Badge variant="outline">{submission.reviewStatus === "PENDING_REVIEW" ? "Pending review" : "Graded"}</Badge></div></header>
+      <header><h1 className="font-heading text-2xl font-bold tracking-tight">Review submission</h1><p className="text-sm text-muted-foreground">{submission.studentName} · {submission.quizTitle}</p><div className="mt-2 flex flex-wrap gap-2"><Badge variant="outline">{submission.reviewStatus === "PENDING_REVIEW" ? "Auto-graded score so far" : "Final score"}: {submission.score}%</Badge><Badge variant="outline">{submission.reviewStatus === "PENDING_REVIEW" ? "Pending review" : "Graded"}</Badge></div></header>
       <div className="space-y-4">{submission.answers.map((answer, index) => <AnswerCard key={answer.id} answer={answer} index={index} pending={gradeMutation.isPending} onSave={(score, feedback) => gradeMutation.mutate({ answerId: answer.id, score, feedback })} />)}</div>
     </>}
-  </div></ApprovalGate>;
+  </div>;
+  return admin ? content : <ApprovalGate>{content}</ApprovalGate>;
 }
 
 function AnswerCard({ answer, index, pending, onSave }: { answer: { id: string; prompt: string; marks: number; studentAnswer: string; score: number | null; feedback: string | null; status: string }; index: number; pending: boolean; onSave: (score: number, feedback: string) => void }) {
