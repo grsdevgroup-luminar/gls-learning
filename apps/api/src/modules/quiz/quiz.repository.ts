@@ -16,6 +16,7 @@ export class QuizRepository {
       where: { id: lessonId },
       select: {
         id: true,
+        title: true,
         preview: true,
         section: { select: { courseId: true } },
         quiz: {
@@ -73,6 +74,7 @@ export class QuizRepository {
       totalMarks: number;
       writtenAnswers: { questionId: string; answer: string }[];
     } = { reviewStatus: "AUTO_GRADED", earnedMarks: 0, totalMarks: 0, writtenAnswers: [] },
+    onCreated?: (attemptId: string, tx: Db) => Promise<void>,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const attempt = await tx.quizAttempt.create({
@@ -109,12 +111,21 @@ export class QuizRepository {
           reviewStatus: options.reviewStatus,
         },
       });
+      await onCreated?.(attempt.id, tx);
       return attempt;
     });
   }
 
   findCourseReviewerContext(courseId: string) {
-    return this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, title: true, instructorId: true } });
+    return this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, title: true, instructorId: true, instructor: { select: { role: true } } } });
+  }
+
+  /** Serialize reviews of one attempt so only one reviewer can finish it. */
+  withLockedAttempt<T>(attemptId: string, work: (tx: Db) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "QuizAttempt" WHERE id = ${attemptId} FOR UPDATE`;
+      return work(tx);
+    });
   }
 
   findQuizSubmissions(courseId: string) {
@@ -129,30 +140,31 @@ export class QuizRepository {
     });
   }
 
-  findQuizSubmission(attemptId: string) {
-    return this.prisma.quizAttempt.findUnique({
+  findQuizSubmission(attemptId: string, tx?: Db) {
+    return this.db(tx).quizAttempt.findUnique({
       where: { id: attemptId },
       include: {
         user: { select: { name: true, email: true } },
-        lesson: { select: { id: true, title: true, section: { select: { courseId: true, course: { select: { id: true, title: true, instructorId: true } } } } } },
+        lesson: { select: { id: true, title: true, section: { select: { courseId: true, course: { select: { id: true, title: true, slug: true, instructorId: true } } } } } },
         writtenAnswers: { include: { question: true, gradedBy: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
       },
     });
   }
 
-  gradeWrittenAnswer(answerId: string, graderId: string, score: number, feedback: string | null) {
-    return this.prisma.writtenAnswerSubmission.update({
+  gradeWrittenAnswer(answerId: string, graderId: string, score: number, feedback: string | null, tx?: Db) {
+    return this.db(tx).writtenAnswerSubmission.update({
       where: { id: answerId },
       data: { score, feedback, gradedById: graderId, gradedAt: new Date() },
     });
   }
 
-  finalizeAttempt(attemptId: string, score: number, passed: boolean, earnedMarks: number, totalMarks: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const attempt = await tx.quizAttempt.update({ where: { id: attemptId }, data: { score, passed, earnedMarks, totalMarks, reviewStatus: "GRADED" } });
-      const previous = await tx.quizResult.findUnique({ where: { userId_lessonId: { userId: attempt.userId, lessonId: attempt.lessonId } } });
-      await tx.quizResult.update({ where: { userId_lessonId: { userId: attempt.userId, lessonId: attempt.lessonId } }, data: { lastScore: score, bestScore: Math.max(previous?.bestScore ?? 0, score), passed: passed || !!previous?.passed, reviewStatus: "GRADED", lastAttemptAt: new Date() } });
+  finalizeAttempt(attemptId: string, score: number, passed: boolean, earnedMarks: number, totalMarks: number, tx?: Db) {
+    const finalize = async (db: Db) => {
+      const attempt = await db.quizAttempt.update({ where: { id: attemptId }, data: { score, passed, earnedMarks, totalMarks, reviewStatus: "GRADED" } });
+      const previous = await db.quizResult.findUnique({ where: { userId_lessonId: { userId: attempt.userId, lessonId: attempt.lessonId } } });
+      await db.quizResult.update({ where: { userId_lessonId: { userId: attempt.userId, lessonId: attempt.lessonId } }, data: { lastScore: score, bestScore: Math.max(previous?.bestScore ?? 0, score), passed: passed || !!previous?.passed, reviewStatus: "GRADED", lastAttemptAt: new Date() } });
       return attempt;
-    });
+    };
+    return tx ? finalize(tx) : this.prisma.$transaction(finalize);
   }
 }

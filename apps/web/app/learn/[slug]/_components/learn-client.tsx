@@ -132,7 +132,7 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   function markAndMaybeAdvance() {
-    if (currentAccessible && !isLessonDone(course.id, current.id)) {
+    if (currentAccessible && current.type !== "QUIZ" && !isLessonDone(course.id, current.id)) {
       toggleLesson(course.id, current.id);
       toast.success("Lesson complete!", { description: current.title });
     }
@@ -355,32 +355,40 @@ export function LearnClient({ course }: { course: CourseDetailDto }) {
                           {isCur && (
                             <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary" />
                           )}
-                          {/* Mark / unmark — independent click target */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!accessible) {
-                                toast.info("Complete the previous lesson first");
-                                return;
-                              }
-                              toggleLesson(course.id, l.id);
-                              toast.success(
-                                isDone ? "Marked as not complete" : "Marked as complete",
-                                { description: l.title },
-                              );
-                            }}
-                            aria-pressed={isDone}
-                            disabled={!accessible}
-                            aria-label={isDone ? `Mark "${l.title}" as not complete` : `Mark "${l.title}" as complete`}
-                            title={isDone ? "Mark as not complete" : "Mark as complete"}
-                            className="flex shrink-0 items-center self-stretch rounded-l-md pl-2.5 pr-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            {isDone ? (
-                              <CheckCircle2 className="h-4 w-4 text-success transition-transform group-hover/lesson:scale-110" />
-                            ) : (
-                              <Circle className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover/lesson:text-primary/60" />
-                            )}
-                          </button>
+                          {l.type === "QUIZ" ? (
+                            <span
+                              className="flex shrink-0 items-center self-stretch rounded-l-md pl-2.5 pr-1.5"
+                              aria-label={isDone ? `Passed ${l.title}` : `${l.title} not passed`}
+                            >
+                              {isDone ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground/40" />}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!accessible) {
+                                  toast.info("Complete the previous lesson first");
+                                  return;
+                                }
+                                toggleLesson(course.id, l.id);
+                                toast.success(
+                                  isDone ? "Marked as not complete" : "Marked as complete",
+                                  { description: l.title },
+                                );
+                              }}
+                              aria-pressed={isDone}
+                              disabled={!accessible}
+                              aria-label={isDone ? `Mark "${l.title}" as not complete` : `Mark "${l.title}" as complete`}
+                              title={isDone ? "Mark as not complete" : "Mark as complete"}
+                              className="flex shrink-0 items-center self-stretch rounded-l-md pl-2.5 pr-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {isDone ? (
+                                <CheckCircle2 className="h-4 w-4 text-success transition-transform group-hover/lesson:scale-110" />
+                              ) : (
+                                <Circle className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover/lesson:text-primary/60" />
+                              )}
+                            </button>
+                          )}
                           {/* Navigate to lesson */}
                           <button
                             type="button"

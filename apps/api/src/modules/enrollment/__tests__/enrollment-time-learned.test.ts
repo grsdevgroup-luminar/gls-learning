@@ -1,5 +1,6 @@
 import type { ConfigService } from "@nestjs/config";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import type { AdminAlertsService } from "../../email/admin-alerts.service";
 import type { NotificationsService } from "../../notifications/notifications.service";
 import type { Env } from "../../../config/env";
@@ -42,12 +43,15 @@ function makeService(repoOverrides: Partial<EnrollmentRepository> = {}) {
       lessonAccessContext([lesson1, lesson2], lessonId),
     ),
     findCompletedLessonIds: vi.fn().mockResolvedValue([{ lessonId: lesson1 }]),
+    findPassedQuizLessons: vi.fn().mockResolvedValue([]),
     findLessonProgress: vi.fn(),
     uncompleteLessonProgress: vi.fn().mockResolvedValue(undefined),
     upsertLessonProgress: vi.fn().mockResolvedValue(undefined),
     countLessonsAndCompleted: vi.fn().mockResolvedValue([2, 1]),
     updateEnrollment: vi.fn().mockResolvedValue(undefined),
     findCertificateByEnrollment: vi.fn().mockResolvedValue(null),
+    findUserName: vi.fn().mockResolvedValue(null),
+    findCourseNumber: vi.fn().mockResolvedValue(null),
     findByUserAndCourse: vi.fn(),
     findCourseAccessContext: vi.fn().mockResolvedValue({
       visibility: "PUBLIC",
@@ -117,7 +121,7 @@ function enrollmentRow(
       studentCount: 0,
       sections: [
         {
-          lessons: [{ durationSec: 600 }, { durationSec: 120 }],
+          lessons: [{ id: lesson1, durationSec: 600 }, { id: lesson2, durationSec: 120 }],
         },
       ],
       instructor: {
@@ -143,7 +147,7 @@ describe("EnrollmentService time learned persistence", () => {
           lessonId: lesson1,
           completed: true,
           completedAt: new Date("2026-09-01T12:00:00.000Z"),
-          lesson: { durationSec: 600 },
+          lesson: { durationSec: 600, type: "ARTICLE" },
         },
         {
           lessonId: lesson2,
@@ -151,7 +155,7 @@ describe("EnrollmentService time learned persistence", () => {
           // Unchecked, but completedAt is retained (see toDto's comment) —
           // its duration still counts toward lifetime time learned.
           completedAt: new Date("2026-09-01T12:00:00.000Z"),
-          lesson: { durationSec: 120 },
+          lesson: { durationSec: 120, type: "ARTICLE" },
         },
       ]),
     );
@@ -183,6 +187,9 @@ describe("EnrollmentService time learned persistence", () => {
 
   it("re-completing an unchecked lesson upserts instead of treating it as a first complete", async () => {
     const { service, repo } = makeService();
+    vi.mocked(repo.findCompletedLessonIds)
+      .mockResolvedValueOnce([{ lessonId: lesson1 }] as never)
+      .mockResolvedValue([{ lessonId: lesson1 }, { lessonId: lesson2 }] as never);
     vi.mocked(repo.findLessonProgress).mockResolvedValue({
       id: "progress_2",
       enrollmentId,
@@ -190,15 +197,59 @@ describe("EnrollmentService time learned persistence", () => {
       completed: false,
       completedAt: new Date(),
     });
-    vi.mocked(repo.findCompletedLessonIds).mockResolvedValue([
-      { lessonId: lesson1 },
-      { lessonId: lesson2 },
-    ]);
-
     const result = await service.toggleLesson(userId, courseId, lesson2);
 
     expect(result.completed).toBe(true);
     expect(repo.upsertLessonProgress).toHaveBeenCalledWith(enrollmentId, lesson2);
     expect(repo.uncompleteLessonProgress).not.toHaveBeenCalled();
+  });
+});
+
+describe("quiz lesson access", () => {
+  it("rejects manual completion of a quiz", async () => {
+    const { service, repo } = makeService({
+      findLessonCourseId: vi.fn().mockResolvedValue({ type: "QUIZ", section: { courseId } }) as never,
+    });
+
+    await expect(service.toggleLesson(userId, courseId, lesson1))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(repo.upsertLessonProgress).not.toHaveBeenCalled();
+  });
+
+  it("ignores a legacy quiz progress flag until a passing result exists", async () => {
+    const { service, repo } = makeService();
+    vi.mocked(repo.findCompletedLessonIds).mockResolvedValue([
+      { lessonId: lesson1, lesson: { type: "QUIZ" } },
+    ] as never);
+
+    await expect(service.assertLessonAccessible(userId, lesson2))
+      .rejects.toBeInstanceOf(ForbiddenException);
+
+    vi.mocked(repo.findPassedQuizLessons).mockResolvedValue([
+      { lessonId: lesson1, lesson: { section: { courseId } } },
+    ] as never);
+    await expect(service.assertLessonAccessible(userId, lesson2)).resolves.toBeUndefined();
+  });
+
+  it("does not show a legacy quiz flag as course completion", async () => {
+    const { service, repo } = makeService();
+    const laterLessonId = "lesson_3";
+    const row = enrollmentRow([
+      { lessonId: lesson1, completed: true, completedAt: new Date(), lesson: { durationSec: 600, type: "ARTICLE" } },
+      { lessonId: lesson2, completed: true, completedAt: new Date(), lesson: { durationSec: 120, type: "QUIZ" } },
+      { lessonId: laterLessonId, completed: true, completedAt: new Date(), lesson: { durationSec: 120, type: "ARTICLE" } },
+    ] as never);
+    row.status = "COMPLETED";
+    row.course.sections[0].lessons = [
+      { id: lesson1, type: "ARTICLE", durationSec: 600 },
+      { id: lesson2, type: "QUIZ", durationSec: 120 },
+      { id: laterLessonId, type: "ARTICLE", durationSec: 120 },
+    ];
+    vi.mocked(repo.findByUserAndCourse).mockResolvedValue(row);
+
+    const dto = await service.getOne(userId, courseId);
+    expect(dto.completedLessonIds).toEqual([lesson1]);
+    expect(dto.completedCount).toBe(1);
+    expect(dto.status).toBe("IN_PROGRESS");
   });
 });

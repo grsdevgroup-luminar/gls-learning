@@ -381,6 +381,7 @@ export type EmailTemplateCategory =
   | "organizations"
   | "delivery_partner"
   | "commerce"
+  | "learning"
   | "applications"
   | "payouts"
   | "admin_alerts";

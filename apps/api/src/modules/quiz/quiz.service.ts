@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import {
@@ -16,13 +17,16 @@ import {
 } from "@grslearning/shared";
 import type { RequestUser } from "../../common/decorators/decorators";
 import { EnrollmentService } from "../enrollment/enrollment.service";
+import { NotificationsService, type NotifyInput } from "../notifications/notifications.service";
 import { QuizRepository } from "./quiz.repository";
 
 @Injectable()
 export class QuizService {
+  private readonly logger = new Logger(QuizService.name);
   constructor(
     private readonly repo: QuizRepository,
     private readonly enrollment: EnrollmentService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Quiz questions for the player — correctness is intentionally stripped. */
@@ -87,6 +91,10 @@ export class QuizService {
       }
     }
     const writtenQuestions = lesson.quiz.questions.filter((q) => q.questionType === "WRITTEN");
+    const reviewerCourse = writtenQuestions.length
+      ? await this.repo.findCourseReviewerContext(courseId)
+      : null;
+    if (writtenQuestions.length && !reviewerCourse) throw new NotFoundException("Course not found");
     const totalMarks = lesson.quiz.questions.reduce((sum, q) => sum + q.marks, 0);
 
     const results = lesson.quiz.questions.map((q) => {
@@ -132,6 +140,25 @@ export class QuizService {
         totalMarks,
         writtenAnswers: writtenQuestions.map((q) => ({ questionId: q.id, answer: answerByQuestion.get(q.id)?.writtenAnswer?.trim() ?? "" })),
       },
+      reviewerCourse ? async (attemptId, tx) => {
+        const message = {
+          event: "QUIZ_REVIEW_REQUESTED" as const,
+          title: "Quiz submission needs review",
+          body: `A student submitted ${lesson.title} in ${reviewerCourse.title}. Review the written answers.`,
+          skipEmail: true,
+        };
+        if (reviewerCourse.instructor.role === "INSTRUCTOR") {
+          await this.notifications.notify({
+            ...message,
+            userId: reviewerCourse.instructorId,
+            href: `/instructor/quiz-submissions/${encodeURIComponent(attemptId)}`,
+          }, tx);
+        }
+        await this.notifications.notifyAdmins({
+          ...message,
+          href: `/admin/quiz-submissions/${encodeURIComponent(attemptId)}`,
+        }, tx);
+      } : undefined,
     );
 
     let progressPct: number | undefined;
@@ -229,24 +256,46 @@ export class QuizService {
     const row = await this.repo.findQuizSubmission(attemptId);
     if (!row) throw new NotFoundException("Quiz submission not found");
     await this.assertReviewer(user, row.lesson.section.course.id);
-    const answer = row.writtenAnswers.find((item) => item.id === answerId);
-    if (!answer) throw new NotFoundException("Written answer not found");
-    if (input.score > answer.question.marks) throw new BadRequestException(`Score cannot exceed ${answer.question.marks}`);
-    const previouslyGradedWritten = row.reviewStatus === "GRADED"
-      ? row.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0)
-      : 0;
-    await this.repo.gradeWrittenAnswer(answerId, user.id, input.score, input.feedback?.trim() || null);
-    const refreshed = await this.repo.findQuizSubmission(attemptId);
-    if (refreshed && refreshed.writtenAnswers.every((item) => item.score != null)) {
+    const review = await this.repo.withLockedAttempt(attemptId, async (tx) => {
+      const current = await this.repo.findQuizSubmission(attemptId, tx);
+      if (!current) throw new NotFoundException("Quiz submission not found");
+      const answer = current.writtenAnswers.find((item) => item.id === answerId);
+      if (!answer) throw new NotFoundException("Written answer not found");
+      if (input.score > answer.question.marks) throw new BadRequestException(`Score cannot exceed ${answer.question.marks}`);
+      const previouslyGradedWritten = current.reviewStatus === "GRADED"
+        ? current.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0)
+        : 0;
+      await this.repo.gradeWrittenAnswer(answerId, user.id, input.score, input.feedback?.trim() || null, tx);
+      const refreshed = await this.repo.findQuizSubmission(attemptId, tx);
+      if (!refreshed || !refreshed.writtenAnswers.every((item) => item.score != null)) return null;
+
       const earnedWritten = refreshed.writtenAnswers.reduce((sum, item) => sum + (item.score ?? 0), 0);
       const earnedMarks = (refreshed.earnedMarks ?? 0) - previouslyGradedWritten + earnedWritten;
       const totalMarks = refreshed.totalMarks ?? earnedMarks;
       const score = totalMarks ? Math.round((earnedMarks / totalMarks) * 100) : 0;
       const passed = quizPassed(score, (await this.repo.findLessonContext(refreshed.lessonId))?.quiz?.passScore ?? 70);
-      await this.repo.finalizeAttempt(attemptId, score, passed, earnedMarks, totalMarks);
-      if (passed) {
-        await this.enrollment.markLessonComplete(refreshed.userId, refreshed.lesson.section.course.id, refreshed.lessonId);
+      await this.repo.finalizeAttempt(attemptId, score, passed, earnedMarks, totalMarks, tx);
+
+      let notification: NotifyInput | null = null;
+      if (current.reviewStatus === "PENDING_REVIEW") {
+        notification = {
+          userId: refreshed.userId,
+          event: "QUIZ_REVIEW_COMPLETED",
+          title: "Your quiz has been reviewed",
+          body: `Your answers for ${refreshed.lesson.title} in ${refreshed.lesson.section.course.title} have been reviewed. Open the lesson to see your score and feedback.`,
+          href: `/learn/${encodeURIComponent(refreshed.lesson.section.course.slug)}?lesson=${encodeURIComponent(refreshed.lessonId)}`,
+        };
+        await this.notifications.notify(notification, tx);
       }
+      return { notification, passed, userId: refreshed.userId, courseId: refreshed.lesson.section.course.id, lessonId: refreshed.lessonId };
+    });
+
+    if (review?.notification) {
+      void this.notifications.notifyEmailAfterCommit(review.notification)
+        .catch((error: unknown) => this.logger.error("Could not queue quiz review email", error));
+    }
+    if (review?.passed) {
+      await this.enrollment.markLessonComplete(review.userId, review.courseId, review.lessonId);
     }
     return this.getSubmission(user, attemptId);
   }

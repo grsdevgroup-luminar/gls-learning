@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   KeyRound, Building2, ShoppingBag, UserCheck, Wallet, Megaphone,
-  Search, Mail, AlertTriangle, Handshake,
+  Search, Mail, AlertTriangle, Handshake, BookOpen,
 } from "lucide-react";
 import { EmailTemplateEditor } from "./email-template-editor";
 import { CollapsibleStats } from "@/components/shared/collapsible-stats";
@@ -20,6 +20,7 @@ const CATEGORY_META: Record<EmailTemplateCategory, { label: string; icon: typeof
   organizations: { label: "Organizations", icon: Building2 },
   delivery_partner: { label: "Delivery partner", icon: Handshake },
   commerce: { label: "Commerce", icon: ShoppingBag },
+  learning: { label: "Learning", icon: BookOpen },
   applications: { label: "Applications", icon: UserCheck },
   payouts: { label: "Payouts", icon: Wallet },
   admin_alerts: { label: "Admin alerts", icon: Megaphone },

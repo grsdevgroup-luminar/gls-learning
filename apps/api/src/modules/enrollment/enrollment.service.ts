@@ -84,12 +84,24 @@ export class EnrollmentService {
     return apiBaseUrl(this.config);
   }
 
-  private toDto(row: EnrollmentRow, accessRevoked = false): EnrollmentDto {
+  private toDto(row: EnrollmentRow, accessRevoked = false, passedQuizLessonIds: readonly string[] = []): EnrollmentDto {
     const lessonCount = countLessons(row.course);
-    const completedLessonIds = row.lessonProgress
-      .filter((p) => p.completed)
-      .map((p) => p.lessonId);
+    // Quiz completion comes from grading, never the manually toggled progress
+    // row. This also corrects the view for quiz rows marked before that rule.
+    const credited = new Set([
+      ...row.lessonProgress.filter((p) => p.completed && p.lesson.type !== "QUIZ").map((p) => p.lessonId),
+      ...passedQuizLessonIds,
+    ]);
+    const completedLessonIds: string[] = [];
+    // A stale completion beyond an unpassed quiz cannot count toward progress.
+    for (const lesson of row.course.sections.flatMap((section) => section.lessons)) {
+      if (!credited.has(lesson.id)) break;
+      completedLessonIds.push(lesson.id);
+    }
     const completedCount = completedLessonIds.length;
+    const status = row.status === "COMPLETED" && completedCount < lessonCount
+      ? "IN_PROGRESS"
+      : row.status;
     // Lifetime credit: any lesson that has ever been completed, including
     // ones later unchecked. Progress % still uses currently-complete only.
     const timeLearnedSec = row.lessonProgress.reduce(
@@ -103,7 +115,7 @@ export class EnrollmentService {
       id: row.id,
       courseId: row.courseId,
       course: toCourseSummary(row.course),
-      status: row.status,
+      status,
       completedLessonIds,
       lessonCount,
       completedCount,
@@ -112,7 +124,7 @@ export class EnrollmentService {
       watchTimeSec: row.watchTimeSec,
       enrolledAt: row.enrolledAt.toISOString(),
       lastActivityAt: row.lastActivityAt.toISOString(),
-      completedAt: row.completedAt?.toISOString() ?? null,
+      completedAt: status === "COMPLETED" ? row.completedAt?.toISOString() ?? null : null,
       certificate: mapCertificate(row.certificate, this.apiBase),
       accessRevoked,
     };
@@ -167,17 +179,26 @@ export class EnrollmentService {
 
   async myEnrollments(userId: string): Promise<EnrollmentDto[]> {
     const rows = await this.repo.findManyByUser(userId);
+    const passed = rows.length
+      ? await this.repo.findPassedQuizLessons(userId, rows.map((row) => row.courseId))
+      : [];
+    const passedByCourse = new Map<string, string[]>();
+    for (const result of passed) {
+      const id = result.lesson.section.courseId;
+      passedByCourse.set(id, [...(passedByCourse.get(id) ?? []), result.lessonId]);
+    }
     const revoked = await Promise.all(
       rows.map((r) => this.isCourseAccessRevoked(userId, r.courseId)),
     );
-    return rows.map((r, i) => this.toDto(r, revoked[i]));
+    return rows.map((r, i) => this.toDto(r, revoked[i], passedByCourse.get(r.courseId)));
   }
 
   async getOne(userId: string, courseId: string): Promise<EnrollmentDto> {
     const row = await this.repo.findByUserAndCourse(userId, courseId);
     if (!row) throw new NotFoundException("Not enrolled in this course");
+    const passed = await this.repo.findPassedQuizLessons(userId, [courseId]);
     const accessRevoked = await this.isCourseAccessRevoked(userId, courseId);
-    return this.toDto(row, accessRevoked);
+    return this.toDto(row, accessRevoked, passed.map((result) => result.lessonId));
   }
 
   async isEnrolled(userId: string, courseId: string): Promise<boolean> {
@@ -280,7 +301,11 @@ export class EnrollmentService {
     const enrollment = await this.repo.findIdByUserAndCourse(userId, courseId);
     if (!enrollment) throw new ForbiddenException("Not enrolled in this course");
     const rows = await this.repo.findCompletedLessonIds(enrollment.id);
-    return rows.map((row) => row.lessonId);
+    const passed = await this.repo.findPassedQuizLessons(userId, [courseId]);
+    return [...new Set([
+      ...rows.filter((row) => row.lesson?.type !== "QUIZ").map((row) => row.lessonId),
+      ...passed.map((result) => result.lessonId),
+    ])];
   }
 
   /** Shared by assertLessonAccessible, isCourseAccessRevoked, and
@@ -398,7 +423,7 @@ export class EnrollmentService {
     const block = this.resolveCourseAccessBlock(course, hasUnrefundedPurchase);
     if (block) throw new ForbiddenException(block);
 
-    const completed = await this.repo.findCompletedLessonIds(enrollment.id);
+    const completed = await this.completedLessonIds(userId, lesson.section.courseId);
     const orderedLessonIds = lesson.section.course.sections.flatMap((section) =>
       section.lessons.map((courseLesson) => courseLesson.id),
     );
@@ -406,7 +431,7 @@ export class EnrollmentService {
     if (
       !isLessonSequentiallyAccessible(
         orderedLessonIds,
-        completed.map((row) => row.lessonId),
+        completed,
         lessonId,
       )
     ) {
@@ -532,6 +557,8 @@ export class EnrollmentService {
     const lesson = await this.repo.findLessonCourseId(lessonId);
     if (!lesson || lesson.section.courseId !== courseId)
       throw new BadRequestException("Lesson does not belong to this course");
+    if (lesson.type === "QUIZ")
+      throw new BadRequestException("Quiz lessons are completed only after a passing grade");
 
     await this.assertLessonAccessible(userId, lessonId);
 
@@ -590,8 +617,9 @@ export class EnrollmentService {
     lessonId: string,
     completed: boolean,
   ): Promise<ToggleLessonResultDto> {
-    const [lessonCount, completedCount] =
+    const [lessonCount] =
       await this.repo.countLessonsAndCompleted(courseId, enrollmentId);
+    const completedCount = (await this.completedLessonIds(userId, courseId)).length;
     const done = isCourseComplete(completedCount, lessonCount);
     await this.updateStatus(enrollmentId, done);
     const certificate = await this.manageCertificate(userId, enrollmentId, courseId, done);
