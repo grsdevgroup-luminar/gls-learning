@@ -128,8 +128,40 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
   function addQuestion(groupId: string) {
     onChange({ ...quiz, groups: quiz.groups.map((g) => g.id === groupId ? { ...g, questions: [...g.questions, emptyQuestion()] } : g) });
   }
+  function insertQuestionAfter(groupId: string, questionId: string) {
+    onChange({ ...quiz, groups: quiz.groups.map((group) => {
+      if (group.id !== groupId) return group;
+      const index = group.questions.findIndex((question) => question.id === questionId);
+      if (index < 0) return group;
+      const questions = [...group.questions];
+      questions.splice(index + 1, 0, emptyQuestion());
+      return { ...group, questions };
+    }) });
+  }
+  function newSectionLabel() {
+    const labels = new Set(quiz.groups.map((group) => group.label.trim()));
+    let label = "New section";
+    let suffix = 2;
+    while (labels.has(label)) label = `New section ${suffix++}`;
+    return label;
+  }
+  function insertSectionAfter(groupId: string, questionId: string) {
+    const groupIndex = quiz.groups.findIndex((group) => group.id === groupId);
+    if (groupIndex < 0) return;
+    const group = quiz.groups[groupIndex];
+    const questionIndex = group.questions.findIndex((question) => question.id === questionId);
+    if (questionIndex < 0) return;
+    const nextGroup: BuilderQuizGroup = {
+      id: nextId("g"), label: newSectionLabel(), title: "", scenario: "",
+      questions: group.questions.slice(questionIndex + 1),
+    };
+    if (nextGroup.questions.length === 0) nextGroup.questions = [emptyQuestion()];
+    const groups = [...quiz.groups];
+    groups.splice(groupIndex, 1, { ...group, questions: group.questions.slice(0, questionIndex + 1) }, nextGroup);
+    onChange({ ...quiz, groups });
+  }
   function addScenarioGroup() {
-    onChange({ ...quiz, groups: [...quiz.groups, { id: nextId("g"), label: "", title: "", scenario: "", questions: [emptyQuestion()] }] });
+    onChange({ ...quiz, groups: [...quiz.groups, { id: nextId("g"), label: newSectionLabel(), title: "", scenario: "", questions: [emptyQuestion()] }] });
   }
   function removeQuestion(groupId: string, questionId: string) {
     if (totalQuestions <= 1) return;
@@ -168,7 +200,7 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
 
       {quiz.groups.map((group, groupIndex) => (
         <div key={group.id} className="min-w-0 rounded-md border bg-card p-3">
-          <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label.trim() || (group.scenario.trim() ? `Scenario ${groupIndex + 1}` : `Question group ${groupIndex + 1}`)}</p>{quiz.groups.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ ...quiz, groups: quiz.groups.filter((g) => g.id !== group.id) })}><Trash2 /> Remove group</Button>}</div>
+          <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label.trim() || (group.scenario.trim() ? "Scenario" : "Questions")}</p>{quiz.groups.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ ...quiz, groups: quiz.groups.filter((g) => g.id !== group.id) })}><Trash2 /> Remove group</Button>}</div>
           <div className="mb-3 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_7rem]">
             <Input value={group.label} onChange={(e) => patchGroup(group.id, { label: e.target.value })} placeholder="Optional section / subsection (e.g. 4.1)" aria-label={`Section label for group ${groupIndex + 1}`} />
             <Input value={group.title} onChange={(e) => patchGroup(group.id, { title: e.target.value })} placeholder="Optional section title" aria-label={`Section title for group ${groupIndex + 1}`} />
@@ -176,9 +208,9 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
           </div>
           <Textarea value={group.scenario} onChange={(e) => patchGroup(group.id, { scenario: e.target.value })} placeholder="Optional instructions, scenario, or case study for these questions" aria-label={`Instructions for group ${groupIndex + 1}`} className="mb-3 min-h-20 resize-y text-sm" />
           <div className="space-y-4">
-            {group.questions.map((q, questionIndex) => (
+            {group.questions.map((q) => (
               <div key={q.id} className="rounded-md border bg-background p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><Input value={q.prompt} onChange={(e) => patchQuestion(group.id, q.id, { prompt: e.target.value })} placeholder={`Question ${questionIndex + 1}`} className="h-8 min-w-0 flex-1" /><select value={q.questionType} onChange={(e) => patchQuestion(group.id, q.id, { questionType: e.target.value as "MCQ" | "WRITTEN" })} className="h-8 rounded-md border bg-background px-2 text-xs sm:w-36"><option value="MCQ">Multiple choice</option><option value="WRITTEN">Written answer</option></select><Button type="button" size="icon-sm" variant="ghost" aria-label="Remove question" disabled={totalQuestions <= 1} onClick={() => removeQuestion(group.id, q.id)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button></div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><Input value={q.prompt} onChange={(e) => patchQuestion(group.id, q.id, { prompt: e.target.value })} placeholder="Question text" className="h-8 min-w-0 flex-1" /><select value={q.questionType} onChange={(e) => patchQuestion(group.id, q.id, { questionType: e.target.value as "MCQ" | "WRITTEN" })} className="h-8 rounded-md border bg-background px-2 text-xs sm:w-36"><option value="MCQ">Multiple choice</option><option value="WRITTEN">Written answer</option></select><Button type="button" size="icon-sm" variant="ghost" aria-label="Remove question" disabled={totalQuestions <= 1} onClick={() => removeQuestion(group.id, q.id)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button></div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-muted/30 px-2 py-1.5"><Label className="text-xs text-muted-foreground">Marks</Label><Input type="number" min={1} value={q.marks} onChange={(e) => patchQuestion(group.id, q.id, { marks: Math.max(1, Number(e.target.value) || 1) })} className="h-7 w-16" />{q.questionType === "MCQ" && <><Label htmlFor={`multiple-${q.id}`} className="ml-auto text-xs text-muted-foreground">Allow multiple answers</Label><Switch id={`multiple-${q.id}`} checked={q.multipleAnswers} onCheckedChange={(checked) => setAnswerMode(group.id, q.id, checked)} /></>}</div>
                 {q.questionType === "WRITTEN" ? (
                   <div className="mt-2 space-y-2">
@@ -196,6 +228,10 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
                   </div>)}
                 </div>}
                 {q.questionType === "MCQ" && <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{q.multipleAnswers ? "Select all correct options." : "Select the correct option."}</p><Button type="button" size="sm" variant="outline" disabled={q.options.length >= MAX_OPTIONS} onClick={() => addOption(group.id, q.id)}><Plus /> Add option</Button></div>}
+                <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => insertQuestionAfter(group.id, q.id)}><Plus /> Add question below</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => insertSectionAfter(group.id, q.id)}><Plus /> Add section / subsection below</Button>
+                </div>
               </div>
             ))}
           </div>

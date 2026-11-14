@@ -19,6 +19,7 @@ function makeService(
   const repo = {
     findUserRole: vi.fn().mockResolvedValue({ role: "STUDENT" }),
     hasUnrefundedPurchase: vi.fn().mockResolvedValue(false),
+    findPassedQuizLessons: vi.fn().mockResolvedValue([]),
     ...repoOverrides,
   } as unknown as EnrollmentRepository;
   const config = { get: vi.fn() } as unknown as ConfigService<Env, true>;

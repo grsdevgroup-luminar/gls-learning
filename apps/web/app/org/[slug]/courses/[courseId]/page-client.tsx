@@ -168,9 +168,9 @@ function ReadOnlyQuiz({ lessonId }: { lessonId: string }) {
   return (
     <div className="space-y-4 rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">Read-only preview · {data.passScore}% pass score</p>
-      {data.questions.map((question, index) => (
+      {data.questions.map((question) => (
         <section key={question.id} className="space-y-2">
-          <h3 className="font-medium">{index + 1}. {question.prompt}</h3>
+          <h3 className="font-medium">{question.prompt}</h3>
           <ul className="space-y-1 pl-4 text-sm text-muted-foreground">
             {question.options.map((option) => <li key={option.id} className="list-disc">{option.text}</li>)}
           </ul>

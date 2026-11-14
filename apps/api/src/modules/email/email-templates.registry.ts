@@ -15,6 +15,7 @@ export type EmailTemplateCategory =
   | "organizations"
   | "delivery_partner"
   | "commerce"
+  | "learning"
   | "applications"
   | "payouts"
   | "admin_alerts";
@@ -70,6 +71,7 @@ const NOTIFICATION_EVENT_TEMPLATES: {
   { key: "ORDER_REFUNDED", label: "Order refunded", category: "commerce", description: "Sent when an admin refunds an order (full or partial).", sampleTitle: "Order refunded", sampleBody: "USD 49.00 store credit added for: Intro to React. Reason: duplicate charge." },
   { key: "CREDIT_GRANTED", label: "Store credit granted", category: "commerce", description: "Sent when an admin manually grants store credit.", sampleTitle: "Store credit added", sampleBody: "USD 25.00 store credit was added to your account." },
   { key: "CERTIFICATE_ISSUED", label: "Certificate issued", category: "commerce", description: "Sent when a student completes a course.", sampleTitle: "Certificate issued", sampleBody: "You completed a course — your certificate is ready." },
+  { key: "QUIZ_REVIEW_COMPLETED", label: "Quiz review completed", category: "learning", description: "Sent to a student when all written answers in a quiz attempt have been reviewed.", sampleTitle: "Your quiz has been reviewed", sampleBody: "Your answers for Introduction Quiz in Intro to React have been reviewed. Open the lesson to see your score and feedback." },
   { key: "INSTRUCTOR_APPLICATION_APPROVED", label: "Instructor application approved", category: "applications", description: "Sent when an admin approves an instructor application.", sampleTitle: "Instructor application approved", sampleBody: "You're approved as an instructor — you can start building courses." },
   { key: "INSTRUCTOR_APPLICATION_REJECTED", label: "Instructor application rejected", category: "applications", description: "Sent when an admin rejects an instructor application.", sampleTitle: "Instructor application update", sampleBody: "Thanks for applying — we're not able to approve your application at this time." },
   { key: "DELIVERY_PARTNER_APPLICATION_APPROVED", label: "Delivery partner application approved", category: "applications", description: "Sent when an admin approves a delivery partner application.", sampleTitle: "Delivery partner application approved", sampleBody: "You're approved as a delivery partner — your referral code is ready." },

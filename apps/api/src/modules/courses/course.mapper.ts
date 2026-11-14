@@ -12,7 +12,7 @@ import type {
 // Prisma payload shapes (with the relations the mappers require).
 const summaryInclude = {
   instructor: { include: { instructorProfile: true } },
-  sections: { where: { archivedAt: null }, include: { lessons: { where: { archivedAt: null }, select: { type: true, durationSec: true } } } },
+  sections: { where: { archivedAt: null }, orderBy: { order: "asc" }, include: { lessons: { where: { archivedAt: null }, orderBy: { order: "asc" }, select: { id: true, type: true, durationSec: true } } } },
 } satisfies Prisma.CourseInclude;
 
 export type CourseSummaryRow = Prisma.CourseGetPayload<{

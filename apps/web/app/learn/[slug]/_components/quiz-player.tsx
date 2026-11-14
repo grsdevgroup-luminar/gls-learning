@@ -108,9 +108,9 @@ export function QuizPlayer({
           </p>
         </div>
         <div className="mt-6 space-y-3">
-          {reviewedAttempt.writtenReviews.map((review, index) => (
+          {reviewedAttempt.writtenReviews.map((review) => (
             <div key={review.questionId} className="rounded-lg border p-4">
-              <p className="font-medium">{index + 1}. {review.prompt}</p>
+              <p className="font-medium">{review.prompt}</p>
               <p className="mt-2 text-xs text-muted-foreground">Your answer</p>
               <p className="mt-1 whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-sm">{review.answer}</p>
               <p className="mt-3 text-sm font-medium">Marks: {review.score ?? "Pending"}/{review.marks}</p>
@@ -187,7 +187,7 @@ export function QuizPlayer({
                       </p>
                     )}
                     <p className="text-sm font-medium">
-                      {i + 1}. {q.prompt}
+                      {q.prompt}
                     </p>
                     {q.questionType === "WRITTEN" ? (
                       <div className="mt-2 text-xs text-muted-foreground">
@@ -263,7 +263,7 @@ export function QuizPlayer({
               </p>
             )}
             <p className="text-sm font-medium">
-              {i + 1}. {q.prompt}
+              {q.prompt}
             </p>
             {q.questionType === "WRITTEN" && (
               <div className="mt-3">

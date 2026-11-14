@@ -14,7 +14,7 @@ export const ENROLLMENT_INCLUDE = {
       lessonId: true,
       completed: true,
       completedAt: true,
-      lesson: { select: { durationSec: true } },
+      lesson: { select: { durationSec: true, type: true } },
     },
   },
   certificate: true,
@@ -216,7 +216,7 @@ export class EnrollmentRepository {
   findLessonCourseId(lessonId: string) {
     return this.prisma.lesson.findUnique({
       where: { id: lessonId },
-      select: { section: { select: { courseId: true } } },
+      select: { type: true, section: { select: { courseId: true } } },
     });
   }
 
@@ -271,7 +271,7 @@ export class EnrollmentRepository {
                   select: {
                     lessons: {
                       orderBy: { order: "asc" },
-                      select: { id: true },
+                      select: { id: true, type: true },
                     },
                   },
                 },
@@ -296,7 +296,24 @@ export class EnrollmentRepository {
   findCompletedLessonIds(enrollmentId: string) {
     return this.prisma.lessonProgress.findMany({
       where: { enrollmentId, completed: true },
-      select: { lessonId: true },
+      select: { lessonId: true, lesson: { select: { type: true } } },
+    });
+  }
+
+  /** A quiz counts as complete only after a passing result, including when a
+   *  later retake is awaiting written review. Ignore legacy manual quiz flags. */
+  findPassedQuizLessons(userId: string, courseIds: string[]) {
+    return this.prisma.quizResult.findMany({
+      where: {
+        userId,
+        passed: true,
+        lesson: {
+          type: "QUIZ",
+          archivedAt: null,
+          section: { courseId: { in: courseIds }, archivedAt: null },
+        },
+      },
+      select: { lessonId: true, lesson: { select: { section: { select: { courseId: true } } } } },
     });
   }
 

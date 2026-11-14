@@ -61,6 +61,7 @@ function makeService(overrides: {
       .mockResolvedValue({ section: { courseId } }),
     findLessonAccessContext: vi.fn(),
     findCompletedLessonIds: vi.fn(),
+    findPassedQuizLessons: vi.fn().mockResolvedValue([]),
     findLessonProgress: vi.fn(),
     uncompleteLessonProgress: vi.fn().mockResolvedValue(undefined),
     upsertLessonProgress: vi.fn().mockResolvedValue(undefined),
@@ -106,12 +107,17 @@ function makeService(overrides: {
 }
 
 function mockSequentialAccess(repo: EnrollmentRepository, completedBefore: string[]) {
+  const completed = new Set(completedBefore);
   vi.mocked(repo.findLessonAccessContext).mockImplementation(async (lessonId) =>
     lessonAccessContext([lesson1, lesson2], lessonId),
   );
-  vi.mocked(repo.findCompletedLessonIds).mockResolvedValue(
-    completedBefore.map((lessonId) => ({ lessonId })),
-  );
+  vi.mocked(repo.findCompletedLessonIds).mockImplementation((async () =>
+    [...completed].map((lessonId) => ({ lessonId, lesson: { type: "ARTICLE" } }))
+  ) as never);
+  vi.mocked(repo.upsertLessonProgress).mockImplementation((async (_enrollmentId: string, lessonId: string) => {
+    completed.add(lessonId);
+    return undefined as never;
+  }) as never);
 }
 
 describe("EnrollmentService certificate persistence", () => {
