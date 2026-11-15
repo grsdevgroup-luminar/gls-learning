@@ -176,7 +176,7 @@ export type ReorderInput = z.infer<typeof reorderSchema>;
 // ── Quiz authoring ───────────────────────────────────────────────────────────
 
 export const quizOptionInputSchema = z.object({
-  text: z.string().min(1).max(300),
+  text: z.string().min(1).max(500),
   isCorrect: z.boolean(),
   order: z.number().int().min(0).optional(),
 });

@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ISO_STANDARD_OPTIONS, MAX_COURSE_DESCRIPTION_LENGTH, type CourseResourceDto } from "@grslearning/shared";
 import { authoringApi } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { emptyQuiz, flattenQuizQuestions } from "@/components/shared/quiz-editor";
+import { emptyQuiz, flattenQuizQuestions, MAX_QUIZ_GROUP_LABEL_LENGTH, MAX_QUIZ_OPTION_LENGTH } from "@/components/shared/quiz-editor";
 import { toast } from "sonner";
 import {
   articleDurationSec, isTemp, nid, quizDurationSec, readImageFile, sectionsFromDetail,
@@ -55,6 +55,9 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
   const [savingAction, setSavingAction] = useState<
     "draft" | "publish" | "review" | null
   >(null);
+  const [submissionIssues, setSubmissionIssues] = useState<{
+    sectionId: string; lessonId: string; sectionTitle: string; lessonTitle: string; reason: string;
+  }[]>([]);
   const [dragSection, setDragSection] = useState<number | null>(null);
   // Collapsed-by-id, UI-only — not persisted. Sections start expanded.
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
@@ -114,6 +117,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     setCourseResources(detail.courseResources ?? []);
     setPendingCourseResourceFiles([]);
     setRemovedCourseResourceIds(new Set());
+    setSubmissionIssues([]);
     setSections(sectionsFromDetail(detail));
   }
 
@@ -215,9 +219,14 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     });
   }
   function patchSection(id: string, p: Partial<BSection>) {
+    if (p.title !== undefined) {
+      const sectionTitle = p.title;
+      setSubmissionIssues((issues) => issues.map((issue) => issue.sectionId === id ? { ...issue, sectionTitle } : issue));
+    }
     setSections((s) => s.map((x) => (x.id === id ? { ...x, ...p } : x)));
   }
   function removeSection(id: string) {
+    setSubmissionIssues((issues) => issues.filter((issue) => issue.sectionId !== id));
     setSections((s) => s.filter((x) => x.id !== id));
   }
   function addLesson(sid: string) {
@@ -255,6 +264,12 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     );
   }
   function patchLesson(sid: string, lid: string, p: Partial<BLesson>) {
+    if (p.type || p.cfVideoUid || p.hasVideo || p.articleContent !== undefined || p.resources || p.pendingResourceFiles || p.quiz) {
+      setSubmissionIssues((issues) => issues.filter((issue) => issue.lessonId !== lid));
+    } else if (p.title !== undefined) {
+      const lessonTitle = p.title || "Untitled lesson";
+      setSubmissionIssues((issues) => issues.map((issue) => issue.lessonId === lid ? { ...issue, lessonTitle } : issue));
+    }
     setSections((s) =>
       s.map((x) =>
         x.id === sid
@@ -284,6 +299,7 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     });
   }
   function removeLesson(sid: string, lid: string) {
+    setSubmissionIssues((issues) => issues.filter((issue) => issue.lessonId !== lid));
     setSections((s) =>
       s.map((x) =>
         x.id === sid
@@ -315,55 +331,97 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
       toast.error("Title is required.");
       return;
     }
+    const longLabel = sections.flatMap((section) => section.lessons.flatMap((lesson) =>
+      lesson.quiz?.groups.filter((group) => group.label.trim().length > MAX_QUIZ_GROUP_LABEL_LENGTH)
+        .map((group) => ({ section, lesson, group })) ?? [],
+    ))[0];
+    if (longLabel) {
+      toast.error("Quiz section label is too long", {
+        description: `${longLabel.section.title || "Untitled section"} → ${longLabel.lesson.title || "Untitled lesson"}: shorten the label to 80 characters. Use Section title for longer text.`,
+      });
+      requestAnimationFrame(() => document.getElementById(`quiz-group-${longLabel.group.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
+    const longOption = sections.flatMap((section) => section.lessons.flatMap((lesson) =>
+      lesson.quiz?.groups.flatMap((group) => group.questions.flatMap((question) =>
+        question.options.map((option, index) => ({ section, lesson, question, option, index }))
+          .filter(({ option }) => option.text.length > MAX_QUIZ_OPTION_LENGTH),
+      )) ?? [],
+    ))[0];
+    if (longOption) {
+      toast.error(`Quiz answer option ${longOption.index + 1} is too long`, {
+        description: `${longOption.section.title || "Untitled section"} → ${longOption.lesson.title || "Untitled lesson"}, “${longOption.question.prompt || "Untitled question"}”: shorten the option to ${MAX_QUIZ_OPTION_LENGTH} characters.`,
+      });
+      requestAnimationFrame(() => document.getElementById(`quiz-option-${longOption.option.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
     if ((action === "publish" || action === "review") && totalLessons === 0) {
       toast.error("Add at least one lesson before submitting this course.");
       return;
     }
     if (action === "publish" || action === "review") {
-      const incomplete = (
+      const issues = (
         await Promise.all(
-          sections.flatMap((section) => section.lessons).map(async (lesson) => {
+          sections.flatMap((section) => section.lessons.map(async (lesson) => {
           const hasResource =
             lesson.resources.some(
               (resource) => resource.name.trim() && resource.url.trim(),
             ) || lesson.pendingResourceFiles.length > 0;
-          if (lesson.type === "video")
-            return !lesson.cfVideoUid && !lesson.hasVideo;
+          let reason: string | null = null;
+          if (lesson.type === "video") {
+            if (!lesson.cfVideoUid && !lesson.hasVideo) reason = "Upload a video.";
+          }
           if (lesson.type === "quiz") {
             // Existing quiz content loads asynchronously after the course
             // detail. Read it directly if that request has not finished yet,
             // so a valid quiz is not reported as an empty lesson. Scenario is
             // intentionally not part of this check; it is optional.
-            const quiz = lesson.quiz ??
-              (!isTemp(lesson.id) ? await authoringApi.quiz(lesson.id) : null);
-            if (!quiz) return true;
-            if ("groups" in quiz) {
-              return !quiz.groups.some((group) =>
+            let quiz: BLesson["quiz"] | Awaited<ReturnType<typeof authoringApi.quiz>> | null = lesson.quiz ?? null;
+            if (!quiz && !isTemp(lesson.id)) {
+              try { quiz = await authoringApi.quiz(lesson.id); }
+              catch { reason = "Could not load the quiz. Check the lesson and try again."; }
+            }
+            if (!reason && !quiz) reason = "Add at least one quiz question.";
+            if (!reason && quiz && "groups" in quiz) {
+              const valid = quiz.groups.some((group) =>
                 group.questions.some(
                   (question) =>
                     question.prompt.trim() &&
-                    question.options.filter((option) => option.text.trim()).length >= 2 &&
-                    question.options.some(
-                      (option) => option.text.trim() && question.correctOptionIds.includes(option.id),
-                    ),
+                    (question.questionType === "WRITTEN" || (
+                      question.options.filter((option) => option.text.trim()).length >= 2 &&
+                      question.options.some((option) => option.text.trim() && question.correctOptionIds.includes(option.id))
+                    )),
                 ),
               );
-            }
-            return !quiz.questions.some(
-              (question) =>
+              if (!valid) reason = "Add a written question with text, or an MCQ with text, two options, and a correct answer.";
+            } else if (!reason && quiz && "questions" in quiz) {
+              const valid = quiz.questions.some((question) =>
                 question.prompt.trim() &&
-                question.options.filter((option) => option.text.trim()).length >= 2 &&
-                question.options.some((option) => option.text.trim() && option.isCorrect),
-            );
+                (question.questionType === "WRITTEN" || (
+                  question.options.filter((option) => option.text.trim()).length >= 2 &&
+                  question.options.some((option) => option.text.trim() && option.isCorrect)
+                )),
+              );
+              if (!valid) reason = "Add a written question with text, or an MCQ with text, two options, and a correct answer.";
+            }
           }
-          return !lesson.articleContent.trim() && !hasResource;
-          }),
+          if (lesson.type === "article" && !lesson.articleContent.trim() && !hasResource) {
+            reason = "Write article content or add a downloadable resource.";
+          }
+          return reason ? {
+            sectionId: section.id, lessonId: lesson.id,
+            sectionTitle: section.title, lessonTitle: lesson.title || "Untitled lesson", reason,
+          } : null;
+          })),
         )
-      ).filter(Boolean);
-      if (incomplete.length > 0) {
+      ).filter((issue): issue is NonNullable<typeof issue> => issue !== null);
+      setSubmissionIssues(issues);
+      if (issues.length > 0) {
         toast.error(
-          `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
+          `${issues.length} lesson${issues.length === 1 ? "" : "s"} need content: ${issues[0].lessonTitle}`,
+          { description: `${issues[0].reason} See Curriculum for ${issues.length === 1 ? "the lesson" : "all affected lessons"}.` },
         );
+        requestAnimationFrame(() => document.getElementById("course-submission-issues")?.scrollIntoView({ behavior: "smooth", block: "center" }));
         return;
       }
     }
@@ -441,10 +499,10 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
               ? "REVIEW"
               : "DRAFT";
 
-      // Validate before any existing-course writes. The status endpoint still
-      // validates when it commits, but this prevents partial saves when an
-      // organization assignment blocks Draft/Review.
-      if (courseId && detail?.status !== targetStatus) {
+      // Unpublishing can be checked before writes. Publishing/review must be
+      // checked after saving edited lesson content, or the old server snapshot
+      // may reject a lesson that was just fixed in the editor.
+      if (courseId && detail?.status !== targetStatus && targetStatus === "DRAFT") {
         await authoringApi.validateCourseStatus(courseId, targetStatus);
       }
       const saved = courseId
@@ -631,7 +689,11 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
       const message = getApiErrorMessage(err);
       const lowerMessage = message.toLowerCase();
       const friendlyMessage =
-        lowerMessage.includes("subtitle") && message.includes("240")
+        /options\.\d+\.text/.test(lowerMessage) && message.includes(String(MAX_QUIZ_OPTION_LENGTH))
+          ? `A quiz answer option must be ${MAX_QUIZ_OPTION_LENGTH} characters or fewer. Shorten the indicated option and save again.`
+          : lowerMessage.includes("grouplabel") && message.includes("80")
+          ? "Quiz section label must be 80 characters or fewer. Put longer text in Section title or the scenario field."
+          : lowerMessage.includes("subtitle") && message.includes("240")
           ? "Subtitle cannot exceed 240 characters"
           : lowerMessage.includes("description") &&
               message.includes(String(MAX_COURSE_DESCRIPTION_LENGTH))
@@ -651,7 +713,17 @@ export function useCourseBuilder({ courseId, mode, revisionMode = false }: { cou
     thumbError, setThumbError, thumbInputRef, categoryValue, titleTooLong, subtitleTooLong,
     descriptionTooLong, published, setPublished, visibility, setVisibility, courseResources,
     pendingCourseResourceFiles, saving, savingAction,
-    dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
+    dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection, submissionIssues,
+    revealLesson: (sectionId: string, lessonId: string) => {
+      setCollapsedSections((current) => {
+        const next = new Set(current);
+        next.delete(sectionId);
+        return next;
+      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.getElementById(`course-lesson-${lessonId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }));
+    },
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
     handleThumbnailFile,
     addCourseResourceFiles: (files: File[]) => {

@@ -84,6 +84,7 @@ export class AuthoringRepository {
       where: { section: { courseId } },
       select: {
         title: true,
+        section: { select: { title: true } },
         type: true,
         articleContent: true,
         cfVideoUid: true,
@@ -94,6 +95,7 @@ export class AuthoringRepository {
               select: {
                 scenario: true,
                 prompt: true,
+                questionType: true,
                 options: { select: { text: true, isCorrect: true } },
               },
             },

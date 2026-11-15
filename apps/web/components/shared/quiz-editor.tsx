@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, HelpCircle } from "lucide-react";
+import { toast } from "sonner";
 
 export interface BuilderQuizOption { id: string; text: string; }
 export interface BuilderQuizQuestion {
@@ -38,6 +39,8 @@ export interface BuilderQuiz {
 
 export const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 8;
+export const MAX_QUIZ_GROUP_LABEL_LENGTH = 80;
+export const MAX_QUIZ_OPTION_LENGTH = 500;
 
 let idSeed = 5000;
 const nextId = (prefix: string) => `${prefix}${idSeed++}`;
@@ -199,10 +202,30 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
       </div>
 
       {quiz.groups.map((group, groupIndex) => (
-        <div key={group.id} className="min-w-0 rounded-md border bg-card p-3">
+        <div key={group.id} id={`quiz-group-${group.id}`} className="min-w-0 scroll-mt-24 rounded-md border bg-card p-3">
           <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label.trim() || (group.scenario.trim() ? "Scenario" : "Questions")}</p>{quiz.groups.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ ...quiz, groups: quiz.groups.filter((g) => g.id !== group.id) })}><Trash2 /> Remove group</Button>}</div>
           <div className="mb-3 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_7rem]">
-            <Input value={group.label} onChange={(e) => patchGroup(group.id, { label: e.target.value })} placeholder="Optional section / subsection (e.g. 4.1)" aria-label={`Section label for group ${groupIndex + 1}`} />
+            <div className="min-w-0">
+              <Input
+                value={group.label}
+                maxLength={MAX_QUIZ_GROUP_LABEL_LENGTH}
+                aria-invalid={group.label.trim().length > MAX_QUIZ_GROUP_LABEL_LENGTH}
+                onChange={(e) => patchGroup(group.id, { label: e.target.value })}
+                onPaste={(e) => {
+                  const input = e.currentTarget;
+                  const pasted = e.clipboardData.getData("text");
+                  const nextLength = input.value.length - (input.selectionEnd ?? 0) + (input.selectionStart ?? 0) + pasted.length;
+                  if (nextLength > MAX_QUIZ_GROUP_LABEL_LENGTH) {
+                    toast.error("Section label is limited to 80 characters", {
+                      description: "Use Section title for a longer heading, or the scenario field for detailed instructions.",
+                    });
+                  }
+                }}
+                placeholder="Section / subsection label (e.g. 4.1)"
+                aria-label={`Section label for group ${groupIndex + 1}`}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Short label · {group.label.length}/{MAX_QUIZ_GROUP_LABEL_LENGTH} characters. Longer text goes in Section title.</p>
+            </div>
             <Input value={group.title} onChange={(e) => patchGroup(group.id, { title: e.target.value })} placeholder="Optional section title" aria-label={`Section title for group ${groupIndex + 1}`} />
             <Input type="number" min={0} value={group.marks ?? ""} onChange={(e) => patchGroup(group.id, { marks: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })} placeholder="Marks" aria-label={`Marks for group ${groupIndex + 1}`} />
           </div>
@@ -218,13 +241,35 @@ export function QuizEditor({ quiz, onChange }: { quiz: BuilderQuiz; onChange: (n
                     <Textarea value={q.gradingRubric ?? ""} onChange={(e) => patchQuestion(group.id, q.id, { gradingRubric: e.target.value })} placeholder="Optional grading rubric for the instructor" className="min-h-16 text-sm" />
                   </div>
                 ) : <div className="mt-2 space-y-2">
-                  {q.options.map((o, optionIndex) => <div key={o.id} className="flex min-w-0 items-center gap-2">
+                  {q.options.map((o, optionIndex) => <div key={o.id} id={`quiz-option-${o.id}`} className="flex min-w-0 scroll-mt-24 items-start gap-2">
                     {q.multipleAnswers ? (
-                      <input type="checkbox" checked={q.correctOptionIds.includes(o.id)} onChange={(e) => setCorrectOption(group.id, q.id, o.id, e.target.checked, true)} aria-label={`Mark option ${optionIndex + 1} correct`} className="size-4 shrink-0 accent-primary" />
+                      <input type="checkbox" checked={q.correctOptionIds.includes(o.id)} onChange={(e) => setCorrectOption(group.id, q.id, o.id, e.target.checked, true)} aria-label={`Mark option ${optionIndex + 1} correct`} className="mt-1.5 size-4 shrink-0 accent-primary" />
                     ) : (
-                      <input type="radio" name={`correct-${q.id}`} checked={q.correctOptionIds[0] === o.id} onChange={() => setCorrectOption(group.id, q.id, o.id, true, false)} aria-label={`Mark option ${optionIndex + 1} correct`} className="size-4 shrink-0 accent-primary" />
+                      <input type="radio" name={`correct-${q.id}`} checked={q.correctOptionIds[0] === o.id} onChange={() => setCorrectOption(group.id, q.id, o.id, true, false)} aria-label={`Mark option ${optionIndex + 1} correct`} className="mt-1.5 size-4 shrink-0 accent-primary" />
                     )}
-                    <Input value={o.text} onChange={(e) => patchOption(group.id, q.id, o.id, e.target.value)} placeholder={`Option ${optionIndex + 1}`} className="h-7 min-w-0 flex-1 text-sm" /><Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove option ${optionIndex + 1}`} disabled={q.options.length <= MIN_OPTIONS} onClick={() => removeOption(group.id, q.id, o.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        value={o.text}
+                        maxLength={MAX_QUIZ_OPTION_LENGTH}
+                        aria-invalid={o.text.length > MAX_QUIZ_OPTION_LENGTH}
+                        aria-label={`Answer option ${optionIndex + 1}`}
+                        onChange={(e) => patchOption(group.id, q.id, o.id, e.target.value)}
+                        onPaste={(e) => {
+                          const input = e.currentTarget;
+                          const pasted = e.clipboardData.getData("text");
+                          const nextLength = input.value.length - (input.selectionEnd ?? 0) + (input.selectionStart ?? 0) + pasted.length;
+                          if (nextLength > MAX_QUIZ_OPTION_LENGTH) {
+                            toast.error(`Option ${optionIndex + 1} is limited to ${MAX_QUIZ_OPTION_LENGTH} characters`, {
+                              description: `Only ${MAX_QUIZ_OPTION_LENGTH} characters fit in an answer option. Shorten the text you are pasting.`,
+                            });
+                          }
+                        }}
+                        placeholder={`Option ${optionIndex + 1}`}
+                        className="h-7 min-w-0 text-sm"
+                      />
+                      <p className="mt-0.5 text-right text-xs text-muted-foreground">{o.text.length}/{MAX_QUIZ_OPTION_LENGTH} characters</p>
+                    </div>
+                    <Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove option ${optionIndex + 1}`} disabled={q.options.length <= MIN_OPTIONS} onClick={() => removeOption(group.id, q.id, o.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                   </div>)}
                 </div>}
                 {q.questionType === "MCQ" && <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{q.multipleAnswers ? "Select all correct options." : "Select the correct option."}</p><Button type="button" size="sm" variant="outline" disabled={q.options.length >= MAX_OPTIONS} onClick={() => addOption(group.id, q.id)}><Plus /> Add option</Button></div>}

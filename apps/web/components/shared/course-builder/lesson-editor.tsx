@@ -14,13 +14,15 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, FileText, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type LessonTypeOption = { value: BuilderLessonType; label: string };
 
-export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLesson, setLessonType, removeLesson }: { courseId?: string; sectionId: string; lesson: BLesson; lessonTypes: LessonTypeOption[]; patchLesson: (sectionId: string, lessonId: string, patch: Partial<BLesson>) => void; setLessonType: (sectionId: string, lessonId: string, type: BuilderLessonType) => void; removeLesson: (sectionId: string, lessonId: string) => void; }) {
+export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLesson, setLessonType, removeLesson, issue }: { courseId?: string; sectionId: string; lesson: BLesson; lessonTypes: LessonTypeOption[]; patchLesson: (sectionId: string, lessonId: string, patch: Partial<BLesson>) => void; setLessonType: (sectionId: string, lessonId: string, type: BuilderLessonType) => void; removeLesson: (sectionId: string, lessonId: string) => void; issue?: string; }) {
   return (                          <div
                             key={lesson.id}
-                            className="min-w-0 max-w-full rounded-lg border bg-card p-3"
+                            id={`course-lesson-${lesson.id}`}
+                            className={cn("min-w-0 max-w-full scroll-mt-24 rounded-lg border bg-card p-3", issue && "border-destructive/70 ring-1 ring-destructive/30")}
                           >
                             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                               <Input
@@ -84,6 +86,7 @@ export function LessonEditor({ courseId, sectionId, lesson, lessonTypes, patchLe
                                 onConfirm={() => removeLesson(sectionId, lesson.id)}
                               />
                             </div>
+                            {issue && <p className="mt-2 text-xs font-medium text-destructive" role="alert">Needs content: {issue}</p>}
                             <div className="mt-2">
                               {lesson.type === "quiz" ? (
                                 <QuizEditor

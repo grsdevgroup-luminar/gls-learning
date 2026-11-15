@@ -830,15 +830,17 @@ export class AuthoringService {
           return !lesson.quiz?.questions.some(
             (question) =>
               question.prompt.trim().length > 0 &&
-              question.options.filter((option) => option.text.trim()).length >= 2 &&
-              question.options.some((option) => option.text.trim() && option.isCorrect),
+              (question.questionType === "WRITTEN" || (
+                question.options.filter((option) => option.text.trim()).length >= 2 &&
+                question.options.some((option) => option.text.trim() && option.isCorrect)
+              )),
           );
         }
         return !(lesson.articleContent?.trim() || hasResource);
       });
       if (incomplete.length > 0)
         throw new BadRequestException(
-          `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content.`,
+          `Complete all lessons before submitting. ${incomplete.length} lesson${incomplete.length === 1 ? "" : "s"} still needs content. First: ${incomplete[0].section?.title ?? "Section"} → ${incomplete[0].title || "Untitled lesson"} (${incomplete[0].type === "VIDEO" ? "upload a video" : incomplete[0].type === "QUIZ" ? "add a valid quiz question" : "add article content or a resource"}).`,
         );
     }
     if (
