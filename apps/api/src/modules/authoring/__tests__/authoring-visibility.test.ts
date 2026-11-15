@@ -60,6 +60,7 @@ function makeService(repoOverrides: Partial<AuthoringRepository> = {}) {
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       instructor: { id: "instr_1", name: "Ada", avatar: null, instructorProfile: null },
       sections: [],
+      courseResources: [],
     }),
     findCoursePriorStatus: vi
       .fn()
@@ -137,6 +138,28 @@ describe("AuthoringService.update — visibility gating", () => {
       "Add at least one lesson before submitting this course",
     );
     expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
+  });
+  it("identifies the incomplete section and lesson when publishing fails", async () => {
+    const { service, repo } = makeService({
+      findLessonsForPublishValidation: vi.fn().mockResolvedValue([
+        { title: "Variables", section: { title: "Python basics" }, type: "VIDEO", articleContent: null, cfVideoUid: null, resources: [], quiz: null },
+      ]),
+    });
+
+    await expect(service.setStatus(admin, "course_1", { status: "PUBLISHED" })).rejects.toThrow(
+      "Python basics → Variables (upload a video)",
+    );
+    expect(repo.setCourseStatusWithInstructorBump).not.toHaveBeenCalled();
+  });
+  it("accepts a written quiz question without MCQ options", async () => {
+    const { service, repo } = makeService({
+      findLessonsForPublishValidation: vi.fn().mockResolvedValue([
+        { title: "Final exam", section: { title: "Assessment" }, type: "QUIZ", articleContent: null, cfVideoUid: null, resources: [], quiz: { questions: [{ questionType: "WRITTEN", prompt: "Explain the process", options: [] }] } },
+      ]),
+    });
+
+    await service.setStatus(admin, "course_1", { status: "PUBLISHED" });
+    expect(repo.setCourseStatusWithInstructorBump).toHaveBeenCalled();
   });
   it("blocks an admin from publishing a DRAFT course", async () => {
     const { service, repo } = makeService({

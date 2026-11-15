@@ -51,6 +51,7 @@ export function CourseBuilder({
     pendingCourseResourceFiles, addCourseResourceFiles, removeCourseResource,
     removePendingCourseResource, saving, savingAction,
     dragSection, setDragSection, collapsedSections, sections, totalLessons, moveSection,
+    submissionIssues, revealLesson,
     addSection, patchSection, removeSection, addLesson, patchLesson, setLessonType, removeLesson,
     handleThumbnailFile, save, onBack,
   } = useCourseBuilder({ courseId, mode, revisionMode });
@@ -123,6 +124,8 @@ export function CourseBuilder({
               sections={sections}
               dragSection={dragSection}
               collapsedSections={collapsedSections}
+              submissionIssues={submissionIssues}
+              onRevealLesson={revealLesson}
               lessonTypes={lessonTypes}
 addSection={addSection}
               moveSection={moveSection}

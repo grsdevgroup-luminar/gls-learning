@@ -10,11 +10,12 @@ import { cn } from "@/lib/utils";
 
 type LessonTypeOption = { value: BuilderLessonType; label: string };
 
-export function SectionEditor({ section, index, dragSection, collapsed, lessonTypes, onDragStart, onDragEnd, onDrop, onPatch, onRemove, onAddLesson, patchLesson, setLessonType, removeLesson, courseId }: {
+export function SectionEditor({ section, index, dragSection, collapsed, issues, lessonTypes, onDragStart, onDragEnd, onDrop, onPatch, onRemove, onAddLesson, patchLesson, setLessonType, removeLesson, courseId }: {
   section: BSection;
   index: number;
   dragSection: number | null;
   collapsed: boolean;
+  issues: { lessonId: string; reason: string }[];
   lessonTypes: LessonTypeOption[];
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -75,7 +76,7 @@ export function SectionEditor({ section, index, dragSection, collapsed, lessonTy
                     {!collapsed && (
                       <div className="mt-3 space-y-3 pl-0 sm:pl-6">
                         {section.lessons.map((l) => (
-                        <LessonEditor key={l.id} courseId={courseId} sectionId={section.id} lesson={l} lessonTypes={lessonTypes} patchLesson={patchLesson} setLessonType={setLessonType} removeLesson={removeLesson} />
+                        <LessonEditor key={l.id} courseId={courseId} sectionId={section.id} lesson={l} lessonTypes={lessonTypes} patchLesson={patchLesson} setLessonType={setLessonType} removeLesson={removeLesson} issue={issues.find((issue) => issue.lessonId === l.id)?.reason} />
                         ))}
                         <Button
                           size="sm"
